@@ -93,8 +93,8 @@
 - [x] The core refuses to start with a missing or invalid setting and says which one.
 - [x] Lint, typecheck, unit, end-to-end and browser tests pass locally.
 - [x] `CLAUDE.md`, the README introduction, the decisions log, the glossary and the CHANGELOG exist.
-- [ ] CI runs green on GitHub (after the branch is pushed).
-- [ ] Dependabot opens its first grouped update (after merge to `main`).
+- [x] CI runs green on GitHub (on `nafew` and `main`, 2026-10-21).
+- [x] Dependabot opens its first grouped update (the dev-tools group, nafew0/ecommbd#1, after the merge to `main`).
 
 ### Not in this phase
 
@@ -237,7 +237,7 @@ Log shipping and metrics (28), the storefront app (12), release builds (26).
 - [x] Vendure's Dashboard still works at `/dashboard` for our support team. (Playwright smoke test.)
 - [x] `bdDistricts` and `bdThanas` work in the Shop API and are cacheable. (End-to-end tests, including a 304 on the GET routes.)
 - [x] The initializer is idempotent and documented, and ADRs record the dataset source, provinces decision and address mapping.
-- [ ] CI runs green on GitHub (after the branch is pushed).
+- [x] CI runs green on GitHub (on `nafew` and `main`, 2026-10-21).
 
 ### Not in this phase
 
