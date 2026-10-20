@@ -189,6 +189,8 @@ Reference: the plugin folder of a BD food store on WooCommerce.
 
 ## 7. Phases
 
+The detailed build plan is in [roadmap/README.md](roadmap/README.md): 50 phases in 9 milestones, each with deliverables, edge cases, security and acceptance criteria. The table below is the summary.
+
 | Phase | Contents | Done when |
 |---|---|---|
 | 0 — Foundations | **Done:** engine benchmark, project setup on Vendure (runs locally, on GitHub). **To do:** CI, edge speed test from BD ISPs, server baseline script (PostgreSQL, Redis, Varnish), store provisioning on CloudPanel, release pipeline with rollback, backups | A test store is created, and later updated, with one command each |
@@ -196,9 +198,8 @@ Reference: the plugin folder of a BD food store on WooCommerce.
 | 2 — Public launch | All P1 features, self-serve signup and billing | A new merchant goes from signup to first order without our help |
 | 3 — Growth | P2 features, platform payments, public API, mobile admin app | — |
 
-## 8. Open questions
 
-- Brand name and domain.
+- Brand name and domain. Ecomm BD (ecomm.bd)
 - Pricing and plan limits (orders per month? staff seats?).
 - SMS gateway choice and what merchants pay per SMS.
 - Hosting and edge: BDIX data center vs Cloudflare vs Singapore — decided by the edge speed test (architecture, Decision 5).

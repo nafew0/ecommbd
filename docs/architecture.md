@@ -364,6 +364,8 @@ infra/
 
 ## First steps
 
+The full, phase-by-phase plan is in [roadmap/README.md](roadmap/README.md). These were the first steps identified here:
+
 1. Set up the project ([setup-guide.md](setup-guide.md)), then run the rest of the spike checklist on one of your CloudPanel servers. The engine benchmark is done ([bench/RESULTS.md](../bench/RESULTS.md)).
 2. In parallel, run the edge test from BD ISPs (options A / B / C).
 3. Write the server baseline script and run it on that server.
