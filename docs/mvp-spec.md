@@ -17,6 +17,7 @@ A hosted ecommerce platform for Bangladesh. Merchants sign up, get a fast store,
 - **Slow sites, even with Redis + Varnish** → speed is built in, measured and published.
 - **A plugin pile for basic BD needs** → couriers, bKash, fraud check, Meta Conversions API and landing pages are native.
 - **Fear of moving** → WooCommerce migration that keeps URLs, customers and order history.
+- **Not wanting to be locked into a platform like Shopify** → each store is its own isolated site with its own database, and merchants can export all their data at any time.
 
 ## 2. MVP success criteria
 
@@ -204,3 +205,4 @@ Reference: the plugin folder of a BD food store on WooCommerce.
 - Platform-level payments: which gateway offers a sub-merchant model, and what Bangladesh Bank requires.
 - Privacy terms for the cross-store fraud score.
 - Pilot merchants: who are the first 3–5 stores?
+- Validating the feature list: collect the plugin folders of 20–30 BD WooCommerce stores (like the reference store in section 5) and interview ~10 merchants about what breaks. Features most stores share stay P0; the rest move down.
