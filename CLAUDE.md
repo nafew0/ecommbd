@@ -32,18 +32,24 @@ Read first:
   - generate migrations with `npm run migrate:generate -- <name>`
   - keep them backward-compatible: add first, remove in a later release
 - **Permissions:** every custom GraphQL query or mutation and every REST route needs `@Allow(...)` **on the method**. Vendure ignores `@Allow` on a class, and a method without it gets no permission check at all.
+- **Store defaults:** a new default for every store is a step registered with `registerStoreDefaults` (bd-core) with a new `id`. Never edit a step that stores have already run; add a new one.
+- **Addresses:** a new mutation that takes an address must be listed in `ADDRESS_ARGS` (`bd-core/address/address.interceptor.ts`), or the district/thana checks skip it.
+- **Merchant admin (`apps/admin`):**
+  - every string goes in `src/messages/en.ts` and `bn.ts` (TypeScript refuses a missing one)
+  - import shared helpers by path (`@ecommbd/shared/phone`), never the package root: it contains Node-only code
+  - hiding a button is a convenience; the permission check belongs on the server
 - **Logs:** no full phone numbers, emails or secrets. The JSON logger masks messages; don't log whole objects with personal data.
 
 ## Commands
 
 ```bash
 npm run services:up      # PostgreSQL + Redis in Docker
-npm run dev              # server, worker, Dashboard
+npm run dev              # server, worker, Dashboard, merchant admin at /admin
 npm run lint && npm run typecheck && npm test && npm run test:e2e
 npm run build && npm run test:browser
 ```
 
 ## Gotchas
 
-- `packages/shared` must be built before the core runs. The root `npm run` scripts do this; inside `apps/core`, run `npm run build:shared` at the root first.
+- `packages/shared` and `packages/bd-geo` must be built before the core runs. The root `npm run` scripts do this; inside `apps/core`, run `npm run build:packages` at the root first.
 - When writing files, `\uXXXX` escapes for invisible characters (zero-width space, BOM, ZWJ, ZWNJ) can end up as the real invisible character. Write them as escapes and check: ESLint's `no-irregular-whitespace` catches them.

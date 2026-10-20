@@ -113,6 +113,8 @@ Log shipping and metrics (28), the storefront app (12), release builds (26).
 
 **Goal.** Every store starts correctly set up for Bangladesh: BDT, Bangla and English, the country, tax and roles. Addresses use real divisions, districts and upazilas/thanas, so shipping, couriers and reports can rely on them. Merchants get their own simple admin in Bangla and English, and every later phase adds its screens there.
 
+> **Built on 2026-10-21** on the `nafew` branch. Decisions are in the [decisions log](../decisions.md) (2026-10-21 rows); the setup guide covers `store:init` and the admin.
+
 ### Decide at start
 
 - **Dataset source and licence** for divisions (8), districts (64), upazilas (~495) and metropolitan thanas (Dhaka, Chattogram and other city corporations), with Bangla and English names and official geocodes. Candidates: Bangladesh Bureau of Statistics geocodes, or an open dataset on GitHub (check the licence; attribute it).
@@ -229,12 +231,13 @@ Log shipping and metrics (28), the storefront app (12), release builds (26).
 
 ### Done when
 
-- [ ] A fresh database started with `npm run dev` gives a store in **BDT**, with Bangla and English, Bangladesh enabled, 0% standard tax with prices including tax, and the five roles defined.
-- [ ] A merchant signs in at `/admin`, switches between Bangla and English, and edits Store settings on a phone.
-- [ ] The admin has an address form with a district → thana picker in both languages.
-- [ ] Vendure's Dashboard still works at `/dashboard` for our support team.
-- [ ] `bdDistricts` and `bdThanas` work in the Shop API and are cacheable.
-- [ ] The initializer is idempotent and documented, and ADRs record the dataset source, provinces decision and address mapping.
+- [x] A fresh database started with `npm run dev` gives a store in **BDT**, with Bangla and English, Bangladesh enabled, 0% standard tax with prices including tax, and the five roles defined. (End-to-end test on a fresh database; also seen on the dev database with `npm start`.)
+- [x] A merchant signs in at `/admin`, switches between Bangla and English, and edits Store settings on a phone. (Playwright, Pixel 7.)
+- [x] The admin has an address form with a district → thana picker in both languages. (Store settings → address; Playwright.)
+- [x] Vendure's Dashboard still works at `/dashboard` for our support team. (Playwright smoke test.)
+- [x] `bdDistricts` and `bdThanas` work in the Shop API and are cacheable. (End-to-end tests, including a 304 on the GET routes.)
+- [x] The initializer is idempotent and documented, and ADRs record the dataset source, provinces decision and address mapping.
+- [ ] CI runs green on GitHub (after the branch is pushed).
 
 ### Not in this phase
 

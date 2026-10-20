@@ -9,3 +9,6 @@ apps/core/static
 playwright-report
 test-results
 coverage
+
+# One place per line, so data changes are easy to review
+packages/bd-geo/src/data/

@@ -109,7 +109,7 @@ In `apps/core/.env`, set `COOKIE_SECRET` to a random value:
 openssl rand -hex 32
 ```
 
-The other defaults match the Docker services. `APP_ENV=dev` allows the default `superadmin` / `superadmin` login.
+The other defaults match the Docker services. `APP_ENV=dev` allows the default `superadmin` / `superadmin` login. `STORE_DEFAULT_LANGUAGE` (`bn` or `en`, default `bn`) is the storefront's main language for a new store; it's used once, when the store is set up.
 
 The server checks every setting when it starts (`apps/core/src/env-schema.ts`). If one is missing or wrong, it stops and lists them, for example `COOKIE_SECRET: must be at least 32 characters`. In staging and production it also refuses the default admin password, and requires `REDIS_KEY_PREFIX` and `ASSET_URL_PREFIX`.
 
@@ -119,7 +119,7 @@ The server checks every setting when it starts (`apps/core/src/env-schema.ts`). 
 npm run dev
 ```
 
-This runs Vendure's `vendure dev all`: the server, the job worker and the Dashboard. Pending database migrations run automatically on start (`runMigrations` in `src/index.ts`). The server answers its health check about 10 seconds after start.
+This builds the shared packages and the merchant admin, then runs Vendure's `vendure dev all`: the server, the job worker and the Dashboard. Pending database migrations run automatically on start (`runMigrations` in `src/index.ts`). The server answers its health check about 10 seconds after start.
 
 - On the very first start, the worker logs `Awaiting DB schema creation…` a few times while the server creates the tables. That's normal.
 - The Shop and Admin APIs are GraphQL endpoints that answer POST requests; opening them in a browser shows a 400.
@@ -127,12 +127,29 @@ This runs Vendure's `vendure dev all`: the server, the job worker and the Dashbo
 
 | What | URL |
 |---|---|
-| Dashboard (merchant admin) | http://localhost:3000/dashboard |
+| Merchant admin (Bangla and English) | http://localhost:3000/admin |
+| Vendure Dashboard (our support team) | http://localhost:3000/dashboard |
 | Shop API (storefront) | http://localhost:3000/shop-api |
 | Admin API | http://localhost:3000/admin-api |
 | GraphiQL (dev only) | http://localhost:3000/graphiql/shop and /graphiql/admin |
 | Test mailbox | http://localhost:3000/mailbox |
 | Health check | http://localhost:3000/health |
+
+### Bangladesh store defaults (`store:init`)
+
+On every start, the server sets up what a Bangladeshi store needs and is still missing: Bangla and English, all countries with only Bangladesh enabled, a "Bangladesh" zone, a 0% standard tax with prices including tax, the channel in BDT, the staff roles (Owner, Manager, Order staff, Packer, Marketing) and the store settings with policy templates. Each step runs once and is recorded, so a merchant's later changes are never overwritten. The server log shows `Store defaults: …` lines the first time.
+
+To run it without starting the server:
+
+```bash
+npm run store:init
+```
+
+`npm run store:init -- --force` re-applies everything, including the channel's currency and languages if a merchant changed them. It's for operations staff fixing a store; it never creates duplicates. Later phases add their own defaults (shipping in 07, COD in 08…) with `registerStoreDefaults` in the `bd-core` plugin.
+
+### Working on the merchant admin
+
+`npm run dev` serves the built admin at `/admin`. For live reload while changing it, also run `npm run dev:admin` and open http://localhost:5174/admin/ (it forwards API calls to the server on :3000).
 
 ## 5. Production build and start
 
@@ -155,7 +172,6 @@ npm start
 | The store's own `REDIS_KEY_PREFIX` and Redis ACL users | `apps/core/.env` |
 | Real asset URL (`assetUrlPrefix`, a placeholder in the template) | `vendure-config.ts` |
 | Email: the template's `EmailPlugin` is in dev mode. It writes emails to files and leaves the `/mailbox` page open. Configure a real transport or replace it with SMS, and turn dev mode off | `vendure-config.ts` |
-| CSRF protection: `apiOptions.csrfPrevention: true`, after checking that Dashboard uploads still work | `vendure-config.ts` |
 
 ## 6. Adding a feature: plugins
 
@@ -200,7 +216,9 @@ The first migration, `<timestamp>-init.ts`, creates the whole schema and is comm
 | Command (from the project root) | What it does |
 |---|---|
 | `npm run services:up` / `services:down` | Start / stop PostgreSQL and Redis |
-| `npm run dev` | Server, worker and Dashboard in dev mode |
+| `npm run dev` | Server, worker and Dashboard in dev mode (builds the merchant admin first) |
+| `npm run dev:admin` | The merchant admin with live reload on :5174 |
+| `npm run store:init` | Set up missing Bangladesh store defaults now (`-- --force` re-applies them) |
 | `npm run build` / `npm start` | Production build / start |
 | `npm run migrate:generate -- <name>` | New migration from entity changes |
 | `npm run migrate:run` | Run pending migrations |
@@ -210,7 +228,7 @@ The first migration, `<timestamp>-init.ts`, creates the whole schema and is comm
 | `npm run typecheck` | TypeScript type checks |
 | `npm test` | Unit tests (fast, no database) |
 | `npm run test:e2e` | End-to-end tests: a real Vendure server against the Docker PostgreSQL |
-| `npm run test:browser` | Browser tests with Playwright (needs `npm run build` first, and `npx playwright install chromium` once) |
+| `npm run test:browser` | Browser tests with Playwright on a desktop and a phone (needs `npm run build` first, and `npx playwright install chromium` once) |
 
 **Before pushing:** run `npm run lint`, `npm run typecheck`, `npm test` and `npm run test:e2e`. GitHub runs all of them, plus the build and browser tests, on every push and pull request (`.github/workflows/ci.yml`).
 
@@ -264,6 +282,7 @@ This costs real time on every release, so we avoid it. Because our code lives in
 ecommbd/
   README.md              this guide
   CLAUDE.md              rules for AI coding sessions on this repo
+  apps/admin/            merchant admin: React, Bangla and English, served by the core at /admin
   apps/core/             Vendure server, worker and Dashboard (generated by @vendure/create)
     src/vendure-config.ts  all configuration (database, Redis, plugins)
     src/env-schema.ts      every setting, checked at startup
@@ -275,6 +294,7 @@ ecommbd/
     AGENTS.md              Vendure's conventions for this project
   packages/shared/       Bangladesh helpers used everywhere: phone numbers, taka, Bangla text,
                          Dhaka time, encryption, safe outbound HTTP, idempotency, settings checks
+  packages/bd-geo/       divisions, districts, upazilas and thanas in Bangla and English, delivery zones
   tests/browser/         Playwright browser tests
   docs/                  spec, architecture, roadmap, decisions, glossary
   bench/                 engine benchmark (not part of the app)

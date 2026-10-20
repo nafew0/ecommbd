@@ -18,6 +18,7 @@ import { requestIdMiddleware } from './logging/request-context';
 import { customPlugins } from './plugins';
 
 const IS_DEV = env.APP_ENV === 'dev';
+const IS_LIVE = env.APP_ENV === 'staging' || env.APP_ENV === 'production';
 // Every store's Redis keys live under its own prefix (see docs/architecture.md, Decision 5).
 const KEY_PREFIX = env.REDIS_KEY_PREFIX;
 const serverPort = env.SERVER_PORT;
@@ -40,6 +41,10 @@ export const config: VendureConfig = {
             origin: IS_DEV ? true : (env.CORS_ORIGINS ?? []),
             credentials: true,
         },
+        // Refuses API requests a browser could send from another site without a preflight (form
+        // posts, which enable login CSRF). Our admin, the Dashboard and @vendure/testing send the
+        // header this needs on uploads.
+        csrfPrevention: true,
         // Every API request gets an ID, returned as x-request-id and included in its log lines.
         middleware: [
             { handler: requestIdMiddleware, route: shopApiPath },
@@ -52,8 +57,13 @@ export const config: VendureConfig = {
             identifier: env.SUPERADMIN_USERNAME,
             password: env.SUPERADMIN_PASSWORD,
         },
+        // HTTP-only session cookies, never readable by scripts. Separate names, so signing in to the
+        // storefront never replaces a staff member's admin session on the same domain.
         cookieOptions: {
             secret: env.COOKIE_SECRET,
+            name: { shop: 'shop-session', admin: 'admin-session' },
+            sameSite: 'lax',
+            secure: IS_LIVE,
         },
     },
     dbConnectionOptions: {
@@ -135,6 +145,9 @@ export const config: VendureConfig = {
             route: 'dashboard',
             appDir: IS_DEV ? path.join(__dirname, '../dist/dashboard') : path.join(__dirname, 'dashboard'),
         }),
-        ...customPlugins,
+        ...customPlugins({
+            defaultLanguage: env.STORE_DEFAULT_LANGUAGE,
+            assetUrlPrefix: env.ASSET_URL_PREFIX,
+        }),
     ],
 };

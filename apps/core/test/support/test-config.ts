@@ -19,7 +19,8 @@ export function createTestConfig(
     overrides: Partial<VendureConfig> = {},
 ): Required<VendureConfig> {
     const ours = mergeConfig(testConfig, {
-        apiOptions: { port },
+        // Same API protection as vendure-config.ts.
+        apiOptions: { port, csrfPrevention: true },
         dbConnectionOptions: {
             type: 'postgres',
             host: process.env.TEST_DB_HOST ?? '127.0.0.1',
@@ -28,7 +29,7 @@ export function createTestConfig(
             password: process.env.TEST_DB_PASSWORD ?? 'ecommbd',
         },
         paymentOptions: { paymentMethodHandlers: [dummyPaymentHandler] },
-        plugins: [...customPlugins],
+        plugins: customPlugins(),
     });
     const config = mergeConfig(ours, overrides);
     // Set after merging: mergeConfig's partial type doesn't accept middleware functions.
@@ -39,11 +40,15 @@ export function createTestConfig(
     return config;
 }
 
-/** Minimal store data for tests. Phase 02 replaces this with the real Bangladesh defaults. */
+/**
+ * Store data for tests. Countries, the Bangladesh zone, tax and the channel come from our own
+ * store-defaults initializer (bd-core), which runs when the test server first starts; this only
+ * adds what tests need on top.
+ */
 export const testInitialData: InitialData = {
     defaultLanguage: LanguageCode.en,
-    defaultZone: 'Asia',
-    taxRates: [{ name: 'Standard', percentage: 0 }],
+    defaultZone: 'Bangladesh',
+    taxRates: [],
     shippingMethods: [{ name: 'Standard delivery', price: 6000 }],
     paymentMethods: [
         {
@@ -54,6 +59,6 @@ export const testInitialData: InitialData = {
             },
         },
     ],
-    countries: [{ name: 'Bangladesh', code: 'BD', zone: 'Asia' }],
+    countries: [],
     collections: [],
 };

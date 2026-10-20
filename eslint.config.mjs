@@ -25,8 +25,16 @@ export default tseslint.config(
             globals: { ...globals.node },
         },
         rules: {
-            '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+            '@typescript-eslint/no-unused-vars': [
+                'error',
+                { argsIgnorePattern: '^_', ignoreRestSiblings: true },
+            ],
         },
+    },
+    {
+        // The merchant admin runs in the browser.
+        files: ['apps/admin/src/**/*.{ts,tsx}'],
+        languageOptions: { globals: { ...globals.browser } },
     },
     prettier,
 );

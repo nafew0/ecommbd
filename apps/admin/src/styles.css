@@ -1,0 +1,29 @@
+@import 'tailwindcss';
+
+/* Hind Siliguri is self-hosted (Fontsource, SIL Open Font License): Bangla renders the same on every
+   phone, without a request to Google Fonts. Browsers download only the subsets a page uses. Two
+   weights (400, 600) keep the download small; `font-medium` uses the 400 file. */
+@theme {
+    --font-sans: 'Hind Siliguri', ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    background-color: var(--color-slate-50);
+    color: var(--color-slate-900);
+    line-height: 1.6;
+}
+
+/* The native <dialog> drawer slides from the left on phones. */
+dialog[open] {
+    animation: fade-in 120ms ease-out;
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+}

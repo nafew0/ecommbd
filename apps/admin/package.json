@@ -1,0 +1,33 @@
+{
+  "name": "@ecommbd/admin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ecomm BD merchant admin: a simple Bangla and English admin on Vendure's Admin API, served by the core at /admin",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fontsource/hind-siliguri": "5.3.0",
+    "@tanstack/react-query": "5.104.5",
+    "clsx": "2.1.1",
+    "lucide-react": "1.60.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-router": "7.18.4",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.8.2",
+    "vite": "7.3.7"
+  }
+}

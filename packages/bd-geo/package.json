@@ -1,0 +1,16 @@
+{
+  "name": "@ecommbd/bd-geo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bangladesh divisions, districts, upazilas, city corporations and metropolitan thanas, in Bangla and English, with delivery zones and search",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --coverage"
+  }
+}

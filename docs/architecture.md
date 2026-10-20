@@ -151,7 +151,9 @@ Buying one only to study its features and screens is fine. Don't copy its code.
 
 | Plugin | Purpose |
 |---|---|
-| `bd-checkout` | Phone-only checkout, district → thana address, incomplete orders |
+| `bd-core` | Store defaults on first start (BDT, Bangla and English, Bangladesh, tax, roles), store settings, place lists (`bdDistricts`, `bdThanas`), address fields and checks |
+| `merchant-admin` | Serves our merchant admin (`apps/admin`) at `/admin` with a strict CSP |
+| `bd-checkout` | Phone-only checkout, incomplete orders |
 | `bd-orders` | Order states New → Confirmed → Packed → Shipped → Delivered / Returned / Cancelled, confirmation queue, manual orders, invoice and sticker printing |
 | `payments-*` | COD, manual bKash/Nagad (TrxID), SSLCommerz, bKash tokenized, partial advance |
 | `shipping-bd` | Inside/outside Dhaka and per-district rates |

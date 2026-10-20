@@ -7,5 +7,6 @@ export * from './money';
 export * from './phone';
 export * from './redact';
 export * from './ssrf';
+export * from './store-settings';
 export * from './text';
 export * from './time';

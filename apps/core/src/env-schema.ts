@@ -40,6 +40,8 @@ export const envSchema = z
         REDIS_CACHE_PORT: envPort,
         REDIS_CACHE_USERNAME: z.string().optional(),
         REDIS_CACHE_PASSWORD: z.string().optional(),
+        // The storefront's default language for a new store, chosen at setup. Later changed in Store settings.
+        STORE_DEFAULT_LANGUAGE: z.enum(['bn', 'en']).default('bn'),
         LOG_LEVEL: z.enum(['error', 'warn', 'info', 'verbose', 'debug']).default('info'),
         LOG_FORMAT: z.enum(['json', 'pretty']).optional(),
         STORE_ID: z.string().optional(),

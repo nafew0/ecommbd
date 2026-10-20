@@ -45,3 +45,17 @@ One word per idea everywhere: storefront, Dashboard, SMS, help articles. Banglad
 | Order now | এখনই অর্ডার করুন |
 | Store settings | স্টোর সেটিংস |
 | Dashboard | ড্যাশবোর্ড |
+| Profile | প্রোফাইল |
+| Policies | নীতিমালা |
+| Return policy / Refund policy / Privacy policy | রিটার্ন নীতি / রিফান্ড নীতি / প্রাইভেসি নীতি |
+| Terms and conditions | শর্তাবলি |
+| Area | এলাকা |
+| Landmark | ল্যান্ডমার্ক |
+| Alternate phone number | বিকল্প ফোন নম্বর |
+| Other / not listed | অন্যান্য / তালিকায় নেই |
+| City areas | শহরের এলাকা |
+| Sign in / Sign out | সাইন ইন / সাইন আউট |
+| Save | সেভ করুন |
+| Staff / Role | স্টাফ / রোল |
+| Owner / Manager / Order staff / Packer / Marketing | মালিক / ম্যানেজার / অর্ডার স্টাফ / প্যাকার / মার্কেটিং |
+| Private (not shown to customers) | গোপন |

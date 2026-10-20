@@ -16,9 +16,11 @@
     "start": "vendure start all",
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
-    "test:e2e": "vitest run -c vitest.e2e.config.mts"
+    "test:e2e": "vitest run -c vitest.e2e.config.mts",
+    "store:init": "ts-node --transpile-only src/store-init.ts"
   },
   "dependencies": {
+    "@ecommbd/bd-geo": "0.1.0",
     "@ecommbd/shared": "0.1.0",
     "@nestjs/common": "12.2.0",
     "@nestjs/graphql": "14.0.3",
@@ -30,6 +32,8 @@
     "@vendure/job-queue-plugin": "3.8.0",
     "bullmq": "5.81.5",
     "dotenv": "18.0.8",
+    "express": "5.3.0",
+    "graphql-tag": "2.12.6",
     "ioredis": "5.11.1",
     "pg": "8.23.1",
     "zod": "4.6.7"
@@ -38,7 +42,6 @@
     "@swc/core": "1.16.18",
     "@vendure/cli": "3.8.0",
     "@vendure/testing": "3.8.0",
-    "graphql-tag": "2.12.6",
     "ts-node": "10.9.2",
     "typescript": "5.8.2",
     "unplugin-swc": "2.0.0",
