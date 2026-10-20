@@ -23,6 +23,7 @@ To build a phase, ask: **"Complete phase NN."**
 - [Critical path to the pilot](#critical-path-to-the-pilot)
 - [Product standards (apply to every phase)](#product-standards-apply-to-every-phase)
 - [Spec coverage](#spec-coverage)
+- [Candidate features (not in the spec yet)](#candidate-features-not-in-the-spec-yet)
 - [Lead-time items: start these now](#lead-time-items-start-these-now)
 - [Top risks](#top-risks)
 - [Decisions to make along the way](#decisions-to-make-along-the-way)
@@ -153,7 +154,7 @@ Status values: **Not started** · **In progress** · **Review** · **Done**.
 | [30](m7-pilot.md#phase-30--security-hardening-i-pre-pilot) | Security hardening I (pre-pilot) | M7 | Safety for real customers | 03–29 | M | Not started |
 | [31](m7-pilot.md#phase-31--pilot-migrate-and-run-the-first-store-for-30-days) | Pilot: first store live for 30 days | M7 | MVP success criteria | 30 | L | Not started |
 | [32](m8-launch.md#phase-32--staff-roles-two-factor-sessions-and-activity-log) | Staff roles, two-factor, sessions and activity log | M8 | Roles, activity log (P1) | 30 | L | Not started |
-| [33](m8-launch.md#phase-33--dashboard-for-bd-merchants-and-bangla-translation) | Dashboard for BD merchants and Bangla translation | M8 | Bangla dashboard (P1) | 32 | L | Not started |
+| [33](m8-launch.md#phase-33--woocommerce-style-dashboard-and-bangla-translation) | WooCommerce-style Dashboard and Bangla translation | M8 | Bangla dashboard (P1), familiar admin for WooCommerce users | 32 | XL | Not started |
 | [34](m8-launch.md#phase-34--customer-accounts-phone-otp-login-and-shopper-privacy) | Customer accounts: phone OTP login and privacy | M8 | Customer login (P1) | 10, 14, 22 | M | Not started |
 | [35](m8-launch.md#phase-35--merchandising-extras-coupons-reviews-bulk-edit-alerts-and-custom-scripts) | Merchandising extras | M8 | Coupons, reviews, bulk edit, CSV, low stock, scripts (P1) | 10, 14, 22 | L | Not started |
 | [36](m8-launch.md#phase-36--marketing-integrations-and-product-feeds) | Marketing integrations and product feeds | M8 | GA4, TikTok, GTM, Meta catalog (P1) | 20 | M | Not started |
@@ -372,6 +373,19 @@ Every feature in [mvp-spec.md](../mvp-spec.md) section 4 maps to a phase.
 - shopper privacy and deletion (34)
 - Digital Commerce Guidelines review (42)
 - disaster recovery exercise (42)
+
+## Candidate features (not in the spec yet)
+
+These features came from the admin menu of the reference WooCommerce store (October 2026), where the merchant runs a plugin for each. They're **candidates**: before any of them joins the spec, check how many of the 20–30 surveyed stores use it (spec section 8, "Validating the feature list"), then give it a priority and a phase.
+
+| Feature | What it does in the reference store | How we'd build it | Best-fit phase | Question to validate |
+|---|---|---|---|---|
+| **Brands** | Brand pages and a brand filter; brand shown on each product. Brands are now part of WooCommerce itself, so many imported stores will have brand data | A "brand" facet with logo and description per brand, brand pages, the brand filter, brand in JSON-LD and the products list, imported from WooCommerce's brand taxonomy | 13 (storefront), 21–22 (import), 33 (admin menu) | How many surveyed stores use brands, and do they need brand pages or only the filter? |
+| **Linked Variations** | Links separate products (for example the same dress in different colours) and shows swatches on the product page to jump between them | A "product group" link between products with a swatch attribute (colour or size); swatches on the product page linking to each sibling's URL; imported from the plugin's data through the helper plugin, if readable | 15 (product page section), 22 (import) | Keep them as separate products (each with its own URL and SEO) or merge into one product with variants on import? |
+| **Frequently Bought Together** | A bundle suggestion on the product page ("Buy these together for ৳X"), adding all items to the cart in one tap, sometimes with a bundle discount | A related-products list per product, a bundle discount through a promotion, and a product page section with a small "add all" island | 35 or 44 | Do merchants pick the pairs by hand, or expect automatic suggestions from order history? |
+| **Custom Tabs** | Extra tabs on the product page: delivery information, care instructions, FAQs, set globally or per product | Product page sections with global defaults (store settings) and per-product or per-category overrides. On phones, accordions work better than tabs | 15 | Which tabs do stores actually use, and is store-wide content enough for most? |
+| **Size Guides** | A size chart (table or image) per category or product, opened from a "Size guide" link next to the size selector | A size guide record (table rows and columns, or an image, in Bangla and English) assigned to categories or products, opened in a native `<dialog>` with no extra JavaScript | 15 or 35 | Tables or images? Inches, centimetres or both? |
+| **Wishlists** | Shoppers save products to look at later | Guest wishlists saved in the browser, synced to the account after login (phase 34). Later, "back in stock" or "price dropped" SMS | 34 (+ 44 for alerts) | Do shoppers on COD, ad-driven stores use wishlists much? Check the reference store's wishlist data during migration |
 
 ## Lead-time items: start these now
 
