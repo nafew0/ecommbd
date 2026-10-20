@@ -12,6 +12,13 @@ updates:
         patterns: ['@vendure/*']
       dev-tools:
         dependency-type: development
+    # Vendure 3.8's job queue (BullMQJobQueuePlugin) supports only bullmq 5 and ioredis 5. Remove
+    # these once a Vendure upgrade moves to the next major version.
+    ignore:
+      - dependency-name: bullmq
+        update-types: ['version-update:semver-major']
+      - dependency-name: ioredis
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /
