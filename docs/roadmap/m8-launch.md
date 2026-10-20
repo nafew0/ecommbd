@@ -729,7 +729,7 @@ Custom report builder and data warehouse (later).
 ### Edge cases
 
 - **Legal requirements that conflict with product design** (for example advance-payment rules): handled through feature flags and settings, not one-off code.
-- **Penetration findings in third-party code** (Vendure or its dependencies): reported upstream, with patch-package used only if urgent (setup guide section 9).
+- **Penetration findings in third-party code** (Vendure or its dependencies): reported upstream, with patch-package used only if urgent (setup guide in the root `README.md`, section 9).
 
 ### Security
 

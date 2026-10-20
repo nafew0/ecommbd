@@ -1,7 +1,7 @@
 # Ecomm BD product roadmap
 
 > Plan v1 · 2026-10-20 · 50 phases in 9 milestones
-> Companion to [mvp-spec.md](../mvp-spec.md), [architecture.md](../architecture.md) and [setup-guide.md](../setup-guide.md)
+> Companion to [mvp-spec.md](../mvp-spec.md), [architecture.md](../architecture.md) and the [setup guide](../../README.md)
 
 This is the build plan for a **product**, not a one-off project. Hundreds of merchants will run their businesses on it, and their customers will trust it with their money and personal details. So every phase ships production-quality work:
 
@@ -76,7 +76,7 @@ When you ask for a phase, I work through these steps:
    - Bangla and English strings complete.
 7. **Document.**
    - Update the architecture doc if a decision changed.
-   - Update the setup guide for new environment variables or commands.
+   - Update the setup guide (the root `README.md`) for new environment variables or commands.
    - Draft a Bangla help article for every merchant-facing feature.
    - Add a CHANGELOG entry.
 8. **Demo.** Walk through the "Done when" list with evidence: test output, screenshots, recorded API calls.
@@ -237,7 +237,7 @@ OWASP ASVS Level 2 is the reference. Every phase applies:
 | Exports | Cells starting with `=`, `+`, `-`, `@` or a tab are prefixed (CSV injection). Files are UTF-8 with BOM so Excel shows Bangla correctly |
 | Logs | No full phone numbers, emails, addresses, tokens or OTPs (phones show the last 3 digits). Every request has an ID |
 | Web | CSP, HSTS, `nosniff`, a strict Referrer-Policy and Permissions-Policy. Cookies are `Secure`, `HttpOnly` and `SameSite=Lax` |
-| Supply chain | Lockfile, `npm ci`, CI audit. Each new dependency is reviewed for licence, maintenance and install scripts. Vendure upgrades follow [setup-guide.md](../setup-guide.md) section 9 |
+| Supply chain | Lockfile, `npm ci`, CI audit. Each new dependency is reviewed for licence, maintenance and install scripts. Vendure upgrades follow the [setup guide](../../README.md), section 9 |
 
 ### Privacy
 

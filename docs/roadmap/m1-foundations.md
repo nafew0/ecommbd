@@ -53,7 +53,7 @@
 7. **Permission audit test.** It lists every custom GraphQL resolver and REST route our plugins add, and fails if one has no permission declaration. Empty for now; every later phase is covered automatically.
 8. **Project rules for humans and agents:**
    - `CLAUDE.md` at the repo root covers commands, the plugin-first rule, migration rules (expand and contract), the Bangla/English rule, the security checklist, testing expectations, the roadmap protocol, and links to docs. It references `apps/core/AGENTS.md`.
-   - `README.md` at the root: what the product is, how to start (link to the setup guide), and repository layout.
+   - The root `README.md` is the setup guide. Add a short product introduction at its top, and keep its repository layout current.
 9. **Docs scaffolding:**
    - `docs/decisions/` with an ADR template and the first ADRs: 001 Vendure on upstream releases, 002 one site and database per store, 003 PostgreSQL + two Redis + Varnish, 004 Astro storefront.
    - `docs/glossary.md`: Bangla/English terms for orders, statuses, payments and delivery.
@@ -156,7 +156,7 @@ Log shipping and metrics (28), the storefront app (12), release builds (26).
 6. **Dashboard:**
    - a "Store settings" page (profile, policies, locale)
    - a district/thana picker component for any address form
-7. **Docs:** an ADR for each decision, and a setup guide note on `store:init`.
+7. **Docs:** an ADR for each decision, and a note on `store:init` in the setup guide (root `README.md`).
 
 ### Edge cases
 

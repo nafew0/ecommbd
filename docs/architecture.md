@@ -11,7 +11,7 @@
 4. **The fastest option wins in every layer**, and speed budgets are enforced in CI.
 5. **Fast shared services per server, small processes per store.** Each server runs one PostgreSQL, Redis and Varnish setup shared by its stores, with each store isolated inside them.
 6. **Updates are our job and are automated.** One command rolls a release to every store, with backups, health checks and automatic rollback.
-7. **Vendure stays on upstream releases.** We install it from npm and build our features as Vendure plugins, so an upgrade is a version bump. Small core changes go in as documented patches. See [setup-guide.md](setup-guide.md), section 9.
+7. **Vendure stays on upstream releases.** We install it from npm and build our features as Vendure plugins, so an upgrade is a version bump. Small core changes go in as documented patches. See the [setup guide](../README.md), section 9.
 
 ## Where the WordPress speed tricks went
 
@@ -128,7 +128,7 @@ Buying one only to study its features and screens is fine. Don't copy its code.
 
 ### How we use Vendure (staying on upstream)
 
-`apps/core` is a standard project from `@vendure/create`, with Vendure installed from npm at an exact version. Full procedure in [setup-guide.md](setup-guide.md).
+`apps/core` is a standard project from `@vendure/create`, with Vendure installed from npm at an exact version. Full procedure in the [setup guide](../README.md).
 
 1. **Reuse first:** Vendure's config and strategies (order process, payment and fulfilment handlers, shipping calculators, auth and password-hashing strategies), then our own plugins in `apps/core/src/plugins/`.
 2. **Phone-only checkout stays a plugin.** A plugin mutation stores the phone and an internal placeholder email (`8801XXXXXXXXX@phone.invalid`), so Vendure's required-email rule needs no core change.
@@ -366,7 +366,7 @@ infra/
 
 The full, phase-by-phase plan is in [roadmap/README.md](roadmap/README.md). These were the first steps identified here:
 
-1. Set up the project ([setup-guide.md](setup-guide.md)), then run the rest of the spike checklist on one of your CloudPanel servers. The engine benchmark is done ([bench/RESULTS.md](../bench/RESULTS.md)).
+1. Set up the project ([setup guide](../README.md)), then run the rest of the spike checklist on one of your CloudPanel servers. The engine benchmark is done ([bench/RESULTS.md](../bench/RESULTS.md)).
 2. In parallel, run the edge test from BD ISPs (options A / B / C).
 3. Write the server baseline script and run it on that server.
 4. Set up the monorepo, and CI with the performance budget.
