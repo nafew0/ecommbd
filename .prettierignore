@@ -1,0 +1,11 @@
+node_modules
+dist
+bench
+*.md
+package-lock.json
+apps/core/src/gql
+apps/core/src/migrations
+apps/core/static
+playwright-report
+test-results
+coverage

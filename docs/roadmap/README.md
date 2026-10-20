@@ -48,7 +48,7 @@ Every phase uses the same layout:
 |---|---|
 | Header table | Milestone, the spec features it delivers (with P0/P1/P2), the phases it depends on, and a relative size |
 | **Goal** | One or two sentences: what's true when it's done |
-| **Decide at start** | Open questions to research first; each becomes an ADR in `docs/decisions/` |
+| **Decide at start** | Open questions to research first; each answer is recorded in `docs/decisions.md` |
 | **Build** | Concrete deliverables: plugins, entities, APIs, screens, scripts |
 | **Edge cases** | Situations that must work, each needing a test or a written decision |
 | **Security** | Threats specific to this phase and how they're handled |
@@ -67,8 +67,8 @@ When you ask for a phase, I work through these steps:
    - Dependencies are marked done in the status table.
    - Lead-time items the phase needs are available (sandbox credentials, accounts, servers).
    - If something is missing, I say so before writing code.
-3. **Decide.** Research every "Decide at start" item, then write a short ADR in `docs/decisions/NNN-title.md` with the options, the choice and the reason.
-4. **Branch.** Work on `phase/NN-short-name` in small, reviewable commits.
+3. **Decide.** Research every "Decide at start" item, then add a line to `docs/decisions.md` with the choice and the reason.
+4. **Branch.** Work on the `nafew` branch in small, reviewable commits.
 5. **Build.** Vendure plugins in `apps/core/src/plugins/`, Dashboard extensions, storefront pieces and migrations, following the [product standards](#product-standards-apply-to-every-phase).
 6. **Prove.**
    - Tests for each listed edge case.
@@ -122,7 +122,7 @@ Status values: **Not started** · **In progress** · **Review** · **Done**.
 | # | Phase | Milestone | Delivers (spec priority) | Depends on | Size | Status |
 |---|---|---|---|---|---|---|
 | 00 | Engine benchmark and project setup | — | Vendure chosen, project runs | — | — | **Done** |
-| [01](m1-foundations.md#phase-01--engineering-foundation) | Engineering foundation | M1 | Enables everything | 00 | M | Not started |
+| [01](m1-foundations.md#phase-01--engineering-foundation) | Engineering foundation | M1 | Enables everything | 00 | M | **Review** (branch `nafew`) |
 | [02](m1-foundations.md#phase-02--bangladesh-store-defaults-geo-data-and-store-settings) | Bangladesh store defaults, geo data and store settings | M1 | BD defaults (P0) | 01 | L | Not started |
 | [03](m2-commerce-core.md#phase-03--phone-first-customers-and-guest-checkout-api) | Phone-first customers and guest checkout API | M2 | Phone checkout, customer list (P0) | 02 | M | Not started |
 | [04](m2-commerce-core.md#phase-04--bd-order-workflow-order-numbers-and-confirmation-queue) | BD order workflow, order numbers and confirmation queue | M2 | Statuses, confirmation (P0) | 03 | L | Not started |
@@ -190,11 +190,13 @@ If only one session works at a time, the recommended order is the numeric order,
 
 These rules hold in every phase without being repeated. A phase's own sections only add to them.
 
+> **For the MVP, these are goals, applied simply.** Tooling stays light: one CI job, plain tests, no strict audit gates ([decisions](../decisions.md), 2026-10-20). Stricter checks (automated permission audits, dependency-audit gates, security scanners) get added only when needed.
+
 ### Definition of done
 
 - Every "Done when" item is demonstrated, with evidence in the PR.
-- Every listed edge case has a test, or an ADR explaining why not.
-- CI is green: typecheck, lint, unit, API end-to-end, storefront end-to-end where touched, build, audit, secret scan.
+- Every listed edge case has a test, or a note in `docs/decisions.md` explaining why not.
+- CI is green: lint, typecheck, unit tests, end-to-end tests, build and browser tests.
 - Database migrations are generated, reviewed and backward-compatible (see [Releases](#versioning-and-releases)).
 - All shopper- and merchant-facing text exists in Bangla and English.
 - New background work has logs, metrics and a visible failure state for staff (nothing fails silently).
@@ -228,7 +230,7 @@ OWASP ASVS Level 2 is the reference. Every phase applies:
 
 | Area | Rule |
 |---|---|
-| Authorization | Every custom resolver and route declares permissions (`@Allow(...)` with our own permission definitions). Shop API resolvers check that the active order or customer belongs to the session. A CI test lists every resolver and fails if one has no permission |
+| Authorization | Every custom resolver and route declares permissions (`@Allow(...)` with our own permission definitions). Shop API resolvers check that the active order or customer belongs to the session. Checked in review: Vendure ignores `@Allow` on a class, so it goes on each method |
 | Input | Validated at the boundary with typed schemas and length limits. Rich text is sanitized server-side on save and again on render. No `set:html` or `innerHTML` with unsanitized content |
 | Rate limits | Redis-backed limits on login, OTP, checkout, coupons, tracking lookups and event endpoints. Limit by phone and session before IP: Bangladeshi mobile users share IPs behind carrier-grade NAT |
 | Secrets | Never logged, encrypted at rest, least privilege, rotation documented |
@@ -421,11 +423,11 @@ These depend on other companies or the law and can take weeks. None of them need
 
 ## Decisions to make along the way
 
-Each becomes an ADR in `docs/decisions/` at the start of its phase.
+Each answer is recorded in `docs/decisions.md` at the start of its phase.
 
 | Decision | Phase |
 |---|---|
-| Lint and format tooling; GitHub Actions layout; Dependabot or Renovate | 01 |
+| ~~Lint and format tooling; GitHub Actions layout; Dependabot or Renovate~~ (decided: ESLint + Prettier, one CI job, Dependabot) | 01 |
 | Source and licence of the district/upazila/thana dataset; whether to use Vendure provinces for districts; rounding policy details | 02 |
 | How names map to Vendure's first/last name fields; guest checkout for registered phones | 03 |
 | Order number format; whether "New" maps to Vendure's PaymentAuthorized | 04 |

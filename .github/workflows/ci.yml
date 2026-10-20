@@ -1,0 +1,79 @@
+# One job that runs the same checks you can run locally (see README.md, "Useful commands").
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, nafew]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint, type-check, test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # Same services as the root docker-compose.yml, on the same ports.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ecommbd
+          POSTGRES_PASSWORD: ecommbd
+          POSTGRES_DB: ecommbd
+        ports: ['54320:5432']
+        options: >-
+          --health-cmd "pg_isready -U ecommbd"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis-queue:
+        image: redis:7.4-alpine
+        ports: ['63790:6379']
+      redis-cache:
+        image: redis:7.4-alpine
+        ports: ['63791:6379']
+
+    # Development values from apps/core/.env.example. CI only: nothing here is secret.
+    env:
+      APP_ENV: dev
+      COOKIE_SECRET: ci-only-cookie-secret-not-used-anywhere-else
+      SUPERADMIN_USERNAME: superadmin
+      SUPERADMIN_PASSWORD: superadmin
+      DB_HOST: 127.0.0.1
+      DB_PORT: '54320'
+      DB_NAME: ecommbd
+      DB_USERNAME: ecommbd
+      DB_PASSWORD: ecommbd
+      REDIS_QUEUE_HOST: 127.0.0.1
+      REDIS_QUEUE_PORT: '63790'
+      REDIS_CACHE_HOST: 127.0.0.1
+      REDIS_CACHE_PORT: '63791'
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:e2e
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+
+      - name: Upload the Playwright report when browser tests fail
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7

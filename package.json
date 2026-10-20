@@ -8,14 +8,34 @@
   "scripts": {
     "services:up": "docker compose up -d",
     "services:down": "docker compose stop",
-    "dev": "npm run dev -w @ecommbd/core",
-    "build": "npm run build -w @ecommbd/core",
+    "build:shared": "npm run build -w @ecommbd/shared",
+    "dev": "npm run build:shared && npm run dev -w @ecommbd/core",
+    "build": "npm run build:shared && npm run build -w @ecommbd/core",
     "start": "npm run start -w @ecommbd/core",
+    "typecheck": "npm run build:shared && npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "npm run build:shared && npm run test --workspaces --if-present",
+    "test:e2e": "npm run build:shared && npm run test:e2e -w @ecommbd/core",
+    "test:browser": "playwright test",
     "migrate:generate": "npm exec -w @ecommbd/core -- vendure migrate -g",
     "migrate:run": "npm exec -w @ecommbd/core -- vendure migrate -r",
     "doctor": "npm exec -w @ecommbd/core -- vendure doctor"
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.1",
+    "@types/node": "24.19.2",
+    "@vitest/coverage-v8": "5.0.5",
+    "eslint": "10.13.0",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "typescript": "5.8.2",
+    "typescript-eslint": "8.72.0",
+    "vitest": "5.0.5"
   }
 }

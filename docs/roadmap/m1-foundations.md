@@ -16,25 +16,27 @@
 
 **Goal.** Every later phase can be built, reviewed and merged safely. CI catches mistakes, shared code solves Bangladesh-specific basics once, and anyone (including future Claude sessions) knows the project's rules.
 
-### Decide at start
+> **Scope simplified on 2026-10-20** at the user's request: MVP-level tooling, no strict audits ([decisions](../decisions.md)). The permission audit test, `npm audit` gate, licence check, gitleaks and CodeQL were dropped; they can be added later if needed. Built on the `nafew` branch.
 
-- Lint and format tooling: ESLint flat config + Prettier, or Biome. Pick one and apply it to all workspaces.
-- Dependabot or Renovate. Whichever is chosen must group all `@vendure/*` packages into one update.
-- CI runner limits: target a full CI run of under 10 minutes.
+### Decided
+
+- **Lint and format:** ESLint (recommended rules) + Prettier.
+- **Dependency updates:** Dependabot, weekly, with all `@vendure/*` packages in one update.
+- **Tests:** Vitest for unit and end-to-end tests, Playwright for the browser.
+- **TypeScript:** 5.8.2, the version Vendure is tested with.
 
 ### Build
 
-1. **CI** (`.github/workflows/ci.yml`), on every pull request and push to `main`:
-   - `npm ci`, typecheck for all workspaces, lint, format check
-   - unit tests (Vitest)
-   - Vendure API end-to-end tests with PostgreSQL 17 and Redis service containers
-   - `npm run build`
-   - `npm audit --omit=dev --audit-level=high`
-   - secret scan (gitleaks)
-   - licence check for production dependencies against an allowlist (MIT, ISC, BSD, Apache-2.0, GPL-3.0 for the server)
-   - Least-privilege workflow permissions (`contents: read`), third-party actions pinned by commit SHA, no `pull_request_target` on untrusted code.
-2. **CodeQL** code scanning, and **Dependabot alerts**. Both are free for public repositories.
-3. **`packages/shared`** (TypeScript, zero runtime dependencies where possible, 100% branch coverage):
+1. **CI** (`.github/workflows/ci.yml`): one simple job on every pull request and on pushes to `main` and `nafew`:
+   - `npm ci`, lint, typecheck
+   - unit tests
+   - end-to-end tests with PostgreSQL 17 and Redis service containers
+   - build
+   - Playwright Dashboard login test
+
+   Read-only workflow permissions, actions pinned by commit SHA.
+2. **Dependabot** (`.github/dependabot.yml`) for npm and GitHub Actions.
+3. **`packages/shared`** (TypeScript, 100% test coverage):
    - `phone`: normalize, validate, format and mask Bangladeshi mobile numbers; operator from prefix; split fields that hold several numbers.
    - `money`: whole-taka helpers, rounding (half-up to taka), formatting with lakh grouping (`৳1,00,000`) and optional Bangla digits.
    - `text`: NFC normalization, whitespace collapse, Bangla⇄ASCII digit conversion. Strips zero-width spaces and BOMs, but never ZWJ/ZWNJ.
@@ -46,19 +48,11 @@
 4. **Environment validation** in `apps/core`: a zod schema for every variable in `.env.example`. The server exits at boot with a clear list of what's missing or invalid.
 5. **Structured logging.** A Vendure logger that writes JSON in production (pretty in dev), with log level from the environment, request IDs and a PII redaction helper. Shipping logs to a central system comes in phase 28.
 6. **Test harness:**
-   - Vitest workspace config.
-   - `apps/core/e2e/` using `@vendure/testing` against PostgreSQL, with a helper to start the server with our plugins and to seed data.
-   - An example test proving the harness works.
-   - Playwright installed and configured for the storefront later (mobile emulation, slow-4G profile).
-7. **Permission audit test.** It lists every custom GraphQL resolver and REST route our plugins add, and fails if one has no permission declaration. Empty for now; every later phase is covered automatically.
-8. **Project rules for humans and agents:**
-   - `CLAUDE.md` at the repo root covers commands, the plugin-first rule, migration rules (expand and contract), the Bangla/English rule, the security checklist, testing expectations, the roadmap protocol, and links to docs. It references `apps/core/AGENTS.md`.
-   - The root `README.md` is the setup guide. Add a short product introduction at its top, and keep its repository layout current.
-9. **Docs scaffolding:**
-   - `docs/decisions/` with an ADR template and the first ADRs: 001 Vendure on upstream releases, 002 one site and database per store, 003 PostgreSQL + two Redis + Varnish, 004 Astro storefront.
-   - `docs/glossary.md`: Bangla/English terms for orders, statuses, payments and delivery.
-   - `CHANGELOG.md`.
-10. **Branch protection** settings documented for you to apply on GitHub: require CI, require one review, no force-push to `main`.
+   - unit tests in `apps/core/test/unit/`
+   - end-to-end tests in `apps/core/test/e2e/`, using `@vendure/testing` against PostgreSQL with our plugins and middleware (`test/support/test-config.ts`)
+   - a Playwright Dashboard login test in `tests/browser/`
+7. **Project rules:** `CLAUDE.md` (commands, plugin-first rule, migrations, Bangla/English, permissions on each method, the keep-it-simple preference) and a product introduction at the top of the root `README.md`.
+8. **Docs:** `docs/decisions.md` (a short decisions log instead of separate ADR files), `docs/glossary.md`, `CHANGELOG.md`.
 
 ### Edge cases
 
@@ -81,25 +75,26 @@
 
 ### Security
 
-- CI secrets: none are needed yet. Later phases add only sandbox credentials, and never production secrets.
-- The crypto helper uses only Node's `crypto` module (no custom algorithms). Keys are 256-bit from the environment.
-- The secret scan runs on the full git history once, to confirm nothing leaked during setup.
-- The repository is public: its README and `CLAUDE.md` must not contain internal hostnames, IPs or credentials. Production inventory lives outside the repo.
+- CI needs no secrets; it uses the development values from `.env.example`.
+- The crypto helper uses only Node's `crypto` module (no custom algorithms). Keys are 256-bit from the environment, and error messages never include key material.
+- The repository is public: its README and `CLAUDE.md` must not contain internal hostnames, IPs or credentials.
+- Turn on GitHub's free secret scanning and push protection in the repository settings (no code needed).
 
 ### Tests
 
-- Unit tests for every `packages/shared` module (table-driven, including all edge cases above).
-- The end-to-end harness smoke test.
-- CI proves it blocks merges: a deliberately failing lint, test and fake secret on a test branch must each fail CI. Documented with screenshots in the PR, then the branch is deleted.
+- Unit tests for every `packages/shared` module, including all edge cases above: 181 tests, 100% coverage.
+- Core unit tests for settings, JSON logs and request IDs.
+- An end-to-end test: a real server on PostgreSQL answers the Shop and Admin APIs and returns request IDs.
+- Playwright: Dashboard login works; a wrong password is refused.
 
 ### Done when
 
-- [ ] A pull request to `main` runs the full CI in under 10 minutes and is green.
-- [ ] A failing test, a lint error and a committed fake secret are each blocked by CI.
-- [ ] `packages/shared` is used by `apps/core` (environment validation) with 100% branch coverage.
-- [ ] The core refuses to start with a missing or invalid variable and says which one.
-- [ ] `CLAUDE.md`, the root README, ADRs 001–004, the glossary and the CHANGELOG exist.
-- [ ] Dependabot or Renovate opens grouped `@vendure/*` updates.
+- [x] `packages/shared` is used by `apps/core` (settings checks) with 100% test coverage.
+- [x] The core refuses to start with a missing or invalid setting and says which one.
+- [x] Lint, typecheck, unit, end-to-end and browser tests pass locally.
+- [x] `CLAUDE.md`, the README introduction, the decisions log, the glossary and the CHANGELOG exist.
+- [ ] CI runs green on GitHub (after the branch is pushed).
+- [ ] Dependabot opens its first grouped update (after merge to `main`).
 
 ### Not in this phase
 

@@ -10,3 +10,6 @@ bench/vendure/static
 bench/results/*.server.log
 bench/results/*-smoke.*
 bench/vendure/.vendure
+coverage
+playwright-report
+test-results

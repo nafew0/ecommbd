@@ -1,0 +1,19 @@
+# Weekly pull requests for dependency updates. All Vendure packages move together in one PR
+# (README.md, "Staying on upstream Vendure"); GitHub also alerts on known vulnerabilities.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      vendure:
+        patterns: ['@vendure/*']
+      dev-tools:
+        dependency-type: development
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
