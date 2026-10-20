@@ -47,7 +47,9 @@ The MVP is done when a pilot merchant has been migrated from WooCommerce and has
 | Sign up, create store, free subdomain | P0 | `{store}.<platform-domain>` |
 | Custom domain with automatic SSL | P0 | Merchant adds one CNAME record |
 | Storefront in Bangla and English | P0 | |
-| Merchant dashboard in Bangla | P1 | English-only for the pilot |
+| Bangladesh defaults for every new store: BDT currency, Bangladesh as the country, Bangla + English, inside/outside Dhaka shipping zones, tax setup | P0 | Vendure's default store starts in USD and English with no countries, zones or tax |
+| Merchant dashboard: Vendure's Dashboard, extended with our BD pages (order confirmation, couriers, incomplete orders) | P0 | English for the pilot |
+| Dashboard in Bangla: translation of Vendure's Dashboard and our pages | P1 | |
 | Staff accounts with roles (owner, manager, order staff) | P1 | Owner only in P0 |
 | Subscription billing (bKash / card) | P1 | |
 | Merchant data export (CSV / JSON) | P1 | Answers the lock-in fear |
@@ -70,7 +72,7 @@ The MVP is done when a pilot merchant has been migrated from WooCommerce and has
 | Feature | Priority | Notes |
 |---|---|---|
 | Fast mobile-first themes (2 to start) with settings: logo, colours, fonts, menus | P0 | No code editing |
-| Landing page builder with blocks: hero, benefits, video, testimonials, FAQ, countdown, **embedded checkout** | P0 | Replaces Elementor + CartFlows |
+| Landing page builder with sections: hero, benefits, video, testimonials, FAQ, countdown, **embedded checkout** | P0 | Replaces Elementor + CartFlows |
 | Buy Now (straight to checkout) and slide-out cart | P0 | Replaces Buy-Now button, modern-cart |
 | WhatsApp / Messenger / call floating button | P0 | Replaces chaty |
 | Static pages (about, policies) and menus | P0 | |
@@ -188,7 +190,7 @@ Reference: the plugin folder of a BD food store on WooCommerce.
 
 | Phase | Contents | Done when |
 |---|---|---|
-| 0 — Foundations | Engine benchmark (done) and project setup on Vendure, edge speed test from BD ISPs, server baseline script (PostgreSQL, Redis, Varnish), monorepo and CI, store provisioning on CloudPanel, release pipeline with rollback, backups | Decision recorded; a test store is created, and later updated, with one command each |
+| 0 — Foundations | **Done:** engine benchmark, project setup on Vendure (runs locally, on GitHub). **To do:** CI, edge speed test from BD ISPs, server baseline script (PostgreSQL, Redis, Varnish), store provisioning on CloudPanel, release pipeline with rollback, backups | A test store is created, and later updated, with one command each |
 | 1 — Pilot | All P0 features | One migrated store live for 30 days |
 | 2 — Public launch | All P1 features, self-serve signup and billing | A new merchant goes from signup to first order without our help |
 | 3 — Growth | P2 features, platform payments, public API, mobile admin app | — |
