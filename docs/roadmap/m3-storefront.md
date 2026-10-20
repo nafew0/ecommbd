@@ -1,7 +1,7 @@
 # M3 · Storefront
 
 > Phases 12–17 · [Roadmap overview](README.md)
-> **Exit criteria:** a shopper completes a COD checkout on a cached, Bangla/English storefront within the performance budget, and merchants build pages and landing pages without code.
+> **Exit criteria:** a shopper completes a COD checkout on a cached, Bangla/English storefront within the performance budget, and merchants build pages and sales pages without code.
 
 The storefront is `apps/storefront`: Astro server-side rendering with Preact islands ([architecture.md](../architecture.md), Decision 2). The guiding rule: **zero JavaScript unless the shopper needs to interact**, and every page is cacheable unless it's personal.
 
@@ -289,7 +289,9 @@ Coupon field (35), customer login and saved addresses (34), online gateway redir
 | Depends on | 12, 13, 14 |
 | Size | XL (split into 15a schema + rendering and 15b editor if needed) |
 
-**Goal.** Merchants design their home page and other pages Shopify-style, without code, and the result stays within the performance budget.
+**Goal.** Merchants design their home page and other pages without code, as easily as with Elementor but with far fewer choices to get wrong, and the result stays within the performance budget.
+
+**Approach.** Fixed sections with good phone defaults, not free-form layout. See [sales-page-builder.md](../research/sales-page-builder.md) for what merchants use in Elementor and what to avoid.
 
 ### Decide at start
 
@@ -306,9 +308,15 @@ Coupon field (35), customer login and saved addresses (34), online gateway redir
      - defaults and presets
    - **Schema versions with data migrations:** a release can change a section's fields and migrate stored data safely.
 2. **About 20 starter sections** as Astro components:
-   - hero, product grid, collection list, featured product, image with text, banner
-   - testimonials, FAQ, trust badges, delivery info, newsletter/WhatsApp CTA, video (lite)
+   - hero, hero slider, product grid, collection list, featured product, image with text, banner
+   - rich text, image grid, testimonials, FAQ, trust badges, delivery info, contact, newsletter/WhatsApp CTA, video (lite), divider
    - Each emits its cache tags (the products and collections it shows) for phase 17.
+   - **Style options for every section,** deliberately few and preset:
+     - background: colour from the palette, a preset or an image
+     - light or dark text; spacing S / M / L; narrow or full width; alignment
+     - hide on phone or on desktop (no other per-screen settings)
+     - anchor ID, so buttons can jump to it
+     - one entrance-animation switch, CSS only, off when the visitor prefers reduced motion
 3. **Content model** (core plugin `sections`):
    - **`PageLayout`:** type (home, page, landing, product template), slug, section data.
    - **Drafts and history:** draft and published versions, plus the last 20 published versions with one-click restore.
@@ -319,12 +327,15 @@ Coupon field (35), customer login and saved addresses (34), online gateway redir
      - font (system or the two hosted ones)
      - button style, header layout, product card style
    - **Switching themes** keeps all section data, because sections are shared.
-5. **Editor** (Dashboard route):
-   - **Sidebar:** the page's sections with drag to reorder, add from a library with previews, duplicate, hide and remove.
-   - **Form:** generated from the selected section's schema, with validation.
-   - **Live preview:** an iframe of the real storefront in **preview mode**, showing draft content and never cached. It uses a signed, short-lived preview token.
-   - **Controls:** mobile/desktop toggle, undo and redo, autosave of drafts.
+5. **Editor** (admin screen):
+   - **Sidebar:** the page's sections with drag or up/down arrows to reorder, add from a library with previews, duplicate, hide without deleting, and remove.
+   - **Form:** generated from the selected section's schema, with validation. Click a section in the preview to open its form.
+   - **Live preview:** an iframe of the real storefront in **preview mode**, showing draft content and never cached. It uses a signed, short-lived preview token. It **opens in phone view**, because most shoppers are on phones.
+   - **Controls:** phone/desktop toggle, undo and redo, autosave of drafts.
+   - **Saved sections:** save a styled section and reuse it on other pages.
+   - **Share preview:** a short-lived link so a partner can check the page on their own phone before it goes live.
    - **Publish:** publishes the page and purges its cache.
+   - **Duplicate page.**
 6. **Starter layouts** for common Bangladeshi niches: fashion, food, gadgets, cosmetics. Merchants apply one, then edit.
 
 ### Edge cases
@@ -365,51 +376,87 @@ Coupon field (35), customer login and saved addresses (34), online gateway redir
 
 ### Not in this phase
 
-Landing-page-specific sections and the embedded checkout (16), custom CSS (later, P2), theme marketplace (not planned).
+Sales-page sections and the embedded checkout (16), custom CSS (later, P2), free-form drag-anywhere layout (not planned), theme marketplace (not planned).
 
 ---
 
-## Phase 16 — Landing pages, funnels and attribution
+## Phase 16 — Sales pages: landing pages, funnels and attribution
 
 | | |
 |---|---|
 | Milestone | M3 |
-| Delivers | Landing page builder with embedded checkout (P0); order bump (P1, built here because it lives inside the embedded checkout) |
+| Delivers | Sales page builder with embedded checkout (P0); order bump (P1, built here because it lives inside the embedded checkout) |
 | Depends on | 14, 15 |
 | Size | L |
 
-**Goal.** Replace Elementor plus CartFlows for Facebook-ad landing pages: one page with the story and the checkout, and every order traced back to the campaign that brought it.
+**Goal.** Replace Elementor plus CartFlows for Facebook-ad sales pages. A merchant who has never built a page picks a template and a product, edits the text, and publishes in about 5 minutes. Each page has the story and the order form together, and every order is traced back to the campaign that brought it.
+
+**Inputs.** The "Sales pages" menu in [reference-bd-admin.md](../research/reference-bd-admin.md#sales-pages-landing-page-builder) (our partner's model) and [sales-page-builder.md](../research/sales-page-builder.md) (what BD sales pages contain and what beginners need).
 
 ### Build
 
-1. **Landing page type** (phase 15's page model): an optional minimal header with no navigation, plus landing-specific sections:
-   - hero with image or video, benefits, problem/solution
-   - product gallery, testimonials (including screenshot-style images, as BD merchants commonly use)
-   - FAQ (with FAQPage JSON-LD), guarantee, sticky "Order now" bar
+1. **"Sales pages" in the admin** (a menu of its own, not hidden under Appearance):
+   - **List:** title, link, template, product, price, active or inactive, and orders from this page (from attribution). Actions: preview, duplicate, open, edit, delete.
+   - **Create:** title, link (slug), **template** (picked by category, with previews), **product**. The page fills itself from the product: name, images, price, old price, video, stock and packs.
+   - **Edit** in phase 15's editor: switch sections on or off, reorder, edit texts, live phone preview.
+2. **Page settings:**
+   - header: a slim bar with logo and phone (default), the normal store header, or none; a small footer
+   - main colour and sale colour; a Bangla font pair; page width (phone-width column by default, or full width)
+   - SEO title, description and share image; **"hide from Google"** on by default, because ad pages shouldn't compete with product pages
+   - tracking comes from the store's settings (phases 20 and 36); nothing to set up per page
+3. **Sales sections** (on top of phase 15's), each with phase 15's style options plus a **"show order button below"** switch that jumps to the order form, as BD sales pages repeat it after almost every section:
+   - **hero** with headline, second line in the accent colour, badge ("১৫% ছাড়"), image or lite video, offer box, button
+   - **benefits** checklist ("what you get"), with icons, as a list or grid
+   - **story or problem** ("did you know"), with image left or right
+   - **trust:** "why buy from us" with preset items (cash on delivery, check before paying, delivery across Bangladesh, returns), editable
+   - **how to use** or **specifications** (label and value)
+   - **reviews:** screenshots (BD merchants use these most), cards with name, text and stars, or a review video
+   - **price and packs:** old price crossed out, offer price, % off, packs with a "popular" badge
+   - **comparison:** "without ❌ / with ✅" rows (in our partner's model)
    - **countdown:** a fixed deadline in Dhaka time, or evergreen per visitor
-   - **lite video:** a thumbnail until tapped, so no YouTube script loads with the page
-2. **Embedded checkout section:**
+   - **guarantee**, **FAQ** (with FAQPage JSON-LD), **call and WhatsApp** card (number and prefilled message), **CTA banner**
+   - **sticky order bar** on phones: price and "অর্ডার করুন"
+   - **lite video** everywhere: a thumbnail until tapped, so no YouTube script loads with the page
+   - **no custom HTML section** (unsafe); merchant scripts stay a separate, controlled feature (phase 35)
+4. **Embedded order form** (the key section):
    - one product, or a choice of several
-   - **quantity packs** ("1 pack ৳550 / 2 packs ৳990 / 3 packs ৳1,400"), modelled as variants or as price rules (decide during the phase)
-   - variant selector, then the same fields, validation, payments and OTP as phase 14
-   - at most one embedded checkout per page
-3. **Order bump:** a checkbox for an add-on product at a special price, shown inside the checkout section. It's hidden when the add-on is out of stock.
-4. **Funnel thank-you page** per landing page: a custom message, a WhatsApp follow-up button, and optionally a same-site redirect.
-5. **Attribution:**
-   - On the first visit, store `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term`, `fbclid`, `gclid`, `ttclid`, the landing page ID and the referrer in a first-party cookie for 30 days (last non-direct touch wins).
+   - **quantity packs** ("1 pack ৳550 / 2 packs ৳990 / 3 packs ৳1,400"), modelled as variants or as price rules (decide during the phase), and − / + quantity
+   - product line with image, price, old price and % off
+   - name and phone required, address with district → thana (or just inside/outside Dhaka, following the store's checkout setting), a note; **no email field by default**
+   - delivery charge from the store's shipping rules (phase 07), payment methods the store has on (COD first)
+   - live summary, a button that shows the total, and "পণ্য হাতে পেয়ে টাকা দিন" (pay when you receive)
+   - the same validation, OTP, fake-order checks and duplicate-order block as phases 11 and 14
+   - at most one order form per page
+5. **Order bump:** a checkbox for an add-on product at a special price, shown inside the order form. It's hidden when the add-on is out of stock.
+6. **Thank-you page** per sales page: a custom message, a WhatsApp follow-up button, the store's support phone, and optionally a same-site redirect.
+7. **Attribution:**
+   - On the first visit, store `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term`, `fbclid`, `gclid`, `ttclid`, the sales page ID and the referrer in a first-party cookie for 30 days (last non-direct touch wins).
    - Capture happens in a tiny client script or an edge beacon, because cached pages can't vary by query string.
    - Saved on the order as custom fields.
-   - Order list filter by campaign or landing page, plus a simple "orders by campaign" view. Full reports come in phase 41.
-6. **Six Bangla landing templates:** food, cosmetics, gadget, fashion, health product (with a reminder about honest claims), book.
-7. **Duplicate page**, so merchants can make campaign variants quickly.
+   - Order list filter by campaign or sales page, plus a simple "orders by campaign" view. Full reports come in phase 41.
+8. **Twelve Bangla templates**, each a set of sections with sample text and a category tag:
+
+   | Category | Templates |
+   |---|---|
+   | Food | ghee and honey, oil and spices, dates and dry food |
+   | Health and herbal | herbal product (with a reminder about honest claims) |
+   | Beauty | skin care, perfume/attar |
+   | Fashion | single item (panjabi, borka), several items with size chart |
+   | Gadgets | gadget with specs, demo video and warranty |
+   | Baby and kids | baby product with safety points |
+   | Other | seasonal combo (Eid, winter) with countdown, general |
+
+9. **Duplicate page**, so merchants can make campaign variants quickly.
 
 ### Edge cases
 
 - **Stock and pricing:**
-  - The landing product is out of stock or disabled: the checkout section shows "Currently unavailable", hides the form, and offers a WhatsApp contact.
+  - The sales page product is out of stock or disabled: the order form shows "Currently unavailable", hides the form, and offers a WhatsApp contact.
   - Quantity packs larger than available stock: unavailable packs are disabled.
-  - The price changed while the page was open: the checkout shows the current price before placing (phase 14 behaviour).
+  - The price changed while the page was open: the form shows the current price before placing (phase 14 behaviour).
+  - The linked product is deleted: the page goes inactive and the admin list shows a warning.
 - **Countdown:** an expired fixed countdown shows a merchant-chosen message, or hides.
+- **Two pages with the same link:** the second save is refused with a suggestion ("chia-seed-2").
 - **Attribution:**
   - UTM parameters on cached pages: the cache key ignores them (phase 17), and attribution is still recorded client-side.
   - Very long click IDs or UTM values are truncated to safe lengths.
@@ -417,27 +464,28 @@ Landing-page-specific sections and the embedded checkout (16), custom CSS (later
 
 ### Security
 
-- The funnel redirect allows same-site paths only (no open redirect).
-- UTM and click-ID values are length-limited and stored as plain text. They're escaped wherever the Dashboard shows them, which prevents stored XSS through crafted links.
-- The embedded checkout has the same rate limits, CSRF and idempotency as phase 14.
+- The thank-you redirect allows same-site paths only (no open redirect).
+- UTM and click-ID values are length-limited and stored as plain text. They're escaped wherever the admin shows them, which prevents stored XSS through crafted links.
+- The embedded order form has the same rate limits, CSRF and idempotency as phase 14.
+- No section renders raw HTML; rich text is sanitized (phase 15).
 
 ### Tests
 
-- Playwright: landing checkout with pack choice, bump on and off, a COD order, then the funnel thank-you page.
+- Playwright: create a sales page from a template and a product, edit the hero, publish, then order with a pack choice, bump on and off, COD, and reach the thank-you page.
 - Attribution saved correctly from UTM, fbclid and gclid links; last non-direct touch logic.
 - Out-of-stock behaviours for main product, packs and bump.
 - Performance: each template within the 45 KB first-party JS budget and LCP ≤ 1.5 s (throttled, local).
 
 ### Done when
 
-- [ ] A merchant clones a template, sets the product and images, and publishes it in minutes.
-- [ ] A shopper orders with a pack and an order bump on the landing page.
-- [ ] The order shows its campaign and landing page.
-- [ ] The page meets the landing page performance budget.
+- [ ] A merchant who has never built a page makes a sales page from a template and a product, and publishes it, in about 5 minutes.
+- [ ] A shopper orders with a pack and an order bump on the sales page.
+- [ ] The order shows its campaign and sales page.
+- [ ] All twelve templates meet the sales page performance budget.
 
 ### Not in this phase
 
-A/B testing (later), one-click post-purchase upsell (44), full campaign reports (41).
+A/B testing (later), one-click post-purchase upsell (44), full campaign reports (41), "someone just ordered" pop-ups, before/after slider, multi-step funnels and lead forms (later, if merchants ask).
 
 ---
 

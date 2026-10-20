@@ -18,6 +18,7 @@ Read first:
 - **Vendure is the core,** installed from npm at an exact version. Never edit `node_modules`.
   - Features are Vendure plugins in `apps/core/src/plugins/`, scaffolded with `npx vendure add` and listed in `apps/core/src/plugins/index.ts`.
   - When an extension point isn't enough, see README section 9.
+- **Merchant screens go in our own admin** (`apps/admin`, from phase 02b), which talks to Vendure's Admin API. Keep it simple: only the fields BD merchants use (see [docs/research/reference-bd-admin.md](docs/research/reference-bd-admin.md)). Vendure's Dashboard is for our support team only.
 - **Settings:** add new ones to `apps/core/src/env-schema.ts` and `apps/core/.env.example`. Read them through `env` (`src/env.ts`), never `process.env`.
 - **Bangladesh helpers live in `packages/shared`:**
   - phone numbers, taka, Bangla text, Dhaka time, encryption, idempotency

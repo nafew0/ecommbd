@@ -144,7 +144,8 @@ Buying one only to study its features and screens is fine. Don't copy its code.
 - Stock levels and allocation on order
 - Cart and checkout, with an order state machine we can customise
 - Payment, fulfilment, shipping and promotion interfaces
-- Assets, search, the job queue, the cache service, the event bus and the React dashboard
+- Assets, search, the job queue, the cache service and the event bus
+- The React Dashboard, which only our support team uses. Merchants use our own simple admin (`apps/admin`), which talks to the same Admin API, so roles and permissions stay Vendure's
 
 ### What we build as plugins
 
@@ -341,6 +342,7 @@ npm workspaces, Vendure's own tooling default. Add Turborepo once there are seve
 apps/
   core/          Vendure project from @vendure/create (one build, run per store)
     src/plugins/ our Vendure plugins (bd-checkout, bd-orders, payments-*, couriers-*, meta-capi, images, woo-import, sections, cache-purge, central-client)
+  admin/         merchant admin: React + Vite, Bangla and English, served by the core at /admin
   storefront/    Astro SSR + Preact islands, themes and sections
   central/       central system: API + admin
   agent/         deploy agent for each CloudPanel server

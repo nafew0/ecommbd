@@ -102,16 +102,16 @@ Log shipping and metrics (28), the storefront app (12), release builds (26).
 
 ---
 
-## Phase 02 — Bangladesh store defaults, geo data and store settings
+## Phase 02 — Bangladesh store defaults, geo data, store settings and the merchant admin
 
 | | |
 |---|---|
 | Milestone | M1 · Foundations |
-| Delivers | Bangladesh defaults for every new store (P0); base for addresses and shipping |
+| Delivers | Bangladesh defaults for every new store (P0); base for addresses and shipping; our own simple merchant admin (P0) |
 | Depends on | 01 |
-| Size | L |
+| Size | XL (split into 02a defaults, geo data and settings, and 02b the merchant admin) |
 
-**Goal.** Every store starts correctly set up for Bangladesh: BDT, Bangla and English, the country, tax and roles. Addresses use real divisions, districts and upazilas/thanas, so shipping, couriers and reports can rely on them.
+**Goal.** Every store starts correctly set up for Bangladesh: BDT, Bangla and English, the country, tax and roles. Addresses use real divisions, districts and upazilas/thanas, so shipping, couriers and reports can rely on them. Merchants get their own simple admin in Bangla and English, and every later phase adds its screens there.
 
 ### Decide at start
 
@@ -120,8 +120,10 @@ Log shipping and metrics (28), the storefront app (12), release builds (26).
 - **Default storefront language:** Bangla or English per store, chosen at setup. The second language is always available.
 - **Address field mapping** onto Vendure's address (`streetLine1`, `city`, `province`, `postalCode`), plus our custom fields. Check that order addresses accept the same custom fields as customer addresses in Vendure 3.8.
 - **Rounding policy** details beyond the README rule, for example whether tax-exclusive prices are allowed at all.
+- **Admin stack (02b):** React + Vite + TypeScript + Tailwind + shadcn/ui, with TanStack Query and a small GraphQL client. It's the same family as Vendure's Dashboard and the reference store's admin, so the skills carry over. Confirm, and pick the translation library.
+- **Where the admin is served:** recommended as static files from the core at `/admin` on the store's domain, the same origin as the Admin API, so the session cookie works without CORS.
 
-### Build
+### Build: defaults, geo data and settings (02a)
 
 1. **`packages/bd-geo`:**
    - Hierarchical dataset: division → district → upazila/thana, plus city corporation areas. Each unit has a stable ID (geocode), Bangla name, English name and aliases (old and alternate spellings: Chittagong/Chattogram, Comilla/Cumilla, Jessore/Jashore, Barisal/Barishal, Bogra/Bogura, Chapai Nawabganj/Chapainawabganj…).
@@ -148,10 +150,42 @@ Log shipping and metrics (28), the storefront app (12), release builds (26).
    - `districtId`, `thanaId`, `area` (free text, such as "Mirpur 10"), `landmark`, `alternatePhone`
    - Vendure's own `city` and `province` are filled from the IDs, in English, for compatibility.
    - A validation service checks that the thana belongs to the district.
-6. **Dashboard:**
+6. **Admin screens** (in the 02b admin):
    - a "Store settings" page (profile, policies, locale)
    - a district/thana picker component for any address form
 7. **Docs:** an ADR for each decision, and a note on `store:init` in the setup guide (root `README.md`).
+
+### Build: the merchant admin (02b)
+
+**Why our own admin.** Our partner wants a simple admin with only the fields BD merchants use. Vendure's Dashboard is built for complex stores and has no Bangla. The model is the admin in [reference-bd-admin.md](../research/reference-bd-admin.md): about 12 menus, one-page forms, Bangla first. Vendure stays the engine: the admin only talks to Vendure's Admin API, and all permission checks stay on the server.
+
+1. **`apps/admin`:** a React app built to static files and served by the core at `/admin`.
+2. **Sign-in** with Vendure's Admin API (the `login` mutation and a cookie session). Bangla and English errors, sign-out, and "session expired, please sign in again". Two-factor comes in phase 32.
+3. **Layout:**
+   - a left sidebar with icons that collapses, and becomes a drawer on phones
+   - page header, toasts, confirm dialogs and friendly empty states
+   - a Bangla/English switch saved per staff user
+   - a self-hosted Bangla font
+4. **Menu.** The full list is below. Each item appears when the phase that builds it ships.
+
+   | Menu | Items | Built in |
+   |---|---|---|
+   | Dashboard | Order and revenue counts (today, 7 and 30 days), waiting for confirmation, low stock, latest orders | 04, 33 |
+   | Orders | All orders, Confirm orders, Phone order, Incomplete orders, Verify payments | 04, 05, 08, 11 |
+   | Products | All products, Categories, Reviews, Stock | 05, 35 |
+   | Customers | Customers, Block list | 03, 11 |
+   | Sales pages | Landing pages with checkout | 16 |
+   | Online store | Theme, Home page, Header and footer, Menus, Pages | 12, 15 |
+   | Marketing | Coupons, Tracking (Pixel, TikTok, GTM) | 20, 35, 36 |
+   | Settings | Store, Delivery, Payments, Couriers, Checkout, Invoice, Staff | 02, 06, 07, 08, 14, 19, 32 |
+
+   No spin wheel.
+5. **Building blocks** so every later phase adds a screen quickly:
+   - **list page:** search, status tabs with counts, filters, pagination and bulk select
+   - **form page or dialog:** validation with zod and messages in both languages
+   - **inputs:** image upload, phone (using `packages/shared`), taka amount, and Dhaka date and time
+6. **Vendure's own Dashboard** stays at `/dashboard` for our support team. Merchant staff are sent to `/admin`. Hiding it is only a convenience: permissions are enforced by the server either way.
+7. **Playwright:** the Dashboard login test from phase 01 moves to the new admin. Keep one smoke test for Vendure's Dashboard.
 
 ### Edge cases
 
@@ -163,6 +197,10 @@ Log shipping and metrics (28), the storefront app (12), release builds (26).
 - **Missing translation:** product or page content without Bangla falls back to English (Vendure's language fallback).
 - **Bangla digits** in store phone numbers or settings are normalized on save.
 - **Initializer interrupted** halfway: it re-runs safely, and each step checks existence first.
+- **Admin session expires while a form is open:** the typed values stay, the admin asks to sign in again, then the save completes.
+- **Slow mobile data:** the admin shows skeletons, keeps its first load small, and loads each screen only when opened.
+- **Bangla digits typed** in number, phone and price inputs are accepted and normalized.
+- **Long Bangla labels** in the sidebar, buttons and table headers: checked at phone and desktop widths.
 
 ### Security
 
@@ -170,6 +208,11 @@ Log shipping and metrics (28), the storefront app (12), release builds (26).
 - Public/private split enforced on the server, with a test that private fields never appear in Shop API responses.
 - The logo goes through the normal asset upload; phase 09 later adds validation and re-encoding.
 - Geo queries are read-only and need no authentication; they're rate-limited like any public endpoint.
+- **Admin:**
+  - the session lives in an HTTP-only cookie, never in `localStorage`
+  - Vendure's CSRF protection is on
+  - a strict Content Security Policy applies to `/admin`
+  - the admin hides what a role can't do, but the server is what blocks it
 
 ### Tests
 
@@ -182,14 +225,17 @@ Log shipping and metrics (28), the storefront app (12), release builds (26).
   - Settings permission is enforced.
   - Private settings never leak through the Shop API.
 - **Address validation:** a thana not in the district is rejected with a Bangla/English error.
+- **Admin (Playwright):** sign in and out in Bangla and English, a wrong password, the sidebar at phone width, and editing store settings on a phone.
 
 ### Done when
 
 - [ ] A fresh database started with `npm run dev` gives a store in **BDT**, with Bangla and English, Bangladesh enabled, 0% standard tax with prices including tax, and the five roles defined.
-- [ ] The Dashboard has a Store settings page, and an address form with a district → thana picker in both languages.
+- [ ] A merchant signs in at `/admin`, switches between Bangla and English, and edits Store settings on a phone.
+- [ ] The admin has an address form with a district → thana picker in both languages.
+- [ ] Vendure's Dashboard still works at `/dashboard` for our support team.
 - [ ] `bdDistricts` and `bdThanas` work in the Shop API and are cacheable.
 - [ ] The initializer is idempotent and documented, and ADRs record the dataset source, provinces decision and address mapping.
 
 ### Not in this phase
 
-Shipping rates (07), the checkout form (14), courier area mapping (19), assigning staff to roles (32).
+Shipping rates (07), the checkout form (14), courier area mapping (19), assigning staff to roles (32), the screens behind each menu item (built in the phase listed).

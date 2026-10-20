@@ -36,5 +36,12 @@ One word per idea everywhere: storefront, Dashboard, SMS, help articles. Banglad
 | Incomplete order | অসম্পূর্ণ অর্ডার |
 | Coupon / Discount | কুপন / ছাড় |
 | Invoice | ইনভয়েস |
+| Phone order | ফোন অর্ডার |
+| Variation | ভেরিয়েশন |
+| Block list | ব্লক তালিকা |
+| Sales page (landing page) | সেলস পেজ |
+| Template | টেমপ্লেট |
+| Section | সেকশন |
+| Order now | এখনই অর্ডার করুন |
 | Store settings | স্টোর সেটিংস |
 | Dashboard | ড্যাশবোর্ড |

@@ -56,6 +56,8 @@ Every phase uses the same layout:
 | **Done when** | Acceptance checklist, demonstrated with evidence |
 | **Not in this phase** | Scope boundaries, so phases don't creep |
 
+**Words used in the phases.** *Dashboard* and *admin* mean **our merchant admin** (`apps/admin`, built in phase 02b). Vendure's own admin is always called *Vendure's Dashboard*, and only our support team uses it.
+
 **Sizes** are relative effort: **S** small, **M** medium, **L** large, **XL** very large (consider splitting when started). They are not promises of calendar time.
 
 ## Phase execution protocol
@@ -69,7 +71,7 @@ When you ask for a phase, I work through these steps:
    - If something is missing, I say so before writing code.
 3. **Decide.** Research every "Decide at start" item, then add a line to `docs/decisions.md` with the choice and the reason.
 4. **Branch.** Work on the `nafew` branch in small, reviewable commits.
-5. **Build.** Vendure plugins in `apps/core/src/plugins/`, Dashboard extensions, storefront pieces and migrations, following the [product standards](#product-standards-apply-to-every-phase).
+5. **Build.** Vendure plugins in `apps/core/src/plugins/`, merchant admin screens in `apps/admin`, storefront pieces and migrations, following the [product standards](#product-standards-apply-to-every-phase).
 6. **Prove.**
    - Tests for each listed edge case.
    - The security checklist for the phase's surface.
@@ -91,7 +93,7 @@ A phase is never marked done with failing tests, open high-severity security fin
 |---|---|---|---|
 | **M1 · Foundations** | 01–02 | CI blocks bad code. A new store starts in BDT with Bangladesh, Bangla and English, and district/thana data | 0 — Foundations |
 | **M2 · Bangladesh commerce core** | 03–11 | Through the API alone: a shopper orders by phone with COD, staff confirm, print and verify payments, the customer gets SMS, and fake orders are caught | 1 — Pilot |
-| **M3 · Storefront** | 12–17 | A shopper completes a COD checkout on a cached storefront within the performance budget; merchants edit pages and landing pages | 1 — Pilot |
+| **M3 · Storefront** | 12–17 | A shopper completes a COD checkout on a cached storefront within the performance budget; merchants edit pages and sales pages | 1 — Pilot |
 | **M4 · Payments, couriers and Meta** | 18–20 | Sandbox SSLCommerz/bKash payments, Steadfast/Pathao booking with status sync, and deduplicated Meta events | 1 — Pilot |
 | **M5 · WooCommerce migration** | 21–22 | A copy of a real WooCommerce store migrates with a clean verification report and zero broken URLs | 1 — Pilot |
 | **M6 · Platform operations** | 23–29 | On a real CloudPanel server: one command creates or updates a store, backups restore, alerts fire, and load and edge tests are decided | 0 — Foundations |
@@ -123,10 +125,10 @@ Status values: **Not started** · **In progress** · **Review** · **Done**.
 |---|---|---|---|---|---|---|
 | 00 | Engine benchmark and project setup | — | Vendure chosen, project runs | — | — | **Done** |
 | [01](m1-foundations.md#phase-01--engineering-foundation) | Engineering foundation | M1 | Enables everything | 00 | M | **Review** (branch `nafew`) |
-| [02](m1-foundations.md#phase-02--bangladesh-store-defaults-geo-data-and-store-settings) | Bangladesh store defaults, geo data and store settings | M1 | BD defaults (P0) | 01 | L | Not started |
+| [02](m1-foundations.md#phase-02--bangladesh-store-defaults-geo-data-store-settings-and-the-merchant-admin) | Bangladesh store defaults, geo data, store settings and the merchant admin | M1 | BD defaults, merchant admin (P0) | 01 | XL (02a, 02b) | Not started |
 | [03](m2-commerce-core.md#phase-03--phone-first-customers-and-guest-checkout-api) | Phone-first customers and guest checkout API | M2 | Phone checkout, customer list (P0) | 02 | M | Not started |
 | [04](m2-commerce-core.md#phase-04--bd-order-workflow-order-numbers-and-confirmation-queue) | BD order workflow, order numbers and confirmation queue | M2 | Statuses, confirmation (P0) | 03 | L | Not started |
-| [05](m2-commerce-core.md#phase-05--manual-orders-order-editing-and-stock-rules) | Manual orders, order editing and stock rules | M2 | Manual orders, stock (P0) | 04 | M | Not started |
+| [05](m2-commerce-core.md#phase-05--manual-orders-order-editing-and-stock-rules) | Manual orders, order editing and stock rules | M2 | Manual orders, stock, product screens (P0) | 04 | L | Not started |
 | [06](m2-commerce-core.md#phase-06--invoices-packing-slips-and-courier-stickers) | Invoices, packing slips and courier stickers | M2 | Bulk printing (P0) | 04 | M | Not started |
 | [07](m2-commerce-core.md#phase-07--shipping-zones-and-rates) | Shipping zones and rates | M2 | Dhaka / district rates (P0) | 02, 03 | M | Not started |
 | [08](m2-commerce-core.md#phase-08--payments-i-cod-manual-mobile-banking-and-partial-advance) | Payments I: COD, manual mobile banking, partial advance | M2 | COD, manual bKash/Nagad (P0), advance (P1) | 04, 07 | L | Not started |
@@ -137,7 +139,7 @@ Status values: **Not started** · **In progress** · **Review** · **Done**.
 | [13](m3-storefront.md#phase-13--catalog-browsing-search-and-filters) | Catalog browsing, search and filters | M3 | Categories, search, filters (P0) | 12 | M | Not started |
 | [14](m3-storefront.md#phase-14--cart-checkout-and-order-tracking) | Cart, checkout and order tracking | M3 | Buy Now, cart, one-page checkout (P0) | 03, 07, 08, 11, 12 | L | Not started |
 | [15](m3-storefront.md#phase-15--sections-themes-and-the-page-editor) | Sections, themes and the page editor | M3 | Themes, editor (P0) | 12, 13, 14 | XL | Not started |
-| [16](m3-storefront.md#phase-16--landing-pages-funnels-and-attribution) | Landing pages, funnels and attribution | M3 | Landing builder (P0), order bump (P1) | 14, 15 | L | Not started |
+| [16](m3-storefront.md#phase-16--sales-pages-landing-pages-funnels-and-attribution) | Sales pages: landing pages, funnels and attribution | M3 | Sales page builder (P0), order bump (P1) | 14, 15 | L | Not started |
 | [17](m3-storefront.md#phase-17--speed-layer-varnish-purging-and-performance-budgets) | Speed layer: Varnish, purging and budgets | M3 | Speed success criterion | 12–16 | M | Not started |
 | [18](m4-integrations.md#phase-18--online-payments-sslcommerz-and-bkash) | Online payments: SSLCommerz and bKash | M4 | SSLCommerz (P0), bKash tokenized (P1) | 08, 14 | L | Not started |
 | [19](m4-integrations.md#phase-19--couriers-i-steadfast-and-pathao) | Couriers I: Steadfast and Pathao | M4 | Courier booking and sync (P0) | 04, 06, 08 | L | Not started |
@@ -154,7 +156,7 @@ Status values: **Not started** · **In progress** · **Review** · **Done**.
 | [30](m7-pilot.md#phase-30--security-hardening-i-pre-pilot) | Security hardening I (pre-pilot) | M7 | Safety for real customers | 03–29 | M | Not started |
 | [31](m7-pilot.md#phase-31--pilot-migrate-and-run-the-first-store-for-30-days) | Pilot: first store live for 30 days | M7 | MVP success criteria | 30 | L | Not started |
 | [32](m8-launch.md#phase-32--staff-roles-two-factor-sessions-and-activity-log) | Staff roles, two-factor, sessions and activity log | M8 | Roles, activity log (P1) | 30 | L | Not started |
-| [33](m8-launch.md#phase-33--woocommerce-style-dashboard-and-bangla-translation) | WooCommerce-style Dashboard and Bangla translation | M8 | Bangla dashboard (P1), familiar admin for WooCommerce users | 32 | XL | Not started |
+| [33](m8-launch.md#phase-33--simple-admin-bangla-review-mobile-and-onboarding) | Simple admin: Bangla review, mobile and onboarding | M8 | Bangla admin reviewed by merchants (P1), onboarding | 32 | M | Not started |
 | [34](m8-launch.md#phase-34--customer-accounts-phone-otp-login-and-shopper-privacy) | Customer accounts: phone OTP login and privacy | M8 | Customer login (P1) | 10, 14, 22 | M | Not started |
 | [35](m8-launch.md#phase-35--merchandising-extras-coupons-reviews-bulk-edit-alerts-and-custom-scripts) | Merchandising extras | M8 | Coupons, reviews, bulk edit, CSV, low stock, scripts (P1) | 10, 14, 22 | L | Not started |
 | [36](m8-launch.md#phase-36--marketing-integrations-and-product-feeds) | Marketing integrations and product feeds | M8 | GA4, TikTok, GTM, Meta catalog (P1) | 20 | M | Not started |
@@ -283,7 +285,7 @@ OWASP ASVS Level 2 is the reference. Every phase applies:
 
 ### Versioning and releases
 
-- One version number for the whole product. Core, Dashboard and storefront always ship together to a store.
+- One version number for the whole product. Core, admin and storefront always ship together to a store.
 - `CHANGELOG.md` uses the Keep a Changelog format; merchant-facing notes appear in the Dashboard's "What's new".
 - **Expand and contract migrations:** a release may add tables and columns. Removing or renaming happens only in a later release, once no running version uses them. Review checks this, so any store can roll back one release without restoring its database.
 - Feature flags (per store) gate risky or plan-specific features. They default on for internal test stores first.
@@ -298,13 +300,13 @@ Every feature in [mvp-spec.md](../mvp-spec.md) section 4 maps to a phase.
 | Custom domain with automatic SSL | P0 | 24, 40 |
 | Storefront in Bangla and English | P0 | 12 |
 | Bangladesh defaults for every new store | P0 | 02 |
-| Merchant dashboard with BD pages | P0 | 04, 05, 06, 11, 19 (pages); 33 (polish) |
-| Dashboard in Bangla | P1 | 33 |
+| Merchant admin of our own, Bangla and English | P0 | 02b (app and menu); 03, 04, 05, 06, 11, 19 (screens) |
+| Admin reviewed by Bangla-only merchants, onboarding | P1 | 33 |
 | Staff accounts with roles | P1 | 32 (roles defined early in 02) |
 | Subscription billing | P1 | 39 |
 | Merchant data export | P1 | 27 |
 | Backups, uptime, security patches | P0 | 23, 26, 27, 28, 30 |
-| Simple and variable products | P0 | Vendure core; weight in 07; SEO fields in 12 |
+| Simple and variable products | P0 | Vendure core; product screens in 05; weight in 07; SEO fields in 12 |
 | WebP image compression | P0 | 09 |
 | Categories and tags | P0 | 13 |
 | Search and filters | P0 | 13 |
@@ -312,7 +314,7 @@ Every feature in [mvp-spec.md](../mvp-spec.md) section 4 maps to a phase.
 | Bulk edit, CSV import/export | P1 | 35 |
 | Product reviews | P1 | 35 (imported in 22) |
 | Themes with settings | P0 | 15 |
-| Landing page builder with embedded checkout | P0 | 16 |
+| Sales page builder (landing pages) with embedded checkout | P0 | 16 |
 | Buy Now and slide-out cart | P0 | 14 |
 | WhatsApp / Messenger / call button | P0 | 12 |
 | Static pages and menus | P0 | 12 |

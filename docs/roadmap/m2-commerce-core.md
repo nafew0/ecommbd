@@ -3,7 +3,7 @@
 > Phases 03–11 · [Roadmap overview](README.md)
 > **Exit criteria:** through the API alone, a shopper orders by phone with COD; staff confirm, print and verify payments; the customer gets SMS; and fake orders are caught.
 
-All work in this milestone is Vendure plugins in `apps/core/src/plugins/` plus Dashboard extensions. The storefront comes in M3, so flows here are proven through API end-to-end tests and the Dashboard.
+All work in this milestone is Vendure plugins in `apps/core/src/plugins/` plus screens in our merchant admin (`apps/admin`, phase 02b). The storefront comes in M3, so flows here are proven through API end-to-end tests and the admin.
 
 ---
 
@@ -135,10 +135,12 @@ The checkout UI (14), OTP (11 and 34), incomplete-order capture (11).
    - **Claiming:** opening an order claims it for 5 minutes and shows "Rahim is calling" to others, so two people don't call the same customer.
    - Optional **auto-cancel suggestion** (store setting, off by default): unconfirmed after N days with M failed calls. It only suggests, and never cancels by itself unless the merchant turns that on.
 5. **Optimistic locking** on transitions. If two staff act on the same order, the second sees "Already confirmed by Karim 1 minute ago" instead of a double transition.
-6. **Order list** (Dashboard data table extensions):
-   - columns: order number, phone, district, BD status, payment type
+6. **Order list** (admin list page):
+   - columns: order number, customer name, phone, district, BD status, payment type, total, date
+   - status tabs with counts ("All (120) · New (12) · Confirmed (5) …")
    - filters: status, Dhaka-time date range, district, payment type
    - search by phone, order number or name
+   - **order detail page:** items, customer, address, payment, delivery charge, notes, status history and the actions for the current status
 7. **Home widgets:** today's orders and sales (Dhaka day), waiting for confirmation, and confirmed but not packed.
 8. **Events** on Vendure's event bus for later phases: `OrderConfirmed`, `OrderPacked`, `OrderReturned`, `OrderCancelledWithReason`, each with the acting staff member.
 9. **Imported-order flag** (`imported = true`). Imported orders never fire these events (used from phase 21).
@@ -189,11 +191,11 @@ Editing orders (05), printing (06), courier booking and automatic Shipped/Delive
 | | |
 |---|---|
 | Milestone | M2 |
-| Delivers | Manual order entry (P0), stock deduction (P0) |
+| Delivers | Manual order entry (P0), stock deduction (P0), product and category screens (P0) |
 | Depends on | 04 |
-| Size | M |
+| Size | L |
 
-**Goal.** Staff enter orders taken by phone, Messenger or WhatsApp in under a minute; fix orders before they ship; and stock never oversells.
+**Goal.** Staff add products on one simple page; enter orders taken by phone, Messenger or WhatsApp in under a minute; fix orders before they ship; and stock never oversells.
 
 ### Build
 
@@ -217,10 +219,21 @@ Editing orders (05), printing (06), courier booking and automatic Shipped/Delive
    - Per-variant **allow backorders** (pre-orders), off by default.
    - Stock adjustments with a reason (recount, damaged, gift) in the history.
 4. **Edit history:** every change records the user, time, and before/after values, visible on the order.
+5. **Product screens** (admin), on Vendure's products, variants and collections. The fields follow [reference-bd-admin.md](../research/reference-bd-admin.md#product-form-one-page-opens-as-a-dialog):
+   - **Product list:** image, name, category, price with the old price struck through, stock, Featured and New badges, search, and edit, duplicate and delete actions.
+   - **Product form on one page:**
+     - name in Bangla and English, main image, gallery, customer-feedback images (review screenshots)
+     - price, old price, stock, category, short and full description, YouTube link, Featured and New switches
+     - **delivery for this product:** free delivery, or its own inside/outside Dhaka charges (used by phase 07)
+     - **variations:** size, colour, pack or custom, each with price, stock, image and a default
+     - a collapsed **More** part for SKU, weight, tags and SEO, so beginners never need it
+   - **Categories:** name in both languages, image, parent and order.
+   - **Stock:** a list of variants with quantity and low-stock highlight, and quick adjustment with a reason.
 
 ### Edge cases
 
 - Abandoned draft orders: deleted automatically after 7 days.
+- A product saved without a Bangla name: the English name is used everywhere, and the list shows a "Bangla missing" hint.
 - A manual order for an existing customer with a new address doesn't overwrite saved addresses unless staff choose "save to customer".
 - Editing an order that's already booked with a courier: blocked with "Cancel the courier booking first". The hook is added here; phase 19 calls it.
 - Editing an order with promotions: promotions re-evaluate. If a coupon no longer qualifies, keep the original discount unless staff remove it, and show a warning.
@@ -243,7 +256,8 @@ Editing orders (05), printing (06), courier booking and automatic Shipped/Delive
 
 ### Done when
 
-- [ ] Staff create a Messenger order in under a minute in the Dashboard.
+- [ ] Staff add a product with three variations and a gallery on one page, on a phone.
+- [ ] Staff create a Messenger order in under a minute in the admin.
 - [ ] Editing a confirmed order recalculates totals, updates the COD amount and records before/after values.
 - [ ] The concurrency test proves no overselling.
 
@@ -345,6 +359,7 @@ Courier consignment barcodes (added when phase 19 lands), email invoices (later)
    - district and thana overrides
    - weight surcharge: per extra kg above a threshold, using the variant field `weightGrams`
    - per-product flat surcharge (heavy or fragile items)
+   - **per-product delivery charges:** a product can have its own inside-Dhaka and outside-Dhaka charge, set in the product form (phase 05). Blank means the store default. With several products in one cart, the highest charge applies (confirm with the partner).
    - free shipping above a subtotal per zone, plus free-shipping products or collections
 3. **Methods:** Standard (default), Express (optional, own rates, typically Dhaka only), and Store pickup (৳0, optional).
 4. **Eligibility checker:**
@@ -683,6 +698,7 @@ Central SMS gateway, credit purchase and failover provider (38), abandoned-check
    - maximum orders per phone per 24 hours (default 3)
    - per session
    - duplicate-cart detection
+   - **duplicate-order block:** after an order, the same phone can't order again for N minutes (1 to 1,440, off by default). The shopper sees the merchant's message and a WhatsApp button instead of an error.
 5. **Own-store risk score** per order, with reasons shown as a badge in the confirmation queue (for example "2 returns, 1 fake order before"). Inputs:
    - this phone's history in this store (delivered, returned, cancelled as fake)
    - velocity

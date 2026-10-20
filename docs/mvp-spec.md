@@ -49,8 +49,8 @@ The MVP is done when a pilot merchant has been migrated from WooCommerce and has
 | Custom domain with automatic SSL | P0 | Merchant adds one CNAME record |
 | Storefront in Bangla and English | P0 | |
 | Bangladesh defaults for every new store: BDT currency, Bangladesh as the country, Bangla + English, inside/outside Dhaka shipping zones, tax setup | P0 | Vendure's default store starts in USD and English with no countries, zones or tax |
-| Merchant dashboard: Vendure's Dashboard, extended with our BD pages (order confirmation, couriers, incomplete orders) | P0 | English for the pilot |
-| Dashboard in Bangla: translation of Vendure's Dashboard and our pages | P1 | |
+| Merchant admin of our own: simple, phone-friendly, Bangla and English, on Vendure's Admin API. Only the fields BD merchants use ([reference](research/reference-bd-admin.md)) | P0 | Vendure's Dashboard stays for our support team |
+| Admin reviewed by Bangla-only merchants, onboarding checklist | P1 | |
 | Staff accounts with roles (owner, manager, order staff) | P1 | Owner only in P0 |
 | Subscription billing (bKash / card) | P1 | |
 | Merchant data export (CSV / JSON) | P1 | Answers the lock-in fear |
@@ -73,7 +73,7 @@ The MVP is done when a pilot merchant has been migrated from WooCommerce and has
 | Feature | Priority | Notes |
 |---|---|---|
 | Fast mobile-first themes (2 to start) with settings: logo, colours, fonts, menus | P0 | No code editing |
-| Landing page builder with sections: hero, benefits, video, testimonials, FAQ, countdown, **embedded checkout** | P0 | Replaces Elementor + CartFlows |
+| **Sales page builder** (landing pages): pick a Bangla template and a product, switch sections on and off, edit texts, colours and fonts with a live phone preview, **embedded checkout** | P0 | Replaces Elementor + CartFlows. Sections include hero, checklist, video, review screenshots, comparison, offer box, countdown, FAQ, call/WhatsApp |
 | Buy Now (straight to checkout) and slide-out cart | P0 | Replaces Buy-Now button, modern-cart |
 | WhatsApp / Messenger / call floating button | P0 | Replaces chaty |
 | Static pages (about, policies) and menus | P0 | |

@@ -37,7 +37,7 @@ The pilot (M7) will reshuffle priorities. Re-read each phase against the pilot r
    - mandatory for owners and optional per store for other roles (a store setting can make it mandatory)
    - recovery codes (shown once, stored hashed)
    - "remember this device for 30 days" using a signed cookie
-   - built with the Dashboard's **login extension point** plus a custom authentication strategy step
+   - built into our admin's sign-in page (phase 02b) plus a custom authentication strategy step on the server
 4. **Sessions:**
    - list of active sessions per user with device and approximate location; revoke one or all
    - idle timeout 12 hours, absolute 7 days
@@ -85,126 +85,88 @@ Single sign-on (not planned); our own staff's support access (43).
 
 ---
 
-## Phase 33 — WooCommerce-style Dashboard and Bangla translation
+## Phase 33 — Simple admin: Bangla review, mobile and onboarding
 
 | | |
 |---|---|
 | Milestone | M8 |
-| Delivers | Dashboard in Bangla (P1); an admin that feels familiar to WooCommerce users; merchant-friendly navigation and onboarding |
+| Delivers | Admin in Bangla, reviewed by real merchants (P1); onboarding for new merchants; mobile polish |
 | Depends on | 32 |
-| Size | XL (split into 33a WooCommerce-style layout and lists, and 33b Bangla, mobile and onboarding) |
+| Size | M |
 
-**Goal.** A merchant moving from WooCommerce finds their way around without training, because the menus, words, lists and workflows match what they know. A merchant who reads only Bangla can run their whole business from the Dashboard, on a phone.
+**Goal.** A merchant who reads only Bangla, and has never used WooCommerce, runs the whole business from the admin on a phone without training.
 
-**Timing option.** Part 33a only needs Vendure's Dashboard extension points, not phase 32's roles. Consider building it **before the pilot**, right after phase 22, because the pilot merchant's staff come straight from WooCommerce. Decide when planning the pilot.
+**Change of plan (2026-10-21).** This phase used to reskin Vendure's Dashboard to look like WooCommerce. Our partner asked for a simpler admin instead. So we build our own from phase 02b, modelled on [reference-bd-admin.md](../research/reference-bd-admin.md), and each phase adds its own screens. This phase reviews and polishes the whole admin before public launch.
 
 ### Decide at start
 
-- **How close to go:** match WooCommerce's menu structure, terms, list columns and workflows, plus a dark WordPress-style sidebar. Don't attempt a pixel-identical copy of the WordPress admin, which would need our own admin app and lose Vendure's Dashboard updates.
-- **Branding:** "WooCommerce" and its logo are Automattic's trademarks. Copy the layout and vocabulary, but never use their name, logo or exact brand colours in our UI.
-- **Pages to replace, if any:** start by extending Vendure's own pages. Replace a page with our own only when it can't be bent far enough, with an ADR for each, because replaced pages don't receive Vendure's improvements.
+- **Who tests:** 5 merchants, at least 2 who read only Bangla and at least 2 coming from WooCommerce.
+- **Which words change** after a native-speaker merchant reviews [glossary.md](../glossary.md).
 
-### Build: WooCommerce-style layout (33a)
+### Build
 
-All of this uses Dashboard extension points, with **no edits to Vendure's code**:
-
-- theme tokens and an additional stylesheet for the look
-- the navigation function for menus
-- data table extensions (`extendListDocument`, display components, default view options, bulk actions) for lists
-- detail form and page block extensions for editors
-- extra routes for replacement pages
-
-1. **Look:** a dark left sidebar with a highlighted active section and white content area, similar to WordPress. Built from theme colour tokens plus a small, scoped stylesheet; keep the CSS minimal so Vendure upgrades rarely break it.
-2. **Menu structure and words** that mirror WooCommerce's (in Bangla and English), each item pointing to a Vendure page, one of ours, or a later phase:
-
-   | Menu | Items | Built on |
-   |---|---|---|
-   | Dashboard | Home widgets | Phases 04, 19 |
-   | Orders | All orders, Add order, Confirm orders, Incomplete orders, Verify payments, Returns | Vendure orders + phases 04, 05, 08, 11, 37 |
-   | Products | All products, Add new product, Categories, Tags, Attributes, Brands (if adopted), Reviews, Stock | Vendure products, collections ("Categories"), facets ("Tags", "Brands"), option groups ("Attributes") + phase 35 |
-   | Customers | All customers, Blocked phones | Vendure customers + phases 03, 11 |
-   | Payments | Methods and gateways | Phases 08, 18 |
-   | Delivery | Couriers, Delivery charges | Phases 07, 19 (BD merchants need this top-level; WooCommerce hides shipping under Settings) |
-   | Analytics | Overview, Revenue, Orders, Products, Categories, Coupons, Stock, Campaigns | Phase 41, structured like WooCommerce Analytics |
-   | Marketing | Coupons, Pixel and tracking, Product feeds, SMS | Phases 10, 20, 35, 36 |
-   | Appearance | Themes, Pages, Landing pages, Menus | Phases 12, 15, 16 |
-   | Settings | Store, Checkout, Staff, Domains, Billing | Phases 02, 03, 32, 39, 40 |
-
-   Vendure's own terms are renamed in the merchant view: Collections → Categories, Facets → Tags/Brands, Option groups → Attributes, Administrators → Staff, Promotions → Coupons.
-3. **"All products" list** with WooCommerce's columns:
-   - checkbox, thumbnail, **name with row actions** (Edit · Quick edit · Duplicate · Delete · View)
-   - SKU, **stock status** ("In stock" in green, "Out of stock", "On backorder", with quantity)
-   - **price with the regular price struck through and the sale price** (`৳1,500.00` struck, `৳1,350.00`), and price ranges for variable products
-   - categories, tags, brand, a **featured star** toggle (a product custom field), and **date** ("Published" / "Last modified")
-   - **filters:** category, stock status, product type
-   - **bulk actions:** edit price and stock, publish or draft, delete
-   - **Quick edit:** change price, sale price, stock and status inline, without opening the product
-4. **"All orders" list** like WooCommerce's:
-   - order number with customer name, date, status chip, total
-   - **status tabs with counts** ("All (120) | New (12) | Confirmed (5) | …")
-   - a quick-view preview of the order
-   - our BD columns: phone, district, payment type, courier
-5. **Product editor grouping** familiar to WooCommerce users: General (price, sale price), Inventory (SKU, stock), Shipping (weight), Attributes, Variations, Linked products. Use page block and form extensions to group Vendure's fields; don't replace the editor.
-
-### Build: Bangla, mobile and onboarding (33b)
-
-1. **Bangla translation of Vendure's Dashboard:**
-   - Vendure ships Lingui `.po` files for many languages, but **no Bangla**, so we create `bn.po` for every Dashboard string
-   - add our own extensions' strings
-   - follow the glossary (`docs/glossary.md`)
-   - **contribute `bn.po` upstream to Vendure**: this saves us maintaining it, and it's good for the community
-2. **Language switch** per staff user (Bangla or English).
-3. **Simplified navigation for merchants:**
-   - Using the Dashboard's navigation extension function, **hide advanced Vendure areas**: channels, sellers, zones and countries, tax rates, job queue, system settings, raw promotions.
-   - Merchant roles see BD-friendly section names; our own support role sees everything.
-4. **Mobile layouts** for what owners do on their phones: confirmation queue, order detail, incomplete orders, payment verification, home widgets.
-5. **Onboarding checklist** widget on the home page, with progress:
+1. **Simplicity pass** over every screen:
+   - remove or fold away fields nobody used during the pilot (phase 31 notes)
+   - keep advanced fields under a collapsed "More"
+   - one main action per screen
+2. **Home dashboard** (finishing phase 04's widgets):
+   - orders and revenue for today, 7 days and 30 days (Dhaka days)
+   - waiting for confirmation, incomplete orders, low stock, the latest 5 orders
+   - shortcuts: Add product, Phone order, New sales page
+3. **Words:** every label checked against the reviewed glossary, in both languages. Merchant words, not Vendure's: Categories (not collections), Coupons (not promotions), Staff (not administrators).
+4. **Mobile pass** for what owners do on phones: confirm orders, order detail, phone order, incomplete orders, verify payments, add a product, home dashboard.
+5. **Onboarding checklist** on the home page, with progress:
    - add logo
    - add first product
    - set delivery charges
    - choose payment methods
    - connect a courier
    - connect the Pixel
+   - make a sales page
    - connect a domain
    - place a test order
-6. **Help links** next to each page (pointing to the Bangla help center, phase 43), and "What's new" from phase 26.
-7. **Bangla number display** option in tables and charts.
+6. **Help links** on each screen (pointing to the Bangla help center, phase 43), and "What's new" from phase 26.
+7. **Bangla digits** option for numbers, money and dates in tables and charts.
+8. **"Coming from WooCommerce?"** help page that maps WooCommerce menus and words to ours.
 
 ### Edge cases
 
 - Missing translations fall back to English, never to a blank or a raw key.
-- Long Bangla strings in buttons, tabs and table headers: layouts checked at mobile and desktop widths.
-- Bangla digits in tables, money and dates when chosen, while inputs still accept both.
-- A Vendure upgrade adds new strings: a CI report lists untranslated strings.
-- **A Vendure Dashboard upgrade changes its markup or class names** and breaks our styling: overrides stay token-based and minimal, and visual regression snapshots of the key pages run on every Vendure upgrade.
-- **Concepts that don't map one-to-one:** Vendure collections can be automatic (rule-based), while WooCommerce categories are manual. The Categories page shows manual collections; automatic ones are listed separately as "Smart categories".
-- **Big catalogues:** extra list columns add query cost. Test the products list with 5,000 products and 50 variants on some, at page sizes 20, 50 and 100.
-- **Quick edit conflicts:** two staff edit the same product at once. The second save sees "changed by Rahim just now" instead of silently overwriting.
-- **Variable products** in the list: show a price range and a combined stock status ("In stock (3 of 4 variants)").
+- Bangla digits shown in tables, while inputs still accept both.
+- Long Bangla strings checked at phone and desktop widths.
+- A later phase adds strings: a CI report lists any string missing in either language.
 
 ### Security
 
-- Hiding navigation isn't security. The backend permission checks from phase 32 already block hidden areas for merchant roles; tests confirm it.
-- Quick edit and bulk actions use the same permissions as the full editor, and are recorded in the activity log.
+- Hiding a menu isn't security. The server's permission checks (phase 32) block hidden areas for each role, and tests confirm it.
+- Our admin doesn't link to Vendure's Dashboard. A merchant who opens it anyway sees only what their role allows.
 
 ### Tests
 
-- Translation coverage report: at least 95% of visible strings, enforced in CI.
-- Playwright at phone width for the key pages, in Bangla.
+- Translation coverage: every admin string exists in both languages, enforced in CI.
+- Playwright at phone width for the key screens, in Bangla.
 - Layout overflow checks with long strings.
-- Visual regression snapshots of the menu, products list, orders list and product editor, in both languages.
-- **WooCommerce familiarity test:** 5 people who use WooCommerce daily each complete 10 common tasks without training, timed. The tasks include: find a product, change its sale price with quick edit, filter out-of-stock products, see New orders, add a category.
+- **Merchant test:** 5 merchants each complete 10 common tasks without training, timed:
+  - add a product with variations
+  - confirm an order
+  - enter a phone order
+  - recover an incomplete order
+  - book a courier
+  - print invoices
+  - make a sales page
+  - change delivery charges
+  - find an order by phone
+  - add a staff member
 
 ### Done when
 
-- [ ] The menu, products list, orders list and product editor follow the WooCommerce structure above, with no changes to Vendure's own code.
-- [ ] In the familiarity test, WooCommerce users complete at least 9 of 10 tasks without help.
+- [ ] In the merchant test, each merchant completes at least 9 of 10 tasks without help.
 - [ ] A Bangla-only tester completes a day of operations from a phone without English: confirm, print, book, verify payment and recover incomplete orders.
-- [ ] Translation coverage is at least 95%, and the `bn.po` contribution is submitted upstream.
+- [ ] Every admin string exists in Bangla and English.
 
 ### Not in this phase
 
-The help center content (43), the native mobile app (48).
+The help center content (43), the native mobile app (48), translating Vendure's own Dashboard (not needed: only our team uses it).
 
 ---
 
