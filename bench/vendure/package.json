@@ -1,0 +1,22 @@
+{
+  "name": "vendure-bench",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "populate": "node dist/populate.js",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@vendure/asset-server-plugin": "3.8.0",
+    "@vendure/core": "3.8.0",
+    "@vendure/create": "3.8.0",
+    "@vendure/job-queue-plugin": "3.8.0",
+    "bullmq": "^5.0.0",
+    "ioredis": "^5.0.0",
+    "pg": "^8.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "~5.8.0"
+  }
+}

@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: bench
+      POSTGRES_PASSWORD: bench
+      POSTGRES_DB: bench
+    ports:
+      - "55432:5432"
+    command: ["postgres", "-c", "max_connections=200", "-c", "shared_buffers=512MB"]
+  redis:
+    image: redis:7.4-alpine
+    ports:
+      - "56379:6379"

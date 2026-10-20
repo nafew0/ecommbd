@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+.DS_Store
+*.log
+
+# Benchmark build output and sample data (bench/ stays reproducible from its sources)
+bench/medusa/.medusa
+bench/vendure/static
+bench/results/*.server.log
+bench/results/*-smoke.*
+bench/vendure/.vendure

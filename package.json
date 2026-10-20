@@ -1,0 +1,21 @@
+{
+  "name": "ecommbd",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "services:up": "docker compose up -d",
+    "services:down": "docker compose stop",
+    "dev": "npm run dev -w @ecommbd/core",
+    "build": "npm run build -w @ecommbd/core",
+    "start": "npm run start -w @ecommbd/core",
+    "migrate:generate": "npm exec -w @ecommbd/core -- vendure migrate -g",
+    "migrate:run": "npm exec -w @ecommbd/core -- vendure migrate -r",
+    "doctor": "npm exec -w @ecommbd/core -- vendure doctor"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
