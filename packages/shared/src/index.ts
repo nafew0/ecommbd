@@ -7,6 +7,7 @@ export * from './idempotency';
 export * from './money';
 export * from './order-settings';
 export * from './order-status';
+export * from './payments';
 export * from './phone';
 export * from './placeholder-email';
 export * from './rate-limit';

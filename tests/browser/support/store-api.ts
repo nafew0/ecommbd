@@ -99,6 +99,8 @@ export interface PhoneOrderInput {
     note?: string;
     /** Stop after the customer step: the shopper is known but no order is placed. */
     customerOnly?: boolean;
+    /** How the shopper pays (default: the test payment, authorized like COD). */
+    payment?: { method: string; metadata: Record<string, unknown> };
 }
 
 /** A shopper's phone checkout through the Shop API (a new session). Returns the order code. */
@@ -150,9 +152,13 @@ export async function placePhoneOrder(input: PhoneOrderInput): Promise<string> {
     if (transitionOrderToState?.transitionError) {
         throw new Error(transitionOrderToState.transitionError);
     }
-    await shop.query(
-        `mutation { addPaymentToOrder(input: { method: "playwright-payment", metadata: {} }) {
+    const { addPaymentToOrder } = await shop.query(
+        `mutation ($input: PaymentInput!) { addPaymentToOrder(input: $input) {
             ... on Order { code } ... on ErrorResult { message } } }`,
+        { input: input.payment ?? { method: 'playwright-payment', metadata: {} } },
     );
+    if (addPaymentToOrder.message) {
+        throw new Error(`addPaymentToOrder: ${addPaymentToOrder.message}`);
+    }
     return addItemToOrder.code as string;
 }

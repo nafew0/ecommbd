@@ -131,7 +131,10 @@ export function DeliverySettingsPage() {
                                                 set({
                                                     standard: {
                                                         ...draft.standard,
-                                                        rates: { ...draft.standard.rates, [zone]: value ?? 0 },
+                                                        rates: {
+                                                            ...draft.standard.rates,
+                                                            [zone]: value ?? 0,
+                                                        },
                                                     },
                                                 })
                                             }
@@ -182,7 +185,10 @@ export function DeliverySettingsPage() {
                                                         disabled={!canEdit}
                                                         onChange={value =>
                                                             set({
-                                                                freeAbove: { ...draft.freeAbove, [zone]: value },
+                                                                freeAbove: {
+                                                                    ...draft.freeAbove,
+                                                                    [zone]: value,
+                                                                },
                                                             })
                                                         }
                                                     />
@@ -295,7 +301,8 @@ export function DeliverySettingsPage() {
                                         <ul className="mt-2 list-disc pl-5">
                                             {missingWeight.data.items.map(item => (
                                                 <li key={item.variantId}>
-                                                    {item.name} <span className="text-amber-700">({item.sku})</span>
+                                                    {item.name}{' '}
+                                                    <span className="text-amber-700">({item.sku})</span>
                                                 </li>
                                             ))}
                                         </ul>
@@ -368,7 +375,9 @@ export function DeliverySettingsPage() {
                                                         codFee: {
                                                             ...draft.codFee,
                                                             percent: Number(
-                                                                banglaToAsciiDigits(event.target.value.trim()) || 0,
+                                                                banglaToAsciiDigits(
+                                                                    event.target.value.trim(),
+                                                                ) || 0,
                                                             ),
                                                         },
                                                     })
@@ -510,7 +519,10 @@ function Overrides({
             {value.length > 0 && (
                 <ul className="divide-y divide-slate-200 rounded-md border border-slate-200">
                     {value.map((override, index) => (
-                        <li key={`${override.kind}:${override.id}`} className="flex items-center gap-3 px-3 py-2">
+                        <li
+                            key={`${override.kind}:${override.id}`}
+                            className="flex items-center gap-3 px-3 py-2"
+                        >
                             <span className="min-w-0 flex-1">
                                 {override.kind === 'district' ? (
                                     <DistrictName districtId={override.id} />

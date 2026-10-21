@@ -491,7 +491,9 @@ describe('payment guard', () => {
         await pickup(true);
         try {
             await chooseDelivery(shopClient);
-            const { transitionOrderToState } = await shopClient.query(TRANSITION, { state: 'ArrangingPayment' });
+            const { transitionOrderToState } = await shopClient.query(TRANSITION, {
+                state: 'ArrangingPayment',
+            });
             expect(transitionOrderToState.transitionError).toBe(
                 'Add a delivery address with district and thana before payment.',
             );

@@ -66,10 +66,12 @@ describe('shipping settings', () => {
             ok: false,
             errors: [{ path: 'overrides.1.id', code: 'invalid' }],
         });
-        expect(parseShippingSettings({ ...settings, coverage: { ...settings.coverage, zones: [] } })).toEqual({
-            ok: false,
-            errors: [{ path: 'coverage.zones', code: 'required' }],
-        });
+        expect(parseShippingSettings({ ...settings, coverage: { ...settings.coverage, zones: [] } })).toEqual(
+            {
+                ok: false,
+                errors: [{ path: 'coverage.zones', code: 'required' }],
+            },
+        );
     });
 });
 
@@ -98,7 +100,9 @@ describe('quoteDelivery: standard', () => {
 
     it('uses the zone rate for an empty cart and for an address without a district ID', () => {
         expect(price(settings, { lines: [] })).toBe(tk(60));
-        expect(price(settings, { zone: 'outside_dhaka', districtId: undefined, thanaId: undefined })).toBe(tk(120));
+        expect(price(settings, { zone: 'outside_dhaka', districtId: undefined, thanaId: undefined })).toBe(
+            tk(120),
+        );
     });
 
     it('has no charge without a usable district', () => {
@@ -174,7 +178,10 @@ describe('quoteDelivery: standard', () => {
             ...settings,
             coverage: { zones: ['dhaka_city'], districtIds: [], maxWeightGrams: 5000 },
         };
-        expect(quote(insideOnly, { zone: 'outside_dhaka' })).toEqual({ ok: false, reason: 'NOT_DELIVERED_HERE' });
+        expect(quote(insideOnly, { zone: 'outside_dhaka' })).toEqual({
+            ok: false,
+            reason: 'NOT_DELIVERED_HERE',
+        });
         expect(quote(insideOnly, { lines: [line({ weightGrams: 5001 })] })).toEqual({
             ok: false,
             reason: 'TOO_HEAVY',
@@ -185,7 +192,10 @@ describe('quoteDelivery: standard', () => {
             coverage: { ...settings.coverage, districtIds: ['BD3026'] },
         };
         expect(price(someDistricts)).toBe(tk(60));
-        expect(quote(someDistricts, { districtId: undefined })).toEqual({ ok: false, reason: 'NOT_DELIVERED_HERE' });
+        expect(quote(someDistricts, { districtId: undefined })).toEqual({
+            ok: false,
+            reason: 'NOT_DELIVERED_HERE',
+        });
         expect(quote(someDistricts, { zone: 'outside_dhaka', districtId: 'BD5081' })).toEqual({
             ok: false,
             reason: 'NOT_DELIVERED_HERE',
@@ -226,7 +236,12 @@ describe('quoteDelivery: express and pickup', () => {
 describe('freeDeliveryRemaining', () => {
     const settings: ShippingSettings = {
         ...defaultShippingSettings(),
-        freeAbove: { dhaka_city: tk(2000), dhaka_suburb: null, chattogram_city: null, outside_dhaka: tk(3000) },
+        freeAbove: {
+            dhaka_city: tk(2000),
+            dhaka_suburb: null,
+            chattogram_city: null,
+            outside_dhaka: tk(3000),
+        },
     };
 
     it('says how much more to spend', () => {

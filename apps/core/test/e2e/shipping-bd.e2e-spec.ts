@@ -262,7 +262,12 @@ describe('default delivery charges', () => {
 describe('free delivery threshold', () => {
     it('is free from the threshold, says how much is left, and comes back below it', async () => {
         await saveSettings({
-            freeAbove: { dhaka_city: tk(2000), dhaka_suburb: null, chattogram_city: null, outside_dhaka: null },
+            freeAbove: {
+                dhaka_city: tk(2000),
+                dhaka_suburb: null,
+                chattogram_city: null,
+                outside_dhaka: null,
+            },
         });
         await cart({ districtId: DHAKA, thanaId: MIRPUR });
         let { activeOrder } = await shopClient.query(ACTIVE_ORDER);
@@ -295,7 +300,12 @@ describe('methods', () => {
         await saveSettings({
             express: {
                 enabled: true,
-                rates: { dhaka_city: tk(120), dhaka_suburb: null, chattogram_city: null, outside_dhaka: null },
+                rates: {
+                    dhaka_city: tk(120),
+                    dhaka_suburb: null,
+                    chattogram_city: null,
+                    outside_dhaka: null,
+                },
             },
             pickup: { enabled: true },
         });
@@ -334,14 +344,19 @@ describe('methods', () => {
 describe('product delivery fields', () => {
     it('uses the product’s own charges and free delivery', async () => {
         await adminClient.query(UPDATE_PRODUCT, {
-            input: { id: 'T_1', customFields: { deliveryInsideDhaka: tk(80), deliveryOutsideDhaka: tk(150) } },
+            input: {
+                id: 'T_1',
+                customFields: { deliveryInsideDhaka: tk(80), deliveryOutsideDhaka: tk(150) },
+            },
         });
         await cart({ districtId: DHAKA, thanaId: MIRPUR });
         expect(await prices()).toEqual([['bd-standard', tk(80)]]);
         await cart({ districtId: RAJSHAHI, thanaId: PABA });
         expect(await prices()).toEqual([['bd-standard', tk(150)]]);
 
-        await adminClient.query(UPDATE_PRODUCT, { input: { id: 'T_1', customFields: { freeDelivery: true } } });
+        await adminClient.query(UPDATE_PRODUCT, {
+            input: { id: 'T_1', customFields: { freeDelivery: true } },
+        });
         await cart({ districtId: RAJSHAHI, thanaId: PABA });
         expect(await prices()).toEqual([['bd-standard', 0]]);
     });
@@ -351,7 +366,9 @@ describe('product delivery fields', () => {
         expect(before.items.map((item: { sku: string }) => item.sku)).toEqual(['PANJABI-1', 'SAREE-1']);
 
         await saveSettings({ weight: { enabled: true, includedGrams: 1000, perKg: tk(20) } });
-        await adminClient.query(UPDATE_VARIANTS, { input: [{ id: 'T_1', customFields: { weightGrams: 800 } }] });
+        await adminClient.query(UPDATE_VARIANTS, {
+            input: [{ id: 'T_1', customFields: { weightGrams: 800 } }],
+        });
         await cart({ districtId: DHAKA, thanaId: MIRPUR }, 3);
         // 2,400 g: 1,000 g included, then 2 started kilograms at ৳20.
         expect(await prices()).toEqual([['bd-standard', tk(60 + 40)]]);
@@ -362,7 +379,9 @@ describe('product delivery fields', () => {
 
     it('refuses fractional taka on a product', async () => {
         await expect(
-            adminClient.query(UPDATE_PRODUCT, { input: { id: 'T_1', customFields: { deliveryInsideDhaka: 6050 } } }),
+            adminClient.query(UPDATE_PRODUCT, {
+                input: { id: 'T_1', customFields: { deliveryInsideDhaka: 6050 } },
+            }),
         ).rejects.toThrow(/whole taka/);
     });
 });
@@ -372,7 +391,10 @@ describe('settings', () => {
         // beforeEach saved them already; the defaults themselves say unconfirmed.
         expect(defaultShippingSettings().confirmed).toBe(false);
         const { bdShippingSettings } = await adminClient.query(SETTINGS);
-        expect(bdShippingSettings).toMatchObject({ confirmed: true, standard: { rates: { dhaka_city: tk(60) } } });
+        expect(bdShippingSettings).toMatchObject({
+            confirmed: true,
+            standard: { rates: { dhaka_city: tk(60) } },
+        });
     });
 
     it('returns field errors for bad amounts and unknown places', async () => {
@@ -490,7 +512,9 @@ describe('manual orders', () => {
             `,
             { orderId },
         );
-        expect(eligibleShippingMethodsForDraftOrder).toEqual([{ code: 'bd-standard', priceWithTax: tk(100) }]);
+        expect(eligibleShippingMethodsForDraftOrder).toEqual([
+            { code: 'bd-standard', priceWithTax: tk(100) },
+        ]);
         const { order } = await adminClient.query(
             gql`
                 query ($id: ID!) {

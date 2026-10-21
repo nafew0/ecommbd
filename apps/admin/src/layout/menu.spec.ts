@@ -6,19 +6,27 @@ describe('menu', () => {
     it('shows only built screens: Home, Orders (phase 04), Customers (03) and Settings (02, 04, 07)', () => {
         const menu = visibleMenu(MENU, () => true);
         expect(menu.map(group => group.label)).toEqual(['home', 'orders', 'customers', 'settings']);
-        expect(menu[1]!.children!.map(child => child.to)).toEqual(['/orders', '/orders/confirm']);
+        expect(menu[1]!.children!.map(child => child.to)).toEqual([
+            '/orders',
+            '/orders/confirm',
+            '/orders/payments',
+        ]);
         expect(menu[2]!.children!.map(child => child.to)).toEqual(['/customers']);
         expect(menu[3]!.children!.map(child => child.to)).toEqual([
             '/settings/store',
             '/settings/orders',
             '/settings/delivery',
+            '/settings/payments',
         ]);
     });
 
     it('hides a screen the role may not open', () => {
         const menu = visibleMenu(
             MENU,
-            permission => !['ReadSettings', 'ReadCustomer', 'ReadOrder', 'ConfirmOrder'].includes(permission),
+            permission =>
+                !['ReadSettings', 'ReadCustomer', 'ReadOrder', 'ConfirmOrder', 'VerifyPayment'].includes(
+                    permission,
+                ),
         );
         expect(menu.map(group => group.label)).toEqual(['home']);
         // A packer sees the orders, but not the confirmation queue.

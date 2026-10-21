@@ -17,7 +17,12 @@ import {
     packOrderPermission,
     readSalesFiguresPermission,
 } from './constants';
-import { type CallAttemptInput, OrderActionsService, type OrderActionInput } from './order-actions.service';
+import {
+    type CallAttemptInput,
+    OrderActionsService,
+    type OrderActionInput,
+    settledAmount,
+} from './order-actions.service';
 import { type OrderListFilters, OrderListService, type Page } from './order-list.service';
 import { OrderSettingsService } from './order-settings.service';
 
@@ -159,9 +164,7 @@ export class OrderInfoResolver {
     @ResolveField()
     async bd(@Ctx() ctx: RequestContext, @Parent() order: Order) {
         const payments = order.payments ?? (await this.orderService.getOrderPayments(ctx, order.id));
-        const paidAmount = payments
-            .filter(payment => payment.state === 'Settled')
-            .reduce((sum, payment) => sum + payment.amount, 0);
+        const paidAmount = settledAmount({ payments });
         const fields = order.customFields;
         const status = bdStatusOf(order.state);
         const { autoCancel } = await this.settings.get(ctx);

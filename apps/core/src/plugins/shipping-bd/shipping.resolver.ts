@@ -22,13 +22,17 @@ export class OrderDeliveryResolver {
     @ResolveField()
     async bdDelivery(@Ctx() ctx: RequestContext, @Parent() order: Order) {
         const info = await this.delivery.info(ctx, order);
-        const quotes = await Promise.all(DELIVERY_METHODS.map(method => this.delivery.quote(ctx, order, method)));
+        const quotes = await Promise.all(
+            DELIVERY_METHODS.map(method => this.delivery.quote(ctx, order, method)),
+        );
         const standard = quotes[0];
         const unavailableReason = quotes.some(quote => quote.ok) || standard.ok ? null : standard.reason;
         return {
             ...info,
             unavailableReason,
-            unavailableMessage: unavailableReason ? ctx.translate(`message.shipping-bd.${unavailableReason}`) : null,
+            unavailableMessage: unavailableReason
+                ? ctx.translate(`message.shipping-bd.${unavailableReason}`)
+                : null,
         };
     }
 }

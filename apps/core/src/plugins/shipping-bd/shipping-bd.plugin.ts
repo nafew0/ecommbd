@@ -25,6 +25,8 @@ registerStoreDefaults(deliveryMethodsStep);
 @VendurePlugin({
     imports: [PluginCommonModule],
     providers: [ShippingSettingsService, DeliveryService],
+    // Payments (phase 08) read the zone and the COD fee setting.
+    exports: [ShippingSettingsService, DeliveryService],
     shopApiExtensions: { schema: shippingShopApiExtensions, resolvers: [OrderDeliveryResolver] },
     adminApiExtensions: {
         schema: shippingAdminApiExtensions,
@@ -39,7 +41,10 @@ registerStoreDefaults(deliveryMethodsStep);
             ...config.shippingOptions.shippingCalculators,
             deliveryRateCalculator,
         ];
-        config.customFields.Product = [...(config.customFields.Product ?? []), ...productDeliveryCustomFields];
+        config.customFields.Product = [
+            ...(config.customFields.Product ?? []),
+            ...productDeliveryCustomFields,
+        ];
         config.customFields.ProductVariant = [
             ...(config.customFields.ProductVariant ?? []),
             ...variantDeliveryCustomFields,

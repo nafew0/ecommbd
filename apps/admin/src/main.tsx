@@ -76,6 +76,13 @@ const router = createBrowserRouter(
                                 })),
                         },
                         {
+                            path: 'orders/payments',
+                            lazy: () =>
+                                import('./pages/verify-payments').then(module => ({
+                                    Component: module.VerifyPaymentsPage,
+                                })),
+                        },
+                        {
                             path: 'orders/:id',
                             lazy: () =>
                                 import('./pages/order-detail').then(module => ({
@@ -87,6 +94,13 @@ const router = createBrowserRouter(
                             lazy: () =>
                                 import('./pages/order-settings').then(module => ({
                                     Component: module.OrderSettingsPage,
+                                })),
+                        },
+                        {
+                            path: 'settings/payments',
+                            lazy: () =>
+                                import('./pages/payment-settings').then(module => ({
+                                    Component: module.PaymentSettingsPage,
                                 })),
                         },
                         {

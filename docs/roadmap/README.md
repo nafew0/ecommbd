@@ -129,9 +129,9 @@ Status values: **Not started** · **In progress** · **Review** · **Done**.
 | [03](m2-commerce-core.md#phase-03--phone-first-customers-and-guest-checkout-api) | Phone-first customers and guest checkout API | M2 | Phone checkout, customer list (P0) | 02 | M | **Done** (merged 2026-10-21) |
 | [04](m2-commerce-core.md#phase-04--bd-order-workflow-order-numbers-and-confirmation-queue) | BD order workflow, order numbers and confirmation queue | M2 | Statuses, confirmation (P0) | 03 | L | **Done** (merged 2026-10-21) |
 | [05](m2-commerce-core.md#phase-05--manual-orders-order-editing-and-stock-rules) | Manual orders, order editing and stock rules | M2 | Manual orders, stock, product screens (P0) | 04 | L | Not started |
-| [06](m2-commerce-core.md#phase-06--invoices-packing-slips-and-courier-stickers) | Invoices, packing slips and courier stickers | M2 | Bulk printing (P0) | 04 | M | Not started |
+| [06](m2-commerce-core.md#phase-06--invoices-packing-slips-and-courier-stickers) | Invoices, packing slips and courier stickers | M2 | Bulk printing (P0) | 04 | M | On hold (the user's call, 2026-10-21) |
 | [07](m2-commerce-core.md#phase-07--shipping-zones-and-rates) | Shipping zones and rates | M2 | Dhaka / district rates (P0) | 02, 03 | M | **Review** (branch `m2/shipping-and-payments`) |
-| [08](m2-commerce-core.md#phase-08--payments-i-cod-manual-mobile-banking-and-partial-advance) | Payments I: COD, manual mobile banking, partial advance | M2 | COD, manual bKash/Nagad (P0), advance (P1) | 04, 07 | L | Not started |
+| [08](m2-commerce-core.md#phase-08--payments-i-cod-manual-mobile-banking-and-partial-advance) | Payments I: COD, manual mobile banking, partial advance | M2 | COD, manual bKash/Nagad (P0), advance (P1) | 04, 07 | L | **Review** (branch `m2/shipping-and-payments`) |
 | [09](m2-commerce-core.md#phase-09--image-pipeline-and-upload-security) | Image pipeline and upload security | M2 | WebP compression (P0) | 01 | M | Not started |
 | [10](m2-commerce-core.md#phase-10--notifications-sms-templates-and-email-hygiene) | Notifications: SMS, templates and email hygiene | M2 | Order SMS (P0) | 04, 08 | M | Not started |
 | [11](m2-commerce-core.md#phase-11--incomplete-orders-and-fake-order-protection) | Incomplete orders and fake-order protection | M2 | Incomplete orders (P0), OTP, block list (P1) | 03, 04, 10 | L | Not started |

@@ -5,6 +5,7 @@ import { BdCheckoutPlugin, type BdCheckoutPluginOptions, type RedisConnectionOpt
 import { BdCorePlugin } from './bd-core';
 import { BdOrdersPlugin } from './bd-orders';
 import { MerchantAdminPlugin } from './merchant-admin/merchant-admin.plugin';
+import { PaymentsBdPlugin } from './payments-bd';
 import { ShippingBdPlugin } from './shipping-bd';
 
 /** The built merchant admin (`npm run build -w @ecommbd/admin`), from `src/plugins` or `dist/plugins`. */
@@ -43,6 +44,7 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
         }),
         BdOrdersPlugin,
         ShippingBdPlugin,
+        PaymentsBdPlugin,
         MerchantAdminPlugin.init({
             appDir: ADMIN_APP_DIR,
             imageOrigins: options.assetUrlPrefix ? [new URL(options.assetUrlPrefix).origin] : [],

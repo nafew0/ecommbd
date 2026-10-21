@@ -3,7 +3,10 @@ import { LanguageCode, manualFulfillmentHandler, ShippingMethodService } from '@
 import type { StoreDefaultsStep } from '../bd-core';
 import { DELIVERY_CALCULATOR_CODE, DELIVERY_CHECKER_CODE, DELIVERY_METHOD_CODES } from './constants';
 
-const NAMES: Record<DeliveryMethod, { en: string; bn: string; descriptionEn: string; descriptionBn: string }> = {
+const NAMES: Record<
+    DeliveryMethod,
+    { en: string; bn: string; descriptionEn: string; descriptionBn: string }
+> = {
     standard: {
         en: 'Standard delivery',
         bn: 'সাধারণ ডেলিভারি',

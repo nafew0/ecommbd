@@ -118,7 +118,12 @@ export function defaultShippingSettings(): ShippingSettings {
         freeCollectionIds: [],
         express: {
             enabled: false,
-            rates: { dhaka_city: takaToMinor(120), dhaka_suburb: null, chattogram_city: null, outside_dhaka: null },
+            rates: {
+                dhaka_city: takaToMinor(120),
+                dhaka_suburb: null,
+                chattogram_city: null,
+                outside_dhaka: null,
+            },
         },
         pickup: { enabled: false },
         weight: { enabled: false, includedGrams: 1000, perKg: takaToMinor(20) },
@@ -165,7 +170,12 @@ export interface DeliveryQuoteInput {
     lines: readonly DeliveryLine[];
 }
 
-export const DELIVERY_UNAVAILABLE_REASONS = ['METHOD_OFF', 'NO_DISTRICT', 'NOT_DELIVERED_HERE', 'TOO_HEAVY'] as const;
+export const DELIVERY_UNAVAILABLE_REASONS = [
+    'METHOD_OFF',
+    'NO_DISTRICT',
+    'NOT_DELIVERED_HERE',
+    'TOO_HEAVY',
+] as const;
 export type DeliveryUnavailableReason = (typeof DELIVERY_UNAVAILABLE_REASONS)[number];
 
 export type DeliveryQuote =
@@ -201,7 +211,10 @@ export function totalWeightGrams(lines: readonly DeliveryLine[]): number {
  */
 export function quoteDelivery(settings: ShippingSettings, input: DeliveryQuoteInput): DeliveryQuote {
     const { method, zone, lines } = input;
-    if ((method === 'express' && !settings.express.enabled) || (method === 'pickup' && !settings.pickup.enabled)) {
+    if (
+        (method === 'express' && !settings.express.enabled) ||
+        (method === 'pickup' && !settings.pickup.enabled)
+    ) {
         return { ok: false, reason: 'METHOD_OFF' };
     }
     if (method === 'pickup') {

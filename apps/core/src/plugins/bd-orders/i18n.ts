@@ -14,7 +14,7 @@ const en: Record<OrderActionErrorCode, string> = {
     INSUFFICIENT_STOCK:
         'Not enough stock for some items. Edit the order, cancel it, or confirm anyway if new stock is coming.',
     REFUND_REQUIRED:
-        'Money was received for this order. The refund must be recorded before cancelling (coming soon).',
+        'Money was received for this order. Record the refund on the order page before cancelling.',
     NOT_IN_QUEUE: 'Calls can be recorded only for new orders.',
     INVALID_TIME: 'Choose a time later than now, within the next 30 days.',
     INVALID_OUTCOME: 'Unknown call result.',
@@ -29,7 +29,7 @@ const bn: Record<OrderActionErrorCode, string> = {
     NOTE_TOO_LONG: 'নোট সর্বোচ্চ ৫০০ অক্ষরের হতে পারে।',
     INSUFFICIENT_STOCK:
         'কিছু পণ্যের স্টক নেই। অর্ডারটি এডিট করুন, বাতিল করুন, অথবা নতুন স্টক আসার কথা থাকলে তবুও কনফার্ম করুন।',
-    REFUND_REQUIRED: 'এই অর্ডারের টাকা পাওয়া গেছে। বাতিলের আগে রিফান্ডের তথ্য রাখতে হবে (শীঘ্রই আসছে)।',
+    REFUND_REQUIRED: 'এই অর্ডারের টাকা পাওয়া গেছে। বাতিলের আগে অর্ডারের পাতায় রিফান্ডের তথ্য লিখুন।',
     NOT_IN_QUEUE: 'শুধু নতুন অর্ডারের কলের তথ্য রাখা যায়।',
     INVALID_TIME: 'এখনকার পরের এবং আগামী ৩০ দিনের মধ্যে একটি সময় বেছে নিন।',
     INVALID_OUTCOME: 'কলের ফল বোঝা যায়নি।',

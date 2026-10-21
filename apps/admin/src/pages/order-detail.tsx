@@ -11,6 +11,11 @@ import { Link, useParams } from 'react-router';
 import { PlaceName } from '../components/address/place-name';
 import { CallLaterDialog, CancelDialog, StockDialog } from '../components/orders/order-dialogs';
 import { PaymentBadge, StatusBadge } from '../components/orders/status';
+import {
+    ORDER_PAYMENT_FIELDS,
+    type OrderPayment,
+    OrderPayments,
+} from '../components/payments/order-payments';
 import { Button } from '../components/ui/button';
 import { Alert, Badge, Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
@@ -32,6 +37,8 @@ const ORDER = `
     query Order($id: ID!) {
         order(id: $id) {
             ...BdOrderRow
+            ${ORDER_PAYMENT_FIELDS}
+            surcharges { sku priceWithTax }
             history(options: { sort: { createdAt: DESC }, take: 100 }) {
                 items { id type createdAt data administrator { firstName lastName } }
             }
@@ -50,7 +57,13 @@ interface HistoryItem {
 }
 
 interface OrderData {
-    order: (OrderRow & { history: { items: HistoryItem[] } }) | null;
+    order:
+        | (OrderRow & {
+              history: { items: HistoryItem[] };
+              payments: OrderPayment[];
+              surcharges: Array<{ sku: string; priceWithTax: number }>;
+          })
+        | null;
     bdOrderSettings: { skipConfirmationForPrepaid: boolean };
 }
 
@@ -206,6 +219,13 @@ export function OrderDetailPage() {
                         <dl className="space-y-1 border-t border-slate-100 pt-3 text-sm">
                             <Row label={m.orders.subtotal}>{format.money(order.subTotalWithTax)}</Row>
                             <Row label={m.orders.delivery}>{format.money(order.shippingWithTax)}</Row>
+                            {order.surcharges
+                                .filter(surcharge => surcharge.sku === 'BD-COD-FEE')
+                                .map((surcharge, index) => (
+                                    <Row key={index} label={m.payments.order.codFee}>
+                                        {format.money(surcharge.priceWithTax)}
+                                    </Row>
+                                ))}
                             <Row label={m.orders.total} strong>
                                 {format.money(order.totalWithTax)}
                             </Row>
@@ -221,6 +241,7 @@ export function OrderDetailPage() {
                         </div>
                     </CardBody>
                 </Card>
+                <OrderPayments payments={order.payments} onChanged={() => void query.refetch()} />
                 <Card>
                     <CardHeader title={m.orders.customer} />
                     <CardBody>

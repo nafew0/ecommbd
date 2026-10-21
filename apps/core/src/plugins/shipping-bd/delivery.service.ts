@@ -72,7 +72,11 @@ export class DeliveryService {
         };
     }
 
-    private async lines(ctx: RequestContext, order: Order, settings: ShippingSettings): Promise<DeliveryLine[]> {
+    private async lines(
+        ctx: RequestContext,
+        order: Order,
+        settings: ShippingSettings,
+    ): Promise<DeliveryLine[]> {
         const lines = order.lines ?? [];
         const variants = await this.variants(
             ctx,
@@ -117,7 +121,9 @@ export class DeliveryService {
                             insideDhaka: product.deliveryInsideDhaka ?? null,
                             outsideDhaka: product.deliveryOutsideDhaka ?? null,
                             surcharge: product.deliverySurcharge ?? 0,
-                            collectionIds: (variant.collections ?? []).map(collection => String(collection.id)),
+                            collectionIds: (variant.collections ?? []).map(collection =>
+                                String(collection.id),
+                            ),
                         },
                     ];
                 }),

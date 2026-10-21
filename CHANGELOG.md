@@ -6,6 +6,17 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Added
 
+- **Phase 08, payments I: COD, manual mobile banking and partial advance** (plugin `payments-bd`):
+  - Cash on delivery, authorized at checkout and settled automatically on delivery; an optional order limit and allowed areas; blocked phones (phase 11) see a polite "not available".
+  - bKash, Nagad and Rocket "Send Money" to the merchant's number: the shopper enters the sender number and transaction ID, the order is placed, and staff verify or reject it in **Orders → Verify payments**. A transaction ID can pay one order only; look-alike characters are pointed out to staff.
+  - Partial advance before delivery (delivery charge, fixed or a percentage; all COD orders, outside Dhaka, chosen products, or risky phones), then COD for the rest.
+  - The COD charge from the delivery settings as its own order line (`setBdPaymentChoice`).
+  - Refund records (amount, how, TrxID, note), required before cancelling an order with money received; "money received" now subtracts refunds everywhere.
+  - Shop API `bdPaymentOptions` (COD available or why, advance, COD amount, merchant numbers); store defaults create the four payment methods; new `VerifyPayment` permission for Owner and Manager.
+  - Merchant admin: **Settings → Payments**, **Orders → Verify payments**, and a Payments card on the order page with "Record refund".
+  - Migration: the unique transaction field on payments and the order's payment choice (additive).
+  - Tests: unit tests of the advance rules, COD limits and TrxID checks; end-to-end tests of the COD lifecycle, verify, reject, partial payment, duplicate TrxID, advance + COD, the COD charge, refunds before cancelling and permissions; a Playwright test of the queue.
+
 - **Phase 07, shipping zones and rates** (plugin `shipping-bd`):
   - Delivery charges by bd-geo zone: ৳60 inside Dhaka city, ৳100 Dhaka suburbs, ৳120 outside Dhaka by default (shown as suggestions until the merchant saves), an optional own rate for Chattogram city, and district or thana overrides.
   - Per-product delivery: free delivery, own inside/outside-Dhaka charges (the highest in the cart applies) and an extra charge per item; weight charges per started kilogram from the variant's weight.

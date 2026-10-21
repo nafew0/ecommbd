@@ -58,7 +58,10 @@ export class ShippingSettingsService {
     }
 
     /** Districts, thanas and collections must exist (only their IDs ever reach the calculator). */
-    private async findUnknownIds(ctx: RequestContext, settings: ShippingSettings): Promise<SettingsFieldError[]> {
+    private async findUnknownIds(
+        ctx: RequestContext,
+        settings: ShippingSettings,
+    ): Promise<SettingsFieldError[]> {
         const errors: SettingsFieldError[] = [];
         settings.overrides.forEach((override, index) => {
             const known = override.kind === 'district' ? findDistrict(override.id) : findThana(override.id);

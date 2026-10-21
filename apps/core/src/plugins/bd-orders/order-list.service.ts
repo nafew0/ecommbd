@@ -54,10 +54,18 @@ const escapeLike = (text: string) => text.replace(/[\\%_]/g, char => `\\${char}`
 /** The shopper-typed address and phone live in the order's JSON column. */
 const SHIPPING = `"order"."shippingAddress"::jsonb`;
 /** Money received: settled payments. */
-const SETTLED = `(SELECT COALESCE(SUM(p."amount"), 0) FROM "payment" p WHERE p."orderId" = "order"."id" AND p."state" = 'Settled')`;
+// Money received and kept: settled payments minus their settled refunds (as settledAmount()).
+const SETTLED = `((SELECT COALESCE(SUM(p."amount"), 0) FROM "payment" p WHERE p."orderId" = "order"."id" AND p."state" = 'Settled') - (SELECT COALESCE(SUM(r."total"), 0) FROM "refund" r JOIN "payment" p ON p."id" = r."paymentId" WHERE p."orderId" = "order"."id" AND p."state" = 'Settled' AND r."state" = 'Settled'))`;
 const TOTAL = `("order"."subTotalWithTax" + "order"."shippingWithTax")`;
 
-const PAGE_RELATIONS = ['customer', 'lines', 'lines.productVariant', 'shippingLines', 'payments'];
+const PAGE_RELATIONS = [
+    'customer',
+    'lines',
+    'lines.productVariant',
+    'shippingLines',
+    'payments',
+    'payments.refunds',
+];
 
 /**
  * The admin's order lists (roadmap phase 04): all orders with status tabs, filters and search; the

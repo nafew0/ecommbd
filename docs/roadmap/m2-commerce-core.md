@@ -429,6 +429,8 @@ Courier rate quotes (46), international shipping (not planned).
 
 **Goal.** Take money the way small BD merchants do today: COD, a bKash/Nagad/Rocket "Send Money" with a transaction ID, or an advance payment with the rest on delivery.
 
+> **Built on 2026-10-21** on the branch `m2/shipping-and-payments` (plugin `payments-bd`). Decisions are in the [decisions log](../decisions.md) (rows starting "Phase 08"). One change from the plan: a waiting mobile banking payment is **Authorized** with "pending verification" in its details, not a new `PendingVerification` state, because Vendure only places orders whose payments are Authorized or Settled. Not built here, as planned elsewhere: invoices and stickers (phase 06, on hold), SMS to the shopper and the staff reminder message (phase 10; the queue already marks overdue payments), blocked and risky phones (phase 11 plugs into `registerPaymentRiskCheck`), the courier COD amount (phase 19), and picking products for the "orders with certain products" advance (the product screens, phase 05).
+
 ### Decide at start
 
 - Confirm Vendure 3.8's behaviour with several payments on one order: the order reaches `PaymentAuthorized` once payments cover the total. Prove it with a spike test before building.
@@ -488,9 +490,9 @@ Courier rate quotes (46), international shipping (not planned).
 
 ### Done when
 
-- [ ] A shopper pays the delivery charge in advance by bKash Send Money with a TrxID, and the rest by COD. Staff verify it in the queue.
-- [ ] The COD due amount is correct on the order, invoice and sticker.
-- [ ] A reused TrxID is rejected.
+- [x] A shopper pays the delivery charge in advance by bKash Send Money with a TrxID, and the rest by COD. Staff verify it in the queue. (End-to-end: `payments-bd.e2e-spec.ts`, "partial advance"; Playwright `payments.spec.ts` verifies from the queue in Bangla on desktop and phone.)
+- [ ] The COD due amount is correct on the order, invoice and sticker. (Order: yes, end-to-end and on the order page. Invoice and sticker wait for phase 06, which is on hold.)
+- [x] A reused TrxID is rejected. (End-to-end: "refuses a transaction ID used before…".)
 
 ### Not in this phase
 
