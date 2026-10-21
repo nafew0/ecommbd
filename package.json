@@ -14,7 +14,6 @@
     "build": "npm run build:packages && npm run build -w @ecommbd/admin && npm run build -w @ecommbd/core",
     "start": "npm run start -w @ecommbd/core",
     "store:init": "npm run build:packages && npm run store:init -w @ecommbd/core --",
-    "images:regenerate": "npm run build:packages && npm run images:regenerate -w @ecommbd/core --",
     "typecheck": "npm run build:packages && npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "format": "prettier --write .",

@@ -7,7 +7,6 @@ import { BdCheckoutPlugin, type BdCheckoutPluginOptions, type RedisConnectionOpt
 import { BdCorePlugin } from './bd-core';
 import { BdOrdersPlugin } from './bd-orders';
 import { FraudGuardPlugin } from './fraud-guard';
-import { ImagesPlugin } from './images';
 import { MerchantAdminPlugin } from './merchant-admin/merchant-admin.plugin';
 import { NotificationsPlugin, type SmsDriver } from './notifications';
 import { PaymentsBdPlugin } from './payments-bd';
@@ -29,8 +28,6 @@ export interface CustomPluginOptions {
     redisKeyPrefix: string;
     /** Rate limits for checkout (tests set low ones). */
     checkoutRateLimits?: BdCheckoutPluginOptions['rateLimits'];
-    /** IMAGES_DIR: where image sizes are written. */
-    imagesDir: string;
     /** SMS_DRIVER: the SMS provider (the log driver records instead of sending). */
     smsDriver: SmsDriver;
     /** STOREFRONT_URL, for SMS tracking links. */
@@ -58,7 +55,6 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
         PaymentsBdPlugin,
         BdCatalogPlugin,
         BdManualOrdersPlugin,
-        ImagesPlugin.init({ imagesDir: options.imagesDir }),
         NotificationsPlugin.init({ driver: options.smsDriver, storefrontUrl: options.storefrontUrl }),
         FraudGuardPlugin,
         MerchantAdminPlugin.init({

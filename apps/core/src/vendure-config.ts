@@ -174,7 +174,6 @@ export const config: VendureConfig = {
                 password: env.REDIS_CACHE_PASSWORD,
             },
             redisKeyPrefix: KEY_PREFIX,
-            imagesDir: env.IMAGES_DIR ?? path.join(__dirname, '../static/images'),
             smsDriver: (env.SMS_DRIVER ?? (IS_DEV ? 'log' : 'none')) === 'log' ? new LogSmsDriver() : new NoSmsDriver(),
             storefrontUrl: env.STOREFRONT_URL,
         }),

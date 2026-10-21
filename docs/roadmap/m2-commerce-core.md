@@ -513,8 +513,6 @@ Online gateways (18), COD reconciliation from courier payouts (37), gateway refu
 
 **Goal.** Every image is small, fast and safe automatically, whether uploaded in the Dashboard or imported from WooCommerce.
 
-> **Built on 2026-10-21** on the branch `m2/products-and-images` (plugin `images`). Decisions are in the [decisions log](../decisions.md) (rows starting "Phase 09"): SVG is refused; Vendure's asset server stays for admin previews; the kept original is the cleaned image (raw uploads with GPS are never stored). The 2 vCPU throughput figure waits for the real server (phase 29). Staff alerts for failed processing are a log line and the asset's "failed" status until alerting arrives (phase 28).
-
 ### Decide at start
 
 - Storage layout and serving path: `files/images/<content-hash>/<width>.webp`, served by Nginx at `/img/…` in production and by the core's asset route in development.
@@ -581,9 +579,9 @@ Online gateways (18), COD reconciliation from courier payouts (37), gateway refu
 
 ### Done when
 
-- [x] A 5 MB phone photo becomes WebP sizes under 400 KB in total, with location data removed, served with immutable caching. (Unit: `test/unit/images.spec.ts`; end-to-end: `images.e2e-spec.ts`.)
-- [x] Every malicious or unsupported fixture is rejected with a clear message. (Pixel bomb, truncated, SVG with a script, HEIC, text, over 15 MB.)
-- [x] Imports can call the same pipeline (an API used by phase 21). (Every stored source goes through `SafeImageStorageStrategy`, so Vendure's `AssetService.createFromFileStream` used by imports is covered; `cleanUpload` and `makeVariants` are exported.)
+- [ ] A 5 MB phone photo becomes WebP sizes under 400 KB in total, with location data removed, served with immutable caching.
+- [ ] Every malicious or unsupported fixture is rejected with a clear message.
+- [ ] Imports can call the same pipeline (an API used by phase 21).
 
 ### Not in this phase
 

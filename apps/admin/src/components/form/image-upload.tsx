@@ -1,6 +1,6 @@
 import { ImagePlus, Trash2 } from 'lucide-react';
 import { useRef, useState } from 'react';
-import { adminUpload, ApiError } from '../../lib/api';
+import { adminUpload } from '../../lib/api';
 import { useI18n } from '../../lib/i18n';
 import { Button } from '../ui/button';
 
@@ -19,8 +19,8 @@ const CREATE_ASSETS = `
     }
 `;
 
-/** What the server accepts (phase 09). No SVG: it can carry scripts. */
-const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'];
+/** Raster images only: SVG can carry scripts, so it waits for phase 09's upload checks. */
+const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp'];
 
 interface ImageUploadProps {
     value: UploadedImage | null;
@@ -55,22 +55,16 @@ export function ImageUpload({ value, onChange, maxMegabytes = 2, disabled, ...ar
         setBusy(true);
         try {
             const { createAssets } = await adminUpload<{
-                createAssets: Array<{ __typename: string; id?: string; preview?: string; message?: string }>;
+                createAssets: Array<{ __typename: string; id?: string; preview?: string }>;
             }>(CREATE_ASSETS, file);
             const asset = createAssets[0];
             if (asset?.__typename === 'Asset' && asset.id && asset.preview) {
                 onChange({ id: asset.id, preview: asset.preview });
             } else {
-                // The server's reason is already in the admin's language ("Please upload JPG or PNG").
-                setError(asset?.message || m.inputs.upload.wrongType);
+                setError(m.inputs.upload.wrongType);
             }
-        } catch (caught) {
-            // Refused images (too many pixels, damaged…) come back as a translated user error.
-            setError(
-                caught instanceof ApiError && caught.code === 'USER_INPUT_ERROR'
-                    ? caught.message
-                    : m.inputs.upload.failed,
-            );
+        } catch {
+            setError(m.inputs.upload.failed);
         } finally {
             setBusy(false);
             if (input.current) input.current.value = '';

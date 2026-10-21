@@ -42,8 +42,6 @@ export const envSchema = z
         REDIS_CACHE_PASSWORD: z.string().optional(),
         // The storefront's default language for a new store, chosen at setup. Later changed in Store settings.
         STORE_DEFAULT_LANGUAGE: z.enum(['bn', 'en']).default('bn'),
-        // Where the storefront's WebP image sizes are written (served at /img). Default: static/images.
-        IMAGES_DIR: z.string().min(1).optional(),
         // SMS: `log` records messages without sending (development); `none` until a provider is set up.
         SMS_DRIVER: z.enum(['log', 'none']).optional(),
         // The storefront's address, for SMS tracking links (<url>/t/<token>). Without it SMS carry no link.
