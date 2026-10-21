@@ -44,6 +44,32 @@ Read first:
   - hiding a button is a convenience; the permission check belongs on the server
 - **Logs:** no full phone numbers, emails or secrets. The JSON logger masks messages; don't log whole objects with personal data.
 
+## Storefront design standard
+
+The storefront (`apps/storefront`) must look and feel like a modern Shopify store. Shopify's own free themes (Dawn, Horizon) are the reference. It must not look like a generic AI-made page.
+
+- **Look:**
+  - white or very light backgrounds, near-black text, one accent colour (the store's brand)
+  - generous white space, large product photos, a clear type scale
+  - product cards are photo, title and price, with no box, border or shadow around them
+  - buttons are solid and rectangular
+- **No pill shapes:** no fully rounded chips, badges, tags or buttons. Corners are square or barely rounded (`--radius`, 0–4 px). Only things that are really round (the floating WhatsApp button) are round.
+- **Icons:** no icon libraries (Lucide, Heroicons, Font Awesome, Material, Feather) and no emoji as icons.
+  - Use our own small SVG set in `src/components/Icon.astro`, drawn on one grid with one stroke width.
+  - Use a text label instead when it's clearer.
+- **No generic AI look:**
+  - no gradient text or gradient backgrounds, glassmorphism, blur or glowing shadows
+  - no Tailwind default palettes (slate, teal, indigo…)
+  - no "✨ New" badges, and no centred hero with three feature cards
+  - no filler: every element has a job
+- **Motion:**
+  - Motion (the `motion` package, Framer Motion's successor) in its small vanilla form (`animate` from `motion/mini`, `inView`), only inside the scripts or islands that need it. Never `motion/react`: it needs React and breaks the JS budget.
+  - Everything else uses CSS transitions and cross-document view transitions.
+  - Keep it short and subtle (150–300 ms, ease-out), and always off when the shopper prefers reduced motion.
+  - Nothing starts hidden waiting for JavaScript.
+- **Budget first:** design never buys more JavaScript than the budget allows ([architecture.md](docs/architecture.md), Decision 2). Pages with nothing to interact with stay at zero JavaScript.
+- **Phone first:** design at 360–430 px first, then desktop. Check with long Bangla names and Bangla digits.
+
 ## Commands
 
 ```bash
