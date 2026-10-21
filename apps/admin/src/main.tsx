@@ -90,6 +90,13 @@ const router = createBrowserRouter(
                                 })),
                         },
                         {
+                            path: 'settings/delivery',
+                            lazy: () =>
+                                import('./pages/delivery-settings').then(module => ({
+                                    Component: module.DeliverySettingsPage,
+                                })),
+                        },
+                        {
                             path: 'customers',
                             lazy: () =>
                                 import('./pages/customers').then(module => ({

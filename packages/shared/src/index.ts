@@ -11,6 +11,7 @@ export * from './phone';
 export * from './placeholder-email';
 export * from './rate-limit';
 export * from './redact';
+export * from './shipping';
 export * from './ssrf';
 export * from './store-settings';
 export * from './text';

@@ -102,7 +102,7 @@ export const MENU: MenuGroup[] = [
         children: [
             link('store', '/settings/store', '02', true, 'ReadSettings'),
             link('orderSettings', '/settings/orders', '04', true, 'ReadSettings'),
-            link('delivery', '/settings/delivery', '07'),
+            link('delivery', '/settings/delivery', '07', true, 'ReadSettings'),
             link('payments', '/settings/payments', '08'),
             link('couriers', '/settings/couriers', '19'),
             link('checkout', '/settings/checkout', '14'),

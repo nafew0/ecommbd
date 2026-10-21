@@ -6,6 +6,16 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Added
 
+- **Phase 07, shipping zones and rates** (plugin `shipping-bd`):
+  - Delivery charges by bd-geo zone: ৳60 inside Dhaka city, ৳100 Dhaka suburbs, ৳120 outside Dhaka by default (shown as suggestions until the merchant saves), an optional own rate for Chattogram city, and district or thana overrides.
+  - Per-product delivery: free delivery, own inside/outside-Dhaka charges (the highest in the cart applies) and an extra charge per item; weight charges per started kilogram from the variant's weight.
+  - Free delivery above a subtotal per zone (after discounts, before delivery), Express (own rates, only where offered) and Store pickup, both off until turned on; where the store delivers (areas, districts, heaviest order); the COD fee setting (applied with COD in phase 08).
+  - Three delivery methods for every store from a new store-defaults step. Manual orders (draft orders) use the same rules.
+  - `Order.bdDelivery` in the Shop and Admin APIs: zone, why no method is offered (in Bangla and English) and "spend ৳X more for free delivery".
+  - Merchant admin: **Settings → Delivery**, in merchant language, with a warning listing products without a weight. Changing charges needs `UpdateShippingMethod`.
+  - Migration: product and variant delivery fields (additive).
+  - Tests: unit tests of the calculator matrix, end-to-end tests (Mirpur, Savar, Rajshahi, Chattogram, threshold crossing, district change, Express and pickup, coverage, product fields, weight, settings validation and permissions, draft orders) and a Playwright test of the delivery page.
+
 - **Phase 04, BD order workflow, order numbers and confirmation queue** (plugin `bd-orders`):
   - Order statuses New → Confirmed → Packed → Shipped → Delivered, plus Partly delivered, Returned and Cancelled, on Vendure's order process. Every allowed change is in `docs/decisions/order-states.md`; anything else is refused with a clear message, also from Vendure's own mutations. Cancelling needs a reason (fake, customer cancelled, unreachable, duplicate, out of stock, price issue, other).
   - Order numbers 1001, 1002… (optional prefix, e.g. `MF-1001`), given when the order is placed, so abandoned carts leave no gaps.

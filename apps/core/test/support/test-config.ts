@@ -62,7 +62,8 @@ export const testInitialData: InitialData = {
     defaultLanguage: LanguageCode.en,
     defaultZone: 'Bangladesh',
     taxRates: [],
-    shippingMethods: [{ name: 'Standard delivery', price: 6000 }],
+    // Delivery methods come from shipping-bd's store defaults (Standard ৳60 in Dhaka city).
+    shippingMethods: [],
     paymentMethods: [
         {
             name: 'Test payment',

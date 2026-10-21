@@ -352,6 +352,8 @@ Courier consignment barcodes (added when phase 19 lands), email invoices (later)
 
 **Goal.** Delivery charges work the way BD merchants price them today, and are calculated automatically at checkout and in manual orders.
 
+> **Built on 2026-10-21** on the branch `m2/shipping-and-payments` (plugin `shipping-bd`). Decisions are in the [decisions log](../decisions.md) (rows starting "Phase 07"). The COD fee's setting and calculation are here; the COD payment applies it (phase 08). Free-delivery collections get their switch in the category form (phase 05), and the product form's delivery fields arrive with phase 05.
+
 ### Decide at start
 
 - **COD fee** (when the merchant passes the courier's COD charge on to the shopper): add it as a Vendure surcharge on COD orders, or build it into the COD shipping price. Pick the one that shows clearly on invoices.
@@ -406,9 +408,9 @@ Courier consignment barcodes (added when phase 19 lands), email invoices (later)
 
 ### Done when
 
-- [ ] Checkout shows ৳60 for Mirpur, ৳100 for Savar and ৳120 for Rajshahi with the default suggestions, and free delivery above the threshold.
-- [ ] Manual orders use identical rules.
-- [ ] The merchant edits rates in one simple form.
+- [x] Checkout shows ৳60 for Mirpur, ৳100 for Savar and ৳120 for Rajshahi with the default suggestions, and free delivery above the threshold. (End-to-end: `shipping-bd.e2e-spec.ts`, "default delivery charges" and "free delivery threshold".)
+- [x] Manual orders use identical rules. (End-to-end: a draft order to Savar is offered ৳100.)
+- [x] The merchant edits rates in one simple form. (Playwright `delivery.spec.ts` in Bangla on desktop and phone.)
 
 ### Not in this phase
 
