@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { signIn, watchForErrors } from './support/admin-ui';
+import { adminSession } from './support/store-api';
 
 /**
  * Online store → Pages and Menus in the merchant admin (roadmap phase 12), checked on the
@@ -49,6 +50,16 @@ test.describe('pages and menus', () => {
 
     test('adds a header menu link to a category', async ({ page }, testInfo) => {
         test.skip(testInfo.project.name !== 'desktop', 'One run is enough: both projects share the menus');
+        // Its own category, so the test doesn't depend on others having run first (CI starts empty).
+        const admin = await adminSession();
+        const { collections } = await admin.query(
+            '{ collections(options: { filter: { slug: { eq: "playwright-menu-category" } } }) { items { id } } }',
+        );
+        if (!collections.items.length) {
+            await admin.query(`mutation { createCollection(input: { filters: [], translations: [
+                { languageCode: en, name: "Playwright menu category", slug: "playwright-menu-category", description: "" }
+            ] }) { id } }`);
+        }
         await signIn(page, 'en');
         await page.goto('/admin/store/menus');
         await expect(page.getByRole('heading', { name: 'Menus', exact: true })).toBeVisible();
@@ -57,8 +68,8 @@ test.describe('pages and menus', () => {
         await header.getByRole('button', { name: 'Add a link', exact: true }).click();
         await header.getByLabel('Name in English').last().fill(label);
         await header.getByLabel('Name in Bangla').last().fill('ছাড়');
-        // A new link opens a category: choose the first one.
-        await header.getByLabel('A category').last().selectOption({ index: 1 });
+        // A new link opens a category.
+        await header.getByLabel('A category').last().selectOption({ label: 'Playwright menu category' });
         await page.getByRole('button', { name: 'Save changes' }).click();
         await expect(page.getByRole('status').filter({ hasText: 'Menus saved.' })).toBeVisible();
 
