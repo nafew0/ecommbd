@@ -2,6 +2,7 @@ import type { StoreLanguage } from '@ecommbd/shared';
 import type { VendureConfig } from '@vendure/core';
 import path from 'node:path';
 import { BdCheckoutPlugin, type BdCheckoutPluginOptions, type RedisConnectionOptions } from './bd-checkout';
+import { BdContentPlugin } from './bd-content';
 import { BdCorePlugin } from './bd-core';
 import { BdImagesPlugin } from './bd-images';
 import { BdOrdersPlugin } from './bd-orders';
@@ -51,6 +52,7 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
         }),
         BdOrdersPlugin,
         BdPrintPlugin,
+        BdContentPlugin,
         BdImagesPlugin.init({
             dir: options.imagesDir ?? DEFAULT_IMAGES_DIR,
             urlPrefix: options.imageUrlPrefix,

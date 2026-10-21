@@ -20,6 +20,10 @@ export const SETTINGS_ERROR_CODES = [
     'invalidEmail',
     'invalidUrl',
     'notFound',
+    /** A page slug the storefront already uses (`cart`, `product`…). */
+    'reserved',
+    /** A page slug another page already has. */
+    'taken',
 ] as const;
 
 export type SettingsErrorCode = (typeof SETTINGS_ERROR_CODES)[number];

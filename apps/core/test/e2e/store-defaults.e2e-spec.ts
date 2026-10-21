@@ -221,6 +221,9 @@ describe('running the initializer again', () => {
             'roles',
             'store-settings',
             // Registered by later plugins (registerStoreDefaults):
+            'content-permissions',
+            'content-menus',
+            'slug-history-backfill',
             'order-permissions',
             'print-permissions',
         ]);

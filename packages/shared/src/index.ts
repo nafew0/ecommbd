@@ -1,6 +1,7 @@
 export * from './barcode';
 export * from './checkout';
 export * from './circuit-breaker';
+export * from './content';
 export * from './crypto';
 export * from './env';
 export * from './http';
@@ -13,6 +14,7 @@ export * from './placeholder-email';
 export * from './print-settings';
 export * from './rate-limit';
 export * from './redact';
+export * from './rich-text';
 export * from './ssrf';
 export * from './store-settings';
 export * from './text';
