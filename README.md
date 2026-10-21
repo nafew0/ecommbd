@@ -227,7 +227,7 @@ The first migration, `<timestamp>-init.ts`, creates the whole schema and is comm
 | `npm run format` | Format the code (Prettier) |
 | `npm run typecheck` | TypeScript type checks |
 | `npm test` | Unit tests (fast, no database) |
-| `npm run test:e2e` | End-to-end tests: a real Vendure server against the Docker PostgreSQL |
+| `npm run test:e2e` | End-to-end tests: a real Vendure server against the Docker PostgreSQL and cache Redis (`TEST_DB_*` and `TEST_REDIS_CACHE_*` override the connection) |
 | `npm run test:browser` | Browser tests with Playwright on a desktop and a phone (needs `npm run build` first, and `npx playwright install chromium` once) |
 
 **Before pushing:** run `npm run lint`, `npm run typecheck`, `npm test` and `npm run test:e2e`. GitHub runs all of them, plus the build and browser tests, on every push and pull request (`.github/workflows/ci.yml`).

@@ -1,8 +1,27 @@
+import { useQuery } from '@tanstack/react-query';
 import { Settings, Sparkles } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import { Card, CardBody, CardHeader, PageHeader } from '../components/ui/misc';
+import { Card, CardBody, CardHeader, PageHeader, Skeleton } from '../components/ui/misc';
+import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { useFormat } from '../lib/format';
 import { useI18n } from '../lib/i18n';
+
+const STATS = `
+    query HomeStats {
+        bdOrderStats { dayStart todayOrders todaySales waitingConfirmation confirmedNotPacked }
+    }
+`;
+
+interface Stats {
+    dayStart: string;
+    todayOrders: number;
+    /** Null without the ReadSalesFigures permission. */
+    todaySales: number | null;
+    waitingConfirmation: number;
+    confirmedNotPacked: number;
+}
 
 export function HomePage() {
     const { messages: m } = useI18n();
@@ -10,6 +29,7 @@ export function HomePage() {
     return (
         <>
             <PageHeader title={m.home.greeting(user?.name ?? '')} description={m.home.intro} />
+            {can('ReadOrder') && <OrderWidgets />}
             <div className="grid gap-4 md:grid-cols-2">
                 {can('ReadSettings') && (
                     <Card>
@@ -37,5 +57,81 @@ export function HomePage() {
                 </Card>
             </div>
         </>
+    );
+}
+
+/** Today's numbers (the Dhaka day) and the work waiting (roadmap phase 04). Sales need ReadSalesFigures. */
+function OrderWidgets() {
+    const { messages: m } = useI18n();
+    const format = useFormat();
+    const query = useQuery({
+        queryKey: ['orders', 'stats'],
+        queryFn: () => adminApi<{ bdOrderStats: Stats }>(STATS).then(result => result.bdOrderStats),
+        refetchInterval: 60_000,
+    });
+    const stats = query.data;
+    const n = m.common.number;
+    return (
+        <section className="mb-6" aria-label={m.nav.orders}>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <Widget label={m.home.todayOrders} loading={!stats}>
+                    {stats && n(stats.todayOrders)}
+                </Widget>
+                {stats?.todaySales !== null && (
+                    <Widget label={m.home.todaySales} loading={!stats}>
+                        {stats && format.money(stats.todaySales ?? 0)}
+                    </Widget>
+                )}
+                <Widget
+                    label={m.home.waiting}
+                    loading={!stats}
+                    to="/orders/confirm"
+                    linkLabel={m.home.openQueue}
+                >
+                    {stats && n(stats.waitingConfirmation)}
+                </Widget>
+                <Widget
+                    label={m.home.confirmedNotPacked}
+                    loading={!stats}
+                    to="/orders?status=confirmed"
+                    linkLabel={m.home.openOrders}
+                >
+                    {stats && n(stats.confirmedNotPacked)}
+                </Widget>
+            </div>
+            {stats && (
+                <p className="mt-2 text-sm text-slate-500">{m.home.dhakaDay(format.date(stats.dayStart))}</p>
+            )}
+        </section>
+    );
+}
+
+function Widget({
+    label,
+    loading,
+    to,
+    linkLabel,
+    children,
+}: {
+    label: string;
+    loading: boolean;
+    to?: string;
+    linkLabel?: string;
+    children: ReactNode;
+}) {
+    return (
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <p className="text-sm text-slate-600">{label}</p>
+            {loading ? (
+                <Skeleton className="mt-2 h-8 w-20" />
+            ) : (
+                <p className="mt-1 text-2xl font-semibold tabular-nums">{children}</p>
+            )}
+            {to && linkLabel && (
+                <Link to={to} className="mt-1 inline-block text-sm text-teal-800 underline">
+                    {linkLabel}
+                </Link>
+            )}
+        </div>
     );
 }

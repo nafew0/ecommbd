@@ -59,3 +59,16 @@ One word per idea everywhere: storefront, Dashboard, SMS, help articles. Banglad
 | Staff / Role | স্টাফ / রোল |
 | Owner / Manager / Order staff / Packer / Marketing | মালিক / ম্যানেজার / অর্ডার স্টাফ / প্যাকার / মার্কেটিং |
 | Private (not shown to customers) | গোপন |
+| Customer note (written by the shopper) | কাস্টমারের নোট |
+| Internal notes (staff only) | ভেতরের নোট |
+| Total spent | মোট কেনাকাটা |
+| Last order | শেষ অর্ডার |
+| Customer since | কাস্টমার হয়েছেন |
+| Partly delivered | আংশিক ডেলিভারি |
+| Confirm orders (the queue) | অর্ডার কনফার্ম |
+| No answer (customer didn't pick up) | ফোন ধরেননি |
+| Call later | পরে কল |
+| Cancel reason | বাতিলের কারণ |
+| Fake order | ভুয়া অর্ডার |
+| To collect on delivery (COD due) | ডেলিভারিতে নিতে হবে |
+| Sales today | আজকের বিক্রি |

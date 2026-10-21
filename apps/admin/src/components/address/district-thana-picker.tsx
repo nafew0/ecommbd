@@ -19,7 +19,7 @@ interface Thana {
 }
 
 /** The lists change only with a new data version, so they're fetched once per language and district. */
-function usePlaces(districtId: string) {
+export function usePlaces(districtId: string) {
     const { language } = useI18n();
     const districts = useQuery({
         queryKey: ['bdDistricts', language],

@@ -156,7 +156,8 @@ test.describe('merchant admin', () => {
     }) => {
         await signIn(page, 'en');
         await page.goto('/admin/settings/store');
-        const hours = `Sat–Thu, 10am–${(Date.now() % 9) + 1}pm`;
+        // Different on every run: a value equal to the saved one would leave nothing to save.
+        const hours = `Sat–Thu, 10am–8pm (${Date.now() % 1_000_000})`;
         await page.getByLabel('Business hours (English)').fill(hours);
         await context.clearCookies();
         await page.getByRole('button', { name: 'Save changes' }).click();

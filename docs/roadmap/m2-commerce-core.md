@@ -18,6 +18,8 @@ All work in this milestone is Vendure plugins in `apps/core/src/plugins/` plus s
 
 **Goal.** A shopper checks out with name, phone and address only, and is recognised by phone number. No email is ever required or shown.
 
+> **Built on 2026-10-21** on the `nafew` branch (plugin `bd-checkout`). Decisions are in the [decisions log](../decisions.md) (rows starting "Phase 03"). Placeholder-email surfaces covered so far: our admin (browser test) and email (end-to-end test); exports and Meta don't exist yet, and use `isPlaceholderEmail()` when they arrive (phases 20, 27).
+
 ### Decide at start
 
 - **Names:** how one full name maps onto Vendure's `firstName` and `lastName`. Recommended: the full name in `firstName` and `lastName` empty, if Vendure accepts that; otherwise split on the last space. The order address always keeps the full name as typed.
@@ -79,9 +81,9 @@ All work in this milestone is Vendure plugins in `apps/core/src/plugins/` plus s
 
 ### Done when
 
-- [ ] An API checkout with only name, phone and a district/thana address places an order.
-- [ ] The customer list is searchable by phone and never shows a placeholder email.
-- [ ] All edge cases above have passing tests.
+- [x] An API checkout with only name, phone and a district/thana address places an order. (End-to-end: `bd-checkout.e2e-spec.ts`, "places an order with only name, phone and a district/thana address".)
+- [x] The customer list is searchable by phone and never shows a placeholder email. (End-to-end search by last digits, Bangla digits, full number and name; Playwright `customers.spec.ts` on desktop and phone.)
+- [x] All edge cases above have passing tests. (End-to-end: same phone twice, the concurrent race, email conflict, registered phone, names, phone formats, older clients, the payment guard, rate limit; unit tests in `packages/shared/src/checkout.spec.ts`.)
 
 ### Not in this phase
 
@@ -99,6 +101,8 @@ The checkout UI (14), OTP (11 and 34), incomplete-order capture (11).
 | Size | L |
 
 **Goal.** Orders move through the statuses Bangladeshi merchants use, and staff confirm or cancel orders by phone quickly, without stepping on each other.
+
+> **Built on 2026-10-21** on the `nafew` branch (plugin `bd-orders`). Decisions are in the [decisions log](../decisions.md) (rows starting "Phase 04") and the [order-states ADR](../decisions/order-states.md). Not built here, as planned: the queue's **Edit** button (phase 05's editor) and the risk badge (phase 11). Until couriers arrive (phase 19), staff mark orders shipped, delivered or returned by hand.
 
 ### Decide at start
 
@@ -174,11 +178,11 @@ The checkout UI (14), OTP (11 and 34), incomplete-order capture (11).
 
 ### Done when
 
-- [ ] A COD order placed through the API appears as **#1001 New** in the confirmation queue.
-- [ ] Staff confirm in two clicks; cancelling requires a reason; history shows who did what and when.
-- [ ] Two staff can't confirm the same order twice.
-- [ ] Order numbers have no gaps from abandoned carts.
-- [ ] Home widgets show correct Dhaka-day numbers.
+- [x] A COD order placed through the API appears as **#1001 New** in the confirmation queue. (End-to-end: `bd-orders.e2e-spec.ts`, first test.)
+- [x] Staff confirm in two clicks; cancelling requires a reason; history shows who did what and when. (Playwright `orders.spec.ts` in Bangla and English on desktop and phone; end-to-end history checks.)
+- [x] Two staff can't confirm the same order twice. (End-to-end: two simultaneous confirms give one success and one "already confirmed" with the name.)
+- [x] Order numbers have no gaps from abandoned carts. (End-to-end: carts take no number; 200 simultaneous placements get 200 consecutive numbers.)
+- [x] Home widgets show correct Dhaka-day numbers. (End-to-end: 23:59 and 00:00 Dhaka time land on different days.) Load test: 20,000 orders, queue in ~35 ms, counts ~16 ms, phone search ~94 ms (`orders-load.e2e-spec.ts`).
 
 ### Not in this phase
 

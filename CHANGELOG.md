@@ -6,6 +6,27 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Added
 
+- **Phase 04, BD order workflow, order numbers and confirmation queue** (plugin `bd-orders`):
+  - Order statuses New → Confirmed → Packed → Shipped → Delivered, plus Partly delivered, Returned and Cancelled, on Vendure's order process. Every allowed change is in `docs/decisions/order-states.md`; anything else is refused with a clear message, also from Vendure's own mutations. Cancelling needs a reason (fake, customer cancelled, unreachable, duplicate, out of stock, price issue, other).
+  - Order numbers 1001, 1002… (optional prefix, e.g. `MF-1001`), given when the order is placed, so abandoned carts leave no gaps.
+  - Confirmation queue: oldest first, tap-to-call, "No answer" (moves it down), "Call later" (hides it until then), a call log, "Rahim is calling" claims for 5 minutes, bulk confirm, keyboard shortcuts, possible-duplicate and looks-unreachable flags, and an optional auto-cancel (off unless the merchant turns it on).
+  - Two staff acting on one order at once: one wins, the other is told who already did it.
+  - A stock warning when confirming an order whose stock ran out; orders with money received can't be cancelled until refunds arrive (phase 08).
+  - Merchant admin: **Orders** list with status tabs and counts, search by phone, order number or name, Dhaka-date, district and payment filters; an order page with items, money to collect, customer, address, history and the next actions; **Confirm orders**; home widgets for the Dhaka day (sales need the new `ReadSalesFigures` permission); **Settings → Orders**.
+  - New permissions `ConfirmOrder`, `CancelOrder`, `PackOrder` and `ReadSalesFigures`, granted to the default roles by a new store-defaults step.
+  - Events for later phases (`BdOrderConfirmedEvent`, `BdOrderPackedEvent`, `BdOrderReturnedEvent`, `BdOrderCancelledWithReasonEvent`), never fired for imported orders.
+  - Tests: unit tests for the shared status table and order settings, end-to-end tests of the whole state machine, concurrency, numbering under load, the Dhaka day boundary, permissions and events, a 20,000-order load test, and Playwright tests of the queue and order screens.
+
+- **Phase 03, phone-first customers and guest checkout API** (plugin `bd-checkout`):
+  - Shop API `setCustomerForOrderByPhone` (name, phone, optional alternate phone and email) and `setOrderShippingAddressBD` (district, thana, address, note), with typed errors (`BdCheckoutError`, e.g. `INVALID_PHONE`, `NOT_A_MOBILE`, `THANA_NOT_IN_DISTRICT`) in Bangla and English, input cleaning and length limits, and rate limits per session and per phone in Redis.
+  - One customer per phone: new customer fields (phone, alternate phone, source, internal notes, order stats kept up to date), a placeholder email `…@phone.invalid` for phone-only customers, safe when two checkouts create the same phone at once. A family sharing a phone keeps one customer; each order keeps its own name and address.
+  - No payment without a valid mobile number and a district/thana address, for every checkout path, including Vendure's own `setCustomerForOrder` (which now finds customers by phone and never overwrites them).
+  - Guests never see a linked account's data: a guest's `Order.customer` shows only what they typed.
+  - Checkout settings (show email, alternate phone and note; minimum address length; international phones) in the settings store, readable by the storefront.
+  - Placeholder addresses are never emailed.
+  - Merchant admin: **Customers** list searched by phone (the last digits are enough, Bangla digits too), and a customer page with phone, alternate phone, stats, recent orders and internal notes.
+  - Tests: unit tests for the shared checkout helpers (100% coverage), end-to-end tests for every listed edge case, Playwright tests of the customer screens.
+
 - **Phase 02, Bangladesh store defaults, place data, store settings and the merchant admin:**
   - `packages/bd-geo`: 8 divisions, 64 districts, 495 upazilas, 12 city corporations and the metropolitan thanas of Dhaka and Chattogram, in Bangla and English, with old spellings, delivery zones (Dhaka city, Dhaka suburbs, Chattogram city, outside Dhaka) and search. Official BBS geocodes as IDs.
   - New stores start ready for Bangladesh: BDT, prices including tax, Bangla (default) and English, Bangladesh enabled, a 0% standard tax and five staff roles (Owner, Manager, Order staff, Packer, Marketing). Runs on start and with `npm run store:init`; never overwrites a merchant's changes.

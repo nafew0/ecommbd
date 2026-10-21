@@ -34,6 +34,10 @@ Read first:
 - **Permissions:** every custom GraphQL query or mutation and every REST route needs `@Allow(...)` **on the method**. Vendure ignores `@Allow` on a class, and a method without it gets no permission check at all.
 - **Store defaults:** a new default for every store is a step registered with `registerStoreDefaults` (bd-core) with a new `id`. Never edit a step that stores have already run; add a new one.
 - **Addresses:** a new mutation that takes an address must be listed in `ADDRESS_ARGS` (`bd-core/address/address.interceptor.ts`), or the district/thana checks skip it.
+- **Customers and emails:** customers are keyed by the `phone` custom field; phone-only customers have a placeholder email (`…@phone.invalid`). Check `isPlaceholderEmail()` (`packages/shared`) before showing, exporting or sending to any email.
+- **Order statuses:** the table in `packages/shared/src/order-status.ts` drives both the server guard and the admin buttons. A new transition needs a row there and in `docs/decisions/order-states.md`.
+- **Dates in SQL:** Vendure's timestamp columns have no time zone; the core runs in UTC (`src/env.ts`). Pass JS dates as parameters in SQL you write.
+- **Test databases** are built from entities, not migrations: anything only a migration creates (like the order-number sequence) goes in `addMigrationOnlyObjects` (`apps/core/test/support/test-config.ts`).
 - **Merchant admin (`apps/admin`):**
   - every string goes in `src/messages/en.ts` and `bn.ts` (TypeScript refuses a missing one)
   - import shared helpers by path (`@ecommbd/shared/phone`), never the package root: it contains Node-only code

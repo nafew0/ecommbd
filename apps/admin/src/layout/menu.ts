@@ -51,8 +51,8 @@ export const MENU: MenuGroup[] = [
         label: 'orders',
         icon: ShoppingBag,
         children: [
-            link('allOrders', '/orders', '04', false, 'ReadOrder'),
-            link('confirmOrders', '/orders/confirm', '04', false, 'UpdateOrder'),
+            link('allOrders', '/orders', '04', true, 'ReadOrder'),
+            link('confirmOrders', '/orders/confirm', '04', true, 'ConfirmOrder'),
             link('phoneOrder', '/orders/phone', '05', false, 'CreateOrder'),
             link('incompleteOrders', '/orders/incomplete', '11', false, 'ReadOrder'),
             link('verifyPayments', '/orders/payments', '08', false, 'UpdateOrder'),
@@ -72,7 +72,7 @@ export const MENU: MenuGroup[] = [
         label: 'customers',
         icon: Users,
         children: [
-            link('customerList', '/customers', '03', false, 'ReadCustomer'),
+            link('customerList', '/customers', '03', true, 'ReadCustomer'),
             link('blockList', '/customers/blocked', '11', false, 'UpdateCustomer'),
         ],
     },
@@ -101,6 +101,7 @@ export const MENU: MenuGroup[] = [
         icon: Settings,
         children: [
             link('store', '/settings/store', '02', true, 'ReadSettings'),
+            link('orderSettings', '/settings/orders', '04', true, 'ReadSettings'),
             link('delivery', '/settings/delivery', '07'),
             link('payments', '/settings/payments', '08'),
             link('couriers', '/settings/couriers', '19'),

@@ -1,22 +1,27 @@
 import {
     dummyPaymentHandler,
+    TransactionalConnection,
     type InitialData,
     LanguageCode,
     mergeConfig,
     type VendureConfig,
 } from '@vendure/core';
-import { testConfig } from '@vendure/testing';
+import { testConfig, type TestServer } from '@vendure/testing';
+import path from 'node:path';
 import { requestIdMiddleware } from '../../src/logging/request-context';
-import { customPlugins } from '../../src/plugins';
+import { type CustomPluginOptions, customPlugins } from '../../src/plugins';
+import { CREATE_ORDER_NUMBER_SEQUENCE_SQL } from '../../src/plugins/bd-orders';
 
 /**
  * Vendure's test config, plus what our real config adds (our plugins and middleware), against
- * PostgreSQL. Each test file passes its own port, so files can run in parallel.
- * Connection settings come from TEST_DB_* variables, defaulting to the root docker-compose.yml.
+ * PostgreSQL and the cache Redis. Each test file passes its own port, so files can run in parallel.
+ * Connection settings come from TEST_DB_* and TEST_REDIS_CACHE_* variables, defaulting to the root
+ * docker-compose.yml. Redis keys get a prefix of their own per run.
  */
 export function createTestConfig(
     port: number,
     overrides: Partial<VendureConfig> = {},
+    pluginOptions: Partial<CustomPluginOptions> = {},
 ): Required<VendureConfig> {
     const ours = mergeConfig(testConfig, {
         // Same API protection as vendure-config.ts.
@@ -29,7 +34,15 @@ export function createTestConfig(
             password: process.env.TEST_DB_PASSWORD ?? 'ecommbd',
         },
         paymentOptions: { paymentMethodHandlers: [dummyPaymentHandler] },
-        plugins: customPlugins(),
+        plugins: customPlugins({
+            defaultLanguage: 'bn',
+            cacheRedis: {
+                host: process.env.TEST_REDIS_CACHE_HOST ?? '127.0.0.1',
+                port: Number(process.env.TEST_REDIS_CACHE_PORT ?? 63791),
+            },
+            redisKeyPrefix: `test-${port}-${Date.now()}`,
+            ...pluginOptions,
+        }),
     });
     const config = mergeConfig(ours, overrides);
     // Set after merging: mergeConfig's partial type doesn't accept middleware functions.
@@ -62,3 +75,14 @@ export const testInitialData: InitialData = {
     countries: [],
     collections: [],
 };
+
+/** Two products for checkout tests: a panjabi (500 in stock) and a saree (5 in stock). */
+export const testProductsCsvPath = path.join(__dirname, '../fixtures/products.csv');
+
+/**
+ * Test databases are built from the entities (Vendure's `synchronize`), not from our migrations, so
+ * this adds what only migrations create: the order-number sequence. Call it after `server.init()`.
+ */
+export async function addMigrationOnlyObjects(server: TestServer) {
+    await server.app.get(TransactionalConnection).rawConnection.query(CREATE_ORDER_NUMBER_SEQUENCE_SQL);
+}

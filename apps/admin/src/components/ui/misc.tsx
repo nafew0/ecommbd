@@ -30,16 +30,23 @@ export function CardBody({ className, ...props }: HTMLAttributes<HTMLDivElement>
     return <div className={cn('space-y-5 px-4 py-4 sm:px-6', className)} {...props} />;
 }
 
+export type BadgeTone = 'slate' | 'amber' | 'teal' | 'red' | 'sky' | 'violet' | 'indigo' | 'green' | 'orange';
+
 export function Badge({
     tone = 'slate',
     className,
     ...props
-}: HTMLAttributes<HTMLSpanElement> & { tone?: 'slate' | 'amber' | 'teal' | 'red' }) {
-    const tones = {
+}: HTMLAttributes<HTMLSpanElement> & { tone?: BadgeTone }) {
+    const tones: Record<BadgeTone, string> = {
         slate: 'bg-slate-100 text-slate-700',
         amber: 'bg-amber-100 text-amber-900',
         teal: 'bg-teal-50 text-teal-800',
         red: 'bg-red-100 text-red-800',
+        sky: 'bg-sky-100 text-sky-900',
+        violet: 'bg-violet-100 text-violet-900',
+        indigo: 'bg-indigo-100 text-indigo-900',
+        green: 'bg-green-100 text-green-900',
+        orange: 'bg-orange-100 text-orange-900',
     };
     return (
         <span

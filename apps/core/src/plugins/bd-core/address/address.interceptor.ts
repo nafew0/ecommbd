@@ -6,7 +6,8 @@ import { BdAddressError, normalizeAddressInput } from './normalize-address';
 
 /**
  * Where each mutation (Shop and Admin API) carries an address. Adding a mutation with an address?
- * List it here, or our checks are skipped for it.
+ * List it here, or our checks are skipped for it. (`setOrderShippingAddressBD`, bd-checkout, takes
+ * a flat input and runs `normalizeAddressInput` itself.)
  */
 const ADDRESS_ARGS: Record<string, string[][]> = {
     createCustomerAddress: [['input']],

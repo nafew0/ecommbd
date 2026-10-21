@@ -11,6 +11,8 @@ export default defineConfig({
         name: 'core-e2e',
         include: ['test/e2e/**/*.e2e-spec.ts'],
         environment: 'node',
+        // Like the server (src/env.ts): Vendure's timestamps are only consistent in UTC.
+        env: { TZ: 'UTC' },
         testTimeout: 30_000,
         hookTimeout: 120_000,
     },

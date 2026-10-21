@@ -220,6 +220,8 @@ describe('running the initializer again', () => {
             'channel',
             'roles',
             'store-settings',
+            // Registered by later plugins (registerStoreDefaults):
+            'order-permissions',
         ]);
         expect(await storeState()).toEqual(before);
     });

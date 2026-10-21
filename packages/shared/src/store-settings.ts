@@ -209,21 +209,23 @@ export interface SettingsFieldError {
 export type ParseStoreSettingsResult =
     { ok: true; settings: StoreSettings } | { ok: false; errors: SettingsFieldError[] };
 
+/** zod issues → field errors with our codes (anything else becomes `invalid`). Shared by every settings schema. */
+export function toSettingsFieldErrors(issues: z.core.$ZodIssue[]): SettingsFieldError[] {
+    return issues.map(issue => ({
+        path: issue.path.join('.'),
+        code: (SETTINGS_ERROR_CODES as readonly string[]).includes(issue.message)
+            ? (issue.message as SettingsErrorCode)
+            : 'invalid',
+    }));
+}
+
 /** Validates and normalizes settings, returning field errors as codes instead of throwing. */
 export function parseStoreSettings(input: unknown): ParseStoreSettingsResult {
     const result = storeSettingsSchema.safeParse(input);
     if (result.success) {
         return { ok: true, settings: result.data };
     }
-    return {
-        ok: false,
-        errors: result.error.issues.map(issue => ({
-            path: issue.path.join('.'),
-            code: (SETTINGS_ERROR_CODES as readonly string[]).includes(issue.message)
-                ? (issue.message as SettingsErrorCode)
-                : 'invalid',
-        })),
-    };
+    return { ok: false, errors: toSettingsFieldErrors(result.error.issues) };
 }
 
 /** Dotted paths of the values that differ, for the change history (`profile.phones`, `locale.banglaDigits`). */

@@ -16,6 +16,7 @@ import { env } from './env';
 import { JsonLogger, toVendureLogLevel } from './logging/json-logger';
 import { requestIdMiddleware } from './logging/request-context';
 import { customPlugins } from './plugins';
+import { skipPlaceholderRecipients } from './plugins/bd-checkout';
 
 const IS_DEV = env.APP_ENV === 'dev';
 const IS_LIVE = env.APP_ENV === 'staging' || env.APP_ENV === 'production';
@@ -127,7 +128,8 @@ export const config: VendureConfig = {
             devMode: true,
             outputPath: path.join(__dirname, '../static/email/test-emails'),
             route: 'mailbox',
-            handlers: defaultEmailHandlers,
+            // Never to a phone-only customer's placeholder address (…@phone.invalid).
+            handlers: skipPlaceholderRecipients(defaultEmailHandlers),
             templateLoader: new FileBasedTemplateLoader(path.join(__dirname, '../static/email/templates')),
             globalTemplateVars: {
                 // The following variables will change depending on your storefront implementation.
@@ -148,6 +150,13 @@ export const config: VendureConfig = {
         ...customPlugins({
             defaultLanguage: env.STORE_DEFAULT_LANGUAGE,
             assetUrlPrefix: env.ASSET_URL_PREFIX,
+            cacheRedis: {
+                host: env.REDIS_CACHE_HOST,
+                port: env.REDIS_CACHE_PORT,
+                username: env.REDIS_CACHE_USERNAME,
+                password: env.REDIS_CACHE_PASSWORD,
+            },
+            redisKeyPrefix: KEY_PREFIX,
         }),
     ],
 };

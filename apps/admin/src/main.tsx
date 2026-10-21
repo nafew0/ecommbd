@@ -64,6 +64,46 @@ const router = createBrowserRouter(
                                 import('./pages/home').then(module => ({ Component: module.HomePage })),
                         },
                         {
+                            path: 'orders',
+                            lazy: () =>
+                                import('./pages/orders').then(module => ({ Component: module.OrdersPage })),
+                        },
+                        {
+                            path: 'orders/confirm',
+                            lazy: () =>
+                                import('./pages/confirm-orders').then(module => ({
+                                    Component: module.ConfirmOrdersPage,
+                                })),
+                        },
+                        {
+                            path: 'orders/:id',
+                            lazy: () =>
+                                import('./pages/order-detail').then(module => ({
+                                    Component: module.OrderDetailPage,
+                                })),
+                        },
+                        {
+                            path: 'settings/orders',
+                            lazy: () =>
+                                import('./pages/order-settings').then(module => ({
+                                    Component: module.OrderSettingsPage,
+                                })),
+                        },
+                        {
+                            path: 'customers',
+                            lazy: () =>
+                                import('./pages/customers').then(module => ({
+                                    Component: module.CustomersPage,
+                                })),
+                        },
+                        {
+                            path: 'customers/:id',
+                            lazy: () =>
+                                import('./pages/customer-detail').then(module => ({
+                                    Component: module.CustomerDetailPage,
+                                })),
+                        },
+                        {
                             path: 'settings/store',
                             lazy: () =>
                                 import('./pages/store-settings').then(module => ({
