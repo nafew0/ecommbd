@@ -107,11 +107,14 @@ const crumbs = [
                 </nav>
             )}
             {products.length ? (
-                <ul class="product-grid">
-                    {products.map(product => (
-                        <ProductCard product={product} lang={lang} defaultLang={defaultLang} format={format} />
-                    ))}
-                </ul>
+                <>
+                    <h2 class="visually-hidden">{s.productsHeading}</h2>
+                    <ul class="product-grid">
+                        {products.map(product => (
+                            <ProductCard product={product} lang={lang} defaultLang={defaultLang} format={format} />
+                        ))}
+                    </ul>
+                </>
             ) : (
                 <p class="muted">{s.noProducts}</p>
             )}
