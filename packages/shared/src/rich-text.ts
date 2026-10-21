@@ -145,7 +145,12 @@ export function richTextToHtml(input: string): string {
 
 /** Plain text of rich text, on one line and cut at a word near `maxLength` (meta descriptions). */
 export function richTextToPlain(input: string, maxLength = 160): string {
-    const text = sanitizeHtml(stripShortcodes(input).text, { allowedTags: [], allowedAttributes: {} })
+    // Blocks and line breaks become spaces, so "<p>One</p><p>Two</p>" reads "One Two".
+    const spaced = stripShortcodes(input).text.replace(
+        /<\/(p|li|h[1-6]|div|tr|td|th|blockquote)>|<br\s*\/?>/gi,
+        ' ',
+    );
+    const text = sanitizeHtml(spaced, { allowedTags: [], allowedAttributes: {} })
         .replace(/&nbsp;/g, ' ')
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')

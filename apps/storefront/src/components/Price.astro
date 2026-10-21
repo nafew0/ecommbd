@@ -1,0 +1,20 @@
+---
+import type { Formatter } from '../lib/i18n';
+
+interface Props {
+    min: number;
+    max: number;
+    format: Formatter;
+    /** The old price (phase 05's field): shown struck through only when it's higher. */
+    oldPrice?: number | null;
+    large?: boolean;
+}
+
+const { min, max, format, oldPrice, large = false } = Astro.props;
+const showOld = oldPrice != null && oldPrice > max;
+---
+
+<p class:list={['price', { 'price-large': large }]}>
+    <span class="price-now">{format.priceRange(min, max)}</span>
+    {showOld && <s class="price-old">{format.price(oldPrice!)}</s>}
+</p>

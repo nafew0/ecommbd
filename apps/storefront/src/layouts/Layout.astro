@@ -1,0 +1,106 @@
+---
+import '../styles/global.css';
+import FloatingContact from '../components/FloatingContact.astro';
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+import { otherLang } from '../lib/i18n';
+import type { ImageAttributes } from '../lib/images';
+import { pageContext } from '../lib/page';
+import { jsonLd } from '../lib/seo';
+import { storeName } from '../lib/store';
+import { sameOriginAssetUrl } from '../lib/urls';
+
+interface Props {
+    /** The page's own title; the store name is added after it. */
+    title: string;
+    description?: string;
+    /** The canonical path in this language, without the prefix. Null for pages that mustn't be indexed. */
+    canonicalPath?: string | null;
+    alternates?: Array<{ hreflang: string; href: string }>;
+    noindex?: boolean;
+    ogType?: 'website' | 'product';
+    /** An image path or URL for Open Graph and Twitter cards. */
+    image?: string;
+    structuredData?: unknown[];
+    /** The main (LCP) image, preloaded in the head. */
+    preload?: ImageAttributes & { sizes: string };
+}
+
+const {
+    title,
+    description,
+    canonicalPath = null,
+    alternates = [],
+    noindex = false,
+    ogType = 'website',
+    image,
+    structuredData = [],
+    preload,
+} = Astro.props;
+const { lang, settings, s, href, absolute } = pageContext(Astro);
+const name = storeName(settings, lang);
+const fullTitle = title && title !== name ? `${title} | ${name}` : name;
+const canonical = canonicalPath ? absolute(href(canonicalPath)) : null;
+const other = otherLang(lang);
+const switchHref = alternates.find(link => link.hreflang === other)?.href ?? href('/', other);
+const favicon = settings.profile.favicon?.preview;
+const phone = settings.profile.phones[0];
+---
+
+<!doctype html>
+<html lang={lang}>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>{fullTitle}</title>
+        {description && <meta name="description" content={description} />}
+        {noindex && <meta name="robots" content="noindex, follow" />}
+        {canonical && <link rel="canonical" href={canonical} />}
+        {alternates.map(link => <link rel="alternate" hreflang={link.hreflang} href={link.href} />)}
+        {
+            favicon ? (
+                <link rel="icon" href={`${sameOriginAssetUrl(favicon)}?preset=tiny`} />
+            ) : (
+                <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+            )
+        }
+        {
+            preload && (
+                <link
+                    rel="preload"
+                    as="image"
+                    href={preload.src}
+                    imagesrcset={preload.srcset}
+                    imagesizes={preload.srcset ? preload.sizes : undefined}
+                    fetchpriority="high"
+                />
+            )
+        }
+        <meta property="og:site_name" content={name} />
+        <meta property="og:title" content={title || name} />
+        {description && <meta property="og:description" content={description} />}
+        <meta property="og:type" content={ogType} />
+        {canonical && <meta property="og:url" content={canonical} />}
+        <meta property="og:locale" content={lang === 'bn' ? 'bn_BD' : 'en_US'} />
+        {image && <meta property="og:image" content={absolute(image)} />}
+        <meta name="twitter:card" content={image ? 'summary_large_image' : 'summary'} />
+        <meta name="twitter:title" content={title || name} />
+        {description && <meta name="twitter:description" content={description} />}
+        {image && <meta name="twitter:image" content={absolute(image)} />}
+        {structuredData.map(data => <script type="application/ld+json" set:html={jsonLd(data)} />)}
+    </head>
+    <body>
+        <a class="skip-link" href="#main">{s.skipToContent}</a>
+        <Header switchHref={switchHref} />
+        <main id="main" class="container">
+            <slot />
+        </main>
+        <Footer />
+        <FloatingContact
+            lang={lang}
+            whatsapp={settings.profile.whatsapp}
+            messengerUrl={settings.profile.messengerUrl}
+            phone={phone}
+        />
+    </body>
+</html>

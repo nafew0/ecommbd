@@ -8,6 +8,7 @@ import { defineConfig, devices } from '@playwright/test';
  * mostly use on their phones. Tests that only make sense on one of them say so with `test.skip`.
  */
 const baseURL = process.env.BROWSER_BASE_URL ?? 'http://localhost:3000';
+const storefrontURL = process.env.STOREFRONT_URL ?? 'http://localhost:4321';
 
 export default defineConfig({
     testDir: './tests/browser',
@@ -24,10 +25,20 @@ export default defineConfig({
         { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
         { name: 'phone', use: { ...devices['Pixel 7'] } },
     ],
-    webServer: {
-        command: 'npm run start',
-        url: `${baseURL}/health`,
-        reuseExistingServer: !process.env.CI,
-        timeout: 120_000,
-    },
+    webServer: [
+        {
+            command: 'npm run start',
+            url: `${baseURL}/health`,
+            reuseExistingServer: !process.env.CI,
+            timeout: 120_000,
+        },
+        {
+            // The storefront (storefront.spec.ts), talking to the core above.
+            command: 'npm run start -w @ecommbd/storefront',
+            url: `${storefrontURL}/health`,
+            env: { CORE_URL: baseURL, SITE_URL: storefrontURL, PORT: new URL(storefrontURL).port || '4321' },
+            reuseExistingServer: !process.env.CI,
+            timeout: 60_000,
+        },
+    ],
 });

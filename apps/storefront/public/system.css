@@ -1,0 +1,21 @@
+body {
+    margin: 0;
+    font-family: system-ui, 'Noto Sans Bengali', sans-serif;
+    color: #1f2937;
+    background: #f8fafc;
+}
+main {
+    max-width: 32rem;
+    margin: 15vh auto;
+    padding: 0 1.25rem;
+    line-height: 1.6;
+}
+h1 {
+    font-size: 1.6rem;
+    margin: 0 0 0.5rem;
+}
+h2 {
+    font-size: 1.2rem;
+    margin: 2rem 0 0.5rem;
+    color: #475569;
+}

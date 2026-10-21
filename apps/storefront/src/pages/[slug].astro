@@ -1,0 +1,81 @@
+---
+import { policyLabel, POLICY_SLUGS } from '@ecommbd/shared/content';
+import type { PolicyKey } from '@ecommbd/shared/store-settings';
+import Missing from '../components/Missing.astro';
+import RichText from '../components/RichText.astro';
+import Layout from '../layouts/Layout.astro';
+import { shopQuery } from '../lib/core';
+import type { Lang } from '../lib/i18n';
+import { alternates, canonicalRedirect, pageContext } from '../lib/page';
+import { PAGE, SLUG_LOOKUP } from '../lib/queries';
+import { metaDescription } from '../lib/seo';
+import { bilingual } from '../lib/store';
+import { lookupSlug, pagePath } from '../lib/urls';
+
+/** Simple pages (bd-content) and the four policies from store settings (roadmap phase 12). */
+const { lang, settings, s, href } = pageContext(Astro);
+const slug = lookupSlug(Astro.params.slug ?? '');
+
+interface Shown {
+    title: string;
+    body: string;
+    seoTitle: string;
+    seoDescription: string;
+    path: string;
+    paths: Partial<Record<Lang, string>>;
+}
+
+let shown: Shown | null = null;
+let missing: 'not-found' | 'gone' = 'not-found';
+const policy = (Object.keys(POLICY_SLUGS) as PolicyKey[]).find(key => POLICY_SLUGS[key] === slug);
+
+if (policy) {
+    const text = bilingual(settings.policies[policy], lang);
+    const path = `/${POLICY_SLUGS[policy]}/`;
+    if (text) shown = { title: policyLabel(policy, lang), body: text, seoTitle: '', seoDescription: '', path, paths: { bn: path, en: path } };
+} else {
+    const { bdPage } = await shopQuery(PAGE, { slug }, lang);
+    if (bdPage) {
+        const pick = (language: Lang) => bdPage.translations.find(translation => translation.languageCode === language);
+        const translation = pick(lang) ?? bdPage.translations[0]!;
+        const paths: Partial<Record<Lang, string>> = {};
+        for (const language of ['bn', 'en'] as const) {
+            paths[language] = pagePath((pick(language) ?? translation).slug);
+        }
+        shown = { ...translation, path: pagePath(translation.slug), paths };
+    } else {
+        const { bdSlugLookup } = await shopQuery(SLUG_LOOKUP, { type: 'page', slug }, lang);
+        if (bdSlugLookup?.status === 'moved' && bdSlugLookup.slug) {
+            return Astro.redirect(href(pagePath(bdSlugLookup.slug)), 301);
+        }
+        if (bdSlugLookup?.status === 'gone') missing = 'gone';
+    }
+}
+
+if (shown) {
+    const redirect = canonicalRedirect(Astro, shown.path);
+    if (redirect) return redirect;
+} else {
+    Astro.response.status = missing === 'gone' ? 410 : 404;
+}
+---
+
+{
+    shown ? (
+        <Layout
+            title={shown.seoTitle || shown.title}
+            description={metaDescription(shown.seoDescription, shown.body)}
+            canonicalPath={shown.path}
+            alternates={alternates(Astro, shown.paths)}
+        >
+            <article class="content-page">
+                <h1>{shown.title}</h1>
+                <RichText content={shown.body} />
+            </article>
+        </Layout>
+    ) : (
+        <Layout title={s.notFoundTitle} noindex>
+            <Missing kind="not-found" />
+        </Layout>
+    )
+}

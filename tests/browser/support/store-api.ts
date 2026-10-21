@@ -31,6 +31,28 @@ export class ApiSession {
         }
         return json.data as T;
     }
+
+    /** Uploads an image as an asset (GraphQL multipart, as the admin does). Returns its ID. */
+    async uploadImage(data: Buffer, fileName: string, type: string): Promise<string> {
+        const form = new FormData();
+        const query =
+            'mutation ($input: [CreateAssetInput!]!) { createAssets(input: $input) { ... on Asset { id } } }';
+        form.append('operations', JSON.stringify({ query, variables: { input: [{ file: null }] } }));
+        form.append('map', JSON.stringify({ 0: ['variables.input.0.file'] }));
+        form.append('0', new Blob([new Uint8Array(data)], { type }), fileName);
+        const response = await fetch(`${baseURL}/${this.api}`, {
+            method: 'POST',
+            body: form,
+            headers: {
+                'apollo-require-preflight': 'true',
+                ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
+            },
+        });
+        const json = (await response.json()) as { data?: { createAssets: Array<{ id?: string }> } };
+        const id = json.data?.createAssets[0]?.id;
+        if (!id) throw new Error(`Upload refused: ${JSON.stringify(json)}`);
+        return id;
+    }
 }
 
 export async function adminSession(user = username, pass = password): Promise<ApiSession> {

@@ -87,6 +87,9 @@ describe('plain text and HTML', () => {
                 '<p>Soft&nbsp;cotton &amp; silk &lt;3 &quot;new&quot; it&#39;s &gt;</p>\n<p>Two</p>',
             ),
         ).toBe('Soft cotton & silk <3 "new" it\'s > Two');
+        expect(richTextToPlain('<p>Eid.</p><ul><li>Wash</li><li>Dry</li></ul>Line<br>break')).toBe(
+            'Eid. Wash Dry Line break',
+        );
         expect(richTextToPlain('one two three four five six', 15)).toBe('one two three…');
         expect(richTextToPlain('abcdefghijklmnopqrstuvwxyz', 10)).toBe('abcdefghi…');
     });

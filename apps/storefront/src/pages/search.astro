@@ -1,0 +1,40 @@
+---
+import ProductCard from '../components/ProductCard.astro';
+import Layout from '../layouts/Layout.astro';
+import { type ResultOf, shopQuery } from '../lib/core';
+import { canonicalRedirect, pageContext, privatePage } from '../lib/page';
+import { type ProductCardFields, PRODUCTS_BY_ID, SEARCH } from '../lib/queries';
+
+/** A simple product search (phase 13 adds filters and better matching). Never indexed. */
+const redirect = canonicalRedirect(Astro, '/search/');
+if (redirect) return redirect;
+privatePage(Astro);
+
+const { lang, defaultLang, s, format } = pageContext(Astro);
+const query = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 100);
+let products: Array<ResultOf<typeof ProductCardFields>> = [];
+if (query) {
+    const { search } = await shopQuery(SEARCH, { input: { term: query, groupByProduct: true, take: 24 } }, lang);
+    const ids = search.items.map(item => item.productId);
+    if (ids.length) {
+        const found = (await shopQuery(PRODUCTS_BY_ID, { ids, take: ids.length }, lang)).products.items;
+        products = ids.map(id => found.find(product => product.id === id)).filter(product => !!product);
+    }
+}
+---
+
+<Layout title={query ? s.resultsFor(query) : s.search} noindex>
+    <h1>{query ? s.resultsFor(query) : s.search}</h1>
+    {
+        query &&
+            (products.length ? (
+                <ul class="product-grid">
+                    {products.map(product => (
+                        <ProductCard product={product} lang={lang} defaultLang={defaultLang} format={format} />
+                    ))}
+                </ul>
+            ) : (
+                <p class="muted">{s.nothingFound}</p>
+            ))
+    }
+</Layout>

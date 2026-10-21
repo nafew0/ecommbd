@@ -1,0 +1,13 @@
+---
+import Missing from '../components/Missing.astro';
+import Layout from '../layouts/Layout.astro';
+import { pageContext } from '../lib/page';
+
+/** Any URL no route matches. */
+const { s } = pageContext(Astro);
+Astro.response.status = 404;
+---
+
+<Layout title={s.notFoundTitle} noindex>
+    <Missing kind="not-found" />
+</Layout>

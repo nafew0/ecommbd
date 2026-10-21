@@ -1,0 +1,91 @@
+---
+import { formatBdPhone } from '@ecommbd/shared/phone';
+import { pageContext } from '../lib/page';
+import { bilingual, getMenus, storeName } from '../lib/store';
+
+const { lang, settings, s, href } = pageContext(Astro);
+const menus = await getMenus(lang);
+const profile = settings.profile;
+const social = Object.entries(profile.social).filter(([, url]) => url) as Array<[string, string]>;
+const SOCIAL_NAMES: Record<string, string> = {
+    facebook: 'Facebook',
+    instagram: 'Instagram',
+    youtube: 'YouTube',
+    tiktok: 'TikTok',
+};
+const address = [profile.address.line, profile.address.area].filter(Boolean).join(', ');
+const hours = bilingual(profile.businessHours, lang);
+const linkHref = (url: string) => (url.startsWith('/') ? href(url) : url);
+---
+
+<footer class="site-footer">
+    <div class="container footer-grid">
+        <section>
+            <h2>{storeName(settings, lang)}</h2>
+            {bilingual(profile.shortDescription, lang) && <p>{bilingual(profile.shortDescription, lang)}</p>}
+            {
+                profile.tradeLicenceNumber && (
+                    <p class="muted">
+                        {s.tradeLicence}: {profile.tradeLicenceNumber}
+                    </p>
+                )
+            }
+        </section>
+        <section>
+            <h2>{s.contact}</h2>
+            <ul class="plain-list">
+                {
+                    profile.phones.map(phone => (
+                        <li>
+                            <a href={`tel:${phone}`}>{formatBdPhone(phone)}</a>
+                        </li>
+                    ))
+                }
+                {
+                    profile.email && (
+                        <li>
+                            <a href={`mailto:${profile.email}`}>{profile.email}</a>
+                        </li>
+                    )
+                }
+                {address && <li>{address}</li>}
+                {hours && <li>{hours}</li>}
+            </ul>
+        </section>
+        {
+            menus.footer.length > 0 && (
+                <nav aria-label={s.menu}>
+                    <ul class="plain-list">
+                        {menus.footer.map(link => (
+                            <li>
+                                <a href={linkHref(link.url)}>{link.label}</a>
+                            </li>
+                        ))}
+                    </ul>
+                </nav>
+            )
+        }
+        <section>
+            {
+                social.length > 0 && (
+                    <>
+                        <h2>{s.followUs}</h2>
+                        <ul class="plain-list">
+                            {social.map(([network, url]) => (
+                                <li>
+                                    <a href={url} rel="noopener">
+                                        {SOCIAL_NAMES[network]}
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    </>
+                )
+            }
+            <h2>{s.weAccept}</h2>
+            <ul class="payment-list">
+                <li class="badge">{s.cashOnDelivery}</li>
+            </ul>
+        </section>
+    </div>
+</footer>

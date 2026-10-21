@@ -1,0 +1,30 @@
+---
+import type { ResultOf } from '../lib/core';
+import { pageContext } from '../lib/page';
+import type { ProductCardFields } from '../lib/queries';
+import ProductCard from './ProductCard.astro';
+
+/** The body of a 404 (not found) or 410 (a removed product, with suggestions) page. */
+interface Props {
+    kind: 'not-found' | 'gone';
+    suggestions?: Array<ResultOf<typeof ProductCardFields>>;
+}
+
+const { kind, suggestions = [] } = Astro.props;
+const { lang, defaultLang, s, href, format } = pageContext(Astro);
+---
+
+<section class="missing">
+    <h1>{kind === 'gone' ? s.goneTitle : s.notFoundTitle}</h1>
+    <p>{kind === 'gone' ? s.goneText : s.notFoundText}</p>
+    {
+        suggestions.length > 0 && (
+            <ul class="product-grid">
+                {suggestions.map(product => (
+                    <ProductCard product={product} lang={lang} defaultLang={defaultLang} format={format} />
+                ))}
+            </ul>
+        )
+    }
+    <p><a class="button" href={href('/')}>{s.goHome}</a></p>
+</section>

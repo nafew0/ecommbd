@@ -1,0 +1,11 @@
+---
+import Placeholder from '../components/Placeholder.astro';
+import { canonicalRedirect, pageContext, privatePage } from '../lib/page';
+
+const redirect = canonicalRedirect(Astro, '/account/');
+if (redirect) return redirect;
+privatePage(Astro);
+const { s } = pageContext(Astro);
+---
+
+<Placeholder title={s.accountTitle} text={s.comingSoon} />

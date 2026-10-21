@@ -1,0 +1,32 @@
+{
+  "name": "@ecommbd/storefront",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ecomm BD storefront: Astro server rendering in Bangla and English on Vendure's Shop API, no JavaScript by default",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev --port 4321",
+    "build": "astro build",
+    "start": "node server.mjs",
+    "typecheck": "astro check",
+    "test": "vitest run",
+    "gql:schema": "gql-tada generate schema ${CORE_URL:-http://localhost:3000}/shop-api --output src/gql/shop-schema.graphql && gql-tada generate output"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.11",
+    "typescript": "5.8.2",
+    "vitest": "5.0.5"
+  },
+  "dependencies": {
+    "@0no-co/graphql.web": "1.3.4",
+    "@astrojs/node": "11.1.9",
+    "@astrojs/preact": "6.1.0",
+    "@ecommbd/shared": "0.1.0",
+    "astro": "7.4.1",
+    "gql.tada": "1.11.4",
+    "ioredis": "5.11.1",
+    "lru-cache": "11.5.3",
+    "preact": "11.0.1",
+    "zod": "4.6.7"
+  }
+}

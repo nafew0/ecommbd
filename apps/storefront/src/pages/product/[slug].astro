@@ -1,0 +1,146 @@
+---
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
+import Image from '../../components/Image.astro';
+import Missing from '../../components/Missing.astro';
+import Price from '../../components/Price.astro';
+import RichText from '../../components/RichText.astro';
+import Layout from '../../layouts/Layout.astro';
+import { shopQuery } from '../../lib/core';
+import type { Lang } from '../../lib/i18n';
+import { imageAttributes, largestImageUrl } from '../../lib/images';
+import { alternates, canonicalRedirect, pageContext } from '../../lib/page';
+import { NEW_PRODUCTS, PRODUCT, SLUG_LOOKUP } from '../../lib/queries';
+import { breadcrumbList, metaDescription, product as productLd } from '../../lib/seo';
+import { storeName } from '../../lib/store';
+import { categoryPath, lookupSlug, productPath } from '../../lib/urls';
+
+const { lang, settings, s, href, absolute, format } = pageContext(Astro);
+const slug = lookupSlug(Astro.params.slug ?? '');
+const { product } = await shopQuery(PRODUCT, { slug }, lang);
+
+let missing: 'not-found' | 'gone' | null = null;
+if (!product) {
+    const { bdSlugLookup } = await shopQuery(SLUG_LOOKUP, { type: 'product', slug }, lang);
+    if (bdSlugLookup?.status === 'moved' && bdSlugLookup.slug) {
+        return Astro.redirect(href(productPath(bdSlugLookup.slug)), 301);
+    }
+    missing = bdSlugLookup?.status === 'gone' ? 'gone' : 'not-found';
+    Astro.response.status = missing === 'gone' ? 410 : 404;
+} else {
+    const redirect = canonicalRedirect(Astro, productPath(product.slug));
+    if (redirect) return redirect;
+}
+const suggestions =
+    missing === 'gone' ? (await shopQuery(NEW_PRODUCTS, { take: 4 }, lang)).products.items : [];
+
+const MAIN_SIZES = '(min-width: 768px) 50vw, 100vw';
+const main = product ? (product.featuredAsset ?? product.assets[0] ?? null) : null;
+const gallery = product ? product.assets.filter(asset => asset.id !== main?.id) : [];
+const prices = product?.variants.map(variant => variant.priceWithTax) ?? [];
+const soldOut = !!product && product.variants.every(variant => variant.stockLevel === 'OUT_OF_STOCK');
+const lowStock = !!product && !soldOut && product.variants.some(variant => variant.stockLevel === 'LOW_STOCK');
+
+// The deepest category the product is in, for the breadcrumb.
+const trail = (product?.collections ?? [])
+    .map(collection => collection.breadcrumbs.filter(crumb => crumb.slug !== '__root_collection__'))
+    .sort((a, b) => b.length - a.length)[0] ?? [];
+const crumbs = [
+    { name: s.home, href: href('/') },
+    ...trail.map((crumb, index) => ({
+        name: crumb.name,
+        href: href(categoryPath(trail.slice(0, index + 1).map(item => item.slug))),
+    })),
+    ...(product ? [{ name: product.name, href: href(productPath(product.slug)) }] : []),
+];
+
+const paths: Partial<Record<Lang, string>> = {};
+for (const language of ['bn', 'en'] as const) {
+    const translated = product?.translations.find(translation => translation.languageCode === language);
+    // A language without its own translation shows the fallback text at the same slug.
+    if (product) paths[language] = productPath(translated?.slug ?? product.slug);
+}
+const url = product ? absolute(href(productPath(product.slug))) : '';
+const images = product ? [main, ...gallery].filter(Boolean).map(asset => absolute(largestImageUrl(asset!))) : [];
+const whatsapp = settings.profile.whatsapp.replace(/\D/g, '');
+const orderLink =
+    product && whatsapp && !soldOut
+        ? `https://wa.me/${whatsapp}?text=${encodeURIComponent(s.whatsappMessage(product.name, url))}`
+        : null;
+---
+
+{
+    product ? (
+        <Layout
+            title={product.customFields?.seoTitle || product.name}
+            description={metaDescription(product.customFields?.seoDescription, product.description)}
+            canonicalPath={productPath(product.slug)}
+            alternates={alternates(Astro, paths)}
+            ogType="product"
+            image={images[0]}
+            preload={main ? { ...imageAttributes(main, 768), sizes: MAIN_SIZES } : undefined}
+            structuredData={[
+                productLd({
+                    name: product.name,
+                    url,
+                    description: product.description,
+                    images,
+                    variants: product.variants,
+                    brand: storeName(settings, lang),
+                }),
+                breadcrumbList(crumbs.map(crumb => ({ name: crumb.name, url: absolute(crumb.href) }))),
+            ]}
+        >
+            <Breadcrumbs crumbs={crumbs} label={s.breadcrumb} />
+            <article class="product">
+                <div class="product-gallery">
+                    <Image asset={main} alt={product.name} lang={lang} sizes={MAIN_SIZES} preferredWidth={768} priority class="product-main-image" />
+                    {gallery.length > 0 && (
+                        <ul class="product-thumbs">
+                            {gallery.map(asset => (
+                                <li>
+                                    <Image asset={asset} alt={product.name} lang={lang} sizes="(min-width: 768px) 25vw, 50vw" preferredWidth={320} />
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+                <div class="product-info">
+                    <h1>{product.name}</h1>
+                    {prices.length > 0 && <Price min={Math.min(...prices)} max={Math.max(...prices)} format={format} large />}
+                    <p class:list={['stock', { 'stock-out': soldOut, 'stock-low': lowStock }]}>
+                        {soldOut ? s.outOfStock : lowStock ? s.lowStock : s.inStock}
+                    </p>
+                    {product.variants.length > 1 && (
+                        <section>
+                            <h2>{s.options}</h2>
+                            <ul class="variant-list">
+                                {product.variants.map(variant => (
+                                    <li class:list={{ 'variant-out': variant.stockLevel === 'OUT_OF_STOCK' }}>
+                                        <span>{variant.name}</span>
+                                        <span>{format.price(variant.priceWithTax)}</span>
+                                        {variant.stockLevel === 'OUT_OF_STOCK' && <span class="badge badge-muted">{s.outOfStock}</span>}
+                                    </li>
+                                ))}
+                            </ul>
+                        </section>
+                    )}
+                    {orderLink && (
+                        <a class="button button-whatsapp" href={orderLink} rel="noopener">
+                            {s.orderOnWhatsapp}
+                        </a>
+                    )}
+                    {product.description && (
+                        <section>
+                            <h2>{s.description}</h2>
+                            <RichText content={product.description} />
+                        </section>
+                    )}
+                </div>
+            </article>
+        </Layout>
+    ) : (
+        <Layout title={missing === 'gone' ? s.goneTitle : s.notFoundTitle} noindex>
+            <Missing kind={missing!} suggestions={suggestions} />
+        </Layout>
+    )
+}

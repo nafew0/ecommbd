@@ -1,0 +1,15 @@
+---
+import { richTextToHtml } from '@ecommbd/shared/rich-text';
+
+/**
+ * A description or page body, sanitized again here on the server (it was sanitized on save too).
+ * The only `set:html` with stored content; test/no-unsafe-html.spec.ts keeps it that way.
+ */
+interface Props {
+    content: string;
+}
+
+const html = richTextToHtml(Astro.props.content);
+---
+
+{html && <div class="rich-text" set:html={html} />}

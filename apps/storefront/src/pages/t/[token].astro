@@ -1,0 +1,13 @@
+---
+import Placeholder from '../../components/Placeholder.astro';
+import { canonicalRedirect, pageContext, privatePage } from '../../lib/page';
+
+/** Short tracking links sent by SMS (phase 10); the tracking page arrives in phase 19. */
+const token = encodeURIComponent(Astro.params.token ?? '');
+const redirect = canonicalRedirect(Astro, `/t/${token}/`);
+if (redirect) return redirect;
+privatePage(Astro);
+const { s } = pageContext(Astro);
+---
+
+<Placeholder title={s.trackTitle} text={s.trackIntro} />

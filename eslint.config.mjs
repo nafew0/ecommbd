@@ -14,6 +14,9 @@ export default tseslint.config(
             'apps/core/src/gql/**',
             'apps/core/src/migrations/**',
             'apps/core/static/**',
+            // Generated: Astro's types and the Shop API schema types (gql.tada).
+            'apps/storefront/.astro/**',
+            'apps/storefront/src/gql/**',
             'playwright-report/**',
             'test-results/**',
         ],
@@ -30,6 +33,11 @@ export default tseslint.config(
                 { argsIgnorePattern: '^_', ignoreRestSiblings: true },
             ],
         },
+    },
+    {
+        // The storefront's server: plain Node.
+        files: ['apps/storefront/server.mjs'],
+        languageOptions: { globals: { ...globals.node } },
     },
     {
         // The merchant admin runs in the browser.

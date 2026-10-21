@@ -1,0 +1,36 @@
+---
+import type { ResultOf } from '../lib/core';
+import type { Formatter, Lang } from '../lib/i18n';
+import { t } from '../lib/i18n';
+import type { ProductCardFields } from '../lib/queries';
+import { localePath, productPath } from '../lib/urls';
+import Image from './Image.astro';
+import Price from './Price.astro';
+
+interface Props {
+    product: ResultOf<typeof ProductCardFields>;
+    lang: Lang;
+    defaultLang: Lang;
+    format: Formatter;
+}
+
+const { product, lang, defaultLang, format } = Astro.props;
+const prices = product.variants.map(variant => variant.priceWithTax);
+const soldOut = product.variants.length > 0 && product.variants.every(variant => variant.stockLevel === 'OUT_OF_STOCK');
+---
+
+<li class="card">
+    <a href={localePath(lang, defaultLang, productPath(product.slug))}>
+        <Image
+            asset={product.featuredAsset}
+            alt={product.name}
+            lang={lang}
+            sizes="(min-width: 1024px) 240px, (min-width: 640px) 33vw, 50vw"
+            preferredWidth={320}
+            class="card-image"
+        />
+        <h3 class="card-title">{product.name}</h3>
+        {prices.length > 0 && <Price min={Math.min(...prices)} max={Math.max(...prices)} format={format} />}
+        {soldOut && <span class="badge badge-muted">{t(lang).outOfStock}</span>}
+    </a>
+</li>

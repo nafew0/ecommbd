@@ -1,0 +1,80 @@
+---
+import { pageContext } from '../lib/page';
+import { getMenus, getTopCollections, storeName } from '../lib/store';
+import { categoryPath } from '../lib/urls';
+import { otherLang } from '../lib/i18n';
+import Image from './Image.astro';
+
+interface Props {
+    /** The same page in the other language (from the page's alternates). */
+    switchHref: string;
+}
+
+const { lang, settings, s, href } = pageContext(Astro);
+const menus = await getMenus(lang);
+// No header menu set up yet: the top categories.
+const links = menus.header.length
+    ? menus.header
+    : (await getTopCollections(lang)).map(collection => ({
+          label: collection.name,
+          url: categoryPath([collection.slug]),
+          children: [],
+      }));
+const name = storeName(settings, lang);
+const linkHref = (url: string) => (url.startsWith('/') ? href(url) : url);
+---
+
+<header class="site-header">
+    <div class="header-row container">
+        <a class="logo" href={href('/')}>
+            {
+                settings.profile.logo ? (
+                    <Image asset={settings.profile.logo} alt={name} lang={lang} sizes="160px" preferredWidth={160} />
+                ) : (
+                    <span class="logo-text">{name}</span>
+                )
+            }
+        </a>
+        <form class="search-form" action={href('/search/')} method="get" role="search">
+            <label class="visually-hidden" for="search-q">{s.search}</label>
+            <input id="search-q" name="q" type="search" placeholder={s.searchPlaceholder} enterkeyhint="search" />
+            <button type="submit">{s.search}</button>
+        </form>
+        <nav class="header-actions" aria-label={s.menu}>
+            <a class="lang-switch" href={Astro.props.switchHref} hreflang={otherLang(lang)} lang={otherLang(lang)} title={s.switchToLabel}
+                >{s.switchTo}</a
+            >
+            <a class="cart-link" href={href('/cart/')}>
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                    <path
+                        fill="currentColor"
+                        d="M7 18a2 2 0 1 0 2 2 2 2 0 0 0-2-2Zm10 0a2 2 0 1 0 2 2 2 2 0 0 0-2-2ZM7.2 14h9.9a2 2 0 0 0 1.8-1.1L22 6H5.2l-.9-2H1v2h2l3.6 7.6L5.2 16A2 2 0 0 0 7 19h12v-2H7.4Z"
+                    />
+                </svg>
+                <span>{s.cart}</span>
+            </a>
+        </nav>
+    </div>
+    {
+        links.length > 0 && (
+            <nav class="main-menu" aria-label={s.categories}>
+                <ul class="container">
+                    {links.map(link => (
+                        <li>
+                            <a href={linkHref(link.url)}>{link.label}</a>
+                            {link.children.length > 0 && (
+                                <ul class="submenu">
+                                    {link.children.map(child => (
+                                        <li>
+                                            <a href={linkHref(child.url)}>{child.label}</a>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </li>
+                    ))}
+                </ul>
+            </nav>
+        )
+    }
+</header>

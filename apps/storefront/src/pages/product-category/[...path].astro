@@ -1,0 +1,139 @@
+---
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
+import Missing from '../../components/Missing.astro';
+import ProductCard from '../../components/ProductCard.astro';
+import RichText from '../../components/RichText.astro';
+import Layout from '../../layouts/Layout.astro';
+import { type ResultOf, shopQuery } from '../../lib/core';
+import { otherLang } from '../../lib/i18n';
+import { largestImageUrl } from '../../lib/images';
+import { alternates, canonicalRedirect, pageContext } from '../../lib/page';
+import { COLLECTION, type ProductCardFields, PRODUCTS_BY_ID, SEARCH, SLUG_LOOKUP } from '../../lib/queries';
+import { breadcrumbList, metaDescription } from '../../lib/seo';
+import { categoryPath, lookupSlug } from '../../lib/urls';
+
+const PER_PAGE = 24;
+const { lang, defaultLang, s, href, absolute, format } = pageContext(Astro);
+
+type Collection = NonNullable<ResultOf<typeof COLLECTION>['collection']>;
+const pathOf = (collection: Collection) =>
+    categoryPath(collection.breadcrumbs.filter(crumb => crumb.slug !== '__root_collection__').map(crumb => crumb.slug));
+
+const segments = (Astro.params.path ?? '').split('/').filter(Boolean);
+const slug = lookupSlug(segments[segments.length - 1] ?? '');
+const { collection } = slug ? await shopQuery(COLLECTION, { slug }, lang) : { collection: null };
+
+let missing: 'not-found' | 'gone' | null = null;
+if (!collection) {
+    const { bdSlugLookup } = slug
+        ? await shopQuery(SLUG_LOOKUP, { type: 'collection', slug }, lang)
+        : { bdSlugLookup: null };
+    if (bdSlugLookup?.status === 'moved' && bdSlugLookup.slug) {
+        const moved = (await shopQuery(COLLECTION, { slug: bdSlugLookup.slug }, lang)).collection;
+        if (moved) return Astro.redirect(`${href(pathOf(moved))}${Astro.url.search}`, 301);
+    }
+    missing = bdSlugLookup?.status === 'gone' ? 'gone' : 'not-found';
+    Astro.response.status = missing === 'gone' ? 410 : 404;
+} else {
+    // The full path is canonical: a wrong or missing parent redirects too.
+    const redirect = canonicalRedirect(Astro, pathOf(collection));
+    if (redirect) return redirect;
+}
+
+const page = Math.max(1, Number.parseInt(Astro.url.searchParams.get('page') ?? '1', 10) || 1);
+let products: Array<ResultOf<typeof ProductCardFields>> = [];
+let total = 0;
+if (collection) {
+    const { search } = await shopQuery(
+        SEARCH,
+        { input: { collectionId: collection.id, groupByProduct: true, take: PER_PAGE, skip: (page - 1) * PER_PAGE } },
+        lang,
+    );
+    total = search.totalItems;
+    const ids = search.items.map(item => item.productId);
+    if (ids.length) {
+        const found = (await shopQuery(PRODUCTS_BY_ID, { ids, take: ids.length }, lang)).products.items;
+        products = ids.map(id => found.find(product => product.id === id)).filter(product => !!product);
+    }
+}
+const pages = Math.max(1, Math.ceil(total / PER_PAGE));
+if (collection && page > pages) {
+    missing = 'not-found';
+    Astro.response.status = 404;
+}
+
+const other = otherLang(lang);
+const otherCollection = collection ? (await shopQuery(COLLECTION, { slug }, other)).collection : null;
+const canonicalPath = collection ? pathOf(collection) : null;
+const pageQuery = (n: number) => (n > 1 ? `?page=${n}` : '');
+const trail = collection ? collection.breadcrumbs.filter(crumb => crumb.slug !== '__root_collection__') : [];
+const crumbs = [
+    { name: s.home, href: href('/') },
+    ...trail.map((crumb, index) => ({
+        name: crumb.name,
+        href: href(categoryPath(trail.slice(0, index + 1).map(item => item.slug))),
+    })),
+];
+---
+
+{
+    collection && !missing ? (
+        <Layout
+            title={collection.customFields?.seoTitle || collection.name}
+            description={metaDescription(collection.customFields?.seoDescription, collection.description)}
+            canonicalPath={canonicalPath ? `${canonicalPath}${pageQuery(page)}` : null}
+            alternates={alternates(Astro, {
+                [lang]: `${canonicalPath}${pageQuery(page)}`,
+                ...(otherCollection ? { [other]: `${pathOf(otherCollection)}${pageQuery(page)}` } : {}),
+            })}
+            image={collection.featuredAsset ? largestImageUrl(collection.featuredAsset) : undefined}
+            structuredData={[breadcrumbList(crumbs.map(crumb => ({ name: crumb.name, url: absolute(crumb.href) })))]}
+        >
+            <Breadcrumbs crumbs={crumbs} label={s.breadcrumb} />
+            <header class="page-header">
+                <h1>{collection.name}</h1>
+                <p class="muted">{s.products(total)}</p>
+            </header>
+            {collection.description && <RichText content={collection.description} />}
+            {(collection.children?.length ?? 0) > 0 && (
+                <nav class="subcategories" aria-label={s.subcategories}>
+                    <ul>
+                        {collection.children!.map(child => (
+                            <li>
+                                <a href={href(`${canonicalPath}${encodeURIComponent(child.slug.normalize('NFC'))}/`)}>{child.name}</a>
+                            </li>
+                        ))}
+                    </ul>
+                </nav>
+            )}
+            {products.length ? (
+                <ul class="product-grid">
+                    {products.map(product => (
+                        <ProductCard product={product} lang={lang} defaultLang={defaultLang} format={format} />
+                    ))}
+                </ul>
+            ) : (
+                <p class="muted">{s.noProducts}</p>
+            )}
+            {pages > 1 && (
+                <nav class="pagination" aria-label={s.pageOf(page, pages)}>
+                    {page > 1 && (
+                        <a rel="prev" href={href(`${canonicalPath}${pageQuery(page - 1)}`)}>
+                            {s.previous}
+                        </a>
+                    )}
+                    <span>{s.pageOf(page, pages)}</span>
+                    {page < pages && (
+                        <a rel="next" href={href(`${canonicalPath}${pageQuery(page + 1)}`)}>
+                            {s.next}
+                        </a>
+                    )}
+                </nav>
+            )}
+        </Layout>
+    ) : (
+        <Layout title={missing === 'gone' ? s.goneTitle : s.notFoundTitle} noindex>
+            <Missing kind={missing ?? 'not-found'} />
+        </Layout>
+    )
+}

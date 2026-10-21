@@ -1,0 +1,88 @@
+---
+import Image from '../components/Image.astro';
+import ProductCard from '../components/ProductCard.astro';
+import Layout from '../layouts/Layout.astro';
+import { shopQuery } from '../lib/core';
+import { largestImageUrl } from '../lib/images';
+import { alternates, canonicalRedirect, pageContext } from '../lib/page';
+import { NEW_PRODUCTS } from '../lib/queries';
+import { organization, website } from '../lib/seo';
+import { bilingual, getTopCollections, storeName } from '../lib/store';
+import { categoryPath } from '../lib/urls';
+
+const redirect = canonicalRedirect(Astro, '/');
+if (redirect) return redirect;
+
+const { lang, defaultLang, settings, s, href, absolute, format } = pageContext(Astro);
+const [collections, newProducts] = await Promise.all([
+    getTopCollections(lang),
+    shopQuery(NEW_PRODUCTS, { take: 12 }, lang).then(result => result.products.items),
+]);
+const name = storeName(settings, lang);
+const description = bilingual(settings.profile.shortDescription, lang);
+const logo = settings.profile.logo ? largestImageUrl(settings.profile.logo) : undefined;
+const profile = settings.profile;
+---
+
+<Layout
+    title=""
+    description={description || s.homeDescription(name)}
+    canonicalPath="/"
+    alternates={alternates(Astro, { bn: '/', en: '/' })}
+    image={logo}
+    structuredData={[
+        organization({
+            name,
+            url: absolute(href('/')),
+            logo: logo ? absolute(logo) : undefined,
+            phones: profile.phones,
+            email: profile.email,
+            sameAs: Object.values(profile.social).filter(Boolean),
+        }),
+        website({ name, url: absolute(href('/')), searchUrl: absolute(href('/search/')), language: lang }),
+    ]}
+>
+    <section class="hero">
+        <h1>{name}</h1>
+        {description && <p>{description}</p>}
+    </section>
+
+    {
+        collections.length > 0 && (
+            <section>
+                <h2>{s.categories}</h2>
+                <ul class="category-grid">
+                    {collections.map(collection => (
+                        <li>
+                            <a href={href(categoryPath([collection.slug]))}>
+                                <Image
+                                    asset={collection.featuredAsset}
+                                    alt=""
+                                    lang={lang}
+                                    sizes="(min-width: 768px) 160px, 33vw"
+                                    preferredWidth={160}
+                                />
+                                <span>{collection.name}</span>
+                            </a>
+                        </li>
+                    ))}
+                </ul>
+            </section>
+        )
+    }
+
+    <section>
+        <h2>{s.newArrivals}</h2>
+        {
+            newProducts.length ? (
+                <ul class="product-grid">
+                    {newProducts.map(product => (
+                        <ProductCard product={product} lang={lang} defaultLang={defaultLang} format={format} />
+                    ))}
+                </ul>
+            ) : (
+                <p class="muted">{s.noProducts}</p>
+            )
+        }
+    </section>
+</Layout>

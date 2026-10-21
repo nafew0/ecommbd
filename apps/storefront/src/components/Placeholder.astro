@@ -1,0 +1,21 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+/**
+ * Cart, checkout, account and tracking: the routes exist from phase 12 so links and robots rules
+ * are right; phases 14 and 34 fill them. The page calls `privatePage` (never cached or indexed).
+ */
+interface Props {
+    title: string;
+    text: string;
+}
+
+const { title, text } = Astro.props;
+---
+
+<Layout title={title} noindex>
+    <section class="placeholder-page">
+        <h1>{title}</h1>
+        <p>{text}</p>
+    </section>
+</Layout>
