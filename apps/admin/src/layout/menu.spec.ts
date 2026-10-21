@@ -3,21 +3,37 @@ import { en } from '../messages/en';
 import { MENU, visibleMenu } from './menu';
 
 describe('menu', () => {
-    it('shows only built screens: Home, Orders (phase 04), Customers (03), Online store (12) and Settings (02, 04, 06)', () => {
+    it('shows only built screens: Home, Orders, Products, Customers, Online store and Settings', () => {
         const menu = visibleMenu(MENU, () => true);
         expect(menu.map(group => group.label)).toEqual([
             'home',
             'orders',
+            'products',
             'customers',
             'onlineStore',
             'settings',
         ]);
-        expect(menu[1]!.children!.map(child => child.to)).toEqual(['/orders', '/orders/confirm']);
-        expect(menu[2]!.children!.map(child => child.to)).toEqual(['/customers']);
-        expect(menu[3]!.children!.map(child => child.to)).toEqual(['/store/menus', '/store/pages']);
-        expect(menu[4]!.children!.map(child => child.to)).toEqual([
+        expect(menu[1]!.children!.map(child => child.to)).toEqual([
+            '/orders',
+            '/orders/confirm',
+            '/orders/phone',
+            '/orders/incomplete',
+            '/orders/payments',
+        ]);
+        expect(menu[2]!.children!.map(child => child.to)).toEqual([
+            '/products',
+            '/products/categories',
+            '/products/stock',
+        ]);
+        expect(menu[3]!.children!.map(child => child.to)).toEqual(['/customers', '/customers/blocked']);
+        expect(menu[4]!.children!.map(child => child.to)).toEqual(['/store/menus', '/store/pages']);
+        expect(menu[5]!.children!.map(child => child.to)).toEqual([
             '/settings/store',
             '/settings/orders',
+            '/settings/delivery',
+            '/settings/payments',
+            '/settings/sms',
+            '/settings/fraud',
             '/settings/invoice',
         ]);
     });
@@ -26,15 +42,24 @@ describe('menu', () => {
         const menu = visibleMenu(
             MENU,
             permission =>
-                !['ReadSettings', 'ReadCustomer', 'ReadOrder', 'ConfirmOrder', 'ManageContent'].includes(
-                    permission,
-                ),
+                ![
+                    'ReadSettings',
+                    'ReadCustomer',
+                    'ReadOrder',
+                    'ConfirmOrder',
+                    'ManageContent',
+                    'VerifyPayment',
+                    'CreateManualOrder',
+                    'ReadProduct',
+                    'ReadCatalog',
+                ].includes(permission),
         );
         expect(menu.map(group => group.label)).toEqual(['home']);
         // A packer sees the orders, but not the confirmation queue.
         const packer = visibleMenu(MENU, permission => permission === 'ReadOrder');
         expect(packer.find(group => group.label === 'orders')!.children!.map(child => child.to)).toEqual([
             '/orders',
+            '/orders/incomplete',
         ]);
     });
 

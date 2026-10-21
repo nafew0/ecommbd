@@ -11,8 +11,8 @@ export class BdContent1792589913403 implements MigrationInterface {
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_4b1fac27b7fb7f362cc96ea6e0" ON "bd_slug" ("entityType", "languageCode", "slug") `, undefined);
         await queryRunner.query(`ALTER TABLE "collection_translation" ADD "customFieldsSeotitle" character varying(255)`, undefined);
         await queryRunner.query(`ALTER TABLE "collection_translation" ADD "customFieldsSeodescription" text`, undefined);
-        await queryRunner.query(`ALTER TABLE "product_translation" ADD "customFieldsSeotitle" character varying(255)`, undefined);
-        await queryRunner.query(`ALTER TABLE "product_translation" ADD "customFieldsSeodescription" text`, undefined);
+        await queryRunner.query(`ALTER TABLE "product_translation" ADD COLUMN IF NOT EXISTS "customFieldsSeotitle" character varying(255)`, undefined);
+        await queryRunner.query(`ALTER TABLE "product_translation" ADD COLUMN IF NOT EXISTS "customFieldsSeodescription" text`, undefined);
         await queryRunner.query(`ALTER TABLE "bd_page_translation" ADD CONSTRAINT "FK_ba962e3305aa99dc6b33403892c" FOREIGN KEY ("pageId") REFERENCES "bd_page"("id") ON DELETE CASCADE ON UPDATE NO ACTION`, undefined);
    }
 

@@ -88,6 +88,46 @@ const router = createBrowserRouter(
                                 })),
                         },
                         {
+                            path: 'orders/phone',
+                            lazy: () =>
+                                import('./pages/phone-order').then(module => ({
+                                    Component: module.PhoneOrderPage,
+                                })),
+                        },
+                        {
+                            path: 'products',
+                            lazy: () =>
+                                import('./pages/products').then(module => ({
+                                    Component: module.ProductsPage,
+                                })),
+                        },
+                        {
+                            path: 'products/categories',
+                            lazy: () =>
+                                import('./pages/categories').then(module => ({
+                                    Component: module.CategoriesPage,
+                                })),
+                        },
+                        {
+                            path: 'products/stock',
+                            lazy: () =>
+                                import('./pages/stock').then(module => ({ Component: module.StockPage })),
+                        },
+                        {
+                            path: 'products/:id',
+                            lazy: () =>
+                                import('./pages/product-form').then(module => ({
+                                    Component: module.ProductFormPage,
+                                })),
+                        },
+                        {
+                            path: 'orders/payments',
+                            lazy: () =>
+                                import('./pages/verify-payments').then(module => ({
+                                    Component: module.VerifyPaymentsPage,
+                                })),
+                        },
+                        {
                             path: 'orders/:id',
                             lazy: () =>
                                 import('./pages/order-detail').then(module => ({
@@ -106,6 +146,48 @@ const router = createBrowserRouter(
                             lazy: () =>
                                 import('./pages/print-settings').then(module => ({
                                     Component: module.PrintSettingsPage,
+                                })),
+                        },
+                        {
+                            path: 'settings/payments',
+                            lazy: () =>
+                                import('./pages/payment-settings').then(module => ({
+                                    Component: module.PaymentSettingsPage,
+                                })),
+                        },
+                        {
+                            path: 'settings/fraud',
+                            lazy: () =>
+                                import('./pages/fraud-settings').then(module => ({
+                                    Component: module.FraudSettingsPage,
+                                })),
+                        },
+                        {
+                            path: 'orders/incomplete',
+                            lazy: () =>
+                                import('./pages/incomplete-orders').then(module => ({
+                                    Component: module.IncompleteOrdersPage,
+                                })),
+                        },
+                        {
+                            path: 'customers/blocked',
+                            lazy: () =>
+                                import('./pages/block-list').then(module => ({
+                                    Component: module.BlockListPage,
+                                })),
+                        },
+                        {
+                            path: 'settings/sms',
+                            lazy: () =>
+                                import('./pages/sms-settings').then(module => ({
+                                    Component: module.SmsSettingsPage,
+                                })),
+                        },
+                        {
+                            path: 'settings/delivery',
+                            lazy: () =>
+                                import('./pages/delivery-settings').then(module => ({
+                                    Component: module.DeliverySettingsPage,
                                 })),
                         },
                         {

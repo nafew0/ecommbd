@@ -29,8 +29,9 @@ Our order process adds the custom states and refuses every transition between pl
 |---|---|
 | `PaymentAuthorized` (New) | `Confirmed`, `Cancelled`, `PaymentSettled` (payment received, still New), `Modifying`, `ArrangingAdditionalPayment` |
 | `PaymentSettled` (New) | `Confirmed`, `Cancelled`, `Modifying`, `ArrangingAdditionalPayment`, and `Packed` only when the store setting "skip confirmation for prepaid orders" is on |
-| `Confirmed` | `Packed`, `Cancelled` |
-| `Packed` | `Shipped`, `PartiallyShipped`, `Cancelled` |
+| `Confirmed` | `Packed`, `Cancelled`, `Modifying` (an edit, phase 05) |
+| `Packed` | `Shipped`, `PartiallyShipped`, `Cancelled`, `Modifying` (an edit, phase 05) |
+| `Modifying` | Vendure's own (back to `PaymentAuthorized`, `PaymentSettled`…), plus `Confirmed` and `Packed`: an edit returns the order to the status it had (phase 05) |
 | `PartiallyShipped` | `Shipped`, `PartiallyDelivered` |
 | `Shipped` | `Delivered`, `PartiallyDelivered`, `Returned` |
 | `PartiallyDelivered` | `Delivered`, `Returned` |
@@ -39,13 +40,13 @@ Our order process adds the custom states and refuses every transition between pl
 **Guards:**
 
 - Confirming, packing and cancelling require `ConfirmOrder`, `PackOrder` and `CancelOrder` respectively, including through Vendure's standard mutations. `UpdateOrder` alone does not grant these actions. Request-free, user-free admin contexts are trusted background work (such as auto-cancel); Shop API contexts never get this exception.
-- Cancelling a placed order needs a valid reason code (the order's `cancelReason` field), and `other` needs a note. Our admin's cancel sets it; on Vendure's Dashboard, set the fields first. Settled payments block cancellation on both API paths until refund recording is implemented. Vendure's cancellation mutation is checked before it changes lines, in a transaction with an order-row lock; error results roll back its changes.
+- Cancelling a placed order needs a valid reason code (the order's `cancelReason` field), and `other` needs a note. Our admin's cancel sets it; on Vendure's Dashboard, set the fields first. Money received and kept (settled payments minus settled refunds) blocks cancellation on both API paths: record the refund first (phase 08's `recordBdRefund`). Pending or failed refunds still block it. Vendure's cancellation mutation is checked before it changes lines, in a transaction with an order-row lock; error results roll back its changes.
 - A direct state change to `Cancelled` cannot leave live order quantities behind. Use `cancelBdOrder` or Vendure's `cancelOrder`, which cancel the lines and release stock allocation together.
 - Shipped orders can't be cancelled, only returned.
 - New orders can't be packed or shipped without confirmation (except prepaid, with the setting above).
 - A payment settled after confirmation (for example COD collected on delivery, phase 08) doesn't move the order back to New: Vendure tries `Confirmed` → `PaymentSettled`, the guard refuses it, and the payment is still settled.
 
-Order editing (phase 11a) will add `Confirmed`/`Packed` ↔ `Modifying` with a new row here.
+Order editing (roadmap phase 11a, built with phase 05 on Imtiaz's branch) moves an order from New, Confirmed or Packed to `Modifying`, changes it with Vendure's order modification, points the money at the new total (the COD amount follows it), and moves it back to the status it had, in one transaction. Shipped orders can't be edited.
 
 ## Return, stock and payment contract (2026-10-21 review)
 

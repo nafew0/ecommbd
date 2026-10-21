@@ -2,6 +2,7 @@ import { CANCEL_NEEDS_REASON_FROM, cleanText, isBdCancelReason } from '@ecommbd/
 import { Injectable } from '@nestjs/common';
 import { Order, Payment, Permission, RequestContext, TransactionalConnection } from '@vendure/core';
 import { cancelOrderPermission, confirmOrderPermission, packOrderPermission } from './constants';
+import { settledAmount } from './order-actions.service';
 
 export type OrderPolicyError =
     | 'permission-required'
@@ -46,11 +47,12 @@ export class OrderPolicyService {
         if (order.customFields.cancelReason === 'other' && !cleanText(order.customFields.cancelNote ?? '')) {
             return 'cancel-note-required';
         }
-        // Conservatively keep the existing rule until item-aware refunds are implemented. An
-        // authorization is not money received; a Settled payment must never silently disappear.
+        // Money received and kept: settled payments minus their settled refunds (phase 08). An
+        // authorization is not money received, and a pending or failed refund isn't money paid back.
         const payments = await this.connection.getRepository(ctx, Payment).find({
             where: { order: { id: order.id }, state: 'Settled' },
+            relations: { refunds: true },
         });
-        if (payments.some(payment => payment.amount > 0)) return 'refund-required';
+        if (settledAmount({ payments }) > 0) return 'refund-required';
     }
 }

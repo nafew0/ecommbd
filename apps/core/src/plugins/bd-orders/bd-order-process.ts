@@ -83,8 +83,10 @@ export function createBdOrderProcess(): OrderProcess<'Confirmed' | 'Packed' | 'R
         transitions: {
             PaymentAuthorized: { to: ['Confirmed'] },
             PaymentSettled: { to: ['Confirmed', 'Packed'] },
-            Confirmed: { to: ['Packed', 'Cancelled'] },
-            Packed: { to: ['Shipped', 'PartiallyShipped', 'Cancelled'] },
+            Confirmed: { to: ['Packed', 'Cancelled', 'Modifying'] },
+            Packed: { to: ['Shipped', 'PartiallyShipped', 'Cancelled', 'Modifying'] },
+            // Back from an edit (phase 05) to the status the order had.
+            Modifying: { to: ['Confirmed', 'Packed'] },
             Shipped: { to: ['Returned'] },
             PartiallyDelivered: { to: ['Returned'] },
             Returned: { to: [] },

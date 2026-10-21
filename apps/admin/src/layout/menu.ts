@@ -53,19 +53,19 @@ export const MENU: MenuGroup[] = [
         children: [
             link('allOrders', '/orders', '04', true, 'ReadOrder'),
             link('confirmOrders', '/orders/confirm', '04', true, 'ConfirmOrder'),
-            link('phoneOrder', '/orders/phone', '05', false, 'CreateOrder'),
-            link('incompleteOrders', '/orders/incomplete', '11', false, 'ReadOrder'),
-            link('verifyPayments', '/orders/payments', '08', false, 'UpdateOrder'),
+            link('phoneOrder', '/orders/phone', '05', true, 'CreateManualOrder'),
+            link('incompleteOrders', '/orders/incomplete', '11', true, 'ReadOrder'),
+            link('verifyPayments', '/orders/payments', '08', true, 'VerifyPayment'),
         ],
     },
     {
         label: 'products',
         icon: Package,
         children: [
-            link('allProducts', '/products', '05', false, 'ReadProduct'),
-            link('categories', '/products/categories', '05', false, 'ReadCatalog'),
+            link('allProducts', '/products', '05', true, 'ReadProduct'),
+            link('categories', '/products/categories', '05', true, 'ReadCatalog'),
             link('reviews', '/products/reviews', '35', false, 'ReadProduct'),
-            link('stock', '/products/stock', '05', false, 'ReadProduct'),
+            link('stock', '/products/stock', '05', true, 'ReadProduct'),
         ],
     },
     {
@@ -73,7 +73,7 @@ export const MENU: MenuGroup[] = [
         icon: Users,
         children: [
             link('customerList', '/customers', '03', true, 'ReadCustomer'),
-            link('blockList', '/customers/blocked', '11', false, 'UpdateCustomer'),
+            link('blockList', '/customers/blocked', '11', true, 'ReadCustomer'),
         ],
     },
     { label: 'salesPages', icon: PanelsTopLeft, link: link('landingPages', '/sales-pages', '16') },
@@ -102,8 +102,10 @@ export const MENU: MenuGroup[] = [
         children: [
             link('store', '/settings/store', '02', true, 'ReadSettings'),
             link('orderSettings', '/settings/orders', '04', true, 'ReadSettings'),
-            link('delivery', '/settings/delivery', '07'),
-            link('payments', '/settings/payments', '08'),
+            link('delivery', '/settings/delivery', '07', true, 'ReadSettings'),
+            link('payments', '/settings/payments', '08', true, 'ReadSettings'),
+            link('sms', '/settings/sms', '10', true, 'ReadSettings'),
+            link('fraud', '/settings/fraud', '11', true, 'ReadSettings'),
             link('couriers', '/settings/couriers', '19'),
             link('checkout', '/settings/checkout', '14'),
             link('invoice', '/settings/invoice', '06', true, 'ReadSettings'),

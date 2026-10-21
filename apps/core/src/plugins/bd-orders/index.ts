@@ -11,5 +11,5 @@ export {
     BdOrderPackedEvent,
     BdOrderReturnedEvent,
 } from './events';
-export { OrderActionsService } from './order-actions.service';
+export { OrderActionsService, settledAmount } from './order-actions.service';
 export { CREATE_ORDER_NUMBER_SEQUENCE_SQL } from './order-number';

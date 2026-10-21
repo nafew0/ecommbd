@@ -85,7 +85,8 @@ export function createAdminRouter(options: MerchantAdminPluginOptions) {
             return;
         }
         res.setHeader('Cache-Control', 'no-cache');
-        res.sendFile(indexFile);
+        // `root`: Express refuses absolute paths through a dot-folder (e.g. an install under `~/.apps`).
+        res.sendFile('index.html', { root: appDir });
     });
     return router;
 }

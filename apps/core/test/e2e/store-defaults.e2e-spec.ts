@@ -220,12 +220,18 @@ describe('running the initializer again', () => {
             'channel',
             'roles',
             'store-settings',
-            // Registered by later plugins (registerStoreDefaults):
+            // Registered by later plugins (registerStoreDefaults), in the order their files load:
+            'delivery-methods',
+            'order-permissions',
+            'payment-methods',
+            'payment-permissions',
+            'staff-payment-method',
+            'manual-order-permissions',
             'content-permissions',
             'content-menus',
             'slug-history-backfill',
-            'order-permissions',
             'print-permissions',
+            'fraud-permissions',
         ]);
         expect(await storeState()).toEqual(before);
     });

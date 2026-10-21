@@ -22,6 +22,7 @@ const en: Record<CheckoutErrorCode, string> = {
     RATE_LIMITED: 'Too many attempts. Please wait a few minutes and try again.',
     NO_ACTIVE_ORDER: 'Your cart is empty or has expired. Please add the product again.',
     ALREADY_LOGGED_IN: 'You are signed in, so your account details are used for this order.',
+    TRY_AGAIN: 'Something went wrong. Please check your details and try again.',
 };
 
 const bn: Record<CheckoutErrorCode, string> = {
@@ -41,6 +42,7 @@ const bn: Record<CheckoutErrorCode, string> = {
     RATE_LIMITED: 'অনেকবার চেষ্টা করা হয়েছে। কয়েক মিনিট পরে আবার চেষ্টা করুন।',
     NO_ACTIVE_ORDER: 'আপনার কার্ট খালি বা মেয়াদ শেষ। পণ্যটি আবার যোগ করুন।',
     ALREADY_LOGGED_IN: 'আপনি সাইন ইন করা আছেন, তাই এই অর্ডারে আপনার অ্যাকাউন্টের তথ্য ব্যবহার হবে।',
+    TRY_AGAIN: 'কিছু একটা সমস্যা হয়েছে। তথ্যগুলো দেখে আবার চেষ্টা করুন।',
 };
 
 export const checkoutTranslations = {

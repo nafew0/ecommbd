@@ -4,13 +4,22 @@ import {
     type BdCancelReason,
     isBdCancelReason,
 } from '@ecommbd/shared/order-status';
+import { EDITABLE_STATUSES } from '@ecommbd/shared/manual-orders';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Phone, Printer } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
+import { EditOrderDialog } from '../components/orders/edit-order-dialog';
 import { PlaceName } from '../components/address/place-name';
 import { CallLaterDialog, CancelDialog, StockDialog } from '../components/orders/order-dialogs';
+import { OrderSms } from '../components/orders/order-sms';
+import { RiskBadge } from '../components/orders/risk-badge';
 import { PaymentBadge, StatusBadge } from '../components/orders/status';
+import {
+    ORDER_PAYMENT_FIELDS,
+    type OrderPayment,
+    OrderPayments,
+} from '../components/payments/order-payments';
 import { Button } from '../components/ui/button';
 import { Alert, Badge, Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
@@ -34,6 +43,8 @@ const ORDER = `
     query Order($id: ID!) {
         order(id: $id) {
             ...BdOrderRow
+            ${ORDER_PAYMENT_FIELDS}
+            surcharges { sku priceWithTax }
             history(options: { sort: { createdAt: DESC }, take: 100 }) {
                 items { id type createdAt data administrator { firstName lastName } }
             }
@@ -52,7 +63,13 @@ interface HistoryItem {
 }
 
 interface OrderData {
-    order: (OrderRow & { history: { items: HistoryItem[] } }) | null;
+    order:
+        | (OrderRow & {
+              history: { items: HistoryItem[] };
+              payments: OrderPayment[];
+              surcharges: Array<{ sku: string; priceWithTax: number }>;
+          })
+        | null;
     bdOrderSettings: { skipConfirmationForPrepaid: boolean };
 }
 
@@ -72,6 +89,9 @@ export function OrderDetailPage() {
     });
     const order = query.data?.order;
     const [dialog, setDialog] = useState<'cancel' | 'callLater' | null>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const editing = searchParams.get('edit') === '1';
+    const setEditing = (open: boolean) => setSearchParams(open ? { edit: '1' } : {}, { replace: true });
     const [cancelReason, setCancelReason] = useState<BdCancelReason | undefined>();
     const [stockShort, setStockShort] = useState<string[] | null>(null);
     const [busy, setBusy] = useState<ActionName | null>(null);
@@ -163,6 +183,7 @@ export function OrderDetailPage() {
                 {order.bd.suggestCancel && <Badge tone="red">{m.orders.badges.suggestCancel}</Badge>}
                 {order.bd.callAttempts > 0 && <Badge>{m.orders.badges.calls(order.bd.callAttempts)}</Badge>}
                 {order.bd.imported && <Badge>{m.orders.badges.imported}</Badge>}
+                <RiskBadge risk={order.bdRisk} otpStatus={order.bdOtpStatus} />
             </div>
             {(buttons.length > 0 || actions.includes('cancel')) && (
                 <div className="mb-4 flex flex-wrap gap-2">
@@ -192,6 +213,13 @@ export function OrderDetailPage() {
                             {m.orders.actions.cancel}
                         </Button>
                     )}
+                </div>
+            )}
+            {can('EditOrder') && (EDITABLE_STATUSES as readonly string[]).includes(order.bd.status ?? '') && (
+                <div className="mb-4">
+                    <Button variant="secondary" onClick={() => setEditing(true)}>
+                        {m.editOrder.button}
+                    </Button>
                 </div>
             )}
             {order.bd.status === 'cancelled' && order.bd.cancelReason && (
@@ -235,6 +263,13 @@ export function OrderDetailPage() {
                         <dl className="space-y-1 border-t border-slate-100 pt-3 text-sm">
                             <Row label={m.orders.subtotal}>{format.money(order.subTotalWithTax)}</Row>
                             <Row label={m.orders.delivery}>{format.money(order.shippingWithTax)}</Row>
+                            {order.surcharges
+                                .filter(surcharge => surcharge.sku === 'BD-COD-FEE')
+                                .map((surcharge, index) => (
+                                    <Row key={index} label={m.payments.order.codFee}>
+                                        {format.money(surcharge.priceWithTax)}
+                                    </Row>
+                                ))}
                             <Row label={m.orders.total} strong>
                                 {format.money(order.totalWithTax)}
                             </Row>
@@ -252,6 +287,7 @@ export function OrderDetailPage() {
                         )}
                     </CardBody>
                 </Card>
+                <OrderPayments payments={order.payments} onChanged={() => void query.refetch()} />
                 <Card>
                     <CardHeader title={m.orders.customer} />
                     <CardBody>
@@ -336,6 +372,7 @@ export function OrderDetailPage() {
                         </ol>
                     </CardBody>
                 </Card>
+                <OrderSms orderId={order.id} className="lg:col-span-2" />
             </div>
             <CancelDialog
                 orderNumber={number}
@@ -345,6 +382,15 @@ export function OrderDetailPage() {
                 onCancel={async (reason, note) => {
                     const error = await run('cancel', { reason, note });
                     if (!error) setDialog(null);
+                }}
+            />
+            <EditOrderDialog
+                order={{ id: order.id, status: order.bd.status ?? '', lines: order.lines }}
+                open={editing}
+                onClose={() => setEditing(false)}
+                onSaved={() => {
+                    setEditing(false);
+                    void query.refetch();
                 }}
             />
             <CallLaterDialog

@@ -1,13 +1,19 @@
 import type { StoreLanguage } from '@ecommbd/shared';
 import type { VendureConfig } from '@vendure/core';
 import path from 'node:path';
+import { BdCatalogPlugin } from './bd-catalog';
+import { BdManualOrdersPlugin } from './bd-manual-orders';
 import { BdCheckoutPlugin, type BdCheckoutPluginOptions, type RedisConnectionOptions } from './bd-checkout';
 import { BdContentPlugin } from './bd-content';
 import { BdCorePlugin } from './bd-core';
 import { BdImagesPlugin } from './bd-images';
 import { BdOrdersPlugin } from './bd-orders';
 import { BdPrintPlugin } from './bd-print';
+import { FraudGuardPlugin } from './fraud-guard';
 import { MerchantAdminPlugin } from './merchant-admin/merchant-admin.plugin';
+import { NotificationsPlugin, type SmsDriver } from './notifications';
+import { PaymentsBdPlugin } from './payments-bd';
+import { ShippingBdPlugin } from './shipping-bd';
 
 /** The built merchant admin (`npm run build -w @ecommbd/admin`), from `src/plugins` or `dist/plugins`. */
 export const ADMIN_APP_DIR = path.join(__dirname, '../../../admin/dist');
@@ -32,6 +38,10 @@ export interface CustomPluginOptions {
     redisKeyPrefix: string;
     /** Rate limits for checkout (tests set low ones). */
     checkoutRateLimits?: BdCheckoutPluginOptions['rateLimits'];
+    /** SMS_DRIVER: the SMS provider (the log driver records instead of sending). */
+    smsDriver: SmsDriver;
+    /** STOREFRONT_URL, for SMS tracking links. */
+    storefrontUrl?: string;
 }
 
 /**
@@ -57,6 +67,12 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
             dir: options.imagesDir ?? DEFAULT_IMAGES_DIR,
             urlPrefix: options.imageUrlPrefix,
         }),
+        ShippingBdPlugin,
+        PaymentsBdPlugin,
+        BdCatalogPlugin,
+        BdManualOrdersPlugin,
+        NotificationsPlugin.init({ driver: options.smsDriver, storefrontUrl: options.storefrontUrl }),
+        FraudGuardPlugin,
         MerchantAdminPlugin.init({
             appDir: ADMIN_APP_DIR,
             imageOrigins: options.assetUrlPrefix ? [new URL(options.assetUrlPrefix).origin] : [],

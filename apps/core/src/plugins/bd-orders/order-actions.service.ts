@@ -445,6 +445,7 @@ export class OrderActionsService {
             'lines.productVariant',
             'shippingLines',
             'payments',
+            'payments.refunds',
         ]);
         if (!order) {
             throw refuse('ORDER_NOT_FOUND');
@@ -453,9 +454,17 @@ export class OrderActionsService {
     }
 }
 
-/** Money received for the order so far (settled payments). */
-export function settledAmount(order: Order): number {
+/**
+ * Money received for the order and kept: settled payments minus settled refunds (phase 08). A
+ * mobile banking payment still waiting for staff to check it doesn't count.
+ */
+export function settledAmount(order: Pick<Order, 'payments'>): number {
     return (order.payments ?? [])
         .filter(payment => payment.state === 'Settled')
-        .reduce((sum, payment) => sum + payment.amount, 0);
+        .reduce((sum, payment) => {
+            const refunded = (payment.refunds ?? [])
+                .filter(refund => refund.state === 'Settled')
+                .reduce((total, refund) => total + refund.total, 0);
+            return sum + payment.amount - refunded;
+        }, 0);
 }

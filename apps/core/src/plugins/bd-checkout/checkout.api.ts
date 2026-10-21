@@ -11,6 +11,10 @@ export const checkoutShopApiExtensions = gql`
         alternatePhone: String
         "Optional real email"
         email: String
+        "Bot check: a hidden form field people never see. Leave it empty."
+        website: String
+        "Bot check: seconds the shopper spent on the form (measured in the browser); under 3 is refused"
+        secondsOnForm: Int
     }
 
     input SetOrderShippingAddressBDInput {

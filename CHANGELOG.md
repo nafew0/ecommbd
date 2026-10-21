@@ -40,6 +40,56 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
   - Our own Code 128 barcodes (no library), checked by decoding with ZXing.
   - Tests: unit and snapshot tests in Bangla and English, end-to-end tests of the print data, Playwright tests that print every template to PDF, check page sizes, scan barcodes and print 100 orders.
 - **Two developers:** each works on their own branch; the roadmap lists who builds which phases.
+- **Phase 11, incomplete orders and fake-order protection** (plugin `fraud-guard`):
+  - **Incomplete orders:** the checkout is saved as soon as a valid phone is typed (`saveCheckoutProgress`, for the storefront in phase 14); Orders → **Incomplete orders** lists them with tap-to-call, a one-time reminder SMS, **Make an order** (opens the phone order filled in, saying which products are no longer available) and dismiss with a reason. A later order from the same phone marks them ordered; personal data is deleted after 30 days.
+  - **Block list** (Customers → Block list, and on the customer page): phones for good or until a date, IPs for at most 30 days. Blocked shoppers see a polite "can't take this order online"; staff can still enter their orders. Unblocking records why.
+  - **Order limits:** at most 3 website orders a phone in 24 hours by default, and an optional "already ordered" window with the merchant's own message.
+  - **Risk badge** with reasons ("1 fake order before · Name looks made up") in the confirmation queue and on the order, for staff with the new `ReadRisk` permission.
+  - **Verification code for COD** by SMS: never, every COD order, first-time customers or risky orders; 6 digits, 5 minutes, 3 tries, a minute between codes, 5 a day; optionally the shopper may order "not verified" when no SMS arrives.
+  - **Bot checks** on the phone checkout: a hidden field and a minimum time on the form.
+  - Settings → **Fake-order protection**. Migration: incomplete checkouts, block list, codes, three order fields (additive).
+  - Tests: unit tests of the risk score and name check; end-to-end tests of capture, bursts, recovery, convert, SMS, dismiss and expiry, the block list (phones and IPs), limits, the risk badge and its permission, every code mode and limit, and the bot checks; Playwright tests of making an order from an incomplete checkout and of blocking and unblocking.
+
+- **Phase 10, notifications: SMS, templates and email hygiene** (plugin `notifications`; no SMS provider yet, by choice):
+  - Order SMS in Bangla or English when an order is placed, confirmed, shipped (with a tracking link), delivered or cancelled, and when a bKash/Nagad/Rocket payment is verified or not matched; OTP template ready for phase 11.
+  - Each SMS is sent exactly once (an outbox with a unique key per order, event and phone), retried 4 times if the provider fails, and kept with its status and reason on the order page.
+  - Only Bangladeshi mobile numbers; per-phone and per-store daily limits; quiet hours (22:00–08:00 Dhaka) hold ordinary SMS until morning; customers can be marked "SMS off" and then get only the messages the merchant marks required.
+  - Merchant admin **Settings → SMS**: templates per event with the live length, number of SMS parts and cost, a warning at 3+ parts, sender name, quiet hours, limits and today's and this month's usage.
+  - Email: dev mode and `/mailbox` only in development; SMTP through new settings `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`. Nodemailer pinned to 10.0.16 (security fixes).
+  - New settings `SMS_DRIVER` (`log` or `none`) and `STOREFRONT_URL`. Migration: the SMS outbox, customer `smsOptOut`, order `trackingToken` (additive).
+  - Tests: unit tests of segment counting, templates and settings; end-to-end tests of order SMS (once each, retries, opt-out, limits, foreign numbers, quiet hours, templates, manual orders without SMS, usage); a Playwright test of the template editor.
+
+- **Phase 05, manual orders, order editing and stock rules** (plugins `bd-catalog` and `bd-manual-orders`):
+  - **No overselling:** Vendure 3.8 places every order for the last units when shoppers pay at once (50 orders for 10 units in our test). Payments now lock and re-check stock, so exactly 10 are placed and the rest are told "just sold out".
+  - Merchant admin **Products**: a list with image, price and old price, stock, category and badges (Featured, New, "Bangla missing"), duplicate and delete; a **one-page product form** with names and descriptions in Bangla and English, main photo, gallery, customer feedback photos, YouTube link, category, delivery for this product, and size, colour, pack or custom variations each with price, old price, stock, photo, default and pre-order; SKU, weight and SEO under "More".
+  - **Categories** with names in both languages, image, parent, order and free delivery; **Stock** with low stock first and adjustments with a reason and history.
+  - **Phone order**: customer by phone, address, product search with stock, staff price and discount (permission-gated, 10% cap for order staff), delivery by the store's rules or a typed charge, COD, already paid or an advance, source (Messenger, Facebook comment, phone, WhatsApp, walk-in), SMS toggle, created as New or Confirmed; the total is worked out by the server as staff type.
+  - **Editing orders before shipping** (items, quantities, prices, address, delivery, discount) from the order page and the confirmation queue: the COD amount follows the new total; money to give back becomes a "refund due" staff mark refunded; before/after is in the history.
+  - New permissions `CreateManualOrder`, `EditOrder`, `OverridePrice`, `ApplyManualDiscount`, `UnlimitedDiscount` on the default roles; a hidden "Recorded by staff" payment method for cash and bank payments; draft orders older than 7 days are deleted.
+  - Migrations: product, variant, collection and order fields, the feedback images, the stock adjustment log (additive).
+  - Tests: unit tests of the product form schema; end-to-end tests of the product form, categories, stock, overselling, manual orders and edits; Playwright tests of adding a product with three sizes and a gallery, and a Messenger order in under a minute.
+
+- **Phase 08, payments I: COD, manual mobile banking and partial advance** (plugin `payments-bd`):
+  - Cash on delivery, authorized at checkout and settled automatically on delivery; an optional order limit and allowed areas; blocked phones (phase 11) see a polite "not available".
+  - bKash, Nagad and Rocket "Send Money" to the merchant's number: the shopper enters the sender number and transaction ID, the order is placed, and staff verify or reject it in **Orders → Verify payments**. A transaction ID can pay one order only; look-alike characters are pointed out to staff.
+  - Partial advance before delivery (delivery charge, fixed or a percentage; all COD orders, outside Dhaka, chosen products, or risky phones), then COD for the rest.
+  - The COD charge from the delivery settings as its own order line (`setBdPaymentChoice`).
+  - Refund records (amount, how, TrxID, note), required before cancelling an order with money received; "money received" now subtracts refunds everywhere.
+  - Shop API `bdPaymentOptions` (COD available or why, advance, COD amount, merchant numbers); store defaults create the four payment methods; new `VerifyPayment` permission for Owner and Manager.
+  - Merchant admin: **Settings → Payments**, **Orders → Verify payments**, and a Payments card on the order page with "Record refund".
+  - Migration: the unique transaction field on payments and the order's payment choice (additive).
+  - Tests: unit tests of the advance rules, COD limits and TrxID checks; end-to-end tests of the COD lifecycle, verify, reject, partial payment, duplicate TrxID, advance + COD, the COD charge, refunds before cancelling and permissions; a Playwright test of the queue.
+
+- **Phase 07, shipping zones and rates** (plugin `shipping-bd`):
+  - Delivery charges by bd-geo zone: ৳60 inside Dhaka city, ৳100 Dhaka suburbs, ৳120 outside Dhaka by default (shown as suggestions until the merchant saves), an optional own rate for Chattogram city, and district or thana overrides.
+  - Per-product delivery: free delivery, own inside/outside-Dhaka charges (the highest in the cart applies) and an extra charge per item; weight charges per started kilogram from the variant's weight.
+  - Free delivery above a subtotal per zone (after discounts, before delivery), Express (own rates, only where offered) and Store pickup, both off until turned on; where the store delivers (areas, districts, heaviest order); the COD fee setting (applied with COD in phase 08).
+  - Three delivery methods for every store from a new store-defaults step. Manual orders (draft orders) use the same rules.
+  - `Order.bdDelivery` in the Shop and Admin APIs: zone, why no method is offered (in Bangla and English) and "spend ৳X more for free delivery".
+  - Merchant admin: **Settings → Delivery**, in merchant language, with a warning listing products without a weight. Changing charges needs `UpdateShippingMethod`.
+  - Migration: product and variant delivery fields (additive).
+  - Tests: unit tests of the calculator matrix, end-to-end tests (Mirpur, Savar, Rajshahi, Chattogram, threshold crossing, district change, Express and pickup, coverage, product fields, weight, settings validation and permissions, draft orders) and a Playwright test of the delivery page.
+
 - **Phase 04, BD order workflow, order numbers and confirmation queue** (plugin `bd-orders`):
   - Order statuses New → Confirmed → Packed → Shipped → Delivered, plus Partly delivered, Returned and Cancelled, on Vendure's order process. Every allowed change is in `docs/decisions/order-states.md`; anything else is refused with a clear message, also from Vendure's own mutations. Cancelling needs a reason (fake, customer cancelled, unreachable, duplicate, out of stock, price issue, other).
   - Order numbers 1001, 1002… (optional prefix, e.g. `MF-1001`), given when the order is placed, so abandoned carts leave no gaps.

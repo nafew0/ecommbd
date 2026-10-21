@@ -1,3 +1,4 @@
+import { defaultShippingSettings } from '@ecommbd/shared';
 import { Customer, TransactionalConnection } from '@vendure/core';
 import { defaultEmailHandlers, EmailPlugin, FileBasedTemplateLoader } from '@vendure/email-plugin';
 import {
@@ -473,11 +474,32 @@ describe('payment guard', () => {
         await shopClient.query(SET_ADDRESS_VENDURE, {
             input: { streetLine1: 'House 12, Road 5', countryCode: 'BD' },
         });
-        await chooseDelivery(shopClient);
-        const { transitionOrderToState } = await shopClient.query(TRANSITION, { state: 'ArrangingPayment' });
-        expect(transitionOrderToState.transitionError).toBe(
-            'Add a delivery address with district and thana before payment.',
-        );
+        // Without a district only Store pickup can be chosen (phase 07), so turn it on for this test.
+        const pickup = (enabled: boolean) =>
+            adminClient.query(
+                gql`
+                    mutation ($input: JSON!) {
+                        updateBdShippingSettings(input: $input) {
+                            errors {
+                                path
+                            }
+                        }
+                    }
+                `,
+                { input: { ...defaultShippingSettings(), pickup: { enabled } } },
+            );
+        await pickup(true);
+        try {
+            await chooseDelivery(shopClient);
+            const { transitionOrderToState } = await shopClient.query(TRANSITION, {
+                state: 'ArrangingPayment',
+            });
+            expect(transitionOrderToState.transitionError).toBe(
+                'Add a delivery address with district and thana before payment.',
+            );
+        } finally {
+            await pickup(false);
+        }
     });
 });
 

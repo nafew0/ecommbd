@@ -3,15 +3,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Phone } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
+import { BLOCK, UNBLOCK, UnblockDialog } from '../components/block-dialogs';
 import { Field } from '../components/form/field';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/input';
 import { Alert, Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
+import { Switch } from '../components/ui/switch';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useFormat } from '../lib/format';
 import { useI18n } from '../lib/i18n';
 import { useToast } from '../lib/toast';
+
 
 const CUSTOMER = `
     query Customer($id: ID!) {
@@ -21,11 +24,13 @@ const CUSTOMER = `
             firstName
             lastName
             emailAddress
+            bdBlock { id expiresAt }
             customFields {
                 phone
                 alternatePhone
                 source
                 internalNotes
+                smsOptOut
                 orderCount
                 deliveredCount
                 returnedCount
@@ -56,17 +61,29 @@ const SAVE_NOTES = `
     }
 `;
 
+const SAVE_SMS_OPT_OUT = `
+    mutation SaveSmsOptOut($id: ID!, $optOut: Boolean!) {
+        updateCustomer(input: { id: $id, customFields: { smsOptOut: $optOut } }) {
+            ... on Customer { id }
+            ... on ErrorResult { message }
+        }
+    }
+`;
+
 interface CustomerDetail {
     id: string;
     createdAt: string;
     firstName: string;
     lastName: string;
     emailAddress: string;
+    /** Phase 11: the active block on this phone. */
+    bdBlock: { id: string; expiresAt: string | null } | null;
     customFields: {
         phone: string | null;
         alternatePhone: string | null;
         source: 'web' | 'manual' | 'import';
         internalNotes: string | null;
+        smsOptOut: boolean;
         orderCount: number;
         deliveredCount: number;
         returnedCount: number;
@@ -109,6 +126,25 @@ export function CustomerDetailPage() {
         mutationFn: () => adminApi(SAVE_NOTES, { id, notes: notes.trim() || null }),
         onSuccess: () => {
             toast.success(m.customers.notesSaved);
+            void queryClient.invalidateQueries({ queryKey: ['customer', id] });
+        },
+        onError: () => toast.error(m.errors.generic),
+    });
+
+    const saveOptOut = useMutation({
+        mutationFn: (optOut: boolean) => adminApi(SAVE_SMS_OPT_OUT, { id, optOut }),
+        onSuccess: () => {
+            toast.success(m.sms.optOutSaved);
+            void queryClient.invalidateQueries({ queryKey: ['customer', id] });
+        },
+        onError: () => toast.error(m.errors.generic),
+    });
+
+    const [unblocking, setUnblocking] = useState(false);
+    const blockPhone = useMutation({
+        mutationFn: (phone: string) => adminApi(BLOCK, { input: { kind: 'phone', value: phone } }),
+        onSuccess: () => {
+            toast.success(m.blockList.blocked);
             void queryClient.invalidateQueries({ queryKey: ['customer', id] });
         },
         onError: () => toast.error(m.errors.generic),
@@ -214,6 +250,62 @@ export function CustomerDetailPage() {
                                 {m.customers.saveNotes}
                             </Button>
                         )}
+                    </CardBody>
+                </Card>
+                {f.phone && (
+                    <Card>
+                        <CardHeader title={m.blockList.customerCard} />
+                        <CardBody>
+                            <p className="text-sm">
+                                {customer.bdBlock
+                                    ? m.blockList.customerBlocked(
+                                          customer.bdBlock.expiresAt
+                                              ? format.dateTime(customer.bdBlock.expiresAt)
+                                              : m.blockList.forever,
+                                      )
+                                    : m.blockList.customerNotBlocked}
+                            </p>
+                            {can('UpdateCustomer') &&
+                                (customer.bdBlock ? (
+                                    <Button variant="secondary" onClick={() => setUnblocking(true)}>
+                                        {m.blockList.unblock}
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        variant="danger"
+                                        loading={blockPhone.isPending}
+                                        onClick={() => blockPhone.mutate(f.phone!)}
+                                    >
+                                        {m.blockList.blockCustomer}
+                                    </Button>
+                                ))}
+                        </CardBody>
+                    </Card>
+                )}
+                <UnblockDialog
+                    open={unblocking}
+                    onClose={() => setUnblocking(false)}
+                    onUnblock={async reason => {
+                        try {
+                            await adminApi(UNBLOCK, { id: customer.bdBlock!.id, reason });
+                            toast.success(m.blockList.unblocked);
+                            setUnblocking(false);
+                            void queryClient.invalidateQueries({ queryKey: ['customer', id] });
+                        } catch {
+                            toast.error(m.errors.generic);
+                        }
+                    }}
+                />
+                <Card>
+                    <CardHeader title={m.sms.optOut} />
+                    <CardBody>
+                        <Switch
+                            label={m.sms.optOutLabel}
+                            description={m.sms.optOutHint}
+                            checked={f.smsOptOut}
+                            disabled={!can('UpdateCustomer') || saveOptOut.isPending}
+                            onChange={checked => saveOptOut.mutate(checked)}
+                        />
                     </CardBody>
                 </Card>
                 <Card>

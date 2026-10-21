@@ -205,6 +205,8 @@ Editing orders (11a), printing (06), courier booking and automatic Shipped/Deliv
 
 **Split on 2026-10-21.** Manual orders and order editing moved to [phase 11a](#phase-11--manual-orders-order-editing-incomplete-orders-and-fake-order-protection). They need delivery charges (07), payments and refund records (08) and SMS (10), which come later in the same track.
 
+> **Built on 2026-10-21** on the branch `m2/products-and-images`, before the split, so it also built most of phase 11a: manual orders, order editing and the edit history (plugin `bd-manual-orders`, see phase 11). Plugins `bd-catalog` and `bd-manual-orders`; the screens are in our merchant admin, not Vendure's Dashboard). Decisions are in the [decisions log](../decisions.md) (rows starting "Phase 05"). Vendure 3.8 **did** oversell, so the stock guard was needed. Not built here, as planned elsewhere: returned items back to stock or "damaged" per item (phase 37's returns workflow; staff adjust stock with a reason until then), coupons re-checked on edits (coupons come in phase 35), the courier "cancel the booking first" rule (phase 19 registers it), the SMS itself (phase 10 reads the order's "send SMS" choice), and picking products for an advance (phase 08's "orders with certain products" scope).
+
 ### Build
 
 1. **Product fields** (Vendure custom fields, with a migration):
@@ -253,10 +255,10 @@ Editing orders (11a), printing (06), courier booking and automatic Shipped/Deliv
 
 ### Done when
 
-- [ ] Staff add a product with three variations and a gallery on one page, on a phone.
-- [ ] Categories and the stock list work in both languages, with quick stock adjustment and its history.
-- [ ] The concurrency test proves no overselling.
-- [ ] A returned item goes back to stock or to "damaged", as staff choose.
+- [x] Staff add a product with three variations and a gallery on one page, on a phone. (Playwright `products.spec.ts`, desktop and phone.)
+- [x] Categories and the stock list work in both languages, with quick stock adjustment and its history. (End-to-end: `catalog.e2e-spec.ts`, `stock.e2e-spec.ts`.)
+- [x] The concurrency test proves no overselling. (End-to-end: `stock.e2e-spec.ts`, 50 buyers for 10 units place exactly 10.)
+- [ ] A returned item goes back to stock or to "damaged", as staff choose. (Not built: staff adjust stock with the "returned" or "damaged" reason until item-level returns exist; see the return contract in [order-states.md](../decisions/order-states.md).)
 
 ### Not in this phase
 
@@ -345,6 +347,8 @@ Courier consignment barcodes (added when phase 19 lands), email invoices (later)
 
 **Goal.** Delivery charges work the way BD merchants price them today, and are calculated automatically at checkout and in manual orders.
 
+> **Built on 2026-10-21** on the branch `m2/shipping-and-payments` (plugin `shipping-bd`). Decisions are in the [decisions log](../decisions.md) (rows starting "Phase 07"). The COD fee's setting and calculation are here; the COD payment applies it (phase 08). Free-delivery collections get their switch in the category form (phase 05), and the product form's delivery fields arrive with phase 05.
+
 ### Decide at start
 
 - **COD fee** (when the merchant passes the courier's COD charge on to the shopper): add it as a Vendure surcharge on COD orders, or build it into the COD shipping price. Pick the one that shows clearly on invoices.
@@ -399,9 +403,9 @@ Courier consignment barcodes (added when phase 19 lands), email invoices (later)
 
 ### Done when
 
-- [ ] Checkout shows ৳60 for Mirpur, ৳100 for Savar and ৳120 for Rajshahi with the default suggestions, and free delivery above the threshold.
-- [ ] Manual orders use identical rules.
-- [ ] The merchant edits rates in one simple form.
+- [x] Checkout shows ৳60 for Mirpur, ৳100 for Savar and ৳120 for Rajshahi with the default suggestions, and free delivery above the threshold. (End-to-end: `shipping-bd.e2e-spec.ts`, "default delivery charges" and "free delivery threshold".)
+- [x] Manual orders use identical rules. (End-to-end: a draft order to Savar is offered ৳100.)
+- [x] The merchant edits rates in one simple form. (Playwright `delivery.spec.ts` in Bangla on desktop and phone.)
 
 ### Not in this phase
 
@@ -419,6 +423,8 @@ Courier rate quotes (46), international shipping (not planned).
 | Size | L |
 
 **Goal.** Take money the way small BD merchants do today: COD, a bKash/Nagad/Rocket "Send Money" with a transaction ID, or an advance payment with the rest on delivery.
+
+> **Built on 2026-10-21** on the branch `m2/shipping-and-payments` (plugin `payments-bd`). Decisions are in the [decisions log](../decisions.md) (rows starting "Phase 08"). One change from the plan: a waiting mobile banking payment is **Authorized** with "pending verification" in its details, not a new `PendingVerification` state, because Vendure only places orders whose payments are Authorized or Settled. Not built here, as planned elsewhere: invoices and stickers (phase 06, on hold), SMS to the shopper and the staff reminder message (phase 10; the queue already marks overdue payments), blocked and risky phones (phase 11 plugs into `registerPaymentRiskCheck`), the courier COD amount (phase 19), and picking products for the "orders with certain products" advance (the product screens, phase 05).
 
 ### Decide at start
 
@@ -479,9 +485,9 @@ Courier rate quotes (46), international shipping (not planned).
 
 ### Done when
 
-- [ ] A shopper pays the delivery charge in advance by bKash Send Money with a TrxID, and the rest by COD. Staff verify it in the queue.
-- [ ] The COD due amount is correct on the order, invoice and sticker.
-- [ ] A reused TrxID is rejected.
+- [x] A shopper pays the delivery charge in advance by bKash Send Money with a TrxID, and the rest by COD. Staff verify it in the queue. (End-to-end: `payments-bd.e2e-spec.ts`, "partial advance"; Playwright `payments.spec.ts` verifies from the queue in Bangla on desktop and phone.)
+- [ ] The COD due amount is correct on the order, invoice and sticker. (Order: yes, end-to-end and on the order page. Invoice and sticker wait for phase 06, which is on hold.)
+- [x] A reused TrxID is rejected. (End-to-end: "refuses a transaction ID used before…".)
 
 ### Not in this phase
 
@@ -589,6 +595,8 @@ AVIF (50), image CDN decisions (29), storage quotas enforcement (39).
 
 **Goal.** Customers get timely, correct SMS in their language. Merchants control templates and costs. Placeholder emails never receive mail.
 
+> **Built on 2026-10-21** on the branch `m2/notifications-and-fraud` (plugin `notifications`), **without a real SMS provider** (the user's call: the provider is chosen later). Everything up to the provider is built and tested with a `log` driver that records messages; production uses `SMS_DRIVER=none` until a driver is added (one class implementing `SmsDriver`). So the provider comparison, encrypted provider credentials, delivery-report webhooks and the driver's contract test wait for that choice. The SMTP provider is likewise chosen when a store goes live: the transport is configured by `SMTP_*` settings. Decisions are in the [decisions log](../decisions.md) (rows starting "Phase 10").
+
 ### Decide at start
 
 - **SMS provider** for the direct driver: compare 2–3 Bangladeshi providers on API quality, delivery reports, masking (sender ID) support, price, and uptime history. The interface must allow switching to the central gateway (phase 38) without changing callers.
@@ -653,9 +661,9 @@ AVIF (50), image CDN decisions (29), storage quotas enforcement (39).
 
 ### Done when
 
-- [ ] Placing, confirming and shipping an order each send the correct Bangla SMS exactly once.
-- [ ] The merchant edits a template and sees the live segment count and cost.
-- [ ] Placeholder emails never receive mail; `/mailbox` is unavailable in production.
+- [x] Placing, confirming and shipping an order each send the correct Bangla SMS exactly once. (`notifications.e2e-spec.ts`, with the log driver; also retries, opt-out, caps, quiet hours, "Send SMS" off.)
+- [x] The merchant edits a template and sees the live segment count and cost. (Settings → SMS; Playwright `sms.spec.ts`.)
+- [x] Placeholder emails never receive mail; `/mailbox` is unavailable in production. (Handlers filtered since phase 03, tested in `bd-checkout.e2e-spec.ts`; dev mode and `/mailbox` only with `APP_ENV=dev`.)
 
 ### Not in this phase
 
@@ -675,6 +683,10 @@ Central SMS gateway, credit purchase and failover provider (38), abandoned-check
 **Goal.** Staff enter orders taken by phone, Messenger or WhatsApp in under a minute, and fix orders before they ship (11a). Recover shoppers who abandon checkout, and stop fake COD orders without annoying real shoppers (11b).
 
 **Why 11a is here.** Manual orders and order editing were in phase 05 until 2026-10-21. They need delivery charges (07), payments and refund records (08) and SMS (10), so they come after those. Incomplete orders (11b) then reuse the manual order form for "Convert to order".
+
+> **11a was built with phase 05** (plugin `bd-manual-orders`), before the split; see phase 05's note.
+>
+> **Built on 2026-10-21** on the branch `m2/notifications-and-fraud` (plugin `fraud-guard`, plus the bot checks in `bd-checkout` and the COD code hook in `payments-bd`). Decisions are in the [decisions log](../decisions.md) (rows starting "Phase 11"). Not built, kept simple for the MVP: Cloudflare Turnstile (the honeypot and time-on-form checks are in; Turnstile is added when real abuse shows up), a per-session order limit (per phone is), auto-reject by score (risk never refuses an order by itself), and linking an incomplete checkout to an order with a different phone by hand. A duplicate cart raises the risk score rather than blocking. Codes are verified with SMS through the log driver until the SMS provider is chosen (phase 10).
 
 ### Decide at start
 
@@ -788,12 +800,12 @@ Central SMS gateway, credit purchase and failover provider (38), abandoned-check
 
 ### Done when
 
-- [ ] Staff create a Messenger order in under a minute in the admin.
-- [ ] Editing a confirmed order recalculates totals and the delivery charge, updates the COD amount and records before/after values.
-- [ ] An abandoned checkout appears in the admin within 5 seconds of typing a valid phone, and converts to an order in two clicks.
-- [ ] Repeated fake orders from a blocked phone are refused politely.
-- [ ] OTP-for-COD works in every mode, within the SMS limits.
-- [ ] The confirmation queue shows the risk badge with reasons.
+- [x] Staff create a Messenger order in under a minute in the admin. (Built with phase 05: Playwright `products.spec.ts`, timed.)
+- [x] Editing a confirmed order recalculates totals and the delivery charge, updates the COD amount and records before/after values. (Built with phase 05: `manual-orders.e2e-spec.ts`, "editing orders before shipping". Check it against the return, stock and payment contract in [order-states.md](../decisions/order-states.md), written after it was built.)
+- [x] An abandoned checkout appears in the admin within 5 seconds of typing a valid phone, and converts to an order in two clicks. (Saved at once by `saveCheckoutProgress`; Orders → Incomplete orders → "Make an order" opens the phone order filled in, then "Create". The storefront call is phase 14. Tests: `fraud-guard.e2e-spec.ts`, Playwright `fraud.spec.ts`.)
+- [x] Repeated fake orders from a blocked phone are refused politely.
+- [x] OTP-for-COD works in every mode, within the SMS limits.
+- [x] The confirmation queue shows the risk badge with reasons.
 
 ### Not in this phase
 

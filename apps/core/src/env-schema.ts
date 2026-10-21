@@ -45,6 +45,17 @@ export const envSchema = z
         REDIS_CACHE_PASSWORD: z.string().optional(),
         // The storefront's default language for a new store, chosen at setup. Later changed in Store settings.
         STORE_DEFAULT_LANGUAGE: z.enum(['bn', 'en']).default('bn'),
+        // SMS: `log` records messages without sending (development); `none` until a provider is set up.
+        SMS_DRIVER: z.enum(['log', 'none']).optional(),
+        // The storefront's address, for SMS tracking links (<url>/t/<token>). Without it SMS carry no link.
+        STOREFRONT_URL: z.url().optional(),
+        // Real email (staff invites, password resets) outside development. Without SMTP_HOST, no email is sent.
+        SMTP_HOST: z.string().optional(),
+        SMTP_PORT: envPort.optional(),
+        SMTP_SECURE: z.enum(['true', 'false']).optional(),
+        SMTP_USER: z.string().optional(),
+        SMTP_PASSWORD: z.string().optional(),
+        SMTP_FROM: z.string().optional(),
         LOG_LEVEL: z.enum(['error', 'warn', 'info', 'verbose', 'debug']).default('info'),
         LOG_FORMAT: z.enum(['json', 'pretty']).optional(),
         STORE_ID: z.string().optional(),

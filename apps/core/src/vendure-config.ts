@@ -17,6 +17,7 @@ import { JsonLogger, toVendureLogLevel } from './logging/json-logger';
 import { requestIdMiddleware } from './logging/request-context';
 import { customPlugins } from './plugins';
 import { skipPlaceholderRecipients } from './plugins/bd-checkout';
+import { LogSmsDriver, NoSmsDriver } from './plugins/notifications';
 
 const IS_DEV = env.APP_ENV === 'dev';
 const IS_LIVE = env.APP_ENV === 'staging' || env.APP_ENV === 'production';
@@ -125,9 +126,25 @@ export const config: VendureConfig = {
         }),
         DefaultSearchPlugin.init({ bufferUpdates: false, indexStockStatus: true }),
         EmailPlugin.init({
-            devMode: true,
-            outputPath: path.join(__dirname, '../static/email/test-emails'),
-            route: 'mailbox',
+            // Development writes emails to files and shows them at /mailbox; nowhere else is that
+            // page served. Staging and production send through SMTP, or nothing without SMTP_HOST.
+            ...(IS_DEV
+                ? {
+                      devMode: true as const,
+                      outputPath: path.join(__dirname, '../static/email/test-emails'),
+                      route: 'mailbox',
+                  }
+                : {
+                      transport: env.SMTP_HOST
+                          ? {
+                                type: 'smtp' as const,
+                                host: env.SMTP_HOST,
+                                port: env.SMTP_PORT ?? 587,
+                                secure: env.SMTP_SECURE === 'true',
+                                auth: { user: env.SMTP_USER ?? '', pass: env.SMTP_PASSWORD ?? '' },
+                            }
+                          : { type: 'none' as const },
+                  }),
             // Never to a phone-only customer's placeholder address (…@phone.invalid).
             handlers: skipPlaceholderRecipients(defaultEmailHandlers),
             templateLoader: new FileBasedTemplateLoader(path.join(__dirname, '../static/email/templates')),
@@ -135,7 +152,7 @@ export const config: VendureConfig = {
                 // The following variables will change depending on your storefront implementation.
                 // No storefront was created, so port 3001 is only a placeholder:
                 // nothing is listening on it until you point these at your own storefront.
-                fromAddress: '"example" <noreply@example.com>',
+                fromAddress: env.SMTP_FROM ?? '"example" <noreply@example.com>',
                 verifyEmailAddressUrl: 'http://localhost:3001/verify',
                 passwordResetUrl: 'http://localhost:3001/reset-password',
                 changeEmailAddressUrl: 'http://localhost:3001/account/verify-email',
@@ -159,6 +176,8 @@ export const config: VendureConfig = {
                 password: env.REDIS_CACHE_PASSWORD,
             },
             redisKeyPrefix: KEY_PREFIX,
+            smsDriver: (env.SMS_DRIVER ?? (IS_DEV ? 'log' : 'none')) === 'log' ? new LogSmsDriver() : new NoSmsDriver(),
+            storefrontUrl: env.STOREFRONT_URL,
         }),
     ],
 };

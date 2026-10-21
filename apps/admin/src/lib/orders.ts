@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { adminApi } from './api';
 import { useI18n } from './i18n';
 import { useToast } from './toast';
+import type { RiskLevel, RiskReasonCode } from '@ecommbd/shared/fraud';
 
 /** The fields every order screen shows (roadmap phase 04). */
 export const ORDER_FIELDS = `
@@ -40,8 +41,17 @@ export const ORDER_FIELDS = `
             suggestCancel
             imported
         }
+        bdRisk { score level reasons { code count } }
+        bdOtpStatus
     }
 `;
+
+/** The risk score kept on the order (phase 11). */
+export interface OrderRisk {
+    score: number;
+    level: RiskLevel;
+    reasons: Array<{ code: RiskReasonCode; count: number | null }>;
+}
 
 export interface OrderRow {
     id: string;
@@ -92,6 +102,9 @@ export interface OrderRow {
         suggestCancel: boolean;
         imported: boolean;
     };
+    /** Null without the ReadRisk permission (phase 11). */
+    bdRisk: OrderRisk | null;
+    bdOtpStatus: 'verified' | 'unverified' | null;
 }
 
 export interface OrderActionError {

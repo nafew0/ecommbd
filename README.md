@@ -181,7 +181,8 @@ npm start
 | `CORS_ORIGINS` set to the store's domains | `apps/core/.env` |
 | The store's own `REDIS_KEY_PREFIX` and Redis ACL users | `apps/core/.env` |
 | Real asset URL (`assetUrlPrefix`, a placeholder in the template) | `vendure-config.ts` |
-| Email: the template's `EmailPlugin` is in dev mode. It writes emails to files and leaves the `/mailbox` page open. Configure a real transport or replace it with SMS, and turn dev mode off | `vendure-config.ts` |
+| Email: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` and `SMTP_FROM` (without them no email is sent). Dev mode and the `/mailbox` page exist only with `APP_ENV=dev` | `apps/core/.env` |
+| SMS: a provider driver once one is chosen (until then `SMS_DRIVER=none` records every SMS as not sent), the approved sender ID in Settings → SMS, and `STOREFRONT_URL` for tracking links | `apps/core/.env`, merchant admin |
 
 ## 6. Adding a feature: plugins
 
