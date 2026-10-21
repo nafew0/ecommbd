@@ -42,6 +42,8 @@ export const envSchema = z
         REDIS_CACHE_PASSWORD: z.string().optional(),
         // The storefront's default language for a new store, chosen at setup. Later changed in Store settings.
         STORE_DEFAULT_LANGUAGE: z.enum(['bn', 'en']).default('bn'),
+        // Where the storefront's WebP image sizes are written (served at /img). Default: static/images.
+        IMAGES_DIR: z.string().min(1).optional(),
         LOG_LEVEL: z.enum(['error', 'warn', 'info', 'verbose', 'debug']).default('info'),
         LOG_FORMAT: z.enum(['json', 'pretty']).optional(),
         STORE_ID: z.string().optional(),

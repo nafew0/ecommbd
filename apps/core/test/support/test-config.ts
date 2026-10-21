@@ -7,6 +7,7 @@ import {
     type VendureConfig,
 } from '@vendure/core';
 import { testConfig, type TestServer } from '@vendure/testing';
+import os from 'node:os';
 import path from 'node:path';
 import { requestIdMiddleware } from '../../src/logging/request-context';
 import { type CustomPluginOptions, customPlugins } from '../../src/plugins';
@@ -41,6 +42,7 @@ export function createTestConfig(
                 port: Number(process.env.TEST_REDIS_CACHE_PORT ?? 63791),
             },
             redisKeyPrefix: `test-${port}-${Date.now()}`,
+            imagesDir: path.join(os.tmpdir(), `ecommbd-images-${port}-${Date.now()}`),
             ...pluginOptions,
         }),
     });

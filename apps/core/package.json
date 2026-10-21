@@ -17,7 +17,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
     "test:e2e": "vitest run -c vitest.e2e.config.mts",
-    "store:init": "ts-node --transpile-only src/store-init.ts"
+    "store:init": "ts-node --transpile-only src/store-init.ts",
+    "images:regenerate": "ts-node --transpile-only src/images-regenerate.ts"
   },
   "dependencies": {
     "@ecommbd/bd-geo": "0.1.0",
@@ -36,6 +37,7 @@
     "graphql-tag": "2.12.7",
     "ioredis": "5.11.1",
     "pg": "8.23.1",
+    "sharp": "0.35.5",
     "typeorm": "0.3.31",
     "zod": "4.6.7"
   },

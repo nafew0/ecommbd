@@ -171,6 +171,7 @@ npm start
 | `CORS_ORIGINS` set to the store's domains | `apps/core/.env` |
 | The store's own `REDIS_KEY_PREFIX` and Redis ACL users | `apps/core/.env` |
 | Real asset URL (`assetUrlPrefix`, a placeholder in the template) | `vendure-config.ts` |
+| Image sizes: `IMAGES_DIR` outside the app folder, served by Nginx at `/img/` with `Cache-Control: public, max-age=31536000, immutable`, `X-Content-Type-Options: nosniff` and no directory listing (the core serves `/img` itself in development) | `apps/core/.env`, Nginx (phase 24) |
 | Email: the template's `EmailPlugin` is in dev mode. It writes emails to files and leaves the `/mailbox` page open. Configure a real transport or replace it with SMS, and turn dev mode off | `vendure-config.ts` |
 
 ## 6. Adding a feature: plugins
@@ -219,6 +220,7 @@ The first migration, `<timestamp>-init.ts`, creates the whole schema and is comm
 | `npm run dev` | Server, worker and Dashboard in dev mode (builds the merchant admin first) |
 | `npm run dev:admin` | The merchant admin with live reload on :5174 |
 | `npm run store:init` | Set up missing Bangladesh store defaults now (`-- --force` re-applies them) |
+| `npm run images:regenerate -- --all` | Remake every image's WebP sizes (`-- --asset <id>` for one), e.g. after changing sizes or quality |
 | `npm run build` / `npm start` | Production build / start |
 | `npm run migrate:generate -- <name>` | New migration from entity changes |
 | `npm run migrate:run` | Run pending migrations |

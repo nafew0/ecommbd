@@ -6,6 +6,14 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Added
 
+- **Phase 09, image pipeline and upload security** (plugin `images`):
+  - Every image is checked and cleaned before it's stored: JPEG, PNG, WebP, GIF or AVIF only (by its bytes; no SVG or HEIC), up to 15 MB and 40 megapixels; rotation applied; all metadata removed, including GPS location; CMYK to sRGB; transparency and animation kept. Clear Bangla/English messages, e.g. for iPhone HEIC photos.
+  - A worker job makes WebP sizes (160–1600 px, never upscaled), a dominant colour and a tiny placeholder, stored once per image by content hash and served at `/img/<hash>/<width>.webp` with a year's caching.
+  - Unused sizes are deleted 7 days after they're no longer used; `bdImageUsage` reports storage; `npm run images:regenerate`.
+  - New setting `IMAGES_DIR`. Migration: image fields on assets (additive).
+  - The admin's upload box shows the server's reason when an image is refused.
+  - Tests: unit tests with a generated fixture set (GPS, rotation, CMYK, alpha, animated GIF, pixel bomb, truncated, SVG, HEIC, tiny, duplicate) and the size budget (a 5 MB phone photo gives under 400 KB of sizes); end-to-end tests of upload, serving, refusals, dedupe, usage, the grace period and regeneration.
+
 - **Phase 08, payments I: COD, manual mobile banking and partial advance** (plugin `payments-bd`):
   - Cash on delivery, authorized at checkout and settled automatically on delivery; an optional order limit and allowed areas; blocked phones (phase 11) see a polite "not available".
   - bKash, Nagad and Rocket "Send Money" to the merchant's number: the shopper enters the sender number and transaction ID, the order is placed, and staff verify or reject it in **Orders → Verify payments**. A transaction ID can pay one order only; look-alike characters are pointed out to staff.

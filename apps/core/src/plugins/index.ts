@@ -4,6 +4,7 @@ import path from 'node:path';
 import { BdCheckoutPlugin, type BdCheckoutPluginOptions, type RedisConnectionOptions } from './bd-checkout';
 import { BdCorePlugin } from './bd-core';
 import { BdOrdersPlugin } from './bd-orders';
+import { ImagesPlugin } from './images';
 import { MerchantAdminPlugin } from './merchant-admin/merchant-admin.plugin';
 import { PaymentsBdPlugin } from './payments-bd';
 import { ShippingBdPlugin } from './shipping-bd';
@@ -24,6 +25,8 @@ export interface CustomPluginOptions {
     redisKeyPrefix: string;
     /** Rate limits for checkout (tests set low ones). */
     checkoutRateLimits?: BdCheckoutPluginOptions['rateLimits'];
+    /** IMAGES_DIR: where image sizes are written. */
+    imagesDir: string;
 }
 
 /**
@@ -45,6 +48,7 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
         BdOrdersPlugin,
         ShippingBdPlugin,
         PaymentsBdPlugin,
+        ImagesPlugin.init({ imagesDir: options.imagesDir }),
         MerchantAdminPlugin.init({
             appDir: ADMIN_APP_DIR,
             imageOrigins: options.assetUrlPrefix ? [new URL(options.assetUrlPrefix).origin] : [],
