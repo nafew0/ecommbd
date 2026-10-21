@@ -40,19 +40,55 @@ export function onSessionExpired(handler: (() => Promise<boolean>) | undefined) 
     sessionExpiredHandler = handler;
 }
 
-async function send<T>(body: BodyInit, headers: Record<string, string>): Promise<GraphQLResponse<T>> {
-    let response: Response;
+/** Called with the share of an upload sent so far, from 0 to 1. */
+export type UploadProgress = (sent: number) => void;
+
+/** A POST with fetch, or with XMLHttpRequest when upload progress is wanted (fetch can't report it). */
+function post(
+    url: string,
+    body: BodyInit,
+    headers: Record<string, string>,
+    onProgress?: UploadProgress,
+): Promise<{ status: number; text: string }> {
+    if (!onProgress) {
+        return fetch(url, { method: 'POST', credentials: 'same-origin', headers, body }).then(
+            async response => ({
+                status: response.status,
+                text: await response.text(),
+            }),
+        );
+    }
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', url);
+        xhr.withCredentials = true;
+        for (const [name, value] of Object.entries(headers)) xhr.setRequestHeader(name, value);
+        xhr.upload.onprogress = event => {
+            if (event.lengthComputable) onProgress(event.loaded / event.total);
+        };
+        xhr.onload = () => resolve({ status: xhr.status, text: xhr.responseText });
+        xhr.onerror = () => reject(new Error('network'));
+        xhr.send(body as XMLHttpRequestBodyInit);
+    });
+}
+
+async function send<T>(
+    body: BodyInit,
+    headers: Record<string, string>,
+    onProgress?: UploadProgress,
+): Promise<GraphQLResponse<T>> {
+    let response: { status: number; text: string };
     try {
-        response = await fetch(`/admin-api?languageCode=${language}`, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers,
-            body,
-        });
+        response = await post(`/admin-api?languageCode=${language}`, body, headers, onProgress);
     } catch {
         throw new ApiError('Network error', 'NETWORK');
     }
-    const json = (await response.json().catch(() => undefined)) as GraphQLResponse<T> | undefined;
+    let json: GraphQLResponse<T> | undefined;
+    try {
+        json = JSON.parse(response.text) as GraphQLResponse<T>;
+    } catch {
+        json = undefined;
+    }
     if (!json) {
         throw new ApiError(`HTTP ${response.status}`, response.status >= 500 ? 'SERVER' : 'HTTP');
     }
@@ -63,8 +99,9 @@ async function request<T>(
     makeBody: () => BodyInit,
     headers: Record<string, string>,
     retried = false,
+    onProgress?: UploadProgress,
 ): Promise<T> {
-    const json = await send<T>(makeBody(), headers);
+    const json = await send<T>(makeBody(), headers, onProgress);
     const error = json.errors?.[0];
     if (!error) {
         return json.data as T;
@@ -72,7 +109,7 @@ async function request<T>(
     const code = error.extensions?.code;
     if (code === 'FORBIDDEN' && !retried && sessionExpiredHandler && !(await isSignedIn())) {
         if (await sessionExpiredHandler()) {
-            return request<T>(makeBody, headers, true);
+            return request<T>(makeBody, headers, true, onProgress);
         }
     }
     throw new ApiError(error.message, code);
@@ -85,9 +122,10 @@ export function adminApi<T>(query: string, variables?: Record<string, unknown>):
 
 /**
  * A GraphQL multipart upload (one file in `variables.input[0].file`). The preflight header is what
- * the server's CSRF protection requires for multipart requests.
+ * the server's CSRF protection requires for multipart requests. `onProgress` reports how much of
+ * the file has been sent.
  */
-export function adminUpload<T>(query: string, file: File): Promise<T> {
+export function adminUpload<T>(query: string, file: File, onProgress?: UploadProgress): Promise<T> {
     return request<T>(
         () => {
             const form = new FormData();
@@ -97,6 +135,8 @@ export function adminUpload<T>(query: string, file: File): Promise<T> {
             return form;
         },
         { 'apollo-require-preflight': 'true' },
+        false,
+        onProgress,
     );
 }
 

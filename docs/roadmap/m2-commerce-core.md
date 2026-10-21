@@ -566,9 +566,11 @@ Online gateways (18), COD reconciliation from courier payouts (37), gateway refu
 
 ### Done when
 
-- [ ] A 5 MB phone photo becomes WebP sizes under 400 KB in total, with location data removed, served with immutable caching.
-- [ ] Every malicious or unsupported fixture is rejected with a clear message.
-- [ ] Imports can call the same pipeline (an API used by phase 21).
+- [x] A 5 MB phone photo becomes WebP sizes under 400 KB in total, with location data removed, served with immutable caching. (End-to-end test `bd-images.e2e-spec.ts`: a 4.8 MB 4032×3024 JPEG with GPS gives 345 KB in all, 1080 px 67 KB, no EXIF in any file, `immutable` from `/img`. The photo is generated with sensor-like noise; **try one real phone photo** to confirm.)
+- [x] Every malicious or unsupported fixture is rejected with a clear message. (Bomb, truncated file, SVG with a script, SVG disguised as PNG, HEIC, HEIC renamed to .jpg, over 15 MB; Bangla and English; nothing is stored. Admin: Playwright `images.spec.ts`.)
+- [x] Imports can call the same pipeline (an API used by phase 21). (`BdImageService.createImageAsset`.)
+
+**Throughput (for capacity planning):** 100 different 5 MB phone photos cleaned and resized in 58.5 s (0.59 s each) with libvips limited to 2 threads on an Apple M4 (`npm run images:throughput -w @ecommbd/core`). A typical 2 vCPU server is slower per core than this Mac: re-run the script on the first server (phase 23) for the real figure. Until then, assume about twice as slow (roughly 1.2 s per photo, so a 500-photo WooCommerce import takes about 10 minutes on the worker).
 
 ### Not in this phase
 

@@ -445,6 +445,7 @@ function ProfileTab({
                             <ImageUpload
                                 {...control}
                                 value={images.logo}
+                                maxMegabytes={2}
                                 onChange={image => onImage('logo', image)}
                             />
                         )}

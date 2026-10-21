@@ -133,7 +133,7 @@ Status values: **Not started** · **In progress** · **Review** · **Done**.
 | [06](m2-commerce-core.md#phase-06--invoices-packing-slips-and-courier-stickers) | Invoices, packing slips and courier stickers | M2 | Bulk printing (P0) | 04 | M | **Review** (built 2026-10-21; Windows print check open) |
 | [07](m2-commerce-core.md#phase-07--shipping-zones-and-rates) | Shipping zones and rates | M2 | Dhaka / district rates (P0) | 02, 03 | M | Not started |
 | [08](m2-commerce-core.md#phase-08--payments-i-cod-manual-mobile-banking-and-partial-advance) | Payments I: COD, manual mobile banking, partial advance | M2 | COD, manual bKash/Nagad (P0), advance (P1) | 04, 07 | L | Not started |
-| [09](m2-commerce-core.md#phase-09--image-pipeline-and-upload-security) | Image pipeline and upload security | M2 | WebP compression (P0) | 01 | M | Not started |
+| [09](m2-commerce-core.md#phase-09--image-pipeline-and-upload-security) | Image pipeline and upload security | M2 | WebP compression (P0) | 01 | M | **Review** (built 2026-10-21; try one real phone photo) |
 | [10](m2-commerce-core.md#phase-10--notifications-sms-templates-and-email-hygiene) | Notifications: SMS, templates and email hygiene | M2 | Order SMS (P0) | 04, 08 | M | Not started |
 | [11](m2-commerce-core.md#phase-11--manual-orders-order-editing-incomplete-orders-and-fake-order-protection) | Manual orders, order editing, incomplete orders and fake-order protection | M2 | Manual orders, order editing, incomplete orders (P0), OTP, block list (P1) | 05, 07, 08, 10 (11a); 03, 04 (11b) | XL (11a, 11b) | Not started |
 | [12](m3-storefront.md#phase-12--storefront-foundation) | Storefront foundation | M3 | Bangla/English storefront, SEO, pages (P0) | 02, 09 | L | Not started |

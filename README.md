@@ -219,6 +219,7 @@ The first migration, `<timestamp>-init.ts`, creates the whole schema and is comm
 | `npm run dev` | Server, worker and Dashboard in dev mode (builds the merchant admin first) |
 | `npm run dev:admin` | The merchant admin with live reload on :5174 |
 | `npm run store:init` | Set up missing Bangladesh store defaults now (`-- --force` re-applies them) |
+| `npm run images:regenerate -- --all` | Remake the WebP sizes of every image (`-- --asset <id>` for one) |
 | `npm run build` / `npm start` | Production build / start |
 | `npm run migrate:generate -- <name>` | New migration from entity changes |
 | `npm run migrate:run` | Run pending migrations |

@@ -156,6 +156,7 @@ Buying one only to study its features and screens is fine. Don't copy its code.
 | `bd-checkout` | Phone-only checkout, incomplete orders |
 | `bd-orders` | Order states New → Confirmed → Packed → Shipped → Delivered / Returned / Cancelled, order numbers, confirmation queue, manual orders |
 | `bd-print` | Print data, printed marks and print settings for invoices, packing slips, receipts and courier stickers; the print views are pages of the merchant admin, printed by the browser |
+| `bd-images` | Checks and cleans every uploaded image before it is stored (type from its bytes, 15 MB, 40 megapixels, metadata and GPS removed), then makes WebP sizes on the worker, served at `/img`; one copy per content hash |
 | `payments-*` | COD, manual bKash/Nagad (TrxID), SSLCommerz, bKash tokenized, partial advance |
 | `shipping-bd` | Inside/outside Dhaka and per-district rates |
 | `couriers-*` | Steadfast, Pathao, RedX booking and status sync |

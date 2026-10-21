@@ -12,6 +12,14 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Added
 
+- **Phase 09, image pipeline and upload security** (plugin `bd-images`):
+  - Every uploaded image is checked before it is stored: JPEG, PNG, WebP, GIF or AVIF only (from the file's bytes, not its name), up to 15 MB and 40 megapixels. SVG is refused; so are truncated or damaged files and iPhone HEIC photos ("Please upload JPG or PNG").
+  - The image is turned upright, converted to sRGB, stripped of all metadata (GPS location included) and re-encoded before it reaches the disk; the raw upload is never stored.
+  - A worker job makes WebP sizes 160–1600 px wide (never upscaled), a dominant colour and a tiny placeholder; animated GIFs stay animated within limits. They are served at `/img/<hash>/<width>.webp`, cached for a year. Every asset shows them as `customFields.bdImage` (with a ready `srcset`) in the Shop and Admin APIs.
+  - The same picture uploaded twice is stored once. Unused sizes are deleted 7 days after the last asset showing them is removed. `bdImageUsage` reports the space used.
+  - `npm run images:regenerate` remakes sizes; `BdImageService.createImageAsset` lets the WooCommerce import (phase 21) use the same checks.
+  - Merchant admin: upload progress and clear Bangla/English messages for each refusal.
+  - Tests: unit tests with a fixture for each case, end-to-end tests through the Admin API (sizes of a 5 MB photo, every refusal, duplicate uploads at once, failure and retry, the 7-day deletion), Playwright tests of the upload, and a throughput script.
 - **Phase 06, invoices, packing slips and courier stickers** (plugin `bd-print`, print views in the merchant admin):
   - A4 and A5 invoices (logo, store contacts, order number with barcode, Dhaka date, customer, address, items, discount, delivery, total, paid and the amount to collect in large type, payment, note, return policy line); packing slips (no prices, a packed box per line); 80 mm thermal receipts; courier stickers 4×6 in, 3×4 in and A4 sheets of 8 or 12 labels.
   - Bangla, English or both on every label, Bangla digits on/off; phone numbers keep English digits for couriers.
