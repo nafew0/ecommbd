@@ -36,17 +36,17 @@ test.beforeAll(async () => {
             timeout: 60_000,
         })
         .toBe(200);
-    await expect
-        .poll(
-            async () =>
-                (await (await fetch(`${SITE}/product-category/${enc(fixtures.men.bn)}/`)).text()).includes(
-                    'card',
-                ),
-            {
+    // The parent and the nested category are filled by separate jobs: wait for both.
+    for (const path of [
+        `/product-category/${enc(fixtures.men.bn)}/`,
+        `/product-category/${enc(fixtures.men.bn)}/${enc(fixtures.menPanjabi.bn)}/`,
+    ]) {
+        await expect
+            .poll(async () => (await (await fetch(`${SITE}${path}`)).text()).includes('card'), {
                 timeout: 60_000,
-            },
-        )
-        .toBe(true);
+            })
+            .toBe(true);
+    }
 });
 
 /** The head's SEO tags and JSON-LD blocks. */
