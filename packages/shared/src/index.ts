@@ -1,3 +1,4 @@
+export * from './barcode';
 export * from './checkout';
 export * from './circuit-breaker';
 export * from './crypto';
@@ -9,6 +10,7 @@ export * from './order-settings';
 export * from './order-status';
 export * from './phone';
 export * from './placeholder-email';
+export * from './print-settings';
 export * from './rate-limit';
 export * from './redact';
 export * from './ssrf';
