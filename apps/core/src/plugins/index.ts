@@ -16,6 +16,7 @@ import { PaymentsBdPlugin } from './payments-bd';
 import { ShippingBdPlugin } from './shipping-bd';
 // Last: its store-defaults step runs after the others (the order files load in).
 import { BdSearchPlugin, type SearchRateLimits } from './bd-search';
+import { BdTrackingPlugin, type TrackingRateLimits } from './bd-tracking';
 
 /** The built merchant admin (`npm run build -w @ecommbd/admin`), from `src/plugins` or `dist/plugins`. */
 export const ADMIN_APP_DIR = path.join(__dirname, '../../../admin/dist');
@@ -48,6 +49,8 @@ export interface CustomPluginOptions {
     searchRateLimits?: Partial<SearchRateLimits>;
     /** How long search reuses a loaded catalog, in ms (tests use 0). */
     searchCatalogCacheMs?: number;
+    /** Rate limits for order tracking (tests set low ones). */
+    trackingRateLimits?: Partial<TrackingRateLimits>;
 }
 
 /**
@@ -89,6 +92,11 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
             rateLimitKeyPrefix: `${options.redisKeyPrefix}:rl:`,
             rateLimits: options.searchRateLimits,
             catalogCacheMs: options.searchCatalogCacheMs,
+        }),
+        BdTrackingPlugin.init({
+            redis: options.cacheRedis,
+            rateLimitKeyPrefix: `${options.redisKeyPrefix}:rl:`,
+            rateLimits: options.trackingRateLimits,
         }),
     ];
 }

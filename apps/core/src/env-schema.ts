@@ -51,6 +51,8 @@ export const envSchema = z
         STOREFRONT_URL: z.url().optional(),
         // Searches a minute from one address (category pages count too); suggestions may be twice as many.
         SEARCH_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(10).max(1_000_000).default(600),
+        // Order tracking lookups from one address per 10 minutes (each phone also gets 10 an hour).
+        TRACKING_RATE_LIMIT_PER_IP: z.coerce.number().int().min(5).max(1_000_000).default(20),
         // Real email (staff invites, password resets) outside development. Without SMTP_HOST, no email is sent.
         SMTP_HOST: z.string().optional(),
         SMTP_PORT: envPort.optional(),
