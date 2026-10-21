@@ -232,6 +232,7 @@ describe('running the initializer again', () => {
             'slug-history-backfill',
             'print-permissions',
             'fraud-permissions',
+            'search-synonyms',
         ]);
         expect(await storeState()).toEqual(before);
     });
