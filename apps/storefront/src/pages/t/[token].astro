@@ -1,13 +1,48 @@
 ---
-import Placeholder from '../../components/Placeholder.astro';
+import TrackedOrder from '../../components/TrackedOrder.astro';
+import Layout from '../../layouts/Layout.astro';
+import { TRACK_BY_TOKEN } from '../../lib/checkout-queries';
+import { clientIpOf, RateLimitedError, shopQuery } from '../../lib/core';
 import { canonicalRedirect, pageContext, privatePage } from '../../lib/page';
 
-/** Short tracking links sent by SMS (phase 10); the tracking page arrives in phase 19. */
+/** The tracking link in the "shipped" SMS (phase 10): one order, by its unguessable token. */
 const token = encodeURIComponent(Astro.params.token ?? '');
 const redirect = canonicalRedirect(Astro, `/t/${token}/`);
 if (redirect) return redirect;
 privatePage(Astro);
-const { s } = pageContext(Astro);
+const { lang, s, href } = pageContext(Astro);
+let order = null;
+let message: string = s.trackNotFound;
+try {
+    order = (
+        await shopQuery(TRACK_BY_TOKEN, { token: decodeURIComponent(token) }, lang, {
+            clientIp: clientIpOf(Astro.request, () => Astro.clientAddress),
+        })
+    ).bdTrackOrderByToken;
+} catch (error) {
+    if (!(error instanceof RateLimitedError)) throw error;
+    message = s.trackTooMany;
+    Astro.response.status = 429;
+}
+if (!order && Astro.response.status === 200) Astro.response.status = 404;
 ---
 
-<Placeholder title={s.trackTitle} text={s.trackIntro} />
+<Layout title={s.trackTitle} noindex>
+    <section class="track-page">
+        <h1>{s.trackTitle}</h1>
+        {
+            order ? (
+                <TrackedOrder order={order} />
+            ) : (
+                <>
+                    <p class="form-alert" role="alert">
+                        {message}
+                    </p>
+                    <a class="button" href={href('/track/')}>
+                        {s.trackButton}
+                    </a>
+                </>
+            )
+        }
+    </section>
+</Layout>

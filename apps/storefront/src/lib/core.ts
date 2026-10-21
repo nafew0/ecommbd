@@ -3,6 +3,7 @@ import { initGraphQLTada, type ResultOf, type TadaDocumentNode, type VariablesOf
 import { env } from '../env';
 import type { introspection } from '../gql/graphql-env.d.ts';
 import type { Lang } from './i18n';
+import type { ShopSession } from './session';
 
 /** Shop API documents, typed from the schema in `src/gql` (`npm run gql:schema` refreshes it). */
 export const graphql = initGraphQLTada<{
@@ -37,8 +38,10 @@ export class CoreQueryError extends Error {
 }
 
 export interface ShopQueryOptions {
-    /** The shopper's IP, passed on for the core's per-address rate limits (search). */
+    /** The shopper's IP, passed on for the core's per-address rate limits (search, checkout, tracking). */
     clientIp?: string;
+    /** The shopper's session (cart and checkout): its cookies go to the core, the core's come back. */
+    session?: ShopSession;
 }
 
 /**
@@ -58,6 +61,8 @@ export async function shopQuery<Result, Variables extends Record<string, unknown
     };
     // The core trusts one proxy hop (`trustProxy: 1`): this storefront is that hop.
     if (options.clientIp) headers['x-forwarded-for'] = options.clientIp;
+    const cookie = options.session?.cookieHeader;
+    if (cookie) headers.cookie = cookie;
     let response: Response;
     try {
         response = await fetch(`${CORE_URL}/shop-api?languageCode=${lang}`, {
@@ -72,6 +77,7 @@ export async function shopQuery<Result, Variables extends Record<string, unknown
     if (response.status >= 500) {
         throw new CoreUnavailableError(`The core answered HTTP ${response.status}`);
     }
+    options.session?.absorb(response.headers.getSetCookie());
     const json = (await response.json().catch(() => null)) as {
         data?: Result;
         errors?: Array<{ message: string; extensions?: { code?: string; seconds?: number } }>;

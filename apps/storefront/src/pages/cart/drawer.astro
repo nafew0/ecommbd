@@ -1,0 +1,26 @@
+---
+import CartContents from '../../components/CartContents.astro';
+import { activeOrder, applyCartCookies, cartAction, type CartActionResult, shopperContext } from '../../lib/cart';
+import { isSameSite } from '../../lib/csrf';
+import { pageContext } from '../../lib/page';
+
+/**
+ * The cart drawer's contents (roadmap phase 14): an HTML fragment for src/scripts/cart.ts, which
+ * also posts cart changes here and swaps in the answer.
+ */
+export const partial = true;
+
+const { s } = pageContext(Astro);
+Astro.response.headers.set('cache-control', 'no-store');
+Astro.response.headers.set('x-robots-tag', 'noindex');
+const shopper = shopperContext(Astro);
+let result: CartActionResult | null = null;
+if (Astro.request.method === 'POST') {
+    if (!isSameSite(Astro.request)) return new Response(null, { status: 403 });
+    result = await cartAction(shopper, await Astro.request.formData(), s);
+}
+const order = result ? result.order : await activeOrder(shopper);
+applyCartCookies(Astro.response.headers, shopper, order);
+---
+
+<CartContents order={order} message={result?.message} drawer />

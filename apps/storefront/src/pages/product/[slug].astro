@@ -41,6 +41,12 @@ const prices = product?.variants.map(variant => variant.priceWithTax) ?? [];
 // The cheapest variation's old price (phase 05), struck through when it's higher.
 const cheapest = product ? [...product.variants].sort((a, b) => a.priceWithTax - b.priceWithTax)[0] : undefined;
 const oldPrice = cheapest?.customFields?.oldPrice ?? null;
+// The variation shown first: the one marked "shown first" (phase 05), else the first in stock.
+const inStock = product?.variants.filter(variant => variant.stockLevel !== 'OUT_OF_STOCK') ?? [];
+const chosenId = (inStock.find(variant => variant.customFields?.isDefault) ?? inStock[0])?.id;
+const variantPricesDiffer = new Set(prices).size > 1;
+const optionLabel = (variant: NonNullable<typeof product>['variants'][number]) =>
+    variant.options.map(option => option.name).join(' / ') || variant.name;
 // Tags (the "tag" facet; the Shop API leaves private facets out) lead to every product with that tag.
 const tags = (product?.facetValues ?? []).filter(value => value.facet.code === 'tag');
 const soldOut = !!product && product.variants.every(variant => variant.stockLevel === 'OUT_OF_STOCK');
@@ -121,21 +127,44 @@ const orderLink =
                     {product.customFields?.shortDescription && (
                         <p class="product-short">{product.customFields.shortDescription}</p>
                     )}
-                    {product.variants.length > 1 && (
-                        <section>
-                            <h2>{s.options}</h2>
-                            <ul class="variant-list">
-                                {product.variants.map(variant => (
-                                    <li class:list={{ 'variant-out': variant.stockLevel === 'OUT_OF_STOCK' }}>
-                                        <span class="variant-name">{variant.name}</span>
-                                        <span>
-                                            {variant.stockLevel === 'OUT_OF_STOCK' ? `${s.outOfStock} · ` : ''}
-                                            {format.price(variant.priceWithTax)}
-                                        </span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </section>
+                    {product.variants.length > 0 && (
+                        <form method="post" action={href('/cart/')} class="buy-form" data-buy-form>
+                            {product.variants.length > 1 ? (
+                                <fieldset class="variant-picker">
+                                    <legend>{product.optionGroups[0]?.name || s.options}</legend>
+                                    <div class="variant-options">
+                                        {product.variants.map(variant => (
+                                            <label class:list={['variant-option', { 'is-out': variant.stockLevel === 'OUT_OF_STOCK' }]}>
+                                                <input
+                                                    type="radio"
+                                                    name="variantId"
+                                                    value={variant.id}
+                                                    checked={variant.id === chosenId}
+                                                    disabled={variant.stockLevel === 'OUT_OF_STOCK'}
+                                                    data-price={format.price(variant.priceWithTax)}
+                                                />
+                                                <span>{optionLabel(variant)}</span>
+                                                {variantPricesDiffer && <span class="variant-price">{format.price(variant.priceWithTax)}</span>}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </fieldset>
+                            ) : (
+                                <input type="hidden" name="variantId" value={product.variants[0]!.id} />
+                            )}
+                            <div class="buy-row">
+                                <label class="quantity-field">
+                                    <span class="visually-hidden">{s.quantity}</span>
+                                    <input type="number" name="quantity" value="1" min="1" max="99" inputmode="numeric" />
+                                </label>
+                                <button class="button button-secondary" name="intent" value="add" disabled={soldOut}>
+                                    {s.addToCart}
+                                </button>
+                            </div>
+                            <button class="button buy-now" name="intent" value="buy" disabled={soldOut}>
+                                {s.buyNow}
+                            </button>
+                        </form>
                     )}
                     {orderLink && (
                         <a class="button button-whatsapp" href={orderLink} rel="noopener">
@@ -170,3 +199,10 @@ const orderLink =
         </Layout>
     )
 }
+
+<script>
+    import { enhanceBuyForm } from '../../scripts/cart';
+
+    const form = document.querySelector<HTMLFormElement>('[data-buy-form]');
+    if (form) enhanceBuyForm(form);
+</script>

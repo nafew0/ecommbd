@@ -199,14 +199,21 @@ export const PRODUCT = graphql(
                         code
                     }
                 }
+                optionGroups {
+                    name
+                }
                 variants {
                     id
                     name
                     sku
                     priceWithTax
                     stockLevel
+                    options {
+                        name
+                    }
                     customFields {
                         oldPrice
+                        isDefault
                     }
                 }
                 collections {

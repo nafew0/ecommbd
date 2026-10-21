@@ -1,11 +1,74 @@
 ---
-import Placeholder from '../components/Placeholder.astro';
+import TrackedOrder from '../components/TrackedOrder.astro';
+import Layout from '../layouts/Layout.astro';
+import type { TrackedOrderFields } from '../lib/checkout-queries';
+import { TRACK_ORDER } from '../lib/checkout-queries';
+import { clientIpOf, RateLimitedError, type ResultOf, shopQuery } from '../lib/core';
+import { isSameSite } from '../lib/csrf';
 import { canonicalRedirect, pageContext, privatePage } from '../lib/page';
 
+/**
+ * Order tracking by order number and phone (roadmap phase 14). Posted, so the phone never sits in
+ * an address; every miss reads the same; the core limits tries per address and per phone.
+ */
 const redirect = canonicalRedirect(Astro, '/track/');
 if (redirect) return redirect;
 privatePage(Astro);
-const { s } = pageContext(Astro);
+const { lang, s, href } = pageContext(Astro);
+
+let orderNumber = '';
+let phone = '';
+let found: ResultOf<typeof TrackedOrderFields> | null = null;
+let message: string | null = null;
+if (Astro.request.method === 'POST') {
+    if (!isSameSite(Astro.request)) return new Response(null, { status: 403 });
+    const form = await Astro.request.formData();
+    orderNumber = String(form.get('orderNumber') ?? '').slice(0, 40).trim();
+    phone = String(form.get('phone') ?? '').slice(0, 40).trim();
+    try {
+        found = (
+            await shopQuery(TRACK_ORDER, { orderNumber, phone }, lang, {
+                clientIp: clientIpOf(Astro.request, () => Astro.clientAddress),
+            })
+        ).bdTrackOrder;
+        if (!found) message = s.trackNotFound;
+    } catch (error) {
+        if (!(error instanceof RateLimitedError)) throw error;
+        message = s.trackTooMany;
+        Astro.response.status = 429;
+    }
+}
 ---
 
-<Placeholder title={s.trackTitle} text={s.trackIntro} />
+<Layout title={s.trackTitle} noindex>
+    <section class="track-page">
+        <h1>{s.trackTitle}</h1>
+        {
+            found ? (
+                <TrackedOrder order={found} />
+            ) : (
+                <>
+                    <p>{s.trackIntroForm}</p>
+                    {message && (
+                        <p class="form-alert" role="alert">
+                            {message}
+                        </p>
+                    )}
+                    <form method="post" action={href('/track/')} class="track-form">
+                        <div class="field">
+                            <label for="orderNumber">{s.orderNumberLabel}</label>
+                            <input id="orderNumber" name="orderNumber" value={orderNumber} required maxlength="40" autocomplete="off" />
+                        </div>
+                        <div class="field">
+                            <label for="track-phone">{s.phoneLabel}</label>
+                            <input id="track-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" value={phone} required maxlength="20" />
+                        </div>
+                        <button class="button" type="submit">
+                            {s.trackButton}
+                        </button>
+                    </form>
+                </>
+            )
+        }
+    </section>
+</Layout>

@@ -1,11 +1,389 @@
 ---
-import Placeholder from '../components/Placeholder.astro';
+import { formatBdPhone, parseBdMobile } from '@ecommbd/shared/phone';
+import CheckoutSummary from '../components/CheckoutSummary.astro';
+import Layout from '../layouts/Layout.astro';
+import { activeOrder, applyCartCookies, shopperContext } from '../lib/cart';
+import {
+    type CheckoutErrors,
+    type CheckoutValues,
+    initialValues,
+    MFS_PROVIDERS,
+    placeOnce,
+    quote,
+    readValues,
+    saveProgress,
+} from '../lib/checkout';
+import { CHECKOUT_SETTINGS, DISTRICTS, THANAS } from '../lib/checkout-queries';
+import { shopQuery } from '../lib/core';
+import { csrfToken, formStamp, isSameSite, verifyCsrf } from '../lib/csrf';
 import { canonicalRedirect, pageContext, privatePage } from '../lib/page';
+import { LAST_ORDER_COOKIE, lastOrderCookie, parseCookies } from '../lib/session';
 
+/**
+ * The one-page checkout (roadmap phase 14). Never cached. A plain form that works without
+ * JavaScript: "Update total" re-renders with the chosen district's thanas and charges, "Place
+ * order" runs every step on the server (src/lib/checkout.ts). The script (src/scripts/checkout.ts)
+ * sends the same form with fetch and swaps in the answer.
+ */
 const redirect = canonicalRedirect(Astro, '/checkout/');
 if (redirect) return redirect;
 privatePage(Astro);
-const { s } = pageContext(Astro);
+const { lang, s, href, format } = pageContext(Astro);
+const shopper = shopperContext(Astro);
+const lastOrder = parseCookies(Astro.request.headers.get('cookie')).get(LAST_ORDER_COOKIE);
+const thankYou = (code: string) => href(`/checkout/thank-you/?order=${encodeURIComponent(code)}`);
+const go = (location: string, extra: string[] = []) => {
+    const headers = new Headers({ location, 'cache-control': 'no-store' });
+    shopper.session.apply(headers);
+    for (const cookie of extra) headers.append('set-cookie', cookie);
+    return new Response(null, { status: 303, headers });
+};
+
+let values: CheckoutValues;
+let errors: CheckoutErrors = {};
+let notice: string | null = null;
+let otp: { message: string; error?: string } | null = null;
+let idempotencyKey: string = crypto.randomUUID();
+let stamp = formStamp();
+
+if (Astro.request.method === 'POST') {
+    if (!isSameSite(Astro.request)) return new Response(null, { status: 403 });
+    const form = await Astro.request.formData();
+    values = readValues(form);
+    const postedKey = form.get('idempotencyKey');
+    if (typeof postedKey === 'string' && /^[\w-]{16,128}$/.test(postedKey)) idempotencyKey = postedKey;
+    if (typeof form.get('stamp') === 'string') stamp = String(form.get('stamp'));
+    const action = form.get('action') ?? 'place';
+    if (!verifyCsrf(form.get('csrf'), shopper.session.id)) {
+        notice = s.sessionExpired;
+    } else if (action === 'progress') {
+        await saveProgress(shopper, form, {});
+        const headers = new Headers({ 'cache-control': 'no-store' });
+        shopper.session.apply(headers);
+        return new Response(null, { status: 204, headers });
+    } else if (action === 'place') {
+        const outcome = await placeOnce(shopper, form, s);
+        if (outcome.kind === 'placed') {
+            return go(thankYou(outcome.code), [lastOrderCookie(outcome.code), 'cart_count=0; Path=/; Max-Age=0; SameSite=Lax']);
+        }
+        if (outcome.kind === 'empty') return go(lastOrder ? thankYou(lastOrder) : href('/cart/'));
+        if (outcome.kind === 'invalid') errors = outcome.errors;
+        if (outcome.kind === 'review') notice = outcome.message;
+        if (outcome.kind === 'busy') notice = s.busy;
+        if (outcome.kind === 'otp') otp = { message: outcome.message, error: outcome.error };
+        if (Object.keys(errors).length && !errors.form) errors.form = s.fixFields;
+    }
+} else {
+    const order = await activeOrder(shopper);
+    // The back button after ordering, or a second tab: the order, not an empty checkout.
+    if (!order?.lines.length) return go(lastOrder ? thankYou(lastOrder) : href('/cart/'));
+    values = initialValues(order);
+}
+
+const [{ order, shipping, options }, { bdCheckoutSettings: settings }, { bdDistricts: districts }] = await Promise.all([
+    quote(shopper, values),
+    shopQuery(CHECKOUT_SETTINGS, {}, lang),
+    shopQuery(DISTRICTS, { lang }, lang),
+]);
+// Everything sold out while checking out: say so instead of sending the shopper to an empty cart.
+if (!order) return go(lastOrder ? thankYou(lastOrder) : href('/cart/'));
+const soldOutNotice = !order.lines.length && errors.form ? errors.form : null;
+if (!order.lines.length && !soldOutNotice) return go(lastOrder ? thankYou(lastOrder) : href('/cart/'));
+const thanas = values.districtId ? (await shopQuery(THANAS, { districtId: values.districtId, lang }, lang)).bdThanas : [];
+applyCartCookies(Astro.response.headers, shopper, order);
+
+const deliveryKnown = !!values.districtId && !!values.thanaId && shipping.length > 0;
+const chosenShipping = order.shippingLines[0]?.shippingMethod.id;
+const cod = values.payment !== '' && !MFS_PROVIDERS.includes(values.payment as never);
+const mfs = options?.mfs ?? [];
+const providerName = (provider: string) => s.mfsNames[provider] ?? provider;
+const how = (accountType: string) => s.accountTypes[accountType] ?? s.accountTypes.personal!;
+const free = order.bdDelivery.freeDeliveryRemaining;
+const phone = parseBdMobile(values.phone);
+const errorFor = (field: keyof CheckoutErrors) => errors[field];
+const describedBy = (field: keyof CheckoutErrors, hint?: string) =>
+    [errors[field] ? `${field}-error` : '', hint ?? ''].filter(Boolean).join(' ') || undefined;
+const both = (bn: string, en: string) => (lang === 'bn' ? `${bn} · ${en}` : `${en} · ${bn}`);
 ---
 
-<Placeholder title={s.checkoutTitle} text={s.comingSoon} />
+{
+    soldOutNotice ? (
+        <Layout title={s.checkoutTitle} noindex>
+            <section class="cart-page">
+                <h1>{s.checkoutTitle}</h1>
+                <p class="form-alert" role="alert">
+                    {soldOutNotice}
+                </p>
+                <p>
+                    <a class="button" href={href('/')}>
+                        {s.continueShopping}
+                    </a>
+                </p>
+            </section>
+        </Layout>
+    ) : (
+<Layout title={s.checkoutTitle} noindex>
+    <div class="checkout" data-checkout>
+        <h1>{s.checkoutTitle}</h1>
+        <form method="post" action={href('/checkout/')} class="checkout-form" novalidate data-checkout-form>
+            <input type="hidden" name="csrf" value={csrfToken(shopper.session.id)} />
+            <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
+            <input type="hidden" name="stamp" value={stamp} />
+            <input type="hidden" name="expectedTotal" value={order.totalWithTax} />
+            <div class="honeypot" aria-hidden="true">
+                <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+            </div>
+
+            {
+                (errors.form || notice) && (
+                    <div class="form-alert" role="alert" tabindex="-1" data-form-alert>
+                        {errors.form ?? notice}
+                    </div>
+                )
+            }
+
+            <div class="checkout-main">
+                <fieldset class="checkout-section">
+                    <legend>{s.contactDetails}</legend>
+                    <div class="field">
+                        <label for="name">{s.yourName}</label>
+                        <input id="name" name="name" value={values.name} autocomplete="name" required maxlength="100" aria-invalid={errorFor('name') ? 'true' : undefined} aria-describedby={describedBy('name')} />
+                        {errorFor('name') && <p class="field-error" id="name-error">{errorFor('name')}</p>}
+                    </div>
+                    <div class="field">
+                        <label for="phone">{s.phoneLabel}</label>
+                        <input
+                            id="phone"
+                            name="phone"
+                            type="tel"
+                            inputmode="tel"
+                            autocomplete="tel"
+                            value={values.phone}
+                            required
+                            maxlength="20"
+                            placeholder="01XXX-XXXXXX"
+                            aria-invalid={errorFor('phone') ? 'true' : undefined}
+                            aria-describedby={describedBy('phone', 'phone-consent phone-operator')}
+                            data-phone
+                        />
+                        <p class="field-hint" id="phone-operator" aria-live="polite" data-operator-template={s.operatorHint('{operator}')}>
+                            {phone.ok ? s.operatorHint(phone.phone.operator) : ''}
+                        </p>
+                        {errorFor('phone') && <p class="field-error" id="phone-error">{errorFor('phone')}</p>}
+                        <p class="field-hint" id="phone-consent">{s.phoneConsent}</p>
+                    </div>
+                    {
+                        settings.showAlternatePhone && (
+                            <div class="field">
+                                <label for="alternatePhone">{s.alternatePhoneLabel}</label>
+                                <input id="alternatePhone" name="alternatePhone" type="tel" inputmode="tel" value={values.alternatePhone} maxlength="20" aria-invalid={errorFor('alternatePhone') ? 'true' : undefined} aria-describedby={describedBy('alternatePhone')} />
+                                {errorFor('alternatePhone') && <p class="field-error" id="alternatePhone-error">{errorFor('alternatePhone')}</p>}
+                            </div>
+                        )
+                    }
+                    {
+                        settings.showEmail && (
+                            <div class="field">
+                                <label for="email">{s.emailLabel}</label>
+                                <input id="email" name="email" type="email" inputmode="email" autocomplete="email" value={values.email} maxlength="200" aria-invalid={errorFor('email') ? 'true' : undefined} aria-describedby={describedBy('email')} />
+                                {errorFor('email') && <p class="field-error" id="email-error">{errorFor('email')}</p>}
+                            </div>
+                        )
+                    }
+                </fieldset>
+
+                <fieldset class="checkout-section">
+                    <legend>{s.deliveryAddress}</legend>
+                    <div class="field-row">
+                        <div class="field">
+                            <label for="districtId">{s.districtLabel}</label>
+                            <select id="districtId" name="districtId" autocomplete="address-level1" required aria-invalid={errorFor('districtId') ? 'true' : undefined} aria-describedby={describedBy('districtId')} data-district>
+                                <option value="">{s.choose}</option>
+                                {districts.map(district => (
+                                    <option value={district.id} selected={district.id === values.districtId}>
+                                        {both(district.nameBn, district.nameEn)}
+                                    </option>
+                                ))}
+                            </select>
+                            {errorFor('districtId') && <p class="field-error" id="districtId-error">{errorFor('districtId')}</p>}
+                        </div>
+                        <div class="field" data-part="thana">
+                            <label for="thanaId">{s.thanaLabel}</label>
+                            <select id="thanaId" name="thanaId" autocomplete="address-level2" required disabled={!values.districtId} aria-invalid={errorFor('thanaId') ? 'true' : undefined} aria-describedby={describedBy('thanaId')} data-thana>
+                                <option value="">{s.choose}</option>
+                                {thanas.map(thana => (
+                                    <option value={thana.id} selected={thana.id === values.thanaId}>
+                                        {both(thana.nameBn, thana.nameEn)}
+                                    </option>
+                                ))}
+                                {values.districtId && <option value="other" selected={values.thanaId === 'other'}>{s.thanaOther}</option>}
+                            </select>
+                            {errorFor('thanaId') && <p class="field-error" id="thanaId-error">{errorFor('thanaId')}</p>}
+                        </div>
+                    </div>
+                    <button class="text-link update-button" type="submit" name="action" value="refresh" data-refresh>
+                        {values.districtId ? s.updateTotal : s.showThanas}
+                    </button>
+                    <div class="field">
+                        <label for="area">{s.areaLabel}</label>
+                        <input id="area" name="area" value={values.area} maxlength="100" aria-invalid={errorFor('area') ? 'true' : undefined} aria-describedby={describedBy('area', 'area-hint')} />
+                        <p class="field-hint" id="area-hint">{s.areaHint}</p>
+                        {errorFor('area') && <p class="field-error" id="area-error">{errorFor('area')}</p>}
+                    </div>
+                    <div class="field">
+                        <label for="streetLine1">{s.streetLabel}</label>
+                        <textarea id="streetLine1" name="streetLine1" rows="2" autocomplete="street-address" required maxlength="300" aria-invalid={errorFor('streetLine1') ? 'true' : undefined} aria-describedby={describedBy('streetLine1', 'street-hint')}>{values.streetLine1}</textarea>
+                        <p class="field-hint" id="street-hint">{s.streetHint}</p>
+                        {errorFor('streetLine1') && <p class="field-error" id="streetLine1-error">{errorFor('streetLine1')}</p>}
+                    </div>
+                    <div class="field">
+                        <label for="landmark">{s.landmarkLabel}</label>
+                        <input id="landmark" name="landmark" value={values.landmark} maxlength="150" />
+                    </div>
+                    {
+                        settings.showNote && (
+                            <div class="field">
+                                <label for="note">{s.noteLabel}</label>
+                                <textarea id="note" name="note" rows="2" maxlength="500" aria-invalid={errorFor('note') ? 'true' : undefined} aria-describedby={describedBy('note')}>{values.note}</textarea>
+                                {errorFor('note') && <p class="field-error" id="note-error">{errorFor('note')}</p>}
+                            </div>
+                        )
+                    }
+                </fieldset>
+
+                <fieldset class="checkout-section" data-part="delivery">
+                    <legend>{s.deliveryMethod}</legend>
+                    {
+                        !values.districtId || !values.thanaId ? (
+                            <p class="muted">{s.chooseDistrictFirst}</p>
+                        ) : shipping.length === 0 ? (
+                            <p class="field-error">{s.noDeliveryHere}</p>
+                        ) : (
+                            <div class="choice-list">
+                                {shipping.map(option => (
+                                    <label class="choice">
+                                        <input type="radio" name="shippingMethodId" value={option.id} checked={option.id === chosenShipping} data-shipping />
+                                        <span class="choice-label">{option.name}</span>
+                                        <span>{option.priceWithTax ? format.price(option.priceWithTax) : s.free}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        )
+                    }
+                    {free != null && free > 0 && deliveryKnown && <p class="field-hint">{s.freeDeliveryHint(format.price(free))}</p>}
+                </fieldset>
+
+                <fieldset class="checkout-section" data-part="payment">
+                    <legend>{s.paymentMethod}</legend>
+                    {errorFor('payment') && <p class="field-error" id="payment-error">{errorFor('payment')}</p>}
+                    <div class="choice-list">
+                        <div class="choice-block">
+                            <label class="choice">
+                                <input type="radio" name="payment" value="cod" checked={cod} data-payment />
+                                <span class="choice-label">{s.cashOnDeliveryLong}</span>
+                            </label>
+                            <div class="choice-panel">
+                                {options && options.codFee > 0 && <p class="field-hint">{s.codFeeNote(format.price(options.codFee))}</p>}
+                                {options && !options.codAvailable && options.codUnavailableMessage && <p class="field-error">{options.codUnavailableMessage}</p>}
+                                {
+                                    options && options.advanceAmount > 0 && (
+                                        <div class="mfs-box">
+                                            <p>{s.advanceNeeded(format.price(options.advanceAmount))}</p>
+                                            <div class="field">
+                                                <span class="field-label" id="advance-provider-label">{s.advanceProvider}</span>
+                                                <div class="choice-list compact" role="radiogroup" aria-labelledby="advance-provider-label">
+                                                    {mfs.map(account => (
+                                                        <label class="choice">
+                                                            <input type="radio" name="advanceProvider" value={account.provider} checked={values.advanceProvider === account.provider} />
+                                                            <span class="choice-label">{providerName(account.provider)}</span>
+                                                            <span class="muted">{s.sendMoneyTo(format.price(options.advanceAmount), providerName(account.provider), formatBdPhone(account.number), how(account.accountType))}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                                {errorFor('advanceProvider') && <p class="field-error">{errorFor('advanceProvider')}</p>}
+                                            </div>
+                                            <div class="field-row">
+                                                <div class="field">
+                                                    <label for="advanceSender">{s.senderNumberLabel}</label>
+                                                    <input id="advanceSender" name="advanceSender" type="tel" inputmode="tel" value={values.advanceSender} maxlength="20" aria-invalid={errorFor('advanceSender') ? 'true' : undefined} aria-describedby={describedBy('advanceSender')} />
+                                                    {errorFor('advanceSender') && <p class="field-error" id="advanceSender-error">{errorFor('advanceSender')}</p>}
+                                                </div>
+                                                <div class="field">
+                                                    <label for="advanceTransactionId">{s.transactionIdLabel}</label>
+                                                    <input id="advanceTransactionId" name="advanceTransactionId" value={values.advanceTransactionId} maxlength="20" autocapitalize="characters" autocomplete="off" aria-invalid={errorFor('advanceTransactionId') ? 'true' : undefined} aria-describedby={describedBy('advanceTransactionId')} />
+                                                    {errorFor('advanceTransactionId') && <p class="field-error" id="advanceTransactionId-error">{errorFor('advanceTransactionId')}</p>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )
+                                }
+                            </div>
+                        </div>
+                        {
+                            mfs.map(account => (
+                                <div class="choice-block">
+                                    <label class="choice">
+                                        <input type="radio" name="payment" value={account.provider} checked={values.payment === account.provider} data-payment />
+                                        <span class="choice-label">{s.payWith(providerName(account.provider))}</span>
+                                    </label>
+                                    <div class="choice-panel mfs-box">
+                                        <p>{s.sendMoneyTo(format.price(order.totalWithTax), providerName(account.provider), formatBdPhone(account.number), how(account.accountType))}</p>
+                                        <div class="field-row">
+                                            <div class="field">
+                                                <label for={`sender-${account.provider}`}>{s.senderNumberLabel}</label>
+                                                <input id={`sender-${account.provider}`} name={`senderNumber.${account.provider}`} type="tel" inputmode="tel" value={values.payment === account.provider ? values.senderNumber : ''} maxlength="20" aria-invalid={values.payment === account.provider && errorFor('senderNumber') ? 'true' : undefined} />
+                                                {values.payment === account.provider && errorFor('senderNumber') && <p class="field-error">{errorFor('senderNumber')}</p>}
+                                            </div>
+                                            <div class="field">
+                                                <label for={`trx-${account.provider}`}>{s.transactionIdLabel}</label>
+                                                <input id={`trx-${account.provider}`} name={`transactionId.${account.provider}`} value={values.payment === account.provider ? values.transactionId : ''} maxlength="20" autocapitalize="characters" autocomplete="off" aria-invalid={values.payment === account.provider && errorFor('transactionId') ? 'true' : undefined} />
+                                                {values.payment === account.provider && errorFor('transactionId') && <p class="field-error">{errorFor('transactionId')}</p>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        }
+                    </div>
+                </fieldset>
+
+                {
+                    otp && (
+                        <fieldset class="checkout-section otp-section" data-otp>
+                            <legend>{s.otpTitle}</legend>
+                            <p>{otp.message}</p>
+                            <div class="field">
+                                <label for="otp">{s.otpLabel}</label>
+                                <input id="otp" name="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" aria-invalid={otp.error ? 'true' : undefined} aria-describedby={otp.error ? 'otp-error' : undefined} />
+                                {otp.error && <p class="field-error" id="otp-error">{otp.error}</p>}
+                            </div>
+                            <button class="text-link" type="submit" name="action" value="place" formnovalidate data-otp-resend>
+                                {s.otpResend}
+                            </button>
+                        </fieldset>
+                    )
+                }
+            </div>
+
+            <aside class="checkout-aside">
+                <CheckoutSummary order={order} options={options} cod={cod} deliveryKnown={deliveryKnown} />
+            </aside>
+
+            <div class="checkout-actions">
+                <button class="button place-button" type="submit" name="action" value="place" data-place data-placing={s.placing}>
+                    {s.placeOrder(format.price(order.totalWithTax))}
+                </button>
+                <p class="form-status" role="status" aria-live="polite" data-status data-offline={s.noConnection}></p>
+            </div>
+        </form>
+    </div>
+</Layout>
+    )
+}
+
+<script>
+    import { enhanceCheckout } from '../scripts/checkout';
+
+    const form = document.querySelector<HTMLFormElement>('[data-checkout-form]');
+    if (form) enhanceCheckout(form);
+</script>

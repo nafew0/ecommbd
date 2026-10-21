@@ -3488,6 +3488,11 @@ type Order implements Node {
     taxSummary: [OrderTaxSummary!]!
     history(options: HistoryEntryListOptions): HistoryEntryList!
     bdDelivery: BdDeliveryInfo!
+
+    """
+    The order's tracking link key, once placed (for the thank-you page)
+    """
+    bdTrackingToken: String
     customFields: OrderCustomFields
 }
 
@@ -4504,6 +4509,16 @@ type Query {
     For the search box: up to 6 products and 3 categories; empty below 2 characters
     """
     bdSearchSuggestions(term: String!): BdSearchSuggestions!
+
+    """
+    Both must match; any miss is null. Rate-limited per address and per phone.
+    """
+    bdTrackOrder(orderNumber: String!, phone: String!): BdTrackedOrder
+
+    """
+    The link in the shipped SMS (/t/<token>)
+    """
+    bdTrackOrderByToken(token: String!): BdTrackedOrder
 }
 
 type PublicPaymentMethod {
@@ -5602,6 +5617,47 @@ type BdSearchSuggestions {
     didYouMean: String
 }
 
+type BdTrackedOrderLine {
+    name: String!
+    quantity: Int!
+}
+
+type BdTrackedStatus {
+    """
+    new, confirmed, packed, shipped, partiallyDelivered, delivered, returned or cancelled
+    """
+    status: String!
+    at: DateTime!
+}
+
+"""
+What a shopper may see of an order: no address, no phone, only the first name and district
+"""
+type BdTrackedOrder {
+    orderNumber: String!
+    placedAt: DateTime!
+    status: String!
+    timeline: [BdTrackedStatus!]!
+    firstName: String!
+
+    """
+    In the request's language
+    """
+    district: String!
+    lines: [BdTrackedOrderLine!]!
+    total: Money!
+
+    """
+    Still to be paid on delivery
+    """
+    codDue: Money!
+
+    """
+    The courier's own tracking page, once the parcel is booked (phase 19)
+    """
+    courierTrackingUrl: String
+}
+
 input ProductVariantFilterParameter {
     id: IDOperators
     productId: IDOperators
@@ -5707,6 +5763,11 @@ input OrderFilterParameter {
     The final payable amount. Equal to subTotalWithTax plus shippingWithTax
     """
     totalWithTax: NumberOperators
+
+    """
+    The order's tracking link key, once placed (for the thank-you page)
+    """
+    bdTrackingToken: StringOperators
     _and: [OrderFilterParameter!]
     _or: [OrderFilterParameter!]
     customerNote: StringOperators
@@ -5756,6 +5817,11 @@ input OrderSortParameter {
     The final payable amount. Equal to subTotalWithTax plus shippingWithTax
     """
     totalWithTax: SortOrder
+
+    """
+    The order's tracking link key, once placed (for the thank-you page)
+    """
+    bdTrackingToken: SortOrder
     customerNote: SortOrder
     orderNumber: SortOrder
     paymentChoice: SortOrder

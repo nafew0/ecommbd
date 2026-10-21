@@ -1,0 +1,95 @@
+---
+import type { CartOrder } from '../lib/cart';
+import type { PaymentOptions } from '../lib/checkout';
+import { pageContext } from '../lib/page';
+import Image from './Image.astro';
+
+/** The order summary next to the checkout form (roadmap phase 14): lines, charges, what's paid when. */
+interface Props {
+    order: CartOrder;
+    options: PaymentOptions | null;
+    cod: boolean;
+    deliveryKnown: boolean;
+}
+
+const { order, options, cod, deliveryKnown } = Astro.props;
+const { lang, s, format } = pageContext(Astro);
+const codFee = order.surcharges.filter(item => item.sku === 'BD-COD-FEE').reduce((sum, item) => sum + item.priceWithTax, 0);
+const otherSurcharges = order.surcharges.filter(item => item.sku !== 'BD-COD-FEE');
+const advance = cod && options ? options.advanceAmount : 0;
+---
+
+<section class="checkout-summary" aria-labelledby="summary-title" data-part="summary">
+    <h2 id="summary-title">{s.orderSummary}</h2>
+    <ul class="summary-lines">
+        {
+            order.lines.map(line => (
+                <li>
+                    <span class="summary-media">
+                        <Image asset={line.featuredAsset} alt="" lang={lang} sizes="56px" preferredWidth={160} />
+                        <span class="summary-quantity">{format.number(line.quantity)}</span>
+                    </span>
+                    <span class="summary-name">
+                        {line.productVariant.product.name}
+                        {line.productVariant.name !== line.productVariant.product.name && (
+                            <span class="muted"> · {line.productVariant.name.replace(line.productVariant.product.name, '').trim()}</span>
+                        )}
+                    </span>
+                    <span>{format.price(line.linePriceWithTax)}</span>
+                </li>
+            ))
+        }
+    </ul>
+    <dl class="summary-totals">
+        <div>
+            <dt>{s.subtotal}</dt>
+            <dd>{format.price(order.subTotalWithTax)}</dd>
+        </div>
+        <div>
+            <dt>{s.deliveryCharge}</dt>
+            <dd>{deliveryKnown && order.shippingLines.length ? (order.shippingWithTax ? format.price(order.shippingWithTax) : s.free) : '—'}</dd>
+        </div>
+        {
+            order.discounts.map(discount => (
+                <div>
+                    <dt>{discount.description || s.discount}</dt>
+                    <dd>{format.price(discount.amountWithTax)}</dd>
+                </div>
+            ))
+        }
+        {
+            otherSurcharges.map(item => (
+                <div>
+                    <dt>{item.description}</dt>
+                    <dd>{format.price(item.priceWithTax)}</dd>
+                </div>
+            ))
+        }
+        {
+            codFee > 0 && (
+                <div>
+                    <dt>{s.codFee}</dt>
+                    <dd>{format.price(codFee)}</dd>
+                </div>
+            )
+        }
+        <div class="summary-total">
+            <dt>{s.total}</dt>
+            <dd>{format.price(order.totalWithTax)}</dd>
+        </div>
+        {
+            advance > 0 && (
+                <>
+                    <div>
+                        <dt>{s.payNow}</dt>
+                        <dd>{format.price(advance)}</dd>
+                    </div>
+                    <div>
+                        <dt>{s.payOnDelivery}</dt>
+                        <dd>{format.price(order.totalWithTax - advance)}</dd>
+                    </div>
+                </>
+            )
+        }
+    </dl>
+</section>

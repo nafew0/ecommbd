@@ -1,11 +1,38 @@
 ---
-import Placeholder from '../components/Placeholder.astro';
+import CartContents from '../components/CartContents.astro';
+import Layout from '../layouts/Layout.astro';
+import { activeOrder, applyCartCookies, cartAction, type CartActionResult, shopperContext } from '../lib/cart';
+import { isSameSite } from '../lib/csrf';
 import { canonicalRedirect, pageContext, privatePage } from '../lib/page';
 
+/**
+ * The cart page (roadmap phase 14), also where product pages' forms post without JavaScript:
+ * "Add to cart" comes back here, "Buy now" goes on to checkout.
+ */
 const redirect = canonicalRedirect(Astro, '/cart/');
 if (redirect) return redirect;
 privatePage(Astro);
-const { s } = pageContext(Astro);
+const { s, href } = pageContext(Astro);
+const shopper = shopperContext(Astro);
+
+let result: CartActionResult | null = null;
+if (Astro.request.method === 'POST') {
+    if (!isSameSite(Astro.request)) return new Response(null, { status: 403 });
+    result = await cartAction(shopper, await Astro.request.formData(), s);
+    if (!result.message) {
+        // Post, redirect, get: a reload doesn't add the item again.
+        const headers = new Headers({ location: href(result.intent === 'buy' ? '/checkout/' : '/cart/') });
+        applyCartCookies(headers, shopper, result.order);
+        return new Response(null, { status: 303, headers });
+    }
+}
+const order = result ? result.order : await activeOrder(shopper);
+applyCartCookies(Astro.response.headers, shopper, order);
 ---
 
-<Placeholder title={s.cartTitle} text={s.comingSoon} />
+<Layout title={s.cartTitle} noindex>
+    <section class="cart-page">
+        <h1>{s.cartTitle}</h1>
+        <CartContents order={order} message={result?.message} />
+    </section>
+</Layout>

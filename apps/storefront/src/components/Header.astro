@@ -113,9 +113,16 @@ const query = Astro.url.pathname.endsWith('/search/') ? (Astro.url.searchParams.
             <a class="lang-switch" href={Astro.props.switchHref} hreflang={otherLang(lang)} lang={otherLang(lang)} title={s.switchToLabel}
                 >{s.switchTo}</a
             >
-            <a class="icon-button cart-link" href={href('/cart/')}>
+            <a
+                class="icon-button cart-link"
+                href={href('/cart/')}
+                data-cart-link
+                data-cart-title={s.cartTitle}
+                data-close-label={s.closeCart}
+            >
                 <Icon name="bag" size={24} />
                 <span class="visually-hidden">{s.cart}</span>
+                <span class="cart-count" data-cart-count hidden></span>
             </a>
         </div>
     </div>
@@ -130,4 +137,22 @@ const query = Astro.url.pathname.endsWith('/search/') ? (Astro.url.searchParams.
         if (document.activeElement === input) load();
         else input.addEventListener('focus', load, { once: true });
     }
+
+    // The cart (phase 14): the count from the cookie the cart sets (no request, pages stay
+    // cacheable); the cart button opens the drawer, loaded on first use.
+    const cart = document.querySelector<HTMLAnchorElement>('[data-cart-link]');
+    const count = Number(/(?:^|; )cart_count=(\d+)/.exec(document.cookie)?.[1] ?? 0);
+    const badge = cart?.querySelector<HTMLElement>('[data-cart-count]');
+    if (badge && count > 0) {
+        badge.textContent = String(count);
+        badge.hidden = false;
+    }
+    const onCartPages = /\/(cart|checkout)\//.test(location.pathname);
+    cart?.addEventListener('click', event => {
+        if (onCartPages || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+        event.preventDefault();
+        void import('../scripts/cart').then(async module => {
+            if (!(await module.openCart())) location.assign(cart.href);
+        });
+    });
 </script>
