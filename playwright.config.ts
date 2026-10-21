@@ -29,6 +29,8 @@ export default defineConfig({
         {
             command: 'npm run start',
             url: `${baseURL}/health`,
+            // Every test runs from one address: the per-phone tracking limit is the one tested.
+            env: { TRACKING_RATE_LIMIT_PER_IP: '1000' },
             reuseExistingServer: !process.env.CI,
             timeout: 120_000,
         },

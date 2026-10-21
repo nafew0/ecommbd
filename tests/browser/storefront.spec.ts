@@ -124,6 +124,7 @@ test.describe('storefront', () => {
         let gzipped = 0;
         for (const url of scripts)
             gzipped += gzipSync(Buffer.from(await (await fetch(url)).arrayBuffer())).length;
+        console.log(`First-party JS on a product page: ${(gzipped / 1024).toFixed(1)} KB gzipped`);
         expect(gzipped).toBeLessThanOrEqual(30 * 1024);
         const bn = await seo(page);
         expect(bn.title).toContain('সুতির পাঞ্জাবি');
