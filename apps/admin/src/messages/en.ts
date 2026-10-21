@@ -86,6 +86,7 @@ export const en = {
         invoice: 'Invoices and stickers',
         staff: 'Staff',
         orderSettings: 'Orders',
+        search: 'Search',
     },
     home: {
         greeting: (name: string) => `Welcome, ${name}`,
@@ -1075,7 +1076,8 @@ export const en = {
         month: 'This month',
         usageLine: (messages: string, segments: string) => `${messages} SMS · ${segments} parts`,
         senderId: 'Sender name',
-        senderIdHint: 'The approved name customers see instead of a number (up to 11 letters). Leave empty to use the provider’s number.',
+        senderIdHint:
+            'The approved name customers see instead of a number (up to 11 letters). Leave empty to use the provider’s number.',
         events: {
             placed: 'Order placed',
             confirmed: 'Order confirmed',
@@ -1102,13 +1104,16 @@ export const en = {
             storePhone: 'store phone',
             code: 'verification code',
         },
-        segments: (units: string, parts: string, cost: string) => `${units} characters · ${parts} SMS · about ${cost}`,
+        segments: (units: string, parts: string, cost: string) =>
+            `${units} characters · ${parts} SMS · about ${cost}`,
         longWarning: 'This message is 3 SMS or more for each customer. Shorten it to save money.',
-        segmentsHint: 'Bangla SMS hold 70 characters; English ones 160. Longer messages are sent in parts, and each part costs.',
+        segmentsHint:
+            'Bangla SMS hold 70 characters; English ones 160. Longer messages are sent in parts, and each part costs.',
         limits: 'Limits',
         quietHours: 'Quiet hours',
         quietHoursOn: 'Don’t send at night',
-        quietHoursHint: 'Messages wait until morning (Dhaka time). Verification codes are always sent at once.',
+        quietHoursHint:
+            'Messages wait until morning (Dhaka time). Verification codes are always sent at once.',
         from: 'From',
         until: 'Until',
         hour: (hour: string) => `${hour}:00`,
@@ -1175,7 +1180,8 @@ export const en = {
     },
     incomplete: {
         title: 'Incomplete orders',
-        description: 'Shoppers who typed their phone at checkout but didn’t order. Call them, or send a reminder.',
+        description:
+            'Shoppers who typed their phone at checkout but didn’t order. Call them, or send a reminder.',
         tabs: {
             open: 'Waiting',
             recovered: 'Ordered later',
@@ -1207,19 +1213,22 @@ export const en = {
         order: (number: string) => `Order #${number}`,
         emptyTitle: 'Nothing here',
         emptyBody: 'Incomplete orders appear when shoppers type their phone at checkout and leave.',
-        callScript: 'When you call: “Assalamu alaikum, I’m calling from [your shop]. Did you try to order from our website?” The number may be typed by mistake, so be polite.',
+        callScript:
+            'When you call: “Assalamu alaikum, I’m calling from [your shop]. Did you try to order from our website?” The number may be typed by mistake, so be polite.',
         expiresNote: 'Details are deleted after 30 days.',
     },
     blockList: {
         title: 'Block list',
-        description: 'Phones and IP addresses that can’t order from the website. Staff can still enter their orders.',
+        description:
+            'Phones and IP addresses that can’t order from the website. Staff can still enter their orders.',
         add: 'Block a phone or IP',
         kind: 'What to block',
         kinds: { phone: 'Phone number', ip: 'IP address' },
         value: 'Phone number or IP',
         until: 'Until',
         untilHintPhone: 'Leave empty to block for good.',
-        untilHintIp: 'Required, at most 30 days. Many mobile users share one IP, so one IP block can stop thousands of real shoppers.',
+        untilHintIp:
+            'Required, at most 30 days. Many mobile users share one IP, so one IP block can stop thousands of real shoppers.',
         note: 'Note',
         notePlaceholder: 'For example: two fake orders in March',
         block: 'Block',
@@ -1241,7 +1250,8 @@ export const en = {
             EXPIRY_IN_PAST: 'Choose a time in the future.',
         },
         customerCard: 'Block list',
-        customerBlocked: (until: string) => `This customer’s phone is blocked (${until}). Website orders are refused politely.`,
+        customerBlocked: (until: string) =>
+            `This customer’s phone is blocked (${until}). Website orders are refused politely.`,
         customerNotBlocked: 'This customer can order from the website.',
         blockCustomer: 'Block this phone',
     },
@@ -1249,6 +1259,30 @@ export const en = {
         title: 'Page not found',
         body: 'This page doesn’t exist, or it hasn’t been built yet.',
         home: 'Go to home',
+    },
+    search: {
+        title: 'Search',
+        description:
+            'Help shoppers find products: words that mean the same thing, and what shoppers searched for but didn’t find.',
+        readOnly: 'You can see these settings, but your role can’t change them.',
+        saved: 'Search settings saved.',
+        synonyms: 'Synonyms',
+        synonymsHint:
+            'Words in one group find each other, in both directions. Put Bangla, English and Banglish spellings together, separated by commas. Typos are found on their own.',
+        noSynonyms: 'No synonyms yet.',
+        group: (n: string) => `Group ${n}`,
+        placeholder: 'panjabi, পাঞ্জাবি, punjabi',
+        addGroup: 'Add a group',
+        remove: 'Remove this group',
+        misses: 'Searches with no results',
+        missesHint:
+            'What shoppers searched for in the last 30 days and didn’t find. Add the product, or a synonym that leads to it.',
+        noMisses: 'Nothing yet',
+        noMissesBody: 'Every search in the last 30 days found something.',
+        term: 'Search words',
+        times: 'Times',
+        lastSearched: 'Last searched',
+        addAsSynonym: 'Add as synonym',
     },
 };
 

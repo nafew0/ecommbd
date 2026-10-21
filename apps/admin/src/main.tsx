@@ -233,6 +233,13 @@ const router = createBrowserRouter(
                                 })),
                         },
                         {
+                            path: 'store/search',
+                            lazy: () =>
+                                import('./pages/search-settings').then(module => ({
+                                    Component: module.SearchSettingsPage,
+                                })),
+                        },
+                        {
                             path: 'ui-kit',
                             lazy: () =>
                                 import('./pages/ui-kit').then(module => ({ Component: module.UiKitPage })),

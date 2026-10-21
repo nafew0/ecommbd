@@ -26,7 +26,11 @@ describe('menu', () => {
             '/products/stock',
         ]);
         expect(menu[3]!.children!.map(child => child.to)).toEqual(['/customers', '/customers/blocked']);
-        expect(menu[4]!.children!.map(child => child.to)).toEqual(['/store/menus', '/store/pages']);
+        expect(menu[4]!.children!.map(child => child.to)).toEqual([
+            '/store/menus',
+            '/store/pages',
+            '/store/search',
+        ]);
         expect(menu[5]!.children!.map(child => child.to)).toEqual([
             '/settings/store',
             '/settings/orders',
