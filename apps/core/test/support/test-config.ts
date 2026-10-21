@@ -6,7 +6,10 @@ import {
     mergeConfig,
     type VendureConfig,
 } from '@vendure/core';
+import { LocalAssetStorageStrategy, SharpAssetPreviewStrategy } from '@vendure/asset-server-plugin';
 import { testConfig, type TestServer } from '@vendure/testing';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { requestIdMiddleware } from '../../src/logging/request-context';
 import { type CustomPluginOptions, customPlugins } from '../../src/plugins';
@@ -16,16 +19,22 @@ import { CREATE_ORDER_NUMBER_SEQUENCE_SQL } from '../../src/plugins/bd-orders';
  * Vendure's test config, plus what our real config adds (our plugins and middleware), against
  * PostgreSQL and the cache Redis. Each test file passes its own port, so files can run in parallel.
  * Connection settings come from TEST_DB_* and TEST_REDIS_CACHE_* variables, defaulting to the root
- * docker-compose.yml. Redis keys get a prefix of their own per run.
+ * docker-compose.yml. Redis keys get a prefix of their own per run. Uploaded files and WebP sizes go
+ * to a temporary folder of their own (real files, so the image pipeline runs as in production).
  */
 export function createTestConfig(
     port: number,
     overrides: Partial<VendureConfig> = {},
     pluginOptions: Partial<CustomPluginOptions> = {},
 ): Required<VendureConfig> {
+    const files = fs.mkdtempSync(path.join(os.tmpdir(), `ecommbd-test-${port}-`));
     const ours = mergeConfig(testConfig, {
         // Same API protection as vendure-config.ts.
         apiOptions: { port, csrfPrevention: true },
+        assetOptions: {
+            assetStorageStrategy: new LocalAssetStorageStrategy(path.join(files, 'assets')),
+            assetPreviewStrategy: new SharpAssetPreviewStrategy(),
+        },
         dbConnectionOptions: {
             type: 'postgres',
             host: process.env.TEST_DB_HOST ?? '127.0.0.1',
@@ -41,6 +50,7 @@ export function createTestConfig(
                 port: Number(process.env.TEST_REDIS_CACHE_PORT ?? 63791),
             },
             redisKeyPrefix: `test-${port}-${Date.now()}`,
+            imagesDir: path.join(files, 'images'),
             ...pluginOptions,
         }),
     });

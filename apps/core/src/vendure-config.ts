@@ -150,6 +150,8 @@ export const config: VendureConfig = {
         ...customPlugins({
             defaultLanguage: env.STORE_DEFAULT_LANGUAGE,
             assetUrlPrefix: env.ASSET_URL_PREFIX,
+            imagesDir: env.IMAGES_DIR,
+            imageUrlPrefix: env.IMAGE_URL_PREFIX,
             cacheRedis: {
                 host: env.REDIS_CACHE_HOST,
                 port: env.REDIS_CACHE_PORT,

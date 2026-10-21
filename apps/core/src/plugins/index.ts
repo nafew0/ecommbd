@@ -3,12 +3,16 @@ import type { VendureConfig } from '@vendure/core';
 import path from 'node:path';
 import { BdCheckoutPlugin, type BdCheckoutPluginOptions, type RedisConnectionOptions } from './bd-checkout';
 import { BdCorePlugin } from './bd-core';
+import { BdImagesPlugin } from './bd-images';
 import { BdOrdersPlugin } from './bd-orders';
 import { BdPrintPlugin } from './bd-print';
 import { MerchantAdminPlugin } from './merchant-admin/merchant-admin.plugin';
 
 /** The built merchant admin (`npm run build -w @ecommbd/admin`), from `src/plugins` or `dist/plugins`. */
 export const ADMIN_APP_DIR = path.join(__dirname, '../../../admin/dist');
+
+/** Default IMAGES_DIR: `apps/core/static/images`, next to Vendure's assets. */
+export const DEFAULT_IMAGES_DIR = path.join(__dirname, '../../static/images');
 
 export interface CustomPluginOptions {
     /** STORE_DEFAULT_LANGUAGE: the storefront's default language for a new store. */
@@ -17,6 +21,10 @@ export interface CustomPluginOptions {
     initializeOnBootstrap?: boolean;
     /** ASSET_URL_PREFIX, so the admin may show images from the asset server. */
     assetUrlPrefix?: string;
+    /** IMAGES_DIR: where the WebP sizes are written. */
+    imagesDir?: string;
+    /** IMAGE_URL_PREFIX: where they are served from (default `/img`). */
+    imageUrlPrefix?: string;
     /** The cache Redis (allkeys-lru), for rate limits. */
     cacheRedis: RedisConnectionOptions;
     /** REDIS_KEY_PREFIX: this store's Redis keys. */
@@ -43,6 +51,10 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
         }),
         BdOrdersPlugin,
         BdPrintPlugin,
+        BdImagesPlugin.init({
+            dir: options.imagesDir ?? DEFAULT_IMAGES_DIR,
+            urlPrefix: options.imageUrlPrefix,
+        }),
         MerchantAdminPlugin.init({
             appDir: ADMIN_APP_DIR,
             imageOrigins: options.assetUrlPrefix ? [new URL(options.assetUrlPrefix).origin] : [],
