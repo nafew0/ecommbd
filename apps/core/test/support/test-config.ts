@@ -12,6 +12,7 @@ import path from 'node:path';
 import { requestIdMiddleware } from '../../src/logging/request-context';
 import { type CustomPluginOptions, customPlugins } from '../../src/plugins';
 import { CREATE_ORDER_NUMBER_SEQUENCE_SQL } from '../../src/plugins/bd-orders';
+import { LogSmsDriver } from '../../src/plugins/notifications';
 
 /**
  * Vendure's test config, plus what our real config adds (our plugins and middleware), against
@@ -43,6 +44,9 @@ export function createTestConfig(
             },
             redisKeyPrefix: `test-${port}-${Date.now()}`,
             imagesDir: path.join(os.tmpdir(), `ecommbd-images-${port}-${Date.now()}`),
+            // Tests read what was "sent" from this driver.
+            smsDriver: new LogSmsDriver(),
+            storefrontUrl: 'https://shop.example.com',
             ...pluginOptions,
         }),
     });

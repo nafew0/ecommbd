@@ -40,5 +40,8 @@
     "typescript": "5.8.2",
     "typescript-eslint": "8.72.0",
     "vitest": "5.0.5"
+  },
+  "overrides": {
+    "nodemailer": "10.0.16"
   }
 }

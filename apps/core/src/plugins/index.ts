@@ -8,6 +8,7 @@ import { BdCorePlugin } from './bd-core';
 import { BdOrdersPlugin } from './bd-orders';
 import { ImagesPlugin } from './images';
 import { MerchantAdminPlugin } from './merchant-admin/merchant-admin.plugin';
+import { NotificationsPlugin, type SmsDriver } from './notifications';
 import { PaymentsBdPlugin } from './payments-bd';
 import { ShippingBdPlugin } from './shipping-bd';
 
@@ -29,6 +30,10 @@ export interface CustomPluginOptions {
     checkoutRateLimits?: BdCheckoutPluginOptions['rateLimits'];
     /** IMAGES_DIR: where image sizes are written. */
     imagesDir: string;
+    /** SMS_DRIVER: the SMS provider (the log driver records instead of sending). */
+    smsDriver: SmsDriver;
+    /** STOREFRONT_URL, for SMS tracking links. */
+    storefrontUrl?: string;
 }
 
 /**
@@ -53,6 +58,7 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
         BdCatalogPlugin,
         BdManualOrdersPlugin,
         ImagesPlugin.init({ imagesDir: options.imagesDir }),
+        NotificationsPlugin.init({ driver: options.smsDriver, storefrontUrl: options.storefrontUrl }),
         MerchantAdminPlugin.init({
             appDir: ADMIN_APP_DIR,
             imageOrigins: options.assetUrlPrefix ? [new URL(options.assetUrlPrefix).origin] : [],

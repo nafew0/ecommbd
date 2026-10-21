@@ -7,6 +7,7 @@ import { Field } from '../components/form/field';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/input';
 import { Alert, Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
+import { Switch } from '../components/ui/switch';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useFormat } from '../lib/format';
@@ -26,6 +27,7 @@ const CUSTOMER = `
                 alternatePhone
                 source
                 internalNotes
+                smsOptOut
                 orderCount
                 deliveredCount
                 returnedCount
@@ -56,6 +58,15 @@ const SAVE_NOTES = `
     }
 `;
 
+const SAVE_SMS_OPT_OUT = `
+    mutation SaveSmsOptOut($id: ID!, $optOut: Boolean!) {
+        updateCustomer(input: { id: $id, customFields: { smsOptOut: $optOut } }) {
+            ... on Customer { id }
+            ... on ErrorResult { message }
+        }
+    }
+`;
+
 interface CustomerDetail {
     id: string;
     createdAt: string;
@@ -67,6 +78,7 @@ interface CustomerDetail {
         alternatePhone: string | null;
         source: 'web' | 'manual' | 'import';
         internalNotes: string | null;
+        smsOptOut: boolean;
         orderCount: number;
         deliveredCount: number;
         returnedCount: number;
@@ -109,6 +121,15 @@ export function CustomerDetailPage() {
         mutationFn: () => adminApi(SAVE_NOTES, { id, notes: notes.trim() || null }),
         onSuccess: () => {
             toast.success(m.customers.notesSaved);
+            void queryClient.invalidateQueries({ queryKey: ['customer', id] });
+        },
+        onError: () => toast.error(m.errors.generic),
+    });
+
+    const saveOptOut = useMutation({
+        mutationFn: (optOut: boolean) => adminApi(SAVE_SMS_OPT_OUT, { id, optOut }),
+        onSuccess: () => {
+            toast.success(m.sms.optOutSaved);
             void queryClient.invalidateQueries({ queryKey: ['customer', id] });
         },
         onError: () => toast.error(m.errors.generic),
@@ -214,6 +235,18 @@ export function CustomerDetailPage() {
                                 {m.customers.saveNotes}
                             </Button>
                         )}
+                    </CardBody>
+                </Card>
+                <Card>
+                    <CardHeader title={m.sms.optOut} />
+                    <CardBody>
+                        <Switch
+                            label={m.sms.optOutLabel}
+                            description={m.sms.optOutHint}
+                            checked={f.smsOptOut}
+                            disabled={!can('UpdateCustomer') || saveOptOut.isPending}
+                            onChange={checked => saveOptOut.mutate(checked)}
+                        />
                     </CardBody>
                 </Card>
                 <Card>

@@ -602,6 +602,8 @@ AVIF (50), image CDN decisions (29), storage quotas enforcement (39).
 
 **Goal.** Customers get timely, correct SMS in their language. Merchants control templates and costs. Placeholder emails never receive mail.
 
+> **Built on 2026-10-21** on the branch `m2/notifications-and-fraud` (plugin `notifications`), **without a real SMS provider** (the user's call: the provider is chosen later). Everything up to the provider is built and tested with a `log` driver that records messages; production uses `SMS_DRIVER=none` until a driver is added (one class implementing `SmsDriver`). So the provider comparison, encrypted provider credentials, delivery-report webhooks and the driver's contract test wait for that choice. The SMTP provider is likewise chosen when a store goes live: the transport is configured by `SMTP_*` settings. Decisions are in the [decisions log](../decisions.md) (rows starting "Phase 10").
+
 ### Decide at start
 
 - **SMS provider** for the direct driver: compare 2–3 Bangladeshi providers on API quality, delivery reports, masking (sender ID) support, price, and uptime history. The interface must allow switching to the central gateway (phase 38) without changing callers.
@@ -666,9 +668,9 @@ AVIF (50), image CDN decisions (29), storage quotas enforcement (39).
 
 ### Done when
 
-- [ ] Placing, confirming and shipping an order each send the correct Bangla SMS exactly once.
-- [ ] The merchant edits a template and sees the live segment count and cost.
-- [ ] Placeholder emails never receive mail; `/mailbox` is unavailable in production.
+- [x] Placing, confirming and shipping an order each send the correct Bangla SMS exactly once. (`notifications.e2e-spec.ts`, with the log driver; also retries, opt-out, caps, quiet hours, "Send SMS" off.)
+- [x] The merchant edits a template and sees the live segment count and cost. (Settings → SMS; Playwright `sms.spec.ts`.)
+- [x] Placeholder emails never receive mail; `/mailbox` is unavailable in production. (Handlers filtered since phase 03, tested in `bd-checkout.e2e-spec.ts`; dev mode and `/mailbox` only with `APP_ENV=dev`.)
 
 ### Not in this phase
 

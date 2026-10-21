@@ -6,6 +6,15 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Added
 
+- **Phase 10, notifications: SMS, templates and email hygiene** (plugin `notifications`; no SMS provider yet, by choice):
+  - Order SMS in Bangla or English when an order is placed, confirmed, shipped (with a tracking link), delivered or cancelled, and when a bKash/Nagad/Rocket payment is verified or not matched; OTP template ready for phase 11.
+  - Each SMS is sent exactly once (an outbox with a unique key per order, event and phone), retried 4 times if the provider fails, and kept with its status and reason on the order page.
+  - Only Bangladeshi mobile numbers; per-phone and per-store daily limits; quiet hours (22:00–08:00 Dhaka) hold ordinary SMS until morning; customers can be marked "SMS off" and then get only the messages the merchant marks required.
+  - Merchant admin **Settings → SMS**: templates per event with the live length, number of SMS parts and cost, a warning at 3+ parts, sender name, quiet hours, limits and today's and this month's usage.
+  - Email: dev mode and `/mailbox` only in development; SMTP through new settings `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`. Nodemailer pinned to 10.0.16 (security fixes).
+  - New settings `SMS_DRIVER` (`log` or `none`) and `STOREFRONT_URL`. Migration: the SMS outbox, customer `smsOptOut`, order `trackingToken` (additive).
+  - Tests: unit tests of segment counting, templates and settings; end-to-end tests of order SMS (once each, retries, opt-out, limits, foreign numbers, quiet hours, templates, manual orders without SMS, usage); a Playwright test of the template editor.
+
 - **Phase 05, manual orders, order editing and stock rules** (plugins `bd-catalog` and `bd-manual-orders`):
   - **No overselling:** Vendure 3.8 places every order for the last units when shoppers pay at once (50 orders for 10 units in our test). Payments now lock and re-check stock, so exactly 10 are placed and the rest are told "just sold out".
   - Merchant admin **Products**: a list with image, price and old price, stock, category and badges (Featured, New, "Bangla missing"), duplicate and delete; a **one-page product form** with names and descriptions in Bangla and English, main photo, gallery, customer feedback photos, YouTube link, category, delivery for this product, and size, colour, pack or custom variations each with price, old price, stock, photo, default and pre-order; SKU, weight and SEO under "More".

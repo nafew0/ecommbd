@@ -29,6 +29,7 @@ describe('menu', () => {
             '/settings/orders',
             '/settings/delivery',
             '/settings/payments',
+            '/settings/sms',
         ]);
     });
 

@@ -44,6 +44,17 @@ export const envSchema = z
         STORE_DEFAULT_LANGUAGE: z.enum(['bn', 'en']).default('bn'),
         // Where the storefront's WebP image sizes are written (served at /img). Default: static/images.
         IMAGES_DIR: z.string().min(1).optional(),
+        // SMS: `log` records messages without sending (development); `none` until a provider is set up.
+        SMS_DRIVER: z.enum(['log', 'none']).optional(),
+        // The storefront's address, for SMS tracking links (<url>/t/<token>). Without it SMS carry no link.
+        STOREFRONT_URL: z.url().optional(),
+        // Real email (staff invites, password resets) outside development. Without SMTP_HOST, no email is sent.
+        SMTP_HOST: z.string().optional(),
+        SMTP_PORT: envPort.optional(),
+        SMTP_SECURE: z.enum(['true', 'false']).optional(),
+        SMTP_USER: z.string().optional(),
+        SMTP_PASSWORD: z.string().optional(),
+        SMTP_FROM: z.string().optional(),
         LOG_LEVEL: z.enum(['error', 'warn', 'info', 'verbose', 'debug']).default('info'),
         LOG_FORMAT: z.enum(['json', 'pretty']).optional(),
         STORE_ID: z.string().optional(),

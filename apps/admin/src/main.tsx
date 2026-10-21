@@ -137,6 +137,13 @@ const router = createBrowserRouter(
                                 })),
                         },
                         {
+                            path: 'settings/sms',
+                            lazy: () =>
+                                import('./pages/sms-settings').then(module => ({
+                                    Component: module.SmsSettingsPage,
+                                })),
+                        },
+                        {
                             path: 'settings/delivery',
                             lazy: () =>
                                 import('./pages/delivery-settings').then(module => ({

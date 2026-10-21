@@ -12,6 +12,7 @@ import { Link, useParams, useSearchParams } from 'react-router';
 import { EditOrderDialog } from '../components/orders/edit-order-dialog';
 import { PlaceName } from '../components/address/place-name';
 import { CallLaterDialog, CancelDialog, StockDialog } from '../components/orders/order-dialogs';
+import { OrderSms } from '../components/orders/order-sms';
 import { PaymentBadge, StatusBadge } from '../components/orders/status';
 import {
     ORDER_PAYMENT_FIELDS,
@@ -338,6 +339,7 @@ export function OrderDetailPage() {
                         </ol>
                     </CardBody>
                 </Card>
+                <OrderSms orderId={order.id} className="lg:col-span-2" />
             </div>
             <CancelDialog
                 orderNumber={number}
