@@ -10,13 +10,13 @@ Looked at on 2026-10-21. Use this as a checklist of the **fields and options BD 
 |---|---|---|
 | Dashboard | Order and revenue counts, low stock, last 5 orders | 33 (home widgets) |
 | Products → All products, Categories, Reviews | One-page product form; categories with image and icon; reviews | 05, 13, 35 |
-| Orders | List, details, edit, send to courier, fraud check | 04, 05, 19, 37 |
+| Orders | List, details, edit, send to courier, fraud check | 04, 11, 19, 37 |
 | Abandoned orders | Incomplete orders; turn one into an order | 11 |
 | Inventory | Stock list | 05 |
 | Sales pages | Landing page builder (below) | 16 |
 | Pages | About, policies: title, slug, meta description, content | 12, 15 |
 | Blogs | Blog posts | 44 |
-| Phone order | Staff enter an order taken by phone | 05 |
+| Phone order | Staff enter an order taken by phone | 11 |
 | Settings | 16 tabs (below) | many |
 | Spin wheel | Spin-to-win offer | **Skipped** (our decision) |
 

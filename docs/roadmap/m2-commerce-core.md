@@ -134,7 +134,7 @@ The checkout UI (14), OTP (11 and 34), incomplete-order capture (11).
      - Confirm and Cancel (reason required).
      - **No answer** adds a call attempt and moves the order down.
      - **Call later** snoozes until a chosen time.
-     - Edit, which opens phase 05's editor.
+     - Edit, which opens phase 11a's editor.
    - Keyboard shortcuts, plus bulk confirm for orders already verified.
    - **Call log:** each attempt is a history entry with outcome, staff member and time.
    - **Claiming:** opening an order claims it for 5 minutes and shows "Rahim is calling" to others, so two people don't call the same customer.
@@ -188,88 +188,79 @@ The checkout UI (14), OTP (11 and 34), incomplete-order capture (11).
 
 ### Not in this phase
 
-Editing orders (05), printing (06), courier booking and automatic Shipped/Delivered (19), the returns workflow (37).
+Editing orders (11a), printing (06), courier booking and automatic Shipped/Delivered (19), the returns workflow (37).
 
 ---
 
-## Phase 05 — Manual orders, order editing and stock rules
+## Phase 05 — Products, categories and stock
 
 | | |
 |---|---|
 | Milestone | M2 |
-| Delivers | Manual order entry (P0), stock deduction (P0), product and category screens (P0) |
+| Delivers | Product and category screens (P0), stock deduction (P0) |
 | Depends on | 04 |
-| Size | L |
+| Size | M |
 
-**Goal.** Staff add products on one simple page; enter orders taken by phone, Messenger or WhatsApp in under a minute; fix orders before they ship; and stock never oversells.
+**Goal.** Staff add products on one simple page and find them by category, and stock never oversells.
+
+**Split on 2026-10-21.** Manual orders and order editing moved to [phase 11a](#phase-11--manual-orders-order-editing-incomplete-orders-and-fake-order-protection). They need delivery charges (07), payments and refund records (08) and SMS (10), which come later in the same track.
 
 ### Build
 
-1. **Manual order page** (Dashboard), built on Vendure's draft orders:
-   - Find a customer by phone or create one inline. Address uses the district → thana picker.
-   - Product search showing stock and variants, with quantities.
-   - Line price override and order discount (fixed amount), both permission-gated.
-   - Shipping calculated by phase 07's rules, with a manual override.
-   - Payment: COD, already paid (method and TrxID), or partial advance (phase 08).
-   - **Source:** Messenger, Facebook comment, phone, WhatsApp, walk-in, other.
-   - "Send SMS to customer" toggle.
-   - Creates the order as New, or directly as **Confirmed**, since staff already spoke to the customer.
-2. **Editing orders before shipping**, using Vendure's order modification:
-   - change quantities, add or remove items, change variant
-   - change address or district (shipping recalculates)
-   - change the shipping charge, add a discount
-   - **Money differences:** COD orders just change the COD amount due. For prepaid orders, an increase asks for an additional payment and a decrease creates a refund record.
+1. **Product fields** (Vendure custom fields, with a migration):
+   - on the variant: **old price** in whole taka, shown struck through when it's higher than the price
+   - on the product: **Featured** and **New** switches, a **YouTube link**, a **short description**, and **customer-feedback images** (review screenshots, up to 20)
+   - on the product: **delivery for this product**, either free delivery or its own inside-Dhaka and outside-Dhaka charges. Stored here; phase 07's calculator uses them.
+   - names and descriptions in Bangla and English through Vendure's translations
+2. **Product screens** (admin), on Vendure's products, variants and collections. The fields follow [reference-bd-admin.md](../research/reference-bd-admin.md#product-form-one-page-opens-as-a-dialog):
+   - **Product list:** image, name, category, price with the old price struck through, stock, Featured and New badges, search, and edit, duplicate and delete actions.
+   - **Product form on one page:**
+     - name in Bangla and English, main image, gallery, customer-feedback images
+     - price, old price, stock, category, short and full description, YouTube link, Featured and New switches
+     - delivery for this product
+     - **variations:** size, colour, pack or custom, each with price, stock, image and a default
+     - a collapsed **More** part for SKU, weight, tags and SEO, so beginners never need it
+   - **Categories:** name in both languages, image, parent and order.
+   - **Stock:** a list of variants with quantity and a low-stock highlight, and quick adjustment with a reason (recount, damaged, gift), recorded with the staff member and time.
 3. **Stock rules:**
    - Stock is allocated when the order is placed, released on cancel, and on return goes back to stock or to "damaged", chosen per item.
    - **No overselling under concurrency.** Verify how Vendure 3.8 checks saleable stock at add-to-cart and at placement. If two shoppers can both buy the last unit, add a guard that locks the stock row at placement (`SELECT … FOR UPDATE` through the transactional connection) in an order interceptor.
    - Per-variant **allow backorders** (pre-orders), off by default.
-   - Stock adjustments with a reason (recount, damaged, gift) in the history.
-4. **Edit history:** every change records the user, time, and before/after values, visible on the order.
-5. **Product screens** (admin), on Vendure's products, variants and collections. The fields follow [reference-bd-admin.md](../research/reference-bd-admin.md#product-form-one-page-opens-as-a-dialog):
-   - **Product list:** image, name, category, price with the old price struck through, stock, Featured and New badges, search, and edit, duplicate and delete actions.
-   - **Product form on one page:**
-     - name in Bangla and English, main image, gallery, customer-feedback images (review screenshots)
-     - price, old price, stock, category, short and full description, YouTube link, Featured and New switches
-     - **delivery for this product:** free delivery, or its own inside/outside Dhaka charges (used by phase 07)
-     - **variations:** size, colour, pack or custom, each with price, stock, image and a default
-     - a collapsed **More** part for SKU, weight, tags and SEO, so beginners never need it
-   - **Categories:** name in both languages, image, parent and order.
-   - **Stock:** a list of variants with quantity and low-stock highlight, and quick adjustment with a reason.
 
 ### Edge cases
 
-- Abandoned draft orders: deleted automatically after 7 days.
 - A product saved without a Bangla name: the English name is used everywhere, and the list shows a "Bangla missing" hint.
-- A manual order for an existing customer with a new address doesn't overwrite saved addresses unless staff choose "save to customer".
-- Editing an order that's already booked with a courier: blocked with "Cancel the courier booking first". The hook is added here; phase 19 calls it.
-- Editing an order with promotions: promotions re-evaluate. If a coupon no longer qualifies, keep the original discount unless staff remove it, and show a warning.
 - The last unit bought by two shoppers at the same moment: exactly one succeeds; the other sees "just sold out".
-- An ordered variant deleted later: the order keeps its line snapshot (name, SKU, price).
-- A quantity change that makes stock negative: blocked, unless backorders are allowed.
+- An ordered variant deleted later: the order keeps its line snapshot (name, SKU, price). Deleting a product only hides it (Vendure's soft delete).
+- **Duplicate product:** copies everything except stock and SKU, and the copy starts disabled, so it doesn't go live by accident.
+- A stock adjustment that would go below zero: blocked, unless backorders are allowed for that variant.
+- An old price lower than or equal to the price: not shown as a discount, and the form warns.
+- A YouTube link that isn't a YouTube video: refused with a clear message.
+- Images uploaded before phase 09: stored as uploaded; phase 09 converts existing images when it ships.
 
 ### Security
 
-- **Permissions:** `CreateManualOrder`, `EditOrder`, `OverridePrice`, `ApplyManualDiscount`.
-- **Discount cap per role:** for example, order staff up to 10%, owners unlimited.
-- Price overrides and discounts are always recorded with the original value.
+- Product screens use Vendure's own product and catalog permissions. Stock adjustments record who made them.
+- Descriptions are plain text with line breaks; never raw HTML.
+- The YouTube link is stored as a video ID, so no arbitrary URL is ever embedded.
 
 ### Tests
 
-- End-to-end: manual order in each payment mode; created directly as Confirmed; SMS toggle respected.
-- End-to-end: modifications that raise or lower the total for COD and prepaid orders.
+- End-to-end: create a product with variations and every custom field, then read it back through the Admin and Shop APIs.
 - **Concurrency:** 50 parallel orders for a variant with 10 units place exactly 10.
 - Restock and damaged flows on return.
+- Playwright: add a product with three variations and a gallery at phone width, in Bangla.
 
 ### Done when
 
 - [ ] Staff add a product with three variations and a gallery on one page, on a phone.
-- [ ] Staff create a Messenger order in under a minute in the admin.
-- [ ] Editing a confirmed order recalculates totals, updates the COD amount and records before/after values.
+- [ ] Categories and the stock list work in both languages, with quick stock adjustment and its history.
 - [ ] The concurrency test proves no overselling.
+- [ ] A returned item goes back to stock or to "damaged", as staff choose.
 
 ### Not in this phase
 
-Bulk product editing (35), the returns workflow (37).
+Manual orders and order editing (11a), image conversion to WebP (09), bulk product editing and CSV (35), reviews (35), the returns workflow (37).
 
 ---
 
@@ -463,7 +454,7 @@ Courier rate quotes (46), international shipping (not planned).
 - **TrxID typos** (O vs 0, I vs 1): a "did you mean" hint for staff, never automatic correction.
 - **COD order paid online before delivery:** add a payment. The COD due drops, and if a courier booking exists, it's updated or rebooked (hook for phase 19).
 - **Advance paid, then cancelled:** the cancel requires a refund record first.
-- **Order edits after an advance** (phase 05): COD due recalculates; overpayment becomes a refund record.
+- **Order edits after an advance** (phase 11a): COD due recalculates; overpayment becomes a refund record.
 - **Rounding:** the advance percentage rounds to whole taka and the remainder makes up the exact total.
 
 ### Security
@@ -668,33 +659,56 @@ Central SMS gateway, credit purchase and failover provider (38), abandoned-check
 
 ---
 
-## Phase 11 — Incomplete orders and fake-order protection
+## Phase 11 — Manual orders, order editing, incomplete orders and fake-order protection
 
 | | |
 |---|---|
 | Milestone | M2 |
-| Delivers | Incomplete orders (P0); OTP for COD (P1), block list (P1), own-store risk score (P1), all built now because they share the same data |
-| Depends on | 03, 04, 10 |
-| Size | L |
+| Delivers | Manual order entry (P0), order editing (P0), incomplete orders (P0); OTP for COD (P1), block list (P1), own-store risk score (P1), all built now because they share the same data |
+| Depends on | 05, 07, 08, 10 (11a); 03, 04, 10 and 11a (11b) |
+| Size | XL (split into 11a manual orders and order editing, and 11b incomplete orders and fake-order protection) |
 
-**Goal.** Recover shoppers who abandon checkout, and stop fake COD orders without annoying real shoppers.
+**Goal.** Staff enter orders taken by phone, Messenger or WhatsApp in under a minute, and fix orders before they ship (11a). Recover shoppers who abandon checkout, and stop fake COD orders without annoying real shoppers (11b).
+
+**Why 11a is here.** Manual orders and order editing were in phase 05 until 2026-10-21. They need delivery charges (07), payments and refund records (08) and SMS (10), so they come after those. Incomplete orders (11b) then reuse the manual order form for "Convert to order".
 
 ### Decide at start
 
 - **Consent wording** for capturing checkout details before the order is placed (shown under the phone field), in Bangla and English.
 - **Bot protection provider** used when abuse is detected: Cloudflare Turnstile (free and privacy-friendly) is recommended. Check the script's size impact; it loads only when needed.
+- **Order editing (11a):** confirm that Vendure's `Modifying` state works with our order-status guard (`Confirmed` or `Packed` → `Modifying` → back), and add the rows to `packages/shared/src/order-status.ts` and [order-states.md](../decisions/order-states.md).
 
-### Build (plugins `bd-checkout` part 2 and `fraud-guard`)
+### Build: manual orders and order editing (11a, plugin `bd-orders`)
+
+1. **Manual order page** ("Phone order" in the admin menu), built on Vendure's draft orders:
+   - Find a customer by phone or create one inline. Address uses the district → thana picker.
+   - Product search showing stock and variants, with quantities.
+   - Line price override and order discount (fixed amount), both permission-gated.
+   - **Delivery charge** from phase 07's rules, with a manual override.
+   - **Payment:** COD, already paid (method and TrxID, checked by phase 08's duplicate-TrxID rule), or partial advance (phase 08).
+   - **Source:** Messenger, Facebook comment, phone, WhatsApp, walk-in, other.
+   - "Send SMS to customer" toggle, using phase 10's order SMS.
+   - Creates the order as New, or directly as **Confirmed**, since staff already spoke to the customer.
+2. **Editing orders before shipping**, using Vendure's order modification. This is what the "Edit" button in phase 04's confirmation queue opens.
+   - change quantities, add or remove items, change variant
+   - change address or district; the delivery charge recalculates with phase 07's rules
+   - change the delivery charge, add a discount
+   - **Money differences:** COD orders just change the COD amount due. For prepaid or advance-paid orders, an increase asks for an additional payment, and a decrease creates a refund record (phase 08).
+   - an "order updated" SMS when the store has that template on (phase 10)
+3. **Edit history:** every change records the user, time, and before/after values, visible on the order.
+4. **Courier hook:** editing an order that's already booked with a courier is blocked with "Cancel the courier booking first". The hook is added here; phase 19 calls it.
+
+### Build: incomplete orders and fake-order protection (11b, plugins `bd-checkout` part 2 and `fraud-guard`)
 
 1. **Capturing incomplete checkouts:**
    - **Shop API mutation `saveCheckoutProgress(input)`**, called by the storefront (debounced) as soon as a valid phone is typed. It stores phone, name, district, thana, a cart snapshot (variants, quantities, prices), the active order, source/UTM data and timestamps.
    - **Entity `IncompleteCheckout`** with status: open, recovered, converted, dismissed or expired.
    - **Recovered detection:** an order placed later with the same phone (within 7 days) marks it recovered and links the order.
    - **Expiry:** after 30 days, personal data is deleted and only counts are kept for reports.
-2. **"Incomplete orders" page** (Dashboard):
+2. **"Incomplete orders" page** (admin):
    - list with filters and a tap-to-call phone
    - a manual "send SMS" using a template ("Your order is waiting…")
-   - **Convert to order**, which opens phase 05's manual order with everything prefilled
+   - **Convert to order**, which opens phase 11a's manual order with everything prefilled
    - dismiss with a reason
 3. **Block list:**
    - **Phone numbers:** permanent or with expiry.
@@ -720,6 +734,13 @@ Central SMS gateway, credit purchase and failover provider (38), abandoned-check
 
 ### Edge cases
 
+- **Manual orders and editing (11a):**
+  - Abandoned draft orders: deleted automatically after 7 days.
+  - A manual order for an existing customer with a new address doesn't overwrite saved addresses unless staff choose "save to customer".
+  - An address outside every delivery zone: staff enter the charge by hand, with a warning.
+  - Editing an order with promotions: promotions re-evaluate. If a coupon no longer qualifies, keep the original discount unless staff remove it, and show a warning.
+  - A quantity change that makes stock negative: blocked, unless backorders are allowed.
+  - Two staff edit the same order at once: the second save sees "Changed by Karim just now" instead of overwriting.
 - **Capture edge cases:**
   - Typed a phone then left: captured, with the consent notice shown.
   - A wrong phone typed by mistake: staff might call a stranger, so the call script in the help draft opens politely.
@@ -737,6 +758,9 @@ Central SMS gateway, credit purchase and failover provider (38), abandoned-check
 
 ### Security
 
+- **11a permissions:** `CreateManualOrder`, `EditOrder`, `OverridePrice`, `ApplyManualDiscount`.
+- **Discount cap per role:** for example, order staff up to 10%, owners unlimited.
+- Price overrides and discounts are always recorded with the original value.
 - **Rate limits** on `saveCheckoutProgress` per session, phone and IP, plus payload size limits.
 - The Shop API never returns incomplete-checkout data.
 - **OTP protection:** codes stored hashed, compared in constant time, attempt limits, and responses that don't reveal whether a phone is blocked.
@@ -745,7 +769,11 @@ Central SMS gateway, credit purchase and failover provider (38), abandoned-check
 
 ### Tests
 
-- End-to-end:
+- End-to-end (11a):
+  - a manual order in each payment mode (COD, already paid, advance); created directly as Confirmed; the SMS toggle respected
+  - edits that raise or lower the total for COD and prepaid orders, with the delivery charge recalculated
+  - editing a courier-booked order is refused
+- End-to-end (11b):
   - capture → recovered when the order is placed
   - convert to order
   - expiry deletes personal data
@@ -756,11 +784,13 @@ Central SMS gateway, credit purchase and failover provider (38), abandoned-check
 
 ### Done when
 
-- [ ] An abandoned checkout appears in the Dashboard within 5 seconds of typing a valid phone, and converts to an order in two clicks.
+- [ ] Staff create a Messenger order in under a minute in the admin.
+- [ ] Editing a confirmed order recalculates totals and the delivery charge, updates the COD amount and records before/after values.
+- [ ] An abandoned checkout appears in the admin within 5 seconds of typing a valid phone, and converts to an order in two clicks.
 - [ ] Repeated fake orders from a blocked phone are refused politely.
 - [ ] OTP-for-COD works in every mode, within the SMS limits.
 - [ ] The confirmation queue shows the risk badge with reasons.
 
 ### Not in this phase
 
-The storefront call to `saveCheckoutProgress` (14), courier-based fraud data (37), the cross-store network score (38), automated abandoned-checkout SMS (44).
+The storefront call to `saveCheckoutProgress` (14), the returns workflow (37), courier-based fraud data (37), the cross-store network score (38), automated abandoned-checkout SMS (44).

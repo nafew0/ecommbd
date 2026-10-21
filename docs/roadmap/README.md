@@ -129,13 +129,13 @@ Status values: **Not started** · **In progress** · **Review** · **Done**.
 | [02](m1-foundations.md#phase-02--bangladesh-store-defaults-geo-data-store-settings-and-the-merchant-admin) | Bangladesh store defaults, geo data, store settings and the merchant admin | M1 | BD defaults, merchant admin (P0) | 01 | XL (02a, 02b) | **Done** (merged 2026-10-21) |
 | [03](m2-commerce-core.md#phase-03--phone-first-customers-and-guest-checkout-api) | Phone-first customers and guest checkout API | M2 | Phone checkout, customer list (P0) | 02 | M | **Done** (merged 2026-10-21) |
 | [04](m2-commerce-core.md#phase-04--bd-order-workflow-order-numbers-and-confirmation-queue) | BD order workflow, order numbers and confirmation queue | M2 | Statuses, confirmation (P0) | 03 | L | **Done** (merged 2026-10-21) |
-| [05](m2-commerce-core.md#phase-05--manual-orders-order-editing-and-stock-rules) | Manual orders, order editing and stock rules | M2 | Manual orders, stock, product screens (P0) | 04 | L | Not started |
+| [05](m2-commerce-core.md#phase-05--products-categories-and-stock) | Products, categories and stock | M2 | Product screens, stock (P0) | 04 | M | Not started |
 | [06](m2-commerce-core.md#phase-06--invoices-packing-slips-and-courier-stickers) | Invoices, packing slips and courier stickers | M2 | Bulk printing (P0) | 04 | M | Not started |
 | [07](m2-commerce-core.md#phase-07--shipping-zones-and-rates) | Shipping zones and rates | M2 | Dhaka / district rates (P0) | 02, 03 | M | Not started |
 | [08](m2-commerce-core.md#phase-08--payments-i-cod-manual-mobile-banking-and-partial-advance) | Payments I: COD, manual mobile banking, partial advance | M2 | COD, manual bKash/Nagad (P0), advance (P1) | 04, 07 | L | Not started |
 | [09](m2-commerce-core.md#phase-09--image-pipeline-and-upload-security) | Image pipeline and upload security | M2 | WebP compression (P0) | 01 | M | Not started |
 | [10](m2-commerce-core.md#phase-10--notifications-sms-templates-and-email-hygiene) | Notifications: SMS, templates and email hygiene | M2 | Order SMS (P0) | 04, 08 | M | Not started |
-| [11](m2-commerce-core.md#phase-11--incomplete-orders-and-fake-order-protection) | Incomplete orders and fake-order protection | M2 | Incomplete orders (P0), OTP, block list (P1) | 03, 04, 10 | L | Not started |
+| [11](m2-commerce-core.md#phase-11--manual-orders-order-editing-incomplete-orders-and-fake-order-protection) | Manual orders, order editing, incomplete orders and fake-order protection | M2 | Manual orders, order editing, incomplete orders (P0), OTP, block list (P1) | 05, 07, 08, 10 (11a); 03, 04 (11b) | XL (11a, 11b) | Not started |
 | [12](m3-storefront.md#phase-12--storefront-foundation) | Storefront foundation | M3 | Bangla/English storefront, SEO, pages (P0) | 02, 09 | L | Not started |
 | [13](m3-storefront.md#phase-13--catalog-browsing-search-and-filters) | Catalog browsing, search and filters | M3 | Categories, search, filters (P0) | 12 | M | Not started |
 | [14](m3-storefront.md#phase-14--cart-checkout-and-order-tracking) | Cart, checkout and order tracking | M3 | Buy Now, cart, one-page checkout (P0) | 03, 07, 08, 11, 12 | L | Not started |
@@ -195,7 +195,7 @@ From 2026-10-21 two developers work in parallel, each on their own branch, mergi
 
 | Developer | Branch | Phases, in order | Why they can run side by side |
 |---|---|---|---|
-| Imtiaz | `imtiaz` | 05 → 07 → 08 → 10 → 11 (orders and money) | Each needs only the one before it, or 04 |
+| Imtiaz | `imtiaz` | 05 → 07 → 08 → 10 → 11a → 11b (products, orders and money) | Each needs only earlier phases of this track, or 04. Manual orders (11a) wait for delivery charges, payments and SMS |
 | Nafew | `nafew` | 06, 09 → 12 → 13 (printing, images, storefront) | 06 needs only 04; 09 only 01; 12 needs 02 and 09; 13 needs 12 |
 
 - **Where the tracks meet:** phase **14** (cart and checkout) needs both: 07, 08 and 11 from Imtiaz, 12 from Nafew. Plan it together once both are on `main`.
@@ -354,7 +354,7 @@ Every feature in [mvp-spec.md](../mvp-spec.md) section 4 maps to a phase.
 | Platform-level payments | Later | 49 |
 | Order list with BD statuses | P0 | 04 |
 | Confirmation workflow | P0 | 04 |
-| Manual order entry | P0 | 05 |
+| Manual order entry | P0 | 11a |
 | Bulk invoice and sticker printing | P0 | 06 |
 | Steadfast and Pathao | P0 | 19 |
 | RedX | P1 | 37 |

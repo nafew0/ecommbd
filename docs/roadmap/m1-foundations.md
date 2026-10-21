@@ -173,7 +173,7 @@ Log shipping and metrics (28), the storefront app (12), release builds (26).
    | Menu | Items | Built in |
    |---|---|---|
    | Dashboard | Order and revenue counts (today, 7 and 30 days), waiting for confirmation, low stock, latest orders | 04, 33 |
-   | Orders | All orders, Confirm orders, Phone order, Incomplete orders, Verify payments | 04, 05, 08, 11 |
+   | Orders | All orders, Confirm orders, Phone order, Incomplete orders, Verify payments | 04, 08, 11 |
    | Products | All products, Categories, Reviews, Stock | 05, 35 |
    | Customers | Customers, Block list | 03, 11 |
    | Sales pages | Landing pages with checkout | 16 |
