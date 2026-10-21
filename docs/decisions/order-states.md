@@ -45,7 +45,7 @@ Our order process adds the custom states and refuses every transition between pl
 - New orders can't be packed or shipped without confirmation (except prepaid, with the setting above).
 - A payment settled after confirmation (for example COD collected on delivery, phase 08) doesn't move the order back to New: Vendure tries `Confirmed` → `PaymentSettled`, the guard refuses it, and the payment is still settled.
 
-Order editing (phase 05) will add `Confirmed`/`Packed` ↔ `Modifying` with a new row here.
+Order editing (phase 11a) will add `Confirmed`/`Packed` ↔ `Modifying` with a new row here.
 
 ## Return, stock and payment contract (2026-10-21 review)
 

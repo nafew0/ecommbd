@@ -163,7 +163,7 @@ Refund UI and gateway refunds (45), Nagad direct, aamarPay, ShurjoPay (45), plat
 7. **Manual fallback:** "Mark as booked manually" with a courier name and tracking code, for when an API is down.
 8. **Home widget:** in transit, delivered today, returned this week.
 9. **Hooks** called by earlier phases:
-   - editing a booked order (phase 05) requires cancelling the booking first
+   - editing a booked order (phase 11a) requires cancelling the booking first
    - a COD amount change (phase 08) updates or rebooks the parcel
 
 ### Edge cases
