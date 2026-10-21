@@ -6,9 +6,14 @@ import { verifyPaymentPermission } from './constants';
 import { orderPaymentCustomFields, paymentCustomFields } from './custom-fields';
 import { paymentTranslations } from './i18n';
 import { PaymentChecksService } from './payment-checks.service';
-import { paymentMethodsStep, paymentPermissionsStep } from './payment-defaults';
-import { codPaymentHandler, manualMfsPaymentHandler } from './payment-handlers';
-import { bdPaymentProcess, codEligibilityChecker, mfsEligibilityChecker } from './payment-operations';
+import { paymentMethodsStep, paymentPermissionsStep, staffPaymentMethodStep } from './payment-defaults';
+import { codPaymentHandler, manualMfsPaymentHandler, staffPaymentHandler } from './payment-handlers';
+import {
+    bdPaymentProcess,
+    codEligibilityChecker,
+    mfsEligibilityChecker,
+    staffEligibilityChecker,
+} from './payment-operations';
 import { PaymentRulesService } from './payment-rules.service';
 import { PaymentSettingsService } from './payment-settings.service';
 import { paymentsAdminApiExtensions, paymentsShopApiExtensions } from './payments.api';
@@ -20,7 +25,7 @@ import {
 } from './payments.resolver';
 import './types';
 
-registerStoreDefaults(paymentMethodsStep, paymentPermissionsStep);
+registerStoreDefaults(paymentMethodsStep, paymentPermissionsStep, staffPaymentMethodStep);
 
 /**
  * Payments the way small BD merchants take them (roadmap phase 08):
@@ -49,11 +54,13 @@ registerStoreDefaults(paymentMethodsStep, paymentPermissionsStep);
             ...config.paymentOptions.paymentMethodHandlers,
             codPaymentHandler,
             manualMfsPaymentHandler,
+            staffPaymentHandler,
         ];
         config.paymentOptions.paymentMethodEligibilityCheckers = [
             ...(config.paymentOptions.paymentMethodEligibilityCheckers ?? []),
             codEligibilityChecker,
             mfsEligibilityChecker,
+            staffEligibilityChecker,
         ];
         config.paymentOptions.process = [...(config.paymentOptions.process ?? []), bdPaymentProcess];
         config.customFields.Payment = [...(config.customFields.Payment ?? []), ...paymentCustomFields];

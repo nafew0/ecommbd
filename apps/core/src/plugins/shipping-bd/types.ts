@@ -8,6 +8,9 @@ declare module '@vendure/core/dist/entity/custom-entity-fields' {
     interface CustomProductVariantFields {
         weightGrams?: number | null;
     }
+    interface CustomOrderFields {
+        deliveryChargeOverride?: number | null;
+    }
 }
 
 export {};

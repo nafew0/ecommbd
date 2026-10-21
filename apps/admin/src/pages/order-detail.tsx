@@ -4,10 +4,12 @@ import {
     type BdCancelReason,
     isBdCancelReason,
 } from '@ecommbd/shared/order-status';
+import { EDITABLE_STATUSES } from '@ecommbd/shared/manual-orders';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Phone } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
+import { EditOrderDialog } from '../components/orders/edit-order-dialog';
 import { PlaceName } from '../components/address/place-name';
 import { CallLaterDialog, CancelDialog, StockDialog } from '../components/orders/order-dialogs';
 import { PaymentBadge, StatusBadge } from '../components/orders/status';
@@ -82,6 +84,9 @@ export function OrderDetailPage() {
     });
     const order = query.data?.order;
     const [dialog, setDialog] = useState<'cancel' | 'callLater' | null>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const editing = searchParams.get('edit') === '1';
+    const setEditing = (open: boolean) => setSearchParams(open ? { edit: '1' } : {}, { replace: true });
     const [cancelReason, setCancelReason] = useState<BdCancelReason | undefined>();
     const [stockShort, setStockShort] = useState<string[] | null>(null);
     const [busy, setBusy] = useState<ActionName | null>(null);
@@ -181,6 +186,13 @@ export function OrderDetailPage() {
                             {m.orders.actions.cancel}
                         </Button>
                     )}
+                </div>
+            )}
+            {can('EditOrder') && (EDITABLE_STATUSES as readonly string[]).includes(order.bd.status ?? '') && (
+                <div className="mb-4">
+                    <Button variant="secondary" onClick={() => setEditing(true)}>
+                        {m.editOrder.button}
+                    </Button>
                 </div>
             )}
             {order.bd.status === 'cancelled' && order.bd.cancelReason && (
@@ -335,6 +347,15 @@ export function OrderDetailPage() {
                 onCancel={async (reason, note) => {
                     const error = await run('cancel', { reason, note });
                     if (!error) setDialog(null);
+                }}
+            />
+            <EditOrderDialog
+                order={{ id: order.id, status: order.bd.status ?? '', lines: order.lines }}
+                open={editing}
+                onClose={() => setEditing(false)}
+                onSaved={() => {
+                    setEditing(false);
+                    void query.refetch();
                 }}
             />
             <CallLaterDialog

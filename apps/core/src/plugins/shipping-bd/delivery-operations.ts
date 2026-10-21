@@ -54,6 +54,11 @@ export const deliveryRateCalculator = new ShippingCalculator({
             // The checker already refused this method; returning undefined keeps it out of the list.
             return undefined;
         }
+        // A charge staff typed for this order (manual orders, edits) wins over the rules.
+        const override = order.customFields?.deliveryChargeOverride;
+        if (typeof override === 'number') {
+            return { price: override, priceIncludesTax: true, taxRate: 0, metadata: { override: true } };
+        }
         return {
             price: quote.price,
             // Delivery charges are typed as the shopper pays them; there's no VAT on them (0% rate).

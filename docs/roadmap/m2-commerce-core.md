@@ -203,6 +203,8 @@ Editing orders (05), printing (06), courier booking and automatic Shipped/Delive
 
 **Goal.** Staff add products on one simple page; enter orders taken by phone, Messenger or WhatsApp in under a minute; fix orders before they ship; and stock never oversells.
 
+> **Built on 2026-10-21** on the branch `m2/products-and-images` (plugins `bd-catalog` and `bd-manual-orders`; the screens are in our merchant admin, not Vendure's Dashboard). Decisions are in the [decisions log](../decisions.md) (rows starting "Phase 05"). Vendure 3.8 **did** oversell, so the stock guard was needed. Not built here, as planned elsewhere: returned items back to stock or "damaged" per item (phase 37's returns workflow; staff adjust stock with a reason until then), coupons re-checked on edits (coupons come in phase 35), the courier "cancel the booking first" rule (phase 19 registers it), the SMS itself (phase 10 reads the order's "send SMS" choice), and picking products for an advance (phase 08's "orders with certain products" scope).
+
 ### Build
 
 1. **Manual order page** (Dashboard), built on Vendure's draft orders:
@@ -262,10 +264,10 @@ Editing orders (05), printing (06), courier booking and automatic Shipped/Delive
 
 ### Done when
 
-- [ ] Staff add a product with three variations and a gallery on one page, on a phone.
-- [ ] Staff create a Messenger order in under a minute in the admin.
-- [ ] Editing a confirmed order recalculates totals, updates the COD amount and records before/after values.
-- [ ] The concurrency test proves no overselling.
+- [x] Staff add a product with three variations and a gallery on one page, on a phone. (Playwright `products.spec.ts`, desktop and phone.)
+- [x] Staff create a Messenger order in under a minute in the admin. (Playwright `products.spec.ts`, timed.)
+- [x] Editing a confirmed order recalculates totals, updates the COD amount and records before/after values. (End-to-end: `manual-orders.e2e-spec.ts`, "editing orders before shipping".)
+- [x] The concurrency test proves no overselling. (End-to-end: `stock.e2e-spec.ts`, 50 buyers for 10 units place exactly 10.)
 
 ### Not in this phase
 

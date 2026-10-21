@@ -57,6 +57,19 @@ export class ShippingSettingsService {
         return { settings, errors: [] };
     }
 
+    /**
+     * Sets the free-delivery collections only (the category form, phase 05), leaving everything
+     * else, including whether the merchant has confirmed the suggested charges, as it was.
+     */
+    async setFreeCollections(ctx: RequestContext, freeCollectionIds: string[]): Promise<void> {
+        const settings = { ...(await this.get(ctx)), freeCollectionIds: [...new Set(freeCollectionIds)] };
+        const saved = await this.settingsStore.set(ctx, SHIPPING_SETTINGS_KEY, settings);
+        if (!saved.result) {
+            throw new Error(`Could not save delivery settings: ${saved.error}`);
+        }
+        this.requestCache.set(ctx, SHIPPING_SETTINGS_KEY, Promise.resolve(settings));
+    }
+
     /** Districts, thanas and collections must exist (only their IDs ever reach the calculator). */
     private async findUnknownIds(
         ctx: RequestContext,

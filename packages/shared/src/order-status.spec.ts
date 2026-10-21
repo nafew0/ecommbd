@@ -32,6 +32,9 @@ describe('BD order statuses', () => {
     it('allows the BD workflow and refuses shortcuts', () => {
         expect(isBdTransitionAllowed('PaymentAuthorized', 'Confirmed', rules)).toBe(true);
         expect(isBdTransitionAllowed('Confirmed', 'Packed', rules)).toBe(true);
+        expect(isBdTransitionAllowed('Confirmed', 'Modifying', rules)).toBe(true);
+        expect(isBdTransitionAllowed('Packed', 'Modifying', rules)).toBe(true);
+        expect(isBdTransitionAllowed('Shipped', 'Modifying', rules)).toBe(false);
         expect(isBdTransitionAllowed('Packed', 'Shipped', rules)).toBe(true);
         expect(isBdTransitionAllowed('Shipped', 'Returned', rules)).toBe(true);
         expect(isBdTransitionAllowed('PartiallyDelivered', 'Returned', rules)).toBe(true);

@@ -7,7 +7,7 @@ import {
     type PaymentProcess,
     TransactionalConnection,
 } from '@vendure/core';
-import { COD_CHECKER_CODE, MFS_CHECKER_CODE } from './constants';
+import { COD_CHECKER_CODE, MFS_CHECKER_CODE, STAFF_CHECKER_CODE } from './constants';
 import { shopperCode } from './payment-handlers';
 import { isMfs, PaymentRulesService } from './payment-rules.service';
 import { PaymentSettingsService } from './payment-settings.service';
@@ -42,6 +42,17 @@ export const codEligibilityChecker = new PaymentMethodEligibilityChecker({
             ctx.translate(`message.payments-bd.${shopperCode(options.codUnavailableReason)}`)
         );
     },
+});
+
+/** Staff payments (cash, bank) are only recorded by staff; shoppers never see the method. */
+export const staffEligibilityChecker = new PaymentMethodEligibilityChecker({
+    code: STAFF_CHECKER_CODE,
+    description: [
+        { languageCode: LanguageCode.en, value: 'Never offered to shoppers' },
+        { languageCode: LanguageCode.bn, value: 'ক্রেতাদের দেখানো হয় না' },
+    ],
+    args: {},
+    check: () => false,
 });
 
 /** A mobile banking method is offered once the merchant has turned it on with their number. */

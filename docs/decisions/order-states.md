@@ -29,8 +29,9 @@ Our order process adds the custom states and refuses every transition between pl
 |---|---|
 | `PaymentAuthorized` (New) | `Confirmed`, `Cancelled`, `PaymentSettled` (payment received, still New), `Modifying`, `ArrangingAdditionalPayment` |
 | `PaymentSettled` (New) | `Confirmed`, `Cancelled`, `Modifying`, `ArrangingAdditionalPayment`, and `Packed` only when the store setting "skip confirmation for prepaid orders" is on |
-| `Confirmed` | `Packed`, `Cancelled` |
-| `Packed` | `Shipped`, `PartiallyShipped`, `Cancelled` |
+| `Confirmed` | `Packed`, `Cancelled`, `Modifying` (an edit, phase 05) |
+| `Packed` | `Shipped`, `PartiallyShipped`, `Cancelled`, `Modifying` (an edit, phase 05) |
+| `Modifying` | Vendure's own (back to `PaymentAuthorized`, `PaymentSettled`…), plus `Confirmed` and `Packed`: an edit returns the order to the status it had (phase 05) |
 | `PartiallyShipped` | `Shipped`, `PartiallyDelivered` |
 | `Shipped` | `Delivered`, `PartiallyDelivered`, `Returned` |
 | `PartiallyDelivered` | `Delivered`, `Returned` |
@@ -43,7 +44,7 @@ Our order process adds the custom states and refuses every transition between pl
 - New orders can't be packed or shipped without confirmation (except prepaid, with the setting above).
 - A payment settled after confirmation (for example COD collected on delivery, phase 08) doesn't move the order back to New: Vendure tries `Confirmed` → `PaymentSettled`, the guard refuses it, and the payment is still settled.
 
-Order editing (phase 05) will add `Confirmed`/`Packed` ↔ `Modifying` with a new row here.
+Order editing (phase 05) moves an order from New, Confirmed or Packed to `Modifying`, changes it with Vendure's order modification, points the money at the new total (the COD amount follows it), and moves it back to the status it had, in one transaction. Shipped orders can't be edited.
 
 ## Why
 

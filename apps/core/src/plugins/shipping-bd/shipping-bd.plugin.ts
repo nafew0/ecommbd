@@ -1,7 +1,11 @@
 import { type OnApplicationBootstrap } from '@nestjs/common';
 import { I18nService, Permission, PluginCommonModule, VendurePlugin } from '@vendure/core';
 import { registerStoreDefaults } from '../bd-core';
-import { productDeliveryCustomFields, variantDeliveryCustomFields } from './custom-fields';
+import {
+    orderDeliveryCustomFields,
+    productDeliveryCustomFields,
+    variantDeliveryCustomFields,
+} from './custom-fields';
 import { deliveryEligibilityChecker, deliveryRateCalculator } from './delivery-operations';
 import { DeliveryService } from './delivery.service';
 import { shippingTranslations } from './i18n';
@@ -45,6 +49,7 @@ registerStoreDefaults(deliveryMethodsStep);
             ...(config.customFields.Product ?? []),
             ...productDeliveryCustomFields,
         ];
+        config.customFields.Order = [...(config.customFields.Order ?? []), ...orderDeliveryCustomFields];
         config.customFields.ProductVariant = [
             ...(config.customFields.ProductVariant ?? []),
             ...variantDeliveryCustomFields,

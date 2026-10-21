@@ -14,8 +14,9 @@ import {
     type RequestContext,
     TransactionalConnection,
 } from '@vendure/core';
+import { lockAndCheckStock } from '../bd-catalog';
 import { CheckoutRateLimiter } from '../bd-checkout';
-import { COD_HANDLER_CODE, MFS_HANDLER_CODE } from './constants';
+import { COD_HANDLER_CODE, EDIT_REFUND_REASON, MFS_HANDLER_CODE, STAFF_HANDLER_CODE } from './constants';
 import type { ShopperPaymentMessage } from './i18n';
 import { type CodUnavailableReason, PaymentRulesService } from './payment-rules.service';
 import { PaymentSettingsService } from './payment-settings.service';
@@ -25,8 +26,10 @@ let rules: PaymentRulesService;
 let settings: PaymentSettingsService;
 let connection: TransactionalConnection;
 let rateLimiter: CheckoutRateLimiter | undefined;
+let injectorRef: Injector;
 
 const init = (injector: Injector) => {
+    injectorRef = injector;
     rules = injector.get(PaymentRulesService);
     settings = injector.get(PaymentSettingsService);
     connection = injector.get(TransactionalConnection);
@@ -51,6 +54,36 @@ const decline = (ctx: RequestContext, code: ShopperPaymentMessage, amount: numbe
     errorMessage: ctx.translate(`message.payments-bd.${code}`),
     metadata: { public: { errorCode: code } },
 });
+
+/**
+ * A payment that places the order first locks and re-checks stock (phase 05): the one who comes
+ * second for the last unit is declined with "just sold out", before any payment exists.
+ */
+async function soldOut(ctx: RequestContext, order: Order, amount: number) {
+    const short = await lockAndCheckStock(ctx, order, injectorRef);
+    if (!short.length) return null;
+    return {
+        amount,
+        state: 'Declined' as const,
+        errorMessage: ctx.translate('message.bd-catalog.sold-out', { names: short.join(', ') }),
+        metadata: { public: { errorCode: 'SOLD_OUT' } },
+    };
+}
+
+/**
+ * Refunds on our payments. Staff record money they already sent back (phase 08): Settled. A price
+ * drop from an order edit (phase 05): Pending ("refund due") on money received; on money not
+ * collected yet it only means less to collect (the edit removes that refund again).
+ */
+function refundOf(input: { reason?: string | null }, payment: Payment) {
+    if (input.reason === EDIT_REFUND_REASON) {
+        // Vendure creates every refund as Pending and keeps it so when the handler returns nothing.
+        return payment.state === 'Settled'
+            ? (undefined as never)
+            : { state: 'Settled' as const, metadata: { notCollected: true } };
+    }
+    return { state: 'Settled' as const, metadata: { reason: input.reason } };
+}
 
 /** Shoppers never learn that their phone is blocked: that reads as "not available for this order". */
 export function shopperCode(reason: CodUnavailableReason | null): ShopperPaymentMessage {
@@ -78,15 +111,26 @@ export const codPaymentHandler = new PaymentMethodHandler({
         if (fee !== (await rules.expectedFee(ctx, order))) {
             return decline(ctx, 'COD_FEE_CHANGED', amount);
         }
-        if (options.advanceAmount > 0 && (await rules.mfsCovered(ctx, order)) < options.advanceAmount) {
+        // Staff entering an order (phase 05) decide the advance themselves; the rule is for shoppers.
+        if (
+            ctx.apiType === 'shop' &&
+            options.advanceAmount > 0 &&
+            (await rules.mfsCovered(ctx, order)) < options.advanceAmount
+        ) {
             return decline(ctx, 'ADVANCE_REQUIRED', amount);
         }
-        return { amount, state: 'Authorized' as const, metadata: { public: { kind: 'cod' } } };
+        return (
+            (await soldOut(ctx, order, amount)) ?? {
+                amount,
+                state: 'Authorized' as const,
+                metadata: { public: { kind: 'cod' } },
+            }
+        );
     },
     settlePayment: () => ({ success: true }),
     cancelPayment: () => ({ success: true }),
     // Money given back after delivery (returns): staff record how they paid it back.
-    createRefund: (_ctx, input) => ({ state: 'Settled' as const, metadata: { reason: input.reason } }),
+    createRefund: (_ctx, input, _amount, _order, payment) => refundOf(input, payment),
 });
 
 /**
@@ -147,6 +191,9 @@ export const manualMfsPaymentHandler = new PaymentMethodHandler({
                 return decline(ctx, 'NO_ADVANCE_NEEDED', amount);
             }
             toPay = Math.min(advanceAmount, amount);
+        } else {
+            const refused = await soldOut(ctx, order, amount);
+            if (refused) return refused;
         }
         const data: MfsPaymentMetadata = {
             provider,
@@ -165,7 +212,7 @@ export const manualMfsPaymentHandler = new PaymentMethodHandler({
             ? { success: true }
             : { success: false, errorMessage: 'Verify this payment in the Verify payments screen' },
     cancelPayment: () => ({ success: true }),
-    createRefund: (_ctx, input) => ({ state: 'Settled' as const, metadata: { reason: input.reason } }),
+    createRefund: (_ctx, input, _amount, _order, payment) => refundOf(input, payment),
 });
 
 async function rateLimited(ctx: RequestContext, order: Order): Promise<boolean> {
@@ -180,3 +227,20 @@ async function rateLimited(ctx: RequestContext, order: Order): Promise<boolean> 
     const byPhone = phone ? await rateLimiter.hit(`trx:phone:${phone}`, TRX_RATE_LIMITS.perPhone) : 0;
     return bySession > 0 || byPhone > 0;
 }
+
+/**
+ * Money staff received themselves and record on a manual order (cash, bank transfer), phase 05.
+ * Staff payments are created as already settled (Vendure's manual payments), so this is never
+ * asked to take money; it exists so such payments can be refunded like the others.
+ */
+export const staffPaymentHandler = new PaymentMethodHandler({
+    code: STAFF_HANDLER_CODE,
+    description: [
+        { languageCode: LanguageCode.en, value: 'Recorded by staff (cash, bank)' },
+        { languageCode: LanguageCode.bn, value: 'স্টাফের লেখা পেমেন্ট (নগদ, ব্যাংক)' },
+    ],
+    args: {},
+    createPayment: (ctx, _order, amount) => decline(ctx, 'MFS_OFF', amount),
+    settlePayment: () => ({ success: true }),
+    createRefund: (_ctx, input, _amount, _order, payment) => refundOf(input, payment),
+});

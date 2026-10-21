@@ -249,9 +249,10 @@ export class PaymentChecksService implements OnApplicationBootstrap {
             if (!payment || payment.state !== 'Settled') {
                 return new BdPaymentError('PAYMENT_NOT_FOUND');
             }
+            // Refunds still due (pending, from an edit) count too: each taka goes back once.
             const refunds = await this.connection
                 .getRepository(txCtx, Refund)
-                .find({ where: { paymentId: payment.id, state: 'Settled' } });
+                .find({ where: { paymentId: payment.id, state: In(['Settled', 'Pending']) } });
             const refunded = refunds.reduce((sum, refund) => sum + refund.total, 0);
             if (input.amount > payment.amount - refunded) {
                 return new BdPaymentError('REFUND_TOO_LARGE');
@@ -269,6 +270,37 @@ export class PaymentChecksService implements OnApplicationBootstrap {
                 transactionId: transactionId ?? undefined,
                 method: input.method,
                 metadata: { method: input.method, note, recordedBy: await this.staffName(txCtx) } as never,
+            });
+            return this.connection.getRepository(txCtx, Refund).findOneOrFail({ where: { id: refund.id } });
+        });
+    }
+
+    /** A refund due (pending, from an edit) is marked done: how staff sent it, and its TrxID. */
+    async settleRefund(
+        ctx: RequestContext,
+        input: { refundId: string; method: string; transactionId?: string | null; note?: string | null },
+    ) {
+        if (!(REFUND_METHODS as readonly string[]).includes(input.method)) {
+            return new BdPaymentError('INVALID_METHOD');
+        }
+        const note = cleanText(input.note ?? '');
+        if (textLength(note) > NOTE_LIMIT) return new BdPaymentError('NOTE_TOO_LONG');
+        return this.connection.withTransaction(ctx, async txCtx => {
+            const refund = await this.connection
+                .getRepository(txCtx, Refund)
+                .findOne({ where: { id: input.refundId } });
+            if (!refund || refund.state !== 'Pending') return new BdPaymentError('PAYMENT_NOT_FOUND');
+            const transactionId = cleanText(input.transactionId ?? '').slice(0, 40) || 'manual';
+            const settled = await this.orderService.settleRefund(txCtx, { id: refund.id, transactionId });
+            if (isGraphQlErrorResult(settled)) return new BdPaymentError('REFUND_FAILED');
+            await this.connection.getRepository(txCtx, Refund).update(refund.id, {
+                method: input.method,
+                metadata: {
+                    ...(refund.metadata ?? {}),
+                    method: input.method,
+                    note,
+                    recordedBy: await this.staffName(txCtx),
+                } as never,
             });
             return this.connection.getRepository(txCtx, Refund).findOneOrFail({ where: { id: refund.id } });
         });

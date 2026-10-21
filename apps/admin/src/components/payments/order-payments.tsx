@@ -13,7 +13,7 @@ import { RefundDialog, type RefundInput } from './payment-dialogs';
 export const ORDER_PAYMENT_FIELDS = `
     payments {
         id method amount state metadata
-        refunds { total state method transactionId }
+        refunds { id total state method transactionId }
     }
 `;
 
@@ -23,12 +23,27 @@ export interface OrderPayment {
     amount: number;
     state: string;
     metadata: { verification?: string; transactionId?: string; senderNumber?: string } | null;
-    refunds: Array<{ total: number; state: string; method: string; transactionId: string | null }>;
+    refunds: Array<{
+        id: string;
+        total: number;
+        state: string;
+        method: string;
+        transactionId: string | null;
+    }>;
 }
 
 const REFUND = `
     mutation ($input: BdRecordRefundInput!) {
         recordBdRefund(input: $input) {
+            ... on Refund { id }
+            ... on BdPaymentError { reason message }
+        }
+    }
+`;
+
+const SETTLE = `
+    mutation ($input: BdSettleRefundInput!) {
+        settleBdRefund(input: $input) {
             ... on Refund { id }
             ... on BdPaymentError { reason message }
         }
@@ -50,7 +65,8 @@ export function OrderPayments({ payments, onChanged }: { payments: OrderPayment[
     const format = useFormat();
     const { can } = useAuth();
     const toast = useToast();
-    const [refunding, setRefunding] = useState<{ id: string; max: number } | null>(null);
+    // A new refund on a payment, or (with refundId) completing one that is due.
+    const [refunding, setRefunding] = useState<{ id: string; max: number; refundId?: string } | null>(null);
     const shown = payments.filter(payment => payment.state !== 'Error' && payment.state !== 'Created');
 
     return (
@@ -69,7 +85,11 @@ export function OrderPayments({ payments, onChanged }: { payments: OrderPayment[
                             const refunded = payment.refunds
                                 .filter(refund => refund.state === 'Settled')
                                 .reduce((sum, refund) => sum + refund.total, 0);
-                            const left = payment.amount - refunded;
+                            const due = payment.refunds.filter(refund => refund.state === 'Pending');
+                            const left =
+                                payment.amount -
+                                refunded -
+                                due.reduce((sum, refund) => sum + refund.total, 0);
                             return (
                                 <li key={payment.id} className="space-y-1 py-2">
                                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -101,6 +121,29 @@ export function OrderPayments({ payments, onChanged }: { payments: OrderPayment[
                                             {p.order.checkInQueue}
                                         </Link>
                                     )}
+                                    {due.map(refund => (
+                                        <div
+                                            key={refund.id}
+                                            className="flex flex-wrap items-center gap-2 rounded bg-amber-50 px-2 py-1 text-sm text-amber-950"
+                                        >
+                                            <span>{p.order.refundDue(format.money(refund.total))}</span>
+                                            {can('VerifyPayment') && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    onClick={() =>
+                                                        setRefunding({
+                                                            id: payment.id,
+                                                            max: refund.total,
+                                                            refundId: refund.id,
+                                                        })
+                                                    }
+                                                >
+                                                    {p.order.markRefunded}
+                                                </Button>
+                                            )}
+                                        </div>
+                                    ))}
                                     {payment.state === 'Settled' && left > 0 && can('VerifyPayment') && (
                                         <Button
                                             size="sm"
@@ -123,19 +166,28 @@ export function OrderPayments({ payments, onChanged }: { payments: OrderPayment[
                 onRefund={async (input: RefundInput) => {
                     if (!refunding) return;
                     try {
-                        const { recordBdRefund } = await adminApi<{
-                            recordBdRefund: { id: string } | { reason: string; message: string };
-                        }>(REFUND, {
-                            input: {
-                                paymentId: refunding.id,
-                                amount: input.amount,
-                                method: input.method,
-                                transactionId: input.transactionId || null,
-                                note: input.note || null,
-                            },
-                        });
-                        if ('reason' in recordBdRefund) {
-                            toast.error(recordBdRefund.message);
+                        const details = {
+                            method: input.method,
+                            transactionId: input.transactionId || null,
+                            note: input.note || null,
+                        };
+                        const result = refunding.refundId
+                            ? (
+                                  await adminApi<{
+                                      settleBdRefund: { id?: string; reason?: string; message?: string };
+                                  }>(SETTLE, {
+                                      input: { refundId: refunding.refundId, ...details },
+                                  })
+                              ).settleBdRefund
+                            : (
+                                  await adminApi<{
+                                      recordBdRefund: { id?: string; reason?: string; message?: string };
+                                  }>(REFUND, {
+                                      input: { paymentId: refunding.id, amount: input.amount, ...details },
+                                  })
+                              ).recordBdRefund;
+                        if (result.reason) {
+                            toast.error(result.message ?? m.errors.generic);
                             return;
                         }
                         toast.success(p.refund.saved);

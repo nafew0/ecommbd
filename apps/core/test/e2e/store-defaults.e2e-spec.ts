@@ -220,11 +220,13 @@ describe('running the initializer again', () => {
             'channel',
             'roles',
             'store-settings',
-            // Registered by later plugins (registerStoreDefaults):
-            'order-permissions',
+            // Registered by later plugins (registerStoreDefaults), in the order their files load:
             'delivery-methods',
+            'order-permissions',
             'payment-methods',
             'payment-permissions',
+            'staff-payment-method',
+            'manual-order-permissions',
         ]);
         expect(await storeState()).toEqual(before);
     });

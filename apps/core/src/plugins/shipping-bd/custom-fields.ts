@@ -58,6 +58,19 @@ export const productDeliveryCustomFields: CustomFieldConfig[] = [
     },
 ];
 
+/** A delivery charge staff typed for this order (manual orders and edits, phase 05); null: the rules. */
+export const orderDeliveryCustomFields: CustomFieldConfig[] = [
+    {
+        name: 'deliveryChargeOverride',
+        type: 'int',
+        nullable: true,
+        public: false,
+        readonly: true,
+        label: text('Delivery charge set by staff', 'স্টাফের দেওয়া ডেলিভারি চার্জ'),
+        validate: charge,
+    },
+];
+
 export const variantDeliveryCustomFields: CustomFieldConfig[] = [
     {
         name: 'weightGrams',

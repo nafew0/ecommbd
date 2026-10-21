@@ -76,6 +76,39 @@ const router = createBrowserRouter(
                                 })),
                         },
                         {
+                            path: 'orders/phone',
+                            lazy: () =>
+                                import('./pages/phone-order').then(module => ({
+                                    Component: module.PhoneOrderPage,
+                                })),
+                        },
+                        {
+                            path: 'products',
+                            lazy: () =>
+                                import('./pages/products').then(module => ({
+                                    Component: module.ProductsPage,
+                                })),
+                        },
+                        {
+                            path: 'products/categories',
+                            lazy: () =>
+                                import('./pages/categories').then(module => ({
+                                    Component: module.CategoriesPage,
+                                })),
+                        },
+                        {
+                            path: 'products/stock',
+                            lazy: () =>
+                                import('./pages/stock').then(module => ({ Component: module.StockPage })),
+                        },
+                        {
+                            path: 'products/:id',
+                            lazy: () =>
+                                import('./pages/product-form').then(module => ({
+                                    Component: module.ProductFormPage,
+                                })),
+                        },
+                        {
                             path: 'orders/payments',
                             lazy: () =>
                                 import('./pages/verify-payments').then(module => ({

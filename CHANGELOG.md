@@ -6,6 +6,16 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Added
 
+- **Phase 05, manual orders, order editing and stock rules** (plugins `bd-catalog` and `bd-manual-orders`):
+  - **No overselling:** Vendure 3.8 places every order for the last units when shoppers pay at once (50 orders for 10 units in our test). Payments now lock and re-check stock, so exactly 10 are placed and the rest are told "just sold out".
+  - Merchant admin **Products**: a list with image, price and old price, stock, category and badges (Featured, New, "Bangla missing"), duplicate and delete; a **one-page product form** with names and descriptions in Bangla and English, main photo, gallery, customer feedback photos, YouTube link, category, delivery for this product, and size, colour, pack or custom variations each with price, old price, stock, photo, default and pre-order; SKU, weight and SEO under "More".
+  - **Categories** with names in both languages, image, parent, order and free delivery; **Stock** with low stock first and adjustments with a reason and history.
+  - **Phone order**: customer by phone, address, product search with stock, staff price and discount (permission-gated, 10% cap for order staff), delivery by the store's rules or a typed charge, COD, already paid or an advance, source (Messenger, Facebook comment, phone, WhatsApp, walk-in), SMS toggle, created as New or Confirmed; the total is worked out by the server as staff type.
+  - **Editing orders before shipping** (items, quantities, prices, address, delivery, discount) from the order page and the confirmation queue: the COD amount follows the new total; money to give back becomes a "refund due" staff mark refunded; before/after is in the history.
+  - New permissions `CreateManualOrder`, `EditOrder`, `OverridePrice`, `ApplyManualDiscount`, `UnlimitedDiscount` on the default roles; a hidden "Recorded by staff" payment method for cash and bank payments; draft orders older than 7 days are deleted.
+  - Migrations: product, variant, collection and order fields, the feedback images, the stock adjustment log (additive).
+  - Tests: unit tests of the product form schema; end-to-end tests of the product form, categories, stock, overselling, manual orders and edits; Playwright tests of adding a product with three sizes and a gallery, and a Messenger order in under a minute.
+
 - **Phase 09, image pipeline and upload security** (plugin `images`):
   - Every image is checked and cleaned before it's stored: JPEG, PNG, WebP, GIF or AVIF only (by its bytes; no SVG or HEIC), up to 15 MB and 40 megapixels; rotation applied; all metadata removed, including GPS location; CMYK to sRGB; transparency and animation kept. Clear Bangla/English messages, e.g. for iPhone HEIC photos.
   - A worker job makes WebP sizes (160–1600 px, never upscaled), a dominant colour and a tiny placeholder, stored once per image by content hash and served at `/img/<hash>/<width>.webp` with a year's caching.

@@ -58,8 +58,9 @@ export const BD_TRANSITIONS: Readonly<Record<string, readonly string[]>> = {
     ],
     // `Packed` only with "skip confirmation for prepaid orders" (see isBdTransitionAllowed).
     PaymentSettled: ['Confirmed', 'Cancelled', 'Packed', 'Modifying', 'ArrangingAdditionalPayment'],
-    Confirmed: ['Packed', 'Cancelled'],
-    Packed: ['Shipped', 'PartiallyShipped', 'Cancelled'],
+    // `Modifying`: editing before shipping (phase 05); the edit returns the order to its status.
+    Confirmed: ['Packed', 'Cancelled', 'Modifying'],
+    Packed: ['Shipped', 'PartiallyShipped', 'Cancelled', 'Modifying'],
     PartiallyShipped: ['Shipped', 'PartiallyDelivered'],
     Shipped: ['Delivered', 'PartiallyDelivered', 'Returned'],
     PartiallyDelivered: ['Delivered', 'Returned'],

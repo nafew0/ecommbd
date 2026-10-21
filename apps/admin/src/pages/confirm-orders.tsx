@@ -425,6 +425,14 @@ function QueueCard(props: {
                     <Button variant="secondary" onClick={props.onCallLater}>
                         {m.orders.actions.callLater}
                     </Button>
+                    {can('EditOrder') && (
+                        <Link
+                            to={`/orders/${order.id}?edit=1`}
+                            className="inline-flex min-h-11 items-center rounded-md px-4 text-slate-700 hover:bg-slate-100"
+                        >
+                            {m.editOrder.button}
+                        </Link>
+                    )}
                     {can('CancelOrder') && (
                         <Button variant="ghost" className="text-red-700" onClick={props.onCancel}>
                             {m.orders.actions.cancel}

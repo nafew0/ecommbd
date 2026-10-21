@@ -8,6 +8,9 @@ import {
     MFS_CHECKER_CODE,
     MFS_HANDLER_CODE,
     MFS_METHOD_CODES,
+    STAFF_CHECKER_CODE,
+    STAFF_HANDLER_CODE,
+    STAFF_METHOD_CODE,
     verifyPaymentPermission,
 } from './constants';
 
@@ -106,5 +109,40 @@ export const paymentPermissionsStep: StoreDefaultsStep = {
             }
         }
         return notes;
+    },
+};
+
+/**
+ * Store defaults (phase 05): the "Recorded by staff" method for cash and bank payments on manual
+ * orders. A new step, so stores that already ran phase 08's steps get it too.
+ */
+export const staffPaymentMethodStep: StoreDefaultsStep = {
+    id: 'staff-payment-method',
+    description: 'Payment method for money staff record themselves (cash, bank)',
+    async run({ ctx, injector }) {
+        const service = injector.get(PaymentMethodService);
+        const existing = await service.findAll(ctx, { take: 100 });
+        if (existing.items.some(method => method.code === STAFF_METHOD_CODE)) {
+            return [];
+        }
+        await service.create(ctx, {
+            code: STAFF_METHOD_CODE,
+            enabled: true,
+            handler: { code: STAFF_HANDLER_CODE, arguments: [] },
+            checker: { code: STAFF_CHECKER_CODE, arguments: [] },
+            translations: [
+                {
+                    languageCode: LanguageCode.en,
+                    name: 'Recorded by staff',
+                    description: 'Cash or bank transfer received by staff',
+                },
+                {
+                    languageCode: LanguageCode.bn,
+                    name: 'স্টাফের লেখা পেমেন্ট',
+                    description: 'স্টাফ নগদ বা ব্যাংকে টাকা পেয়েছেন',
+                },
+            ],
+        });
+        return [`payment method created: ${STAFF_METHOD_CODE}`];
     },
 };

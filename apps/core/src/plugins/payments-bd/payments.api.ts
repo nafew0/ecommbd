@@ -101,6 +101,14 @@ export const paymentsAdminApiExtensions = gql`
         note: String
     }
 
+    input BdSettleRefundInput {
+        "A refund due (pending), e.g. after an order edit lowered the total"
+        refundId: ID!
+        method: String!
+        transactionId: String
+        note: String
+    }
+
     type BdUpdatePaymentSettingsResult {
         "The saved settings, or null when there are errors"
         settings: JSON
@@ -118,5 +126,6 @@ export const paymentsAdminApiExtensions = gql`
         verifyBdPayment(input: BdVerifyPaymentInput!): BdPaymentCheckResult!
         rejectBdPayment(input: BdRejectPaymentInput!): BdPaymentCheckResult!
         recordBdRefund(input: BdRecordRefundInput!): BdRefundResult!
+        settleBdRefund(input: BdSettleRefundInput!): BdRefundResult!
     }
 `;

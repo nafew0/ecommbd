@@ -53,7 +53,7 @@ export const MENU: MenuGroup[] = [
         children: [
             link('allOrders', '/orders', '04', true, 'ReadOrder'),
             link('confirmOrders', '/orders/confirm', '04', true, 'ConfirmOrder'),
-            link('phoneOrder', '/orders/phone', '05', false, 'CreateOrder'),
+            link('phoneOrder', '/orders/phone', '05', true, 'CreateManualOrder'),
             link('incompleteOrders', '/orders/incomplete', '11', false, 'ReadOrder'),
             link('verifyPayments', '/orders/payments', '08', true, 'VerifyPayment'),
         ],
@@ -62,10 +62,10 @@ export const MENU: MenuGroup[] = [
         label: 'products',
         icon: Package,
         children: [
-            link('allProducts', '/products', '05', false, 'ReadProduct'),
-            link('categories', '/products/categories', '05', false, 'ReadCatalog'),
+            link('allProducts', '/products', '05', true, 'ReadProduct'),
+            link('categories', '/products/categories', '05', true, 'ReadCatalog'),
             link('reviews', '/products/reviews', '35', false, 'ReadProduct'),
-            link('stock', '/products/stock', '05', false, 'ReadProduct'),
+            link('stock', '/products/stock', '05', true, 'ReadProduct'),
         ],
     },
     {

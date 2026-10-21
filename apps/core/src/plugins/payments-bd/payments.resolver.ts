@@ -122,6 +122,18 @@ export class PaymentsAdminResolver {
     ) {
         return this.checks.recordRefund(ctx, args.input);
     }
+
+    @Mutation()
+    @Allow(verifyPaymentPermission.Permission)
+    settleBdRefund(
+        @Ctx() ctx: RequestContext,
+        @Args()
+        args: {
+            input: { refundId: string; method: string; transactionId?: string | null; note?: string | null };
+        },
+    ) {
+        return this.checks.settleRefund(ctx, args.input);
+    }
 }
 
 const resolveType = (typename: string) => (value: unknown) =>
