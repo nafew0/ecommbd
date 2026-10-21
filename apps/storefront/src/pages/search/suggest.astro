@@ -1,0 +1,91 @@
+---
+import { cleanSearchQuery } from '@ecommbd/shared/search';
+import Image from '../../components/Image.astro';
+import Price from '../../components/Price.astro';
+import { clientIpOf, RateLimitedError, type ResultOf, shopQuery } from '../../lib/core';
+import { pageContext } from '../../lib/page';
+import { BD_SUGGEST, type ProductCardFields, PRODUCTS_BY_ID } from '../../lib/queries';
+import { categoryPath, productPath } from '../../lib/urls';
+
+/**
+ * The search box's suggestions (roadmap phase 13): an HTML fragment of products and categories,
+ * fetched by src/scripts/search-suggest.ts. Rendered with the pages' own components, so prices and
+ * images look the same. Cacheable for a minute (the same words give the same suggestions).
+ */
+export const partial = true;
+
+const { lang, s, href, format } = pageContext(Astro);
+const query = cleanSearchQuery(Astro.url.searchParams.get('q') ?? '');
+Astro.response.headers.set('x-robots-tag', 'noindex');
+Astro.response.headers.set('cache-control', 'public, max-age=60');
+
+let suggestions: ResultOf<typeof BD_SUGGEST>['bdSearchSuggestions'] = { productIds: [], collections: [], didYouMean: null };
+let products: Array<ResultOf<typeof ProductCardFields>> = [];
+try {
+    suggestions = (
+        await shopQuery(BD_SUGGEST, { term: query }, lang, {
+            clientIp: clientIpOf(Astro.request, () => Astro.clientAddress),
+        })
+    ).bdSearchSuggestions;
+    if (suggestions.productIds.length) {
+        const found = (
+            await shopQuery(PRODUCTS_BY_ID, { ids: suggestions.productIds, take: suggestions.productIds.length }, lang)
+        ).products.items;
+        products = suggestions.productIds.map(id => found.find(product => product.id === id)).filter(product => !!product);
+    }
+} catch (error) {
+    if (!(error instanceof RateLimitedError)) throw error;
+    Astro.response.status = 429;
+    Astro.response.headers.set('cache-control', 'no-store');
+}
+const resultsHref = (words: string) => `${href('/search/')}?q=${encodeURIComponent(words)}`;
+const prices = (product: (typeof products)[number]) => product.variants.map(variant => variant.priceWithTax);
+---
+
+{
+    (products.length > 0 || suggestions.collections.length > 0) && (
+        <div role="listbox" aria-label={s.searchSuggestions}>
+            {suggestions.didYouMean && (
+                <p class="suggest-hint" role="presentation">
+                    {s.didYouMean}:{' '}
+                    <a role="option" class="suggest-correction" href={resultsHref(suggestions.didYouMean)}>
+                        {suggestions.didYouMean}
+                    </a>
+                </p>
+            )}
+            {suggestions.collections.length > 0 && (
+                <div class="suggest-group" role="group" aria-labelledby="suggest-categories">
+                    <p class="suggest-heading" id="suggest-categories" role="presentation">
+                        {s.categories}
+                    </p>
+                    {suggestions.collections.map(collection => (
+                        <a role="option" class="suggest-option" href={href(categoryPath(collection.slugs))}>
+                            {collection.name}
+                        </a>
+                    ))}
+                </div>
+            )}
+            {products.length > 0 && (
+                <div class="suggest-group" role="group" aria-labelledby="suggest-products">
+                    <p class="suggest-heading" id="suggest-products" role="presentation">
+                        {s.productsHeading}
+                    </p>
+                    {products.map(product => (
+                        <a role="option" class="suggest-option" href={href(productPath(product.slug))}>
+                            <Image asset={product.featuredAsset} alt="" lang={lang} sizes="48px" preferredWidth={160} />
+                            <span>
+                                <span class="suggest-name">{product.name}</span>
+                                {prices(product).length > 0 && (
+                                    <Price min={Math.min(...prices(product))} max={Math.max(...prices(product))} format={format} />
+                                )}
+                            </span>
+                        </a>
+                    ))}
+                </div>
+            )}
+            <a role="option" class="suggest-option suggest-all" href={resultsHref(query)}>
+                {s.seeAllResults(query)}
+            </a>
+        </div>
+    )
+}

@@ -31,6 +31,9 @@ export const ProductCardFields = graphql(
             id
             name
             slug
+            customFields {
+                isNew
+            }
             featuredAsset {
                 ...AssetFields
             }
@@ -38,6 +41,9 @@ export const ProductCardFields = graphql(
                 id
                 priceWithTax
                 stockLevel
+                customFields {
+                    oldPrice
+                }
             }
         }
     `,
@@ -173,6 +179,8 @@ export const PRODUCT = graphql(
                 customFields {
                     seoTitle
                     seoDescription
+                    shortDescription
+                    isNew
                 }
                 translations {
                     languageCode
@@ -184,12 +192,22 @@ export const PRODUCT = graphql(
                 assets {
                     ...AssetFields
                 }
+                facetValues {
+                    code
+                    name
+                    facet {
+                        code
+                    }
+                }
                 variants {
                     id
                     name
                     sku
                     priceWithTax
                     stockLevel
+                    customFields {
+                        oldPrice
+                    }
                 }
                 collections {
                     id
@@ -242,14 +260,44 @@ export const COLLECTION = graphql(
     [AssetFields],
 );
 
-/** Product IDs in a category or matching a search, one per product. */
-export const SEARCH = graphql(`
-    query Search($input: SearchInput!) {
-        search(input: $input) {
+/** A category or search page (phase 13): this page's product IDs, the filters with counts, and more. */
+export const BD_SEARCH = graphql(`
+    query BdSearch($input: BdSearchInput!) {
+        bdSearch(input: $input) {
             totalItems
-            items {
-                productId
+            productIds
+            filters {
+                key
+                kind
+                label
+                values {
+                    value
+                    label
+                    count
+                    selected
+                }
             }
+            priceRange {
+                min
+                max
+            }
+            inStockCount
+            didYouMean
+        }
+    }
+`);
+
+/** The search box's suggestions (phase 13). */
+export const BD_SUGGEST = graphql(`
+    query BdSuggest($term: String!) {
+        bdSearchSuggestions(term: $term) {
+            productIds
+            collections {
+                id
+                name
+                slugs
+            }
+            didYouMean
         }
     }
 `);

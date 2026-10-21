@@ -735,6 +735,41 @@ enum Permission {
     Edit storefront pages and menus
     """
     ManageContent
+
+    """
+    Verify or reject mobile banking payments, and record refunds
+    """
+    VerifyPayment
+
+    """
+    Enter orders taken by phone, Messenger or WhatsApp
+    """
+    CreateManualOrder
+
+    """
+    Change items, address, delivery and discount of an order before it ships
+    """
+    EditOrder
+
+    """
+    Change a product’s price on an order
+    """
+    OverridePrice
+
+    """
+    Give a discount on an order (up to 10% without UnlimitedDiscount)
+    """
+    ApplyManualDiscount
+
+    """
+    Give any discount on an order
+    """
+    UnlimitedDiscount
+
+    """
+    See the risk score of orders and its reasons
+    """
+    ReadRisk
 }
 
 enum SortOrder {
@@ -3452,6 +3487,7 @@ type Order implements Node {
     """
     taxSummary: [OrderTaxSummary!]!
     history(options: HistoryEntryListOptions): HistoryEntryList!
+    bdDelivery: BdDeliveryInfo!
     customFields: OrderCustomFields
 }
 
@@ -3926,7 +3962,7 @@ type ProductVariant implements Node {
     options: [ProductOption!]!
     facetValues: [FacetValue!]!
     translations: [ProductVariantTranslation!]!
-    customFields: JSON
+    customFields: ProductVariantCustomFields
 }
 
 type ProductVariantTranslation {
@@ -4457,6 +4493,17 @@ type Query {
     What an unknown product, collection or page slug means: moved (with the current slug) or gone
     """
     bdSlugLookup(type: String!, slug: String!): BdSlugLookup
+
+    """
+    How the active order can be paid; null without an active order
+    """
+    bdPaymentOptions: BdPaymentOptions
+    bdSearch(input: BdSearchInput!): BdSearchResult!
+
+    """
+    For the search box: up to 6 products and 3 categories; empty below 2 characters
+    """
+    bdSearchSuggestions(term: String!): BdSearchSuggestions!
 }
 
 type PublicPaymentMethod {
@@ -4691,6 +4738,27 @@ type Mutation {
     Sets the delivery address from a district and thana, and the order note.
     """
     setOrderShippingAddressBD(input: SetOrderShippingAddressBDInput!): SetOrderShippingAddressBDResult!
+
+    """
+    cod or prepaid: puts the right COD charge on the active order. Call it before paying.
+    """
+    setBdPaymentChoice(choice: String!): Order
+
+    """
+    Saves the checkout as the shopper types (debounced), for staff to follow up if they leave. Always true.
+    """
+    saveCheckoutProgress(input: BdCheckoutProgressInput!): Boolean!
+
+    """
+    Sends a 6-digit code by SMS to the active order's phone, when COD needs one (bdPaymentOptions.codOtpRequired)
+    """
+    sendBdOtp: BdOtpResult!
+    verifyBdOtp(code: String!): BdOtpResult!
+
+    """
+    No code arrived: order anyway, marked not verified (only when the store allows it, a minute after a code was sent)
+    """
+    skipBdOtp: BdOtpResult!
 }
 
 input AuthenticationInput {
@@ -5086,6 +5154,16 @@ input SetCustomerForOrderByPhoneInput {
     Optional real email
     """
     email: String
+
+    """
+    Bot check: a hidden form field people never see. Leave it empty.
+    """
+    website: String
+
+    """
+    Bot check: seconds the shopper spent on the form (measured in the browser); under 3 is refused
+    """
+    secondsOnForm: Int
 }
 
 input SetOrderShippingAddressBDInput {
@@ -5136,6 +5214,7 @@ enum BdCheckoutErrorCode {
     RATE_LIMITED
     NO_ACTIVE_ORDER
     ALREADY_LOGGED_IN
+    TRY_AGAIN
 }
 
 """
@@ -5269,6 +5348,260 @@ type BdImage {
     srcset: String!
 }
 
+type BdDeliveryInfo {
+    """
+    dhaka_city, dhaka_suburb, chattogram_city or outside_dhaka; null until the address has a district (and, in Dhaka district, a thana)
+    """
+    zone: String
+
+    """
+    Why no delivery method is offered: NO_DISTRICT, NOT_DELIVERED_HERE or TOO_HEAVY; null when one is
+    """
+    unavailableReason: String
+
+    """
+    That reason as a sentence in the request's language
+    """
+    unavailableMessage: String
+
+    """
+    Free standard delivery from this subtotal; null when the zone has none
+    """
+    freeDeliveryThreshold: Money
+
+    """
+    Spend this much more for free delivery (0 once reached); null when the zone has no threshold
+    """
+    freeDeliveryRemaining: Money
+}
+
+type BdMfsAccount {
+    """
+    bkash, nagad or rocket
+    """
+    provider: String!
+
+    """
+    The payment method code for addPaymentToOrder
+    """
+    methodCode: String!
+
+    """
+    The merchant's number, to send the money to
+    """
+    number: String!
+
+    """
+    personal (Send Money), merchant (Payment) or agent (Cash Out)
+    """
+    accountType: String!
+}
+
+type BdPaymentOptions {
+    codAvailable: Boolean!
+
+    """
+    COD_OFF, COD_OVER_LIMIT, COD_NOT_HERE or COD_UNAVAILABLE
+    """
+    codUnavailableReason: String
+    codUnavailableMessage: String
+
+    """
+    Paid first by mobile banking (purpose advance) when paying by COD; 0 when none is needed
+    """
+    advanceAmount: Money!
+
+    """
+    Collected on delivery with COD, after the advance
+    """
+    codAmount: Money!
+
+    """
+    The COD charge included in codAmount
+    """
+    codFee: Money!
+
+    """
+    COD needs the code sent by SMS first (sendBdOtp, then verifyBdOtp)
+    """
+    codOtpRequired: Boolean!
+    mfs: [BdMfsAccount!]!
+}
+
+input BdCheckoutProgressInput {
+    """
+    Any common form of a Bangladeshi mobile number; saved only when valid
+    """
+    phone: String!
+    name: String
+    districtId: String
+    thanaId: String
+
+    """
+    utm_source, utm_medium, utm_campaign, utm_content, utm_term, fbclid, ref
+    """
+    source: JSON
+
+    """
+    The hidden bot-check field of the checkout form; leave empty
+    """
+    website: String
+}
+
+type BdOtpResult {
+    success: Boolean!
+
+    """
+    NO_ACTIVE_ORDER, NOT_NEEDED, COOLDOWN, DAILY_LIMIT, NO_CODE, EXPIRED, WRONG_CODE, TOO_MANY_ATTEMPTS or NOT_ALLOWED
+    """
+    errorCode: String
+
+    """
+    In the request's language
+    """
+    message: String
+
+    """
+    With COOLDOWN, and after sending: when a new code may be asked for
+    """
+    retryAfterSeconds: Int
+
+    """
+    With WRONG_CODE
+    """
+    attemptsLeft: Int
+}
+
+enum BdSearchSort {
+    RELEVANCE
+    FEATURED
+    NEWEST
+    PRICE_ASC
+    PRICE_DESC
+    POPULAR
+}
+
+input BdSearchFilterInput {
+    """
+    An option dimension (size, colour) or a facet code (tag…)
+    """
+    key: String!
+
+    """
+    Option codes or facet value codes; any of them matches
+    """
+    values: [String!]!
+}
+
+input BdSearchInput {
+    term: String
+
+    """
+    A category: its products and its subcategories' products
+    """
+    collectionId: ID
+    filters: [BdSearchFilterInput!]
+
+    """
+    Whole taka
+    """
+    priceMin: Int
+
+    """
+    Whole taka
+    """
+    priceMax: Int
+    inStockOnly: Boolean
+
+    """
+    Default: RELEVANCE with a term, FEATURED without
+    """
+    sort: BdSearchSort
+    skip: Int
+
+    """
+    At most 48
+    """
+    take: Int
+
+    """
+    Count the search if it finds nothing (the results page: page 1, no filters)
+    """
+    recordMiss: Boolean
+}
+
+type BdSearchFilterValue {
+    value: String!
+    label: String!
+
+    """
+    Products with this value, given the other filters
+    """
+    count: Int!
+    selected: Boolean!
+}
+
+type BdSearchFilter {
+    key: String!
+
+    """
+    option (size, colour) or facet
+    """
+    kind: String!
+
+    """
+    The facet's name; empty for options, which the storefront names
+    """
+    label: String!
+    values: [BdSearchFilterValue!]!
+}
+
+type BdPriceRange {
+    min: Money!
+    max: Money!
+}
+
+type BdSearchResult {
+    totalItems: Int!
+
+    """
+    This page's products, in order
+    """
+    productIds: [ID!]!
+    filters: [BdSearchFilter!]!
+
+    """
+    Lowest and highest price among the results, ignoring the price filter
+    """
+    priceRange: BdPriceRange
+
+    """
+    Results in stock, ignoring the in-stock filter
+    """
+    inStockCount: Int!
+
+    """
+    The query with typos corrected, when a word only matched loosely
+    """
+    didYouMean: String
+}
+
+type BdSearchCollection {
+    id: ID!
+    name: String!
+
+    """
+    From the top category down to this one
+    """
+    slugs: [String!]!
+}
+
+type BdSearchSuggestions {
+    productIds: [ID!]!
+    collections: [BdSearchCollection!]!
+    didYouMean: String
+}
+
 input ProductVariantFilterParameter {
     id: IDOperators
     productId: IDOperators
@@ -5283,6 +5616,8 @@ input ProductVariantFilterParameter {
     stockLevel: StringOperators
     _and: [ProductVariantFilterParameter!]
     _or: [ProductVariantFilterParameter!]
+    oldPrice: NumberOperators
+    isDefault: BooleanOperators
 }
 
 input ProductVariantSortParameter {
@@ -5295,6 +5630,8 @@ input ProductVariantSortParameter {
     price: SortOrder
     priceWithTax: SortOrder
     stockLevel: SortOrder
+    oldPrice: SortOrder
+    isDefault: SortOrder
 }
 
 input CustomerFilterParameter {
@@ -5374,6 +5711,7 @@ input OrderFilterParameter {
     _or: [OrderFilterParameter!]
     customerNote: StringOperators
     orderNumber: StringOperators
+    paymentChoice: StringOperators
 }
 
 input OrderSortParameter {
@@ -5420,6 +5758,7 @@ input OrderSortParameter {
     totalWithTax: SortOrder
     customerNote: SortOrder
     orderNumber: SortOrder
+    paymentChoice: SortOrder
 }
 
 input FacetValueFilterParameter {
@@ -5521,6 +5860,14 @@ input ProductFilterParameter {
     _or: [ProductFilterParameter!]
     seoTitle: StringOperators
     seoDescription: StringOperators
+    freeDelivery: BooleanOperators
+    deliveryInsideDhaka: NumberOperators
+    deliveryOutsideDhaka: NumberOperators
+    featured: BooleanOperators
+    isNew: BooleanOperators
+    youtubeUrl: StringOperators
+    shortDescription: StringOperators
+    categoryId: IDOperators
 }
 
 input ProductSortParameter {
@@ -5532,6 +5879,15 @@ input ProductSortParameter {
     description: SortOrder
     seoTitle: SortOrder
     seoDescription: SortOrder
+    freeDelivery: SortOrder
+    deliveryInsideDhaka: SortOrder
+    deliveryOutsideDhaka: SortOrder
+    featured: SortOrder
+    isNew: SortOrder
+    youtubeUrl: SortOrder
+    shortDescription: SortOrder
+    category: SortOrder
+    categoryId: SortOrder
 }
 
 type AddressCustomFields {
@@ -5576,16 +5932,33 @@ type CollectionTranslationCustomFields {
 type OrderCustomFields {
     customerNote: String
     orderNumber: String
+    paymentChoice: String
 }
 
 type ProductCustomFields {
     seoTitle: String
     seoDescription: String
+    freeDelivery: Boolean
+    deliveryInsideDhaka: Int
+    deliveryOutsideDhaka: Int
+    featured: Boolean
+    isNew: Boolean
+    youtubeUrl: String
+    shortDescription: String
+    feedbackAssets: [Asset!]
+    category: Collection
+    categoryId: ID
 }
 
 type ProductTranslationCustomFields {
     seoTitle: String
     seoDescription: String
+    shortDescription: String
+}
+
+type ProductVariantCustomFields {
+    oldPrice: Int
+    isDefault: Boolean
 }
 
 input NativeAuthInput {

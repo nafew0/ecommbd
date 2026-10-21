@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
+import { gzipSync } from 'node:zlib';
 import { adminSession, type ApiSession } from './support/store-api';
 import { ensureStorefrontFixtures, type StorefrontFixtures } from './support/storefront-seed';
 
@@ -72,7 +73,12 @@ async function seo(page: Page) {
             jsonLd: [...document.querySelectorAll('script[type="application/ld+json"]')].map(script =>
                 JSON.parse(script.textContent ?? 'null'),
             ),
-            scripts: document.querySelectorAll('script:not([type="application/ld+json"])').length,
+            // Scripts written into the page (the CSP forbids them) and scripts loaded as files.
+            inlineScripts: document.querySelectorAll('script:not([src]):not([type="application/ld+json"])')
+                .length,
+            scriptSources: [...document.querySelectorAll('script[src]')].map(script =>
+                script.getAttribute('src'),
+            ),
         };
     });
 }
@@ -93,7 +99,9 @@ test.describe('storefront', () => {
         expect(bn.jsonLd[1].potentialAction.target.urlTemplate).toBe(
             `${SITE}/search/?q={search_term_string}`,
         );
-        expect(bn.scripts).toBe(0);
+        expect(bn.inlineScripts).toBe(0);
+        // Only the small loader for search suggestions (phase 13), from our own origin.
+        expect(bn.scriptSources.every(src => src?.startsWith('/_astro/'))).toBe(true);
         await expect(page.getByRole('heading', { name: 'নতুন পণ্য' })).toBeVisible();
         await expect(page.locator('.product-grid .card').first()).toBeVisible();
 
@@ -103,8 +111,20 @@ test.describe('storefront', () => {
         await expect(page.getByRole('heading', { name: 'New arrivals' })).toBeVisible();
     });
 
-    test('a product page in both languages: price, stock, SEO, JSON-LD, no JavaScript', async ({ page }) => {
+    test('a product page in both languages: price, stock, SEO, JSON-LD, within the JavaScript budget', async ({
+        page,
+    }) => {
+        const scripts: string[] = [];
+        page.on('response', response => {
+            if (response.request().resourceType() === 'script') scripts.push(response.url());
+        });
         await page.goto(`${SITE}/product/${enc(fixtures.panjabi.bn)}/`);
+        await page.waitForLoadState('networkidle');
+        // First-party JavaScript on a product page: at most 30 KB gzipped (architecture.md, Decision 2).
+        let gzipped = 0;
+        for (const url of scripts)
+            gzipped += gzipSync(Buffer.from(await (await fetch(url)).arrayBuffer())).length;
+        expect(gzipped).toBeLessThanOrEqual(30 * 1024);
         const bn = await seo(page);
         expect(bn.title).toContain('সুতির পাঞ্জাবি');
         expect(bn.ogType).toBe('product');
@@ -115,7 +135,7 @@ test.describe('storefront', () => {
             en: `${SITE}/en/product/${fixtures.panjabi.en}/`,
             'x-default': `${SITE}/product/${enc(fixtures.panjabi.bn)}/`,
         });
-        expect(bn.scripts).toBe(0);
+        expect(bn.inlineScripts).toBe(0);
         await expect(page.getByRole('heading', { level: 1 })).toHaveText('সুতির পাঞ্জাবি');
         await expect(page.locator('.price-large')).toHaveText(/৳1,250 – ৳1,450/);
         // Vendure's default stock display says in or out of stock (no "low stock" level).
@@ -346,6 +366,8 @@ test.describe('storefront', () => {
             'Disallow: /cart/',
             'Disallow: /en/checkout/',
             'Disallow: /search/',
+            'Disallow: /*?*filter.',
+            'Disallow: /*?*sort=',
             `Sitemap: ${SITE}/sitemap.xml`,
         ]) {
             expect(robots).toContain(line);
@@ -379,7 +401,11 @@ test.describe('storefront', () => {
             'href',
             /^https:\/\/wa\.me\/880\d{10}$/,
         );
-        expect(await page.locator('script[src]').count()).toBe(0);
+        // Scripts only as files from our own origin (no inline script, no third party).
+        const sources = await page
+            .locator('script[src]')
+            .evaluateAll(scripts => scripts.map(s => s.getAttribute('src')));
+        expect(sources.every(src => src?.startsWith('/_astro/'))).toBe(true);
         expect(errors).toEqual([]);
     });
 

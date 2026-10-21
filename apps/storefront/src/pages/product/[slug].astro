@@ -1,5 +1,6 @@
 ---
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
+import Icon from '../../components/Icon.astro';
 import Image from '../../components/Image.astro';
 import Missing from '../../components/Missing.astro';
 import Price from '../../components/Price.astro';
@@ -33,10 +34,15 @@ if (!product) {
 const suggestions =
     missing === 'gone' ? (await shopQuery(NEW_PRODUCTS, { take: 4 }, lang)).products.items : [];
 
-const MAIN_SIZES = '(min-width: 768px) 50vw, 100vw';
+const MAIN_SIZES = '(min-width: 750px) 55vw, 100vw';
 const main = product ? (product.featuredAsset ?? product.assets[0] ?? null) : null;
 const gallery = product ? product.assets.filter(asset => asset.id !== main?.id) : [];
 const prices = product?.variants.map(variant => variant.priceWithTax) ?? [];
+// The cheapest variation's old price (phase 05), struck through when it's higher.
+const cheapest = product ? [...product.variants].sort((a, b) => a.priceWithTax - b.priceWithTax)[0] : undefined;
+const oldPrice = cheapest?.customFields?.oldPrice ?? null;
+// Tags (the "tag" facet; the Shop API leaves private facets out) lead to every product with that tag.
+const tags = (product?.facetValues ?? []).filter(value => value.facet.code === 'tag');
 const soldOut = !!product && product.variants.every(variant => variant.stockLevel === 'OUT_OF_STOCK');
 const lowStock = !!product && !soldOut && product.variants.some(variant => variant.stockLevel === 'LOW_STOCK');
 
@@ -98,7 +104,7 @@ const orderLink =
                         <ul class="product-thumbs">
                             {gallery.map(asset => (
                                 <li>
-                                    <Image asset={asset} alt={product.name} lang={lang} sizes="(min-width: 768px) 25vw, 50vw" preferredWidth={320} />
+                                    <Image asset={asset} alt={product.name} lang={lang} sizes="(min-width: 750px) 14vw, 25vw" preferredWidth={160} />
                                 </li>
                             ))}
                         </ul>
@@ -106,19 +112,26 @@ const orderLink =
                 </div>
                 <div class="product-info">
                     <h1>{product.name}</h1>
-                    {prices.length > 0 && <Price min={Math.min(...prices)} max={Math.max(...prices)} format={format} large />}
+                    {prices.length > 0 && (
+                        <Price min={Math.min(...prices)} max={Math.max(...prices)} oldPrice={oldPrice} format={format} large />
+                    )}
                     <p class:list={['stock', { 'stock-out': soldOut, 'stock-low': lowStock }]}>
                         {soldOut ? s.outOfStock : lowStock ? s.lowStock : s.inStock}
                     </p>
+                    {product.customFields?.shortDescription && (
+                        <p class="product-short">{product.customFields.shortDescription}</p>
+                    )}
                     {product.variants.length > 1 && (
                         <section>
                             <h2>{s.options}</h2>
                             <ul class="variant-list">
                                 {product.variants.map(variant => (
                                     <li class:list={{ 'variant-out': variant.stockLevel === 'OUT_OF_STOCK' }}>
-                                        <span>{variant.name}</span>
-                                        <span>{format.price(variant.priceWithTax)}</span>
-                                        {variant.stockLevel === 'OUT_OF_STOCK' && <span class="badge badge-muted">{s.outOfStock}</span>}
+                                        <span class="variant-name">{variant.name}</span>
+                                        <span>
+                                            {variant.stockLevel === 'OUT_OF_STOCK' ? `${s.outOfStock} · ` : ''}
+                                            {format.price(variant.priceWithTax)}
+                                        </span>
                                     </li>
                                 ))}
                             </ul>
@@ -126,6 +139,7 @@ const orderLink =
                     )}
                     {orderLink && (
                         <a class="button button-whatsapp" href={orderLink} rel="noopener">
+                            <Icon name="whatsapp" />
                             {s.orderOnWhatsapp}
                         </a>
                     )}
@@ -133,6 +147,18 @@ const orderLink =
                         <section>
                             <h2>{s.description}</h2>
                             <RichText content={product.description} />
+                        </section>
+                    )}
+                    {tags.length > 0 && (
+                        <section>
+                            <h2 class="visually-hidden">{s.tags}</h2>
+                            <ul class="tag-list">
+                                {tags.map(tag => (
+                                    <li>
+                                        <a href={`${href('/search/')}?filter.tag=${encodeURIComponent(tag.code)}`}>{tag.name}</a>
+                                    </li>
+                                ))}
+                            </ul>
                         </section>
                     )}
                 </div>

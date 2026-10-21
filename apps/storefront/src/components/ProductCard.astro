@@ -15,22 +15,36 @@ interface Props {
 }
 
 const { product, lang, defaultLang, format } = Astro.props;
-const prices = product.variants.map(variant => variant.priceWithTax);
-const soldOut = product.variants.length > 0 && product.variants.every(variant => variant.stockLevel === 'OUT_OF_STOCK');
+const s = t(lang);
+const variants = [...product.variants].sort((a, b) => a.priceWithTax - b.priceWithTax);
+const prices = variants.map(variant => variant.priceWithTax);
+// The cheapest variation's old price, shown struck through when it's higher (phase 05's field).
+const oldPrice = variants[0]?.customFields?.oldPrice ?? null;
+const onSale = oldPrice != null && prices.length > 0 && oldPrice > prices[0]!;
+const soldOut = variants.length > 0 && variants.every(variant => variant.stockLevel === 'OUT_OF_STOCK');
+const badge = soldOut
+    ? { text: s.outOfStock, kind: 'badge-soldout' }
+    : onSale
+      ? { text: s.sale, kind: 'badge-sale' }
+      : product.customFields?.isNew
+        ? { text: s.newBadge, kind: 'badge-new' }
+        : null;
 ---
 
 <li class="card">
     <a href={localePath(lang, defaultLang, productPath(product.slug))}>
-        <Image
-            asset={product.featuredAsset}
-            alt={product.name}
-            lang={lang}
-            sizes="(min-width: 1024px) 240px, (min-width: 640px) 33vw, 50vw"
-            preferredWidth={320}
-            class="card-image"
-        />
+        <div class="card-media">
+            <Image
+                asset={product.featuredAsset}
+                alt={product.name}
+                lang={lang}
+                sizes="(min-width: 990px) 280px, (min-width: 750px) 33vw, 50vw"
+                preferredWidth={320}
+                class="card-image"
+            />
+            {badge && <span class:list={['badge', badge.kind]}>{badge.text}</span>}
+        </div>
         <h3 class="card-title">{product.name}</h3>
-        {prices.length > 0 && <Price min={Math.min(...prices)} max={Math.max(...prices)} format={format} />}
-        {soldOut && <span class="badge badge-muted">{t(lang).outOfStock}</span>}
+        {prices.length > 0 && <Price min={prices[0]!} max={prices[prices.length - 1]!} oldPrice={onSale ? oldPrice : null} format={format} />}
     </a>
 </li>

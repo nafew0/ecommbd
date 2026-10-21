@@ -1,6 +1,6 @@
 import { defineMiddleware } from 'astro:middleware';
 import { env } from './env';
-import { CoreUnavailableError } from './lib/core';
+import { CoreUnavailableError, RateLimitedError } from './lib/core';
 import { parseLocalePath } from './lib/urls';
 import { getSettings } from './lib/store';
 import { systemPage } from './lib/system-pages';
@@ -67,6 +67,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
         return withHeaders(response);
     } catch (error) {
         if (error instanceof CoreUnavailableError) return withHeaders(systemPage('unavailable'));
+        if (error instanceof RateLimitedError) return withHeaders(systemPage('busy'));
         console.error(JSON.stringify({ level: 'error', msg: 'render failed', error: String(error) }));
         return withHeaders(systemPage('error'));
     }

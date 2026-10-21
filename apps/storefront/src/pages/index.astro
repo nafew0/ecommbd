@@ -16,7 +16,7 @@ if (redirect) return redirect;
 const { lang, defaultLang, settings, s, href, absolute, format } = pageContext(Astro);
 const [collections, newProducts] = await Promise.all([
     getTopCollections(lang),
-    shopQuery(NEW_PRODUCTS, { take: 12 }, lang).then(result => result.products.items),
+    shopQuery(NEW_PRODUCTS, { take: 8 }, lang).then(result => result.products.items),
 ]);
 const name = storeName(settings, lang);
 const description = bilingual(settings.profile.shortDescription, lang);
@@ -42,15 +42,16 @@ const profile = settings.profile;
         website({ name, url: absolute(href('/')), searchUrl: absolute(href('/search/')), language: lang }),
     ]}
 >
-    <section class="hero">
+    <section class="home-intro">
         <h1>{name}</h1>
         {description && <p>{description}</p>}
+        <a class="button" href={href('/search/')}>{s.allProducts}</a>
     </section>
 
     {
         collections.length > 0 && (
             <section>
-                <h2>{s.categories}</h2>
+                <h2>{s.shopByCategory}</h2>
                 <ul class="category-grid">
                     {collections.map(collection => (
                         <li>
@@ -59,8 +60,8 @@ const profile = settings.profile;
                                     asset={collection.featuredAsset}
                                     alt=""
                                     lang={lang}
-                                    sizes="(min-width: 768px) 160px, 33vw"
-                                    preferredWidth={160}
+                                    sizes="(min-width: 990px) 180px, 33vw"
+                                    preferredWidth={320}
                                 />
                                 <span>{collection.name}</span>
                             </a>
@@ -72,7 +73,10 @@ const profile = settings.profile;
     }
 
     <section>
-        <h2>{s.newArrivals}</h2>
+        <div class="section-header">
+            <h2>{s.newArrivals}</h2>
+            {newProducts.length > 0 && <a href={href('/search/')}>{s.seeAll}</a>}
+        </div>
         {
             newProducts.length ? (
                 <ul class="product-grid">

@@ -1,43 +1,130 @@
 ---
+import Listing from '../components/Listing.astro';
 import ProductCard from '../components/ProductCard.astro';
 import Layout from '../layouts/Layout.astro';
-import { type ResultOf, shopQuery } from '../lib/core';
+import { clientIpOf, RateLimitedError, type ResultOf, shopQuery } from '../lib/core';
+import {
+    canonicalListingSearch,
+    isRefined,
+    listingQuery,
+    parseListing,
+    SEARCH_SORT_ENUM,
+    withState,
+} from '../lib/filters';
 import { canonicalRedirect, pageContext, privatePage } from '../lib/page';
-import { type ProductCardFields, PRODUCTS_BY_ID, SEARCH } from '../lib/queries';
+import { BD_SEARCH, type ProductCardFields, PRODUCTS_BY_ID } from '../lib/queries';
 
-/** A simple product search (phase 13 adds filters and better matching). Never indexed. */
+/**
+ * Search results and "all products" (roadmap phase 13): the same filters and orders as categories,
+ * "did you mean" for typos, popular products when nothing matches. Never indexed or cached.
+ */
+const PER_PAGE = 24;
 const redirect = canonicalRedirect(Astro, '/search/');
 if (redirect) return redirect;
 privatePage(Astro);
+const { lang, defaultLang, s, href, format } = pageContext(Astro);
+const canonical = canonicalListingSearch(Astro.url, 'search');
+if (canonical !== null) return Astro.redirect(`${href('/search/')}${canonical}`, 301);
 
-const { lang, defaultLang, s, format } = pageContext(Astro);
-const query = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 100);
-let products: Array<ResultOf<typeof ProductCardFields>> = [];
-if (query) {
-    const { search } = await shopQuery(SEARCH, { input: { term: query, groupByProduct: true, take: 24 } }, lang);
-    const ids = search.items.map(item => item.productId);
-    if (ids.length) {
-        const found = (await shopQuery(PRODUCTS_BY_ID, { ids, take: ids.length }, lang)).products.items;
-        products = ids.map(id => found.find(product => product.id === id)).filter(product => !!product);
-    }
+const state = parseListing(Astro.url.searchParams, 'search');
+const filtered = state.filters.length > 0 || state.priceMin != null || state.priceMax != null || state.inStock;
+const clientIp = clientIpOf(Astro.request, () => Astro.clientAddress);
+type Result = ResultOf<typeof BD_SEARCH>['bdSearch'];
+type Card = ResultOf<typeof ProductCardFields>;
+
+async function cards(ids: string[]): Promise<Card[]> {
+    if (!ids.length) return [];
+    const found = (await shopQuery(PRODUCTS_BY_ID, { ids, take: ids.length }, lang)).products.items;
+    return ids.map(id => found.find(product => product.id === id)).filter(product => !!product);
 }
+
+let result: Result | null = null;
+let products: Card[] = [];
+let popular: Card[] = [];
+let limited = false;
+try {
+    result = (
+        await shopQuery(
+            BD_SEARCH,
+            {
+                input: {
+                    term: state.q || null,
+                    filters: state.filters,
+                    priceMin: state.priceMin,
+                    priceMax: state.priceMax,
+                    inStockOnly: state.inStock,
+                    sort: SEARCH_SORT_ENUM[state.sort],
+                    take: PER_PAGE,
+                    skip: (state.page - 1) * PER_PAGE,
+                    // Merchants see what shoppers looked for and didn't find (Online store → Search).
+                    recordMiss: !!state.q && state.page === 1 && !filtered,
+                },
+            },
+            lang,
+            { clientIp },
+        )
+    ).bdSearch;
+    products = await cards(result.productIds);
+    if (state.q && !result.totalItems && !isRefined(state, 'search')) {
+        const { bdSearch } = await shopQuery(BD_SEARCH, { input: { sort: 'POPULAR', take: 8 } }, lang, { clientIp });
+        popular = await cards(bdSearch.productIds);
+    }
+} catch (error) {
+    if (!(error instanceof RateLimitedError)) throw error;
+    limited = true;
+    Astro.response.status = 429;
+    Astro.response.headers.set('retry-after', '60');
+}
+const title = state.q ? s.resultsFor(state.q) : s.allProducts;
+const pages = Math.max(1, Math.ceil((result?.totalItems ?? 0) / PER_PAGE));
+if (result && state.page > pages) Astro.response.status = 404;
+const correction = result?.didYouMean;
 ---
 
-<Layout title={query ? s.resultsFor(query) : s.search} noindex>
-    <h1>{query ? s.resultsFor(query) : s.search}</h1>
+<Layout title={title} noindex>
+    <header class="page-header">
+        <h1>{title}</h1>
+    </header>
     {
-        query &&
-            (products.length ? (
+        correction && (
+            <p class="did-you-mean">
+                {s.didYouMean}: <a href={`${href('/search/')}${listingQuery(withState(state, { q: correction }), 'search')}`}>{correction}</a>?
+            </p>
+        )
+    }
+    {limited && <p class="empty-state">{s.tooManySearches}</p>}
+    {
+        result &&
+            (state.q && !result.totalItems && !isRefined(state, 'search') ? (
                 <>
-                    <h2 class="visually-hidden">{s.productsHeading}</h2>
-                    <ul class="product-grid">
-                        {products.map(product => (
-                            <ProductCard product={product} lang={lang} defaultLang={defaultLang} format={format} />
-                        ))}
-                    </ul>
+                    <section class="empty-state">
+                        <p>{s.noResultsFor(state.q)}</p>
+                        <p class="muted">{s.searchTips}</p>
+                    </section>
+                    {popular.length > 0 && (
+                        <section>
+                            <h2>{s.popularNow}</h2>
+                            <ul class="product-grid">
+                                {popular.map(product => (
+                                    <ProductCard product={product} lang={lang} defaultLang={defaultLang} format={format} />
+                                ))}
+                            </ul>
+                        </section>
+                    )}
                 </>
             ) : (
-                <p class="muted">{s.nothingFound}</p>
+                <Listing
+                    kind="search"
+                    state={state}
+                    result={result}
+                    products={products}
+                    basePath={href('/search/')}
+                    perPage={PER_PAGE}
+                >
+                    <p slot="empty" class="muted">
+                        {s.noProducts}
+                    </p>
+                </Listing>
             ))
     }
 </Layout>
