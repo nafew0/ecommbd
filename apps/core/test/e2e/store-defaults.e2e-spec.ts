@@ -222,6 +222,7 @@ describe('running the initializer again', () => {
             'store-settings',
             // Registered by later plugins (registerStoreDefaults):
             'order-permissions',
+            'print-permissions',
         ]);
         expect(await storeState()).toEqual(before);
     });
