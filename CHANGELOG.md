@@ -6,6 +6,16 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Added
 
+- **Phase 11, incomplete orders and fake-order protection** (plugin `fraud-guard`):
+  - **Incomplete orders:** the checkout is saved as soon as a valid phone is typed (`saveCheckoutProgress`, for the storefront in phase 14); Orders → **Incomplete orders** lists them with tap-to-call, a one-time reminder SMS, **Make an order** (opens the phone order filled in, saying which products are no longer available) and dismiss with a reason. A later order from the same phone marks them ordered; personal data is deleted after 30 days.
+  - **Block list** (Customers → Block list, and on the customer page): phones for good or until a date, IPs for at most 30 days. Blocked shoppers see a polite "can't take this order online"; staff can still enter their orders. Unblocking records why.
+  - **Order limits:** at most 3 website orders a phone in 24 hours by default, and an optional "already ordered" window with the merchant's own message.
+  - **Risk badge** with reasons ("1 fake order before · Name looks made up") in the confirmation queue and on the order, for staff with the new `ReadRisk` permission.
+  - **Verification code for COD** by SMS: never, every COD order, first-time customers or risky orders; 6 digits, 5 minutes, 3 tries, a minute between codes, 5 a day; optionally the shopper may order "not verified" when no SMS arrives.
+  - **Bot checks** on the phone checkout: a hidden field and a minimum time on the form.
+  - Settings → **Fake-order protection**. Migration: incomplete checkouts, block list, codes, three order fields (additive).
+  - Tests: unit tests of the risk score and name check; end-to-end tests of capture, bursts, recovery, convert, SMS, dismiss and expiry, the block list (phones and IPs), limits, the risk badge and its permission, every code mode and limit, and the bot checks; Playwright tests of making an order from an incomplete checkout and of blocking and unblocking.
+
 - **Phase 10, notifications: SMS, templates and email hygiene** (plugin `notifications`; no SMS provider yet, by choice):
   - Order SMS in Bangla or English when an order is placed, confirmed, shipped (with a tracking link), delivered or cancelled, and when a bKash/Nagad/Rocket payment is verified or not matched; OTP template ready for phase 11.
   - Each SMS is sent exactly once (an outbox with a unique key per order, event and phone), retried 4 times if the provider fails, and kept with its status and reason on the order page.

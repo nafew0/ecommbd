@@ -6,6 +6,7 @@ import { BdManualOrdersPlugin } from './bd-manual-orders';
 import { BdCheckoutPlugin, type BdCheckoutPluginOptions, type RedisConnectionOptions } from './bd-checkout';
 import { BdCorePlugin } from './bd-core';
 import { BdOrdersPlugin } from './bd-orders';
+import { FraudGuardPlugin } from './fraud-guard';
 import { ImagesPlugin } from './images';
 import { MerchantAdminPlugin } from './merchant-admin/merchant-admin.plugin';
 import { NotificationsPlugin, type SmsDriver } from './notifications';
@@ -59,6 +60,7 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
         BdManualOrdersPlugin,
         ImagesPlugin.init({ imagesDir: options.imagesDir }),
         NotificationsPlugin.init({ driver: options.smsDriver, storefrontUrl: options.storefrontUrl }),
+        FraudGuardPlugin,
         MerchantAdminPlugin.init({
             appDir: ADMIN_APP_DIR,
             imageOrigins: options.assetUrlPrefix ? [new URL(options.assetUrlPrefix).origin] : [],

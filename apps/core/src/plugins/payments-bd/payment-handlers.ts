@@ -20,6 +20,7 @@ import { COD_HANDLER_CODE, EDIT_REFUND_REASON, MFS_HANDLER_CODE, STAFF_HANDLER_C
 import type { ShopperPaymentMessage } from './i18n';
 import { type CodUnavailableReason, PaymentRulesService } from './payment-rules.service';
 import { PaymentSettingsService } from './payment-settings.service';
+import { codNeedsCode } from './risk';
 import type { MfsPaymentMetadata } from './types';
 
 let rules: PaymentRulesService;
@@ -118,6 +119,9 @@ export const codPaymentHandler = new PaymentMethodHandler({
             (await rules.mfsCovered(ctx, order)) < options.advanceAmount
         ) {
             return decline(ctx, 'ADVANCE_REQUIRED', amount);
+        }
+        if (ctx.apiType === 'shop' && (await codNeedsCode(ctx, order))) {
+            return decline(ctx, 'CODE_REQUIRED', amount);
         }
         return (
             (await soldOut(ctx, order, amount)) ?? {

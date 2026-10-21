@@ -13,6 +13,7 @@ import { EditOrderDialog } from '../components/orders/edit-order-dialog';
 import { PlaceName } from '../components/address/place-name';
 import { CallLaterDialog, CancelDialog, StockDialog } from '../components/orders/order-dialogs';
 import { OrderSms } from '../components/orders/order-sms';
+import { RiskBadge } from '../components/orders/risk-badge';
 import { PaymentBadge, StatusBadge } from '../components/orders/status';
 import {
     ORDER_PAYMENT_FIELDS,
@@ -158,6 +159,7 @@ export function OrderDetailPage() {
                 {order.bd.suggestCancel && <Badge tone="red">{m.orders.badges.suggestCancel}</Badge>}
                 {order.bd.callAttempts > 0 && <Badge>{m.orders.badges.calls(order.bd.callAttempts)}</Badge>}
                 {order.bd.imported && <Badge>{m.orders.badges.imported}</Badge>}
+                <RiskBadge risk={order.bdRisk} otpStatus={order.bdOtpStatus} />
             </div>
             {(buttons.length > 0 || actions.includes('cancel')) && (
                 <div className="mb-4 flex flex-wrap gap-2">

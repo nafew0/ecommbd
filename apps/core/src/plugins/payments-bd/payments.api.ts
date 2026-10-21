@@ -24,6 +24,8 @@ export const paymentsShopApiExtensions = gql`
         codAmount: Money!
         "The COD charge included in codAmount"
         codFee: Money!
+        "COD needs the code sent by SMS first (sendBdOtp, then verifyBdOtp)"
+        codOtpRequired: Boolean!
         mfs: [BdMfsAccount!]!
     }
 

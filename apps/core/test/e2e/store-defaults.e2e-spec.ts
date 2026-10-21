@@ -227,6 +227,7 @@ describe('running the initializer again', () => {
             'payment-permissions',
             'staff-payment-method',
             'manual-order-permissions',
+            'fraud-permissions',
         ]);
         expect(await storeState()).toEqual(before);
     });

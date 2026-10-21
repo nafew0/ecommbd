@@ -11,7 +11,7 @@ import { banglaToAsciiDigits } from '@ecommbd/shared/text';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { DistrictThanaPicker, OTHER_THANA } from '../components/address/district-thana-picker';
 import { Field } from '../components/form/field';
 import { PhoneInput, TakaInput } from '../components/form/inputs';
@@ -42,6 +42,14 @@ const CREATE = `
             ... on BdManualOrderError { reason message details }
         }
     }
+`;
+const FROM_INCOMPLETE = `
+    query FromIncomplete($id: ID!) {
+        bdIncompleteCheckout(id: $id) { phone name districtId thanaId cart { variantId name quantity } }
+    }
+`;
+const FIND_VARIANT = `
+    query FindVariant($search: String) { bdStock(search: $search, take: 20) { variantId name sku preview available price backorder } }
 `;
 const FIND_CUSTOMER = `
     query Find($search: String) { bdCustomers(search: $search, take: 1) { items { firstName customFields { phone alternatePhone } } } }
@@ -102,6 +110,45 @@ export function PhoneOrderPage() {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // "Make an order" from Incomplete orders (phase 11): fill in what the shopper typed.
+    const [searchParams] = useSearchParams();
+    const incompleteId = searchParams.get('incomplete');
+    const fromIncomplete = useQuery({
+        queryKey: ['phoneOrderFromIncomplete', incompleteId],
+        enabled: !!incompleteId,
+        staleTime: Infinity,
+        queryFn: async () => {
+            const { bdIncompleteCheckout: record } = await adminApi<{
+                bdIncompleteCheckout: {
+                    phone: string | null;
+                    name: string | null;
+                    districtId: string | null;
+                    thanaId: string | null;
+                    cart: Array<{ variantId: string; name: string; quantity: number }> | null;
+                } | null;
+            }>(FROM_INCOMPLETE, { id: incompleteId });
+            if (!record) return null;
+            const found: Line[] = [];
+            const unavailable: string[] = [];
+            for (const line of record.cart ?? []) {
+                const { bdStock } = await adminApi<{ bdStock: PickedVariant[] }>(FIND_VARIANT, { search: line.name });
+                const variant = bdStock.find(candidate => candidate.variantId === line.variantId);
+                if (variant && (variant.available > 0 || variant.backorder)) {
+                    found.push({ variant, quantity: line.quantity, unitPrice: null });
+                } else {
+                    unavailable.push(line.name);
+                }
+            }
+            setPhone(current => current || record.phone || '');
+            setName(current => current || record.name || '');
+            setPlace(current =>
+                current.districtId ? current : { districtId: record.districtId ?? '', thanaId: record.thanaId ?? '' },
+            );
+            setLines(current => (current.length ? current : found));
+            setSource('phone');
+            return { unavailable };
+        },
+    });
     const e164 = useMemo(() => {
         const parsed = parseBdMobile(phone);
         return parsed.ok ? parsed.phone.e164 : null;
@@ -207,6 +254,14 @@ export function PhoneOrderPage() {
     return (
         <>
             <PageHeader title={o.title} description={o.description} />
+            {fromIncomplete.data && (
+                <div className="mb-4 space-y-2">
+                    <Alert>{o.fromIncomplete}</Alert>
+                    {fromIncomplete.data.unavailable.length > 0 && (
+                        <Alert tone="warning">{o.unavailable(fromIncomplete.data.unavailable.join(', '))}</Alert>
+                    )}
+                </div>
+            )}
             <div className="grid gap-4 lg:grid-cols-3">
                 <div className="space-y-4 lg:col-span-2">
                     <Card>

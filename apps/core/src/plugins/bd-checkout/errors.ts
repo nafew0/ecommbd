@@ -18,6 +18,7 @@ export const CHECKOUT_ERROR_CODES = [
     'RATE_LIMITED',
     'NO_ACTIVE_ORDER',
     'ALREADY_LOGGED_IN',
+    'TRY_AGAIN',
 ] as const;
 
 export type CheckoutErrorCode = (typeof CHECKOUT_ERROR_CODES)[number];

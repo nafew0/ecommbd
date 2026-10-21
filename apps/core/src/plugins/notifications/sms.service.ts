@@ -42,6 +42,12 @@ export interface QueueSmsInput {
 }
 
 const COUNTED = ['queued', 'scheduled', 'sent', 'delivered'];
+
+/** A verification code is kept only until the SMS is finished with: staff never see codes. */
+function hideCode(message: BdSmsMessage): BdSmsMessage {
+    if (message.event === 'otp') message.body = message.body.replace(/\d{4,8}/g, '••••••');
+    return message;
+}
 const UNIQUE_VIOLATION = '23505';
 
 /**
@@ -108,6 +114,7 @@ export class SmsService implements OnModuleInit {
         if (skip) {
             message.status = 'skipped';
             message.reason = skip;
+            hideCode(message);
         } else if (!input.urgent && settings.quietHours.enabled) {
             const { startHour, endHour } = settings.quietHours;
             const now = new Date();
@@ -179,16 +186,17 @@ export class SmsService implements OnModuleInit {
             message.providerMessageId = result.providerMessageId;
             message.sentAt = new Date();
             message.reason = '';
-            await repository.save(message);
+            await repository.save(hideCode(message));
         } catch (error) {
             if (error instanceof NoProviderError) {
                 message.status = 'skipped';
                 message.reason = 'no SMS provider set up';
-                await repository.save(message);
+                await repository.save(hideCode(message));
                 return;
             }
             message.reason = String(error instanceof Error ? error.message : error).slice(0, 200);
             if (lastTry) {
+                hideCode(message);
                 message.status = 'failed';
                 Logger.error(`SMS to ${maskPhone(message.to)} failed after ${message.attempts} tries: ${message.reason}`, loggerCtx);
             }

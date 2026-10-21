@@ -689,6 +689,8 @@ Central SMS gateway, credit purchase and failover provider (38), abandoned-check
 
 **Goal.** Recover shoppers who abandon checkout, and stop fake COD orders without annoying real shoppers.
 
+> **Built on 2026-10-21** on the branch `m2/notifications-and-fraud` (plugin `fraud-guard`, plus the bot checks in `bd-checkout` and the COD code hook in `payments-bd`). Decisions are in the [decisions log](../decisions.md) (rows starting "Phase 11"). Not built, kept simple for the MVP: Cloudflare Turnstile (the honeypot and time-on-form checks are in; Turnstile is added when real abuse shows up), a per-session order limit (per phone is), auto-reject by score (risk never refuses an order by itself), and linking an incomplete checkout to an order with a different phone by hand. A duplicate cart raises the risk score rather than blocking. Codes are verified with SMS through the log driver until the SMS provider is chosen (phase 10).
+
 ### Decide at start
 
 - **Consent wording** for capturing checkout details before the order is placed (shown under the phone field), in Bangla and English.
@@ -766,10 +768,10 @@ Central SMS gateway, credit purchase and failover provider (38), abandoned-check
 
 ### Done when
 
-- [ ] An abandoned checkout appears in the Dashboard within 5 seconds of typing a valid phone, and converts to an order in two clicks.
-- [ ] Repeated fake orders from a blocked phone are refused politely.
-- [ ] OTP-for-COD works in every mode, within the SMS limits.
-- [ ] The confirmation queue shows the risk badge with reasons.
+- [x] An abandoned checkout appears in the Dashboard within 5 seconds of typing a valid phone, and converts to an order in two clicks. (Saved at once by `saveCheckoutProgress`; Orders → Incomplete orders → "Make an order" opens the phone order filled in, then "Create". The storefront call is phase 14. Tests: `fraud-guard.e2e-spec.ts`, Playwright `fraud.spec.ts`.)
+- [x] Repeated fake orders from a blocked phone are refused politely.
+- [x] OTP-for-COD works in every mode, within the SMS limits.
+- [x] The confirmation queue shows the risk badge with reasons.
 
 ### Not in this phase
 

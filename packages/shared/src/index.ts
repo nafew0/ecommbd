@@ -3,6 +3,7 @@ export * from './checkout';
 export * from './circuit-breaker';
 export * from './crypto';
 export * from './env';
+export * from './fraud';
 export * from './http';
 export * from './idempotency';
 export * from './manual-orders';

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { PlaceName } from '../components/address/place-name';
 import { CallLaterDialog, CancelDialog, StockDialog } from '../components/orders/order-dialogs';
+import { RiskBadge } from '../components/orders/risk-badge';
 import { PaymentBadge } from '../components/orders/status';
 import { Button } from '../components/ui/button';
 import { Badge, EmptyState, PageHeader, Skeleton } from '../components/ui/misc';
@@ -366,6 +367,7 @@ function QueueCard(props: {
                     {order.bd.callAttempts > 0 && (
                         <Badge>{m.orders.badges.calls(order.bd.callAttempts)}</Badge>
                     )}
+                    <RiskBadge risk={order.bdRisk} otpStatus={order.bdOtpStatus} />
                 </div>
             </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">

@@ -1,5 +1,6 @@
 import {
     CHECKOUT_LIMITS,
+    MIN_SECONDS_ON_FORM,
     cleanText,
     parseBdPhone,
     parseCheckoutEmail,
@@ -28,6 +29,9 @@ export interface SetCustomerForOrderByPhoneInput {
     phone: string;
     alternatePhone?: string | null;
     email?: string | null;
+    /** Bot checks (phase 11): a honeypot field, and time spent on the form. */
+    website?: string | null;
+    secondsOnForm?: number | null;
 }
 
 export interface SetOrderShippingAddressBdInput {
@@ -46,6 +50,12 @@ export interface SetOrderShippingAddressBdInput {
 }
 
 type CheckoutResult = Promise<Order | BdCheckoutError>;
+
+/** The hidden field was filled in, or the form was sent faster than a person can type. */
+export function looksLikeBot(input: { website?: string | null; secondsOnForm?: number | null }): boolean {
+    if (input.website?.trim()) return true;
+    return typeof input.secondsOnForm === 'number' && input.secondsOnForm < MIN_SECONDS_ON_FORM;
+}
 type CreateAddressInput = Parameters<OrderService['setShippingAddress']>[2];
 
 const ADDRESS_ERRORS: Record<BdAddressErrorCode, CheckoutErrorCode> = {
@@ -102,6 +112,10 @@ export class CheckoutService {
         );
         if (sessionLimited) {
             return sessionLimited;
+        }
+        if (looksLikeBot(input)) {
+            // Vague on purpose: a script learns nothing about what gave it away.
+            return new BdCheckoutError('TRY_AGAIN');
         }
         const settings = await this.settings.get(ctx);
         const name = parseCheckoutName(input.name);

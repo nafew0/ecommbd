@@ -3,7 +3,7 @@ import { en } from '../messages/en';
 import { MENU, visibleMenu } from './menu';
 
 describe('menu', () => {
-    it('shows only built screens: Home, Orders (04, 05, 08), Products (05), Customers (03) and Settings', () => {
+    it('shows only built screens: Home, Orders (04, 05, 08, 11), Products (05), Customers (03, 11) and Settings', () => {
         const menu = visibleMenu(MENU, () => true);
         expect(menu.map(group => group.label)).toEqual([
             'home',
@@ -16,6 +16,7 @@ describe('menu', () => {
             '/orders',
             '/orders/confirm',
             '/orders/phone',
+            '/orders/incomplete',
             '/orders/payments',
         ]);
         expect(menu[2]!.children!.map(child => child.to)).toEqual([
@@ -23,13 +24,14 @@ describe('menu', () => {
             '/products/categories',
             '/products/stock',
         ]);
-        expect(menu[3]!.children!.map(child => child.to)).toEqual(['/customers']);
+        expect(menu[3]!.children!.map(child => child.to)).toEqual(['/customers', '/customers/blocked']);
         expect(menu[4]!.children!.map(child => child.to)).toEqual([
             '/settings/store',
             '/settings/orders',
             '/settings/delivery',
             '/settings/payments',
             '/settings/sms',
+            '/settings/fraud',
         ]);
     });
 
@@ -53,6 +55,7 @@ describe('menu', () => {
         const packer = visibleMenu(MENU, permission => permission === 'ReadOrder');
         expect(packer.find(group => group.label === 'orders')!.children!.map(child => child.to)).toEqual([
             '/orders',
+            '/orders/incomplete',
         ]);
     });
 

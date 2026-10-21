@@ -13,6 +13,7 @@ import {
 } from '@vendure/core';
 import { verifyPaymentPermission } from './constants';
 import { shopperCode } from './payment-handlers';
+import { codNeedsCode } from './risk';
 import { PaymentChecksService } from './payment-checks.service';
 import { PaymentRulesService } from './payment-rules.service';
 import { PaymentSettingsService } from './payment-settings.service';
@@ -36,6 +37,7 @@ export class PaymentsShopResolver {
         const code = options.codAvailable ? null : shopperCode(options.codUnavailableReason);
         return {
             ...options,
+            codOtpRequired: options.codAvailable && (await codNeedsCode(ctx, order)),
             codUnavailableReason: code,
             codUnavailableMessage: code ? ctx.translate(`message.payments-bd.${code}`) : null,
         };

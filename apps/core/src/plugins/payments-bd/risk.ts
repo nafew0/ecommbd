@@ -9,6 +9,8 @@ export interface PaymentRiskCheck {
     codBlocked(ctx: RequestContext, order: Order): Promise<boolean>;
     /** The "risky orders" advance scope applies. */
     risky(ctx: RequestContext, order: Order): Promise<boolean>;
+    /** COD waits for the shopper's verification code (phase 11), sent by SMS. */
+    codNeedsCode?(ctx: RequestContext, order: Order): Promise<boolean>;
 }
 
 const checks: PaymentRiskCheck[] = [];
@@ -27,6 +29,13 @@ export async function codBlocked(ctx: RequestContext, order: Order): Promise<boo
 export async function risky(ctx: RequestContext, order: Order): Promise<boolean> {
     for (const check of checks) {
         if (await check.risky(ctx, order)) return true;
+    }
+    return false;
+}
+
+export async function codNeedsCode(ctx: RequestContext, order: Order): Promise<boolean> {
+    for (const check of checks) {
+        if (await check.codNeedsCode?.(ctx, order)) return true;
     }
     return false;
 }

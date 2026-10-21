@@ -137,6 +137,27 @@ const router = createBrowserRouter(
                                 })),
                         },
                         {
+                            path: 'settings/fraud',
+                            lazy: () =>
+                                import('./pages/fraud-settings').then(module => ({
+                                    Component: module.FraudSettingsPage,
+                                })),
+                        },
+                        {
+                            path: 'orders/incomplete',
+                            lazy: () =>
+                                import('./pages/incomplete-orders').then(module => ({
+                                    Component: module.IncompleteOrdersPage,
+                                })),
+                        },
+                        {
+                            path: 'customers/blocked',
+                            lazy: () =>
+                                import('./pages/block-list').then(module => ({
+                                    Component: module.BlockListPage,
+                                })),
+                        },
+                        {
                             path: 'settings/sms',
                             lazy: () =>
                                 import('./pages/sms-settings').then(module => ({

@@ -16,6 +16,7 @@ export const SMS_EVENTS = [
     'paymentVerified',
     'paymentRejected',
     'otp',
+    'incomplete',
 ] as const;
 export type SmsEvent = (typeof SMS_EVENTS)[number];
 
@@ -122,6 +123,11 @@ export const smsSettingsSchema = z.object({
 export type SmsSettings = z.output<typeof smsSettingsSchema>;
 
 const TEMPLATES: Record<SmsEvent, { bn: string; en: string }> = {
+    // Sent by staff from Incomplete orders (phase 11).
+    incomplete: {
+        bn: '{name}, আপনার অর্ডারটি এখনো বাকি আছে। অর্ডার করতে কল করুন {storePhone}। {storeName}',
+        en: '{name}, your order is still waiting. Call {storePhone} to place it. {storeName}',
+    },
     placed: {
         bn: '{name}, আপনার অর্ডার #{orderNumber} পেয়েছি। মোট ৳{total}। শীঘ্রই কল করে কনফার্ম করব। {storeName}',
         en: '{name}, we received your order #{orderNumber}. Total Tk {total}. We will call to confirm. {storeName}',
@@ -157,7 +163,7 @@ const TEMPLATES: Record<SmsEvent, { bn: string; en: string }> = {
 };
 
 /** Which events are on in a new store, and which are sent even to customers who opted out. */
-const DEFAULT_ON: SmsEvent[] = ['placed', 'confirmed', 'shipped', 'paymentVerified', 'paymentRejected', 'otp'];
+const DEFAULT_ON: SmsEvent[] = ['placed', 'confirmed', 'shipped', 'paymentVerified', 'paymentRejected', 'otp', 'incomplete'];
 const DEFAULT_REQUIRED: SmsEvent[] = ['confirmed', 'shipped', 'paymentRejected', 'otp'];
 
 export function defaultSmsSettings(): SmsSettings {
