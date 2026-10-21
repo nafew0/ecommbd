@@ -282,10 +282,20 @@ Banglish transliteration (50), recommendations and "customers also bought" (late
 
 ### Done when
 
-- [ ] On a throttled mid-range Android profile, a shopper completes a COD checkout in under 60 seconds of interaction.
-- [ ] First-party JS stays within budget: ≤ 30 KB on product pages, ≤ 45 KB on checkout.
-- [ ] Double-submits create one order; checkout works with JavaScript off.
-- [ ] Tracking works from the SMS link and by order number + phone.
+- [x] On a throttled mid-range Android profile, a shopper completes a COD checkout in under 60 seconds of interaction. (Playwright, Pixel 7 with 4× CPU slowdown and a slow 4G connection, in Bangla: product page → add to cart → drawer → checkout → order in 5.9 seconds of scripted typing and waiting, 2026-10-22.)
+- [x] First-party JS stays within budget: ≤ 30 KB on product pages, ≤ 45 KB on checkout. (Measured gzipped in the browser tests, 2026-10-22: 6.1 KB on product pages, with the cart drawer and Motion; 3.4 KB on checkout.)
+- [x] Double-submits create one order; checkout works with JavaScript off. (Playwright: two simultaneous posts and a retry with the same key all land on the same order; COD, the cart page and the price-change step without JavaScript.)
+- [x] Tracking works from the SMS link and by order number + phone. (End-to-end `bd-tracking.e2e-spec.ts` and Playwright: by number and phone, by token, every miss the same, the limits.)
+
+**Built differently from the plan** (see [decisions.md](../decisions.md)): cart and checkout post to the storefront's own routes, which talk to the core in the shopper's session, instead of the browser calling `/shop-api`. That keeps one path with and without JavaScript, and the scripts are plain (a few KB, no Preact). The roadmap's test matrix runs as a representative set rather than every combination: COD with and without JavaScript in both languages, Nagad, a bKash advance, the SMS code, a throttled phone.
+
+**Notes for later phases:**
+- **Phase 18 (Imtiaz):** the payment step lists methods by kind (`cod`, `mfs`, later `gateway`). Add gateway methods to the payment list in `src/pages/checkout.astro` and have the place step (`src/lib/checkout.ts`, `placeOrder`) return a redirect to the gateway; the thank-you page already reads the order by code.
+- **Phase 19 (Imtiaz):** `BdTrackedOrder.courierTrackingUrl` is empty for now; fill it in `TrackingService` once bookings exist.
+- **Phase 16:** sales pages can reuse `src/lib/checkout.ts` for the embedded order form; `saveCheckoutProgress` gets its UTM source from the attribution cookie then.
+- **Phase 17:** cart and checkout routes are `no-store`; the product page's buy form posts to `/cart/`, so cached product pages need no session.
+
+**Not done here:** the district and thana lists are native selects with both languages in each option, not a search box. A shopper who loses their session (30 days) starts a new cart.
 
 ### Not in this phase
 

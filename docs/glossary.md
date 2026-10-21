@@ -82,3 +82,7 @@ One word per idea everywhere: storefront, Dashboard, SMS, help articles. Banglad
 | Synonym | সমার্থক শব্দ |
 | Sale (badge) | ছাড় |
 | In stock only | শুধু স্টকে আছে |
+| Add to cart / Buy now | কার্টে যোগ করুন / এখনই কিনুন |
+| Checkout / Place order | চেকআউট / অর্ডার করুন |
+| Track order | অর্ডার ট্র্যাক করুন |
+| Verification code (OTP) | কোড (SMS-এর কোড) |

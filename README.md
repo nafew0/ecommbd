@@ -163,6 +163,8 @@ It runs on http://localhost:4321 with live reload and forwards `/img`, `/assets`
 
 Category and search pages use the core's `bdSearch` query (plugin `bd-search`, phase 13), which reads the index kept by Vendure's DefaultSearchPlugin: products appear once the worker has indexed them. Search is rate-limited per shopper address in the core (`SEARCH_RATE_LIMIT_PER_MINUTE` in `apps/core/.env`, default 600).
 
+Cart and checkout (phase 14) post to the storefront's own routes, which use the shopper's `shop-session` cookie with the core. Set `CSRF_SECRET` in `apps/storefront/.env` (32+ random characters; required in staging and production). Order tracking lookups are limited per address with `TRACKING_RATE_LIMIT_PER_IP` in `apps/core/.env` (default 20 per 10 minutes); the browser tests raise it for their own core.
+
 ## 5. Production build and start
 
 This is how a store runs on a CloudPanel server:
