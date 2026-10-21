@@ -10,7 +10,7 @@ Read first:
 ## How the user wants work done
 
 - **Keep it simple.** MVP-level tooling: no strict audits, compliance gates or heavy automation unless asked. Suggest stricter options as a later step instead.
-- **Each developer works on their own branch** (Nafew on `nafew`, Imtiaz on `imtiaz`), taking the phases of their track ([roadmap](docs/roadmap/README.md#who-builds-what-two-developers)). Merge `main` into your branch often and merge each finished phase to `main`. Don't push or open pull requests without asking.
+- **Each developer works on their own branch** (Nafew on `nafew`, Imtiaz on `imtiaz`, SolCodex on `solcodex`), taking the phases of their track ([roadmap](docs/roadmap/README.md#who-builds-what)). Merge `main` into your branch often and merge each finished phase to `main`. Don't push or open pull requests without asking.
 - The user reviews everything: make small, clear changes and explain them in plain language.
 
 ## Project rules

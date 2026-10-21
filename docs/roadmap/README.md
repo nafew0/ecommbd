@@ -21,7 +21,7 @@ To build a phase, ask: **"Complete phase NN."**
 - [Milestones](#milestones)
 - [Phase map and status](#phase-map-and-status)
 - [Critical path to the pilot](#critical-path-to-the-pilot)
-- [Who builds what (two developers)](#who-builds-what-two-developers)
+- [Who builds what](#who-builds-what)
 - [Product standards (apply to every phase)](#product-standards-apply-to-every-phase)
 - [Spec coverage](#spec-coverage)
 - [Candidate features (not in the spec yet)](#candidate-features-not-in-the-spec-yet)
@@ -71,7 +71,7 @@ When you ask for a phase, I work through these steps:
    - Lead-time items the phase needs are available (sandbox credentials, accounts, servers).
    - If something is missing, I say so before writing code.
 3. **Decide.** Research every "Decide at start" item, then add a line to `docs/decisions.md` with the choice and the reason.
-4. **Branch.** Work on your own branch (`nafew` or `imtiaz`, see [Who builds what](#who-builds-what-two-developers)) in small, reviewable commits.
+4. **Branch.** Work on your own branch (`nafew`, `imtiaz` or `solcodex`, see [Who builds what](#who-builds-what)) in small, reviewable commits.
 5. **Build.** Vendure plugins in `apps/core/src/plugins/`, merchant admin screens in `apps/admin`, storefront pieces and migrations, following the [product standards](#product-standards-apply-to-every-phase).
 6. **Prove.**
    - Tests for each listed edge case.
@@ -189,20 +189,27 @@ Both tracks meet at **30** (security hardening), then **31** (pilot).
 
 If only one session works at a time, the recommended order is the numeric order, with **23–24 pulled forward to just after 11**. That gives a real staging server early, so later phases are tested on CloudPanel rather than only locally.
 
-## Who builds what (two developers)
+## Who builds what
 
-From 2026-10-21 two developers work in parallel, each on their own branch, merging each finished phase to `main`.
+From 2026-10-22 three developers work in parallel, each on their own branch, merging each finished phase to `main`. Phases 01–12 are built.
 
-| Developer | Branch | Phases, in order | Why they can run side by side |
+| Developer | Branch | Milestone and phases, in order | Can start now? |
 |---|---|---|---|
-| Imtiaz | `imtiaz` | 05 → 07 → 08 → 10 → 11a → 11b (products, orders and money) | Each needs only earlier phases of this track, or 04. Manual orders (11a) wait for delivery charges, payments and SMS |
-| Nafew | `nafew` | 06, 09 → 12 → 13 (printing, images, storefront) | 06 needs only 04; 09 only 01; 12 needs 02 and 09; 13 needs 12 |
+| Nafew | `nafew` | **M3 Storefront:** 13 → 14 → 15 → 16 → 17 | Yes. 14 (cart and checkout) uses 07, 08 and 11, already on `main` |
+| Imtiaz | `imtiaz` | **M4 Payments, couriers and Meta:** 19 → 18 → 20 | 19 (couriers) yes: it needs only 04, 06 and 08. 18 waits for Nafew's 14; 20 waits for 14 and 16 |
+| SolCodex | `solcodex` | **M5 WooCommerce migration:** 21 → 22 | Yes. 21 needs 02, 03, 04 and 09, and fills the product fields from 05 and 07, all on `main` |
 
-- **Where the tracks meet:** phase **14** (cart and checkout) needs both: 07, 08 and 11 from Imtiaz, 12 from Nafew. Plan it together once both are on `main`.
-- **After 14:** 15 → 16 → 17 (storefront) and 18 → 19 (payments and couriers) split well again; 20 needs 16.
-- **WooCommerce import (21–22)** waits until 05 and 07 are on `main`: it fills the product fields they add.
-- **The platform track (23–28)** touches different files and can be picked up by whoever is free, once a CloudPanel server and the domain exist.
-- **Files both tracks touch:** the admin's `messages/en.ts` and `bn.ts`, `menu.ts` and `main.tsx`; `apps/core/src/plugins/index.ts`; `packages/shared/src/index.ts`; the store-defaults step list in `store-defaults.e2e-spec.ts`; `docs/decisions.md`, `CHANGELOG.md` and the status table. Add new entries at the end of each list. Each developer generates their own migrations and never edits the other's; after merging `main`, run `npm run migrate:run`, then `npm run migrate:generate -- check` should report no changes.
+**Coordination notes:**
+
+- **Nafew unblocks Imtiaz.** Merge 14 to `main` as soon as it's done (18 needs it), then 16 (20 needs it). While Imtiaz waits, the next free work is the platform track (23–28), once a CloudPanel server and the domain exist.
+- **Checkout (14) and online payments (18):** 14 builds the checkout with COD and manual mobile banking (phase 08); 18 adds SSLCommerz and bKash to the same payment step. Agree on that step's shape when 14 starts.
+- **Meta (20)** adds tracking to the storefront and sales pages (Nafew's code). Imtiaz adds the calls; Nafew reviews the storefront changes.
+- **Couriers (19)** plug into the order editor's "cancel the booking first" guard (`registerOrderEditGuard`, from 11a) and print next to phase 06's stickers.
+- **Migration (21–22) and the storefront:** product and category URLs are already WooCommerce-style, with slug history (phase 12), so migrated products need no redirects. 22's redirects table covers everything else; agree any storefront routing change with Nafew.
+- **What the importer must reuse:** images go through phase 09's pipeline (`bd-images`); customers are keyed by phone with placeholder emails (03); order statuses map to phase 04's table, and imported orders set `imported = true`, so they fire no order events or SMS (04, 10); product fields come from 05 and 07.
+- **Test data for M5:** a WooCommerce test store (WordPress + WooCommerce in Docker with sample products, variations, customers and orders), and later a copy of the pilot merchant's store (see the lead-time items).
+- **Files every track touches:** the admin's `messages/en.ts` and `bn.ts`, `menu.ts` and `main.tsx`; `apps/core/src/plugins/index.ts`; `packages/shared/src/index.ts`; the store-defaults step list in `store-defaults.e2e-spec.ts`; `docs/decisions.md`, `CHANGELOG.md` and the status table. Add new entries at the end of each list.
+- **Migrations and test ports:** each developer generates their own migrations and never edits the others'; after merging `main`, run `npm run migrate:run`, then `npm run migrate:generate -- check` should report no changes. Each end-to-end test file uses its own port: check `const PORT` in `apps/core/test/e2e` before picking one.
 
 ## Product standards (apply to every phase)
 
