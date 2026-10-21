@@ -167,10 +167,7 @@ export function ImageUpload({
                     aria-valuenow={percent}
                     className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-slate-200"
                 >
-                    <div
-                        className="h-full bg-teal-700 transition-[width]"
-                        style={{ width: `${percent}%` }}
-                    />
+                    <div className="h-full bg-teal-700 transition-[width]" style={{ width: `${percent}%` }} />
                 </div>
             )}
             {message && (

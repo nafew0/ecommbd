@@ -130,6 +130,27 @@ const router = createBrowserRouter(
                                 })),
                         },
                         {
+                            path: 'store/pages',
+                            lazy: () =>
+                                import('./pages/content-pages').then(module => ({
+                                    Component: module.ContentPagesPage,
+                                })),
+                        },
+                        {
+                            path: 'store/pages/:id',
+                            lazy: () =>
+                                import('./pages/content-page-edit').then(module => ({
+                                    Component: module.ContentPageEditPage,
+                                })),
+                        },
+                        {
+                            path: 'store/menus',
+                            lazy: () =>
+                                import('./pages/content-menus').then(module => ({
+                                    Component: module.ContentMenusPage,
+                                })),
+                        },
+                        {
                             path: 'ui-kit',
                             lazy: () =>
                                 import('./pages/ui-kit').then(module => ({ Component: module.UiKitPage })),

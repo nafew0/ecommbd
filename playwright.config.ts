@@ -36,7 +36,13 @@ export default defineConfig({
             // The storefront (storefront.spec.ts), talking to the core above.
             command: 'npm run start -w @ecommbd/storefront',
             url: `${storefrontURL}/health`,
-            env: { CORE_URL: baseURL, SITE_URL: storefrontURL, PORT: new URL(storefrontURL).port || '4321' },
+            // Menus and settings show up after 2 seconds instead of a minute.
+            env: {
+                CORE_URL: baseURL,
+                SITE_URL: storefrontURL,
+                PORT: new URL(storefrontURL).port || '4321',
+                CACHE_TTL_SECONDS: '2',
+            },
             reuseExistingServer: !process.env.CI,
             timeout: 60_000,
         },

@@ -12,6 +12,16 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Added
 
+- **Phase 12, storefront foundation** (new app `apps/storefront`, plugin `bd-content`):
+  - The shop in Bangla and English, server-rendered with Astro and no JavaScript: home, nested categories with pagination, product pages (photos, variations, price ranges, stock, an "Order on WhatsApp" link), content pages, the four policies, search, and the cart, checkout, account and tracking addresses for the coming phases.
+  - WooCommerce-style addresses (`/product/{slug}/`, `/product-category/{parent}/{child}/`); the store's default language without a prefix, the other under `/en/` or `/bn/`. Any other spelling of an address, including an old slug or another Unicode form of a Bangla slug, gets one 301 to the right one. Deleted products answer 410 with suggestions.
+  - SEO: titles and descriptions (SEO fields on products and categories), canonicals, hreflang, Open Graph, JSON-LD (Organization, WebSite with search, Product with offers in BDT, breadcrumbs), sitemaps and robots.txt.
+  - Fast pages: phase 09's WebP sizes with `srcset`, the main image preloaded, everything else lazy; Lighthouse mobile performance 100.
+  - Floating WhatsApp, Messenger and call buttons from store settings, as plain links. Strict security headers, a maintenance page, and a friendly page when the core is down.
+  - Merchant admin: **Online store → Pages** (title, address, text with simple formatting and Google fields, per language) and **Menus** (header and footer links to categories, products, pages, policies or addresses).
+  - Product and category descriptions and pages are sanitized on save and on display; WooCommerce shortcodes are removed.
+  - New permission `ManageContent` (owner, manager, marketing).
+  - Tests: unit tests for addresses, Bangla slugs, SEO output and the cache; end-to-end tests of pages, menus and slug history; Playwright tests of the storefront and the two admin screens on desktop and phone.
 - **Phase 09, image pipeline and upload security** (plugin `bd-images`):
   - Every uploaded image is checked before it is stored: JPEG, PNG, WebP, GIF or AVIF only (from the file's bytes, not its name), up to 15 MB and 40 megapixels. SVG is refused; so are truncated or damaged files and iPhone HEIC photos ("Please upload JPG or PNG").
   - The image is turned upright, converted to sRGB, stripped of all metadata (GPS location included) and re-encoded before it reaches the disk; the raw upload is never stored.

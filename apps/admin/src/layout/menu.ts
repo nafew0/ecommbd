@@ -84,8 +84,8 @@ export const MENU: MenuGroup[] = [
             link('theme', '/store/theme', '15'),
             link('homePage', '/store/home', '15'),
             link('headerFooter', '/store/header-footer', '15'),
-            link('menus', '/store/menus', '12'),
-            link('pages', '/store/pages', '12'),
+            link('menus', '/store/menus', '12', true, 'ManageContent'),
+            link('pages', '/store/pages', '12', true, 'ManageContent'),
         ],
     },
     {

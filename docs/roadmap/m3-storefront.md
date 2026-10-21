@@ -104,10 +104,14 @@ The storefront is `apps/storefront`: Astro server-side rendering with Preact isl
 
 ### Done when
 
-- [ ] A store with 50 products renders home, category, product and policy pages in Bangla and English.
-- [ ] Product pages ship **no JavaScript** before the cart island exists.
-- [ ] Lighthouse mobile performance ≥ 95 on a throttled profile.
-- [ ] JSON-LD and sitemaps validate; old slugs redirect.
+- [x] A store with 50 products renders home, category, product and policy pages in Bangla and English. (Playwright `storefront.spec.ts` with a 50-product seed, desktop and phone.)
+- [x] Product pages ship **no JavaScript** before the cart island exists. (No `<script>` except JSON-LD, checked on every page type.)
+- [x] Lighthouse mobile performance ≥ 95 on a throttled profile. (Lighthouse 13.5, mobile, simulated throttling, 2026-10-21, on the home, product, category and content pages: **100** for performance, accessibility, best practices and SEO; LCP 0.9–1.1 s, CLS 0, TBT 0 ms. The first run found a missing favicon, a missing home description, two colours below 4.5:1 contrast and a skipped heading level; all fixed.)
+- [x] JSON-LD and sitemaps validate; old slugs redirect. (JSON-LD shape checked in unit and browser tests; sitemaps parsed as XML in the browser; A→B→C slug changes redirect in one hop; a deleted product answers 410.)
+
+**Notes for phase 05 (Imtiaz):** the SEO fields (`seoTitle`, `seoDescription`, translatable) already exist on products and categories, for the form's "More" part. The storefront's price component shows a struck-through old price when given one: once the old-price field exists, add it to the `PRODUCT` and `ProductCardFields` queries in `apps/storefront/src/lib/queries.ts`. Descriptions can stay plain text: the storefront turns line breaks into paragraphs.
+
+**Not done here:** the core doesn't send cache purges yet (phase 17), so a change shows on the storefront within a minute; there is no "low stock" level, because Vendure's default stock display only says in or out of stock.
 
 ### Not in this phase
 
