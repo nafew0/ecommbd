@@ -84,6 +84,7 @@ All work in this milestone is Vendure plugins in `apps/core/src/plugins/` plus s
 - [x] An API checkout with only name, phone and a district/thana address places an order. (End-to-end: `bd-checkout.e2e-spec.ts`, "places an order with only name, phone and a district/thana address".)
 - [x] The customer list is searchable by phone and never shows a placeholder email. (End-to-end search by last digits, Bangla digits, full number and name; Playwright `customers.spec.ts` on desktop and phone.)
 - [x] All edge cases above have passing tests. (End-to-end: same phone twice, the concurrent race, email conflict, registered phone, names, phone formats, older clients, the payment guard, rate limit; unit tests in `packages/shared/src/checkout.spec.ts`.)
+- [x] CI runs green on GitHub (on `nafew`, 2026-10-21).
 
 ### Not in this phase
 
@@ -183,6 +184,7 @@ The checkout UI (14), OTP (11 and 34), incomplete-order capture (11).
 - [x] Two staff can't confirm the same order twice. (End-to-end: two simultaneous confirms give one success and one "already confirmed" with the name.)
 - [x] Order numbers have no gaps from abandoned carts. (End-to-end: carts take no number; 200 simultaneous placements get 200 consecutive numbers.)
 - [x] Home widgets show correct Dhaka-day numbers. (End-to-end: 23:59 and 00:00 Dhaka time land on different days.) Load test: 20,000 orders, queue in ~35 ms, counts ~16 ms, phone search ~94 ms (`orders-load.e2e-spec.ts`).
+- [x] CI runs green on GitHub (on `nafew`, 2026-10-21).
 
 ### Not in this phase
 
