@@ -19,6 +19,7 @@ export * from './print-settings';
 export * from './rate-limit';
 export * from './redact';
 export * from './rich-text';
+export * from './search';
 export * from './shipping';
 export * from './sms';
 export * from './ssrf';
