@@ -18,6 +18,7 @@ import {
 } from './events';
 import { nextOrderNumber } from './order-number';
 import { OrderSettingsService } from './order-settings.service';
+import { OrderPolicyService, transitionPermissionError } from './order-policy.service';
 
 declare module '@vendure/core/dist/service/helpers/order-state-machine/order-state' {
     interface CustomOrderStates {
@@ -41,6 +42,7 @@ export function createBdOrderProcess(): OrderProcess<'Confirmed' | 'Packed' | 'R
     let connection: TransactionalConnection;
     let eventBus: EventBus;
     let administrators: AdministratorService;
+    let policy: OrderPolicyService;
 
     async function actingStaff(ctx: RequestContext): Promise<ActingStaff> {
         const administrator = ctx.activeUserId
@@ -93,21 +95,24 @@ export function createBdOrderProcess(): OrderProcess<'Confirmed' | 'Packed' | 'R
             connection = injector.get(TransactionalConnection);
             eventBus = injector.get(EventBus);
             administrators = injector.get(AdministratorService);
+            policy = injector.get(OrderPolicyService);
         },
 
         async onTransitionStart(fromState, toState, { ctx, order }) {
+            const permissionError =
+                order.orderPlacedAt || toState !== 'Cancelled'
+                    ? transitionPermissionError(ctx, toState)
+                    : undefined;
+            if (permissionError) return `message.bd-orders.${permissionError}`;
             const { skipConfirmationForPrepaid } = await settings.get(ctx);
             if (!isBdTransitionAllowed(fromState, toState, { skipConfirmationForPrepaid })) {
                 return fromState === 'PaymentSettled' && toState === 'Packed'
                     ? 'message.bd-orders.confirm-first'
                     : 'message.bd-orders.not-allowed';
             }
-            if (
-                toState === 'Cancelled' &&
-                CANCEL_NEEDS_REASON_FROM.includes(fromState) &&
-                !order.customFields.cancelReason
-            ) {
-                return 'message.bd-orders.cancel-reason-required';
+            if (toState === 'Cancelled') {
+                const error = await policy.cancellationError(ctx, order);
+                if (error) return `message.bd-orders.${error}`;
             }
         },
 

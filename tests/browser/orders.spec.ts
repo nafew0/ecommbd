@@ -150,6 +150,27 @@ test.describe('confirmation queue', () => {
 });
 
 test.describe('orders', () => {
+    test('explains a status-only return and requires confirmation', async ({ page }) => {
+        const number = await newOrder('Return boundary');
+        await signIn(page, 'en');
+        await page.goto('/admin/orders');
+        await page.getByRole('searchbox').fill(`#${number}`);
+        await page.getByRole('link', { name: `#${number}`, exact: true }).click();
+        await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+        await page.getByRole('button', { name: 'Mark packed', exact: true }).click();
+        await page.getByRole('button', { name: 'Mark shipped', exact: true }).click();
+        await page.getByRole('button', { name: 'Mark returned', exact: true }).click();
+        const dialog = page.getByRole('dialog', { name: 'Record the parcel as returned?' });
+        await expect(dialog.getByText(/Returned quantities, stock and payments are unchanged/)).toBeVisible();
+        await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+        await expect(page.getByRole('button', { name: 'Mark returned', exact: true })).toBeVisible();
+        await page.getByRole('button', { name: 'Mark returned', exact: true }).click();
+        await dialog.getByRole('button', { name: 'Mark returned', exact: true }).click();
+        await expect(dialog).not.toBeVisible();
+        await expect(page.getByText(/Returned quantities, stock and payments are unchanged/)).toBeVisible();
+        await expect(page.getByText('To collect on delivery', { exact: true })).toHaveCount(0);
+    });
+
     test('lists orders with status tabs and opens one', async ({ page }) => {
         const number = await newOrder('List');
         await signIn(page, 'en');
@@ -185,6 +206,9 @@ test.describe('orders', () => {
     test('shows today’s numbers on the home page', async ({ page }) => {
         await signIn(page, 'en');
         await expect(page.getByText('Orders today')).toBeVisible();
+        await expect(page.getByText('Order value today', { exact: true })).toBeVisible();
+        await expect(page.getByText(/Not money received/)).toBeVisible();
+        await expect(page.getByText('Sales today', { exact: true })).toHaveCount(0);
         await expect(page.getByText('Waiting for confirmation')).toBeVisible();
         await expect(page.getByText(/Bangladesh time, \d{2}\/\d{2}\/\d{4}/)).toBeVisible();
     });

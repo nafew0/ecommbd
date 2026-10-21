@@ -52,8 +52,10 @@ export const ordersAdminApiExtensions = gql`
         "00:00 Dhaka time of the day shown"
         dayStart: DateTime!
         todayOrders: Int!
-        "Null without the ReadSalesFigures permission"
-        todaySales: Money
+        "Value of orders placed during this Dhaka day, including delivery charges, excluding cancelled orders. Includes undelivered and returned orders; not money received. Null without ReadSalesFigures."
+        todayOrderValue: Money
+        "Compatibility alias for todayOrderValue, with the same permission check"
+        todaySales: Money @deprecated(reason: "Use todayOrderValue. This is placed order value, not money received.")
         waitingConfirmation: Int!
         confirmedNotPacked: Int!
     }
@@ -157,6 +159,7 @@ export const ordersAdminApiExtensions = gql`
         packBdOrder(input: BdOrderActionInput!): BdOrderActionResult!
         markBdOrderShipped(input: BdOrderActionInput!): BdOrderActionResult!
         markBdOrderDelivered(input: BdOrderActionInput!): BdOrderActionResult!
+        "Records delivery status only; does not record per-line returned quantities, restock items or issue refunds."
         markBdOrderReturned(input: BdReturnOrderInput!): BdOrderActionResult!
         recordBdCallAttempt(input: BdCallAttemptInput!): BdOrderActionResult!
         "Opening a New order claims it for 5 minutes"

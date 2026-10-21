@@ -4,6 +4,12 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+### Fixed
+
+- Phase 04 review: confirm, pack and cancel permissions now apply to Vendure's standard order mutations as well as the merchant admin. Native cancellation checks the reason, required note and settled payments before changing lines, under a transaction and order lock. Direct cancellation transitions cannot leave live quantities and reserved stock behind.
+- The home widget is labelled **Order value today** in English and Bangla, with its meaning explained. The Admin API exposes `todayOrderValue`; `todaySales` remains a deprecated alias with the same permission check.
+- Status-only returns now require confirmation and explain that returned quantities, stock and payments are unchanged. Returned/cancelled order pages no longer show a delivery collection instruction. The stock, partial-return, refund and courier-payment contract is recorded in `docs/decisions/order-states.md` for the next implementation work.
+
 ### Added
 
 - **Phase 06, invoices, packing slips and courier stickers** (plugin `bd-print`, print views in the merchant admin):

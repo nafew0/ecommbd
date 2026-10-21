@@ -10,7 +10,7 @@ import { useI18n } from '../lib/i18n';
 
 const STATS = `
     query HomeStats {
-        bdOrderStats { dayStart todayOrders todaySales waitingConfirmation confirmedNotPacked }
+        bdOrderStats { dayStart todayOrders todayOrderValue waitingConfirmation confirmedNotPacked }
     }
 `;
 
@@ -18,7 +18,7 @@ interface Stats {
     dayStart: string;
     todayOrders: number;
     /** Null without the ReadSalesFigures permission. */
-    todaySales: number | null;
+    todayOrderValue: number | null;
     waitingConfirmation: number;
     confirmedNotPacked: number;
 }
@@ -77,9 +77,9 @@ function OrderWidgets() {
                 <Widget label={m.home.todayOrders} loading={!stats}>
                     {stats && n(stats.todayOrders)}
                 </Widget>
-                {stats?.todaySales !== null && (
-                    <Widget label={m.home.todaySales} loading={!stats}>
-                        {stats && format.money(stats.todaySales ?? 0)}
+                {stats?.todayOrderValue !== null && (
+                    <Widget label={m.home.todayOrderValue} hint={m.home.orderValueHint} loading={!stats}>
+                        {stats && format.money(stats.todayOrderValue ?? 0)}
                     </Widget>
                 )}
                 <Widget
@@ -108,12 +108,14 @@ function OrderWidgets() {
 
 function Widget({
     label,
+    hint,
     loading,
     to,
     linkLabel,
     children,
 }: {
     label: string;
+    hint?: string;
     loading: boolean;
     to?: string;
     linkLabel?: string;
@@ -127,6 +129,7 @@ function Widget({
             ) : (
                 <p className="mt-1 text-2xl font-semibold tabular-nums">{children}</p>
             )}
+            {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
             {to && linkLabel && (
                 <Link to={to} className="mt-1 inline-block text-sm text-teal-800 underline">
                     {linkLabel}

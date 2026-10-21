@@ -87,6 +87,42 @@ const PACK = mutation('packBdOrder', 'BdOrderActionInput');
 const SHIP = mutation('markBdOrderShipped', 'BdOrderActionInput');
 const DELIVER = mutation('markBdOrderDelivered', 'BdOrderActionInput');
 const RETURN = mutation('markBdOrderReturned', 'BdReturnOrderInput');
+const STANDARD_TRANSITION = gql`
+    mutation ($id: ID!, $state: String!) {
+        transitionOrderToState(id: $id, state: $state) {
+            ... on Order {
+                id
+                state
+            }
+            ... on OrderStateTransitionError {
+                transitionError
+            }
+        }
+    }
+`;
+const STANDARD_CANCEL = gql`
+    mutation ($id: ID!) {
+        cancelOrder(input: { orderId: $id, cancelShipping: true }) {
+            ... on Order {
+                id
+                state
+                lines {
+                    quantity
+                }
+            }
+            ... on ErrorResult {
+                message
+            }
+        }
+    }
+`;
+const SET_CANCEL_REASON = gql`
+    mutation ($id: ID!, $reason: String!, $note: String) {
+        setOrderCustomFields(input: { id: $id, customFields: { cancelReason: $reason, cancelNote: $note } }) {
+            id
+        }
+    }
+`;
 const CALL = mutation('recordBdCallAttempt', 'BdCallAttemptInput');
 const CLAIM = gql`
     mutation ($orderId: ID!) {
@@ -163,6 +199,7 @@ const STATS = gql`
         bdOrderStats(date: $date) {
             dayStart
             todayOrders
+            todayOrderValue
             todaySales
             waitingConfirmation
             confirmedNotPacked
@@ -798,6 +835,114 @@ describe('two staff on one order', () => {
 });
 
 describe('permissions', () => {
+    it('enforces confirm, pack and cancel permissions through Vendure’s standard mutations too', async () => {
+        const packer = (await createStaff('standard-packer@example.com', 'Packer', 'packer')).client;
+        const staff = (await createStaff('standard-orders@example.com', 'Orders', 'order-staff')).client;
+        const order = await newOrder();
+        const denied = await packer.query(STANDARD_TRANSITION, { id: order.id, state: 'Confirmed' });
+        expect(denied.transitionOrderToState.transitionError).toMatch(/permission/i);
+        expect((await adminOrder(order.id)).state).toBe('PaymentAuthorized');
+
+        const confirmed = await staff.query(STANDARD_TRANSITION, { id: order.id, state: 'Confirmed' });
+        expect(confirmed.transitionOrderToState.state).toBe('Confirmed');
+        const cannotPack = await staff.query(STANDARD_TRANSITION, { id: order.id, state: 'Packed' });
+        expect(cannotPack.transitionOrderToState.transitionError).toMatch(/permission/i);
+        expect(
+            (await packer.query(STANDARD_TRANSITION, { id: order.id, state: 'Packed' }))
+                .transitionOrderToState.state,
+        ).toBe('Packed');
+
+        await adminClient.query(SET_CANCEL_REASON, { id: order.id, reason: 'customerCancelled' });
+        await expect(packer.query(STANDARD_CANCEL, { id: order.id })).rejects.toThrow(/permission/i);
+        const cancelJump = await packer.query(STANDARD_TRANSITION, { id: order.id, state: 'Cancelled' });
+        // Vendure may refuse this earlier because live order lines have not been cancelled.
+        expect(cancelJump.transitionOrderToState.transitionError).toBeTruthy();
+        const { order: unchanged } = await adminClient.query(
+            gql`
+                query ($id: ID!) {
+                    order(id: $id) {
+                        state
+                        lines {
+                            quantity
+                        }
+                    }
+                }
+            `,
+            { id: order.id },
+        );
+        expect(unchanged.state).toBe('Packed');
+        expect(unchanged.lines[0].quantity).toBe(1);
+        expect((await staff.query(STANDARD_CANCEL, { id: order.id })).cancelOrder.state).toBe('Cancelled');
+    });
+
+    it('cannot bypass the paid-order cancellation safeguard through standard mutations', async () => {
+        const order = await newOrder();
+        const { order: paid } = await adminClient.query(
+            gql`
+                query ($id: ID!) {
+                    order(id: $id) {
+                        payments {
+                            id
+                        }
+                    }
+                }
+            `,
+            { id: order.id },
+        );
+        await adminClient.query(
+            gql`
+                mutation ($id: ID!) {
+                    settlePayment(id: $id) {
+                        ... on Payment {
+                            state
+                        }
+                    }
+                }
+            `,
+            { id: paid.payments[0].id },
+        );
+        await adminClient.query(SET_CANCEL_REASON, { id: order.id, reason: 'customerCancelled' });
+        await expect(adminClient.query(STANDARD_CANCEL, { id: order.id })).rejects.toThrow(/refund/i);
+        const direct = await adminClient.query(STANDARD_TRANSITION, { id: order.id, state: 'Cancelled' });
+        expect(direct.transitionOrderToState.transitionError).toBeTruthy();
+        const { order: unchanged } = await adminClient.query(
+            gql`
+                query ($id: ID!) {
+                    order(id: $id) {
+                        state
+                        lines {
+                            quantity
+                        }
+                        payments {
+                            state
+                            amount
+                        }
+                    }
+                }
+            `,
+            { id: order.id },
+        );
+        expect(unchanged.state).toBe('PaymentSettled');
+        expect(unchanged.lines[0].quantity).toBe(1);
+        expect(unchanged.payments[0]).toMatchObject({ state: 'Settled', amount: order.totalWithTax });
+    });
+
+    it('requires a note for other and cancels quantities through the cancellation action', async () => {
+        const order = await newOrder();
+        await adminClient.query(SET_CANCEL_REASON, { id: order.id, reason: 'other', note: '   ' });
+        await expect(adminClient.query(STANDARD_CANCEL, { id: order.id })).rejects.toThrow(/short note/i);
+        await adminClient.query(SET_CANCEL_REASON, {
+            id: order.id,
+            reason: 'other',
+            note: 'Test cancellation',
+        });
+        const direct = await adminClient.query(STANDARD_TRANSITION, { id: order.id, state: 'Cancelled' });
+        expect(direct.transitionOrderToState.transitionError).toBeTruthy();
+        const cancelled = (await adminClient.query(STANDARD_CANCEL, { id: order.id })).cancelOrder;
+        expect(cancelled.state).toBe('Cancelled');
+        expect(cancelled.lines.every((line: { quantity: number }) => line.quantity === 0)).toBe(true);
+    });
+
     it('gives the default roles the new permissions', async () => {
         const { roles } = await adminClient.query(gql`
             {
@@ -838,11 +983,34 @@ describe('permissions', () => {
             'packed',
         );
         expect((await orderStaff.query(STATS)).bdOrderStats.todaySales).toBeNull();
+        expect((await orderStaff.query(STATS)).bdOrderStats.todayOrderValue).toBeNull();
         expect((await adminClient.query(STATS)).bdOrderStats.todaySales).toBeGreaterThan(0);
     });
 });
 
 describe('order lists and widgets', () => {
+    it('reports placed order value separately from receipts, retaining the old alias', async () => {
+        const day = '2026-01-12';
+        const unpaid = await newOrder();
+        const returned = await newOrder();
+        const cancelled = await newOrder();
+        for (const order of [unpaid, returned, cancelled]) {
+            await setPlacedAt(order.id, new Date(`${day}T06:00:00Z`));
+        }
+        await adminClient.query(CONFIRM, { input: { orderId: returned.id } });
+        await adminClient.query(PACK, { input: { orderId: returned.id } });
+        await adminClient.query(SHIP, { input: { orderId: returned.id } });
+        await adminClient.query(RETURN, { input: { orderId: returned.id } });
+        await adminClient.query(CANCEL, { input: { orderId: cancelled.id, reason: 'duplicate' } });
+        const { bdOrderStats } = await adminClient.query(STATS, { date: day });
+        expect(bdOrderStats).toMatchObject({
+            todayOrders: 2,
+            todayOrderValue: unpaid.totalWithTax + returned.totalWithTax,
+            todaySales: unpaid.totalWithTax + returned.totalWithTax,
+        });
+        expect((await adminOrder(unpaid.id)).bd.paidAmount).toBe(0);
+    });
+
     it('finds orders by phone digits, order number, name, district and payment type, with counts', async () => {
         const phone = nextPhone();
         const order = await newOrder({ phone, name: 'Shahana Parvin' });

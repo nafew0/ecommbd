@@ -94,7 +94,9 @@ export const en = {
         comingTitle: 'Coming next',
         comingBody: 'Product screens and phone orders arrive in the next releases.',
         todayOrders: 'Orders today',
-        todaySales: 'Sales today',
+        todayOrderValue: 'Order value today',
+        orderValueHint:
+            'Orders placed today, including delivery charges; cancelled orders excluded. Not money received.',
         waiting: 'Waiting for confirmation',
         confirmedNotPacked: 'Confirmed, not packed',
         dhakaDay: (date: string) => `Bangladesh time, ${date}`,
@@ -332,6 +334,9 @@ export const en = {
         total: 'Total',
         paid: 'Paid',
         codDue: 'To collect on delivery',
+        returnDialogTitle: 'Record the parcel as returned?',
+        returnStatusOnly:
+            'This records the delivery status only. Returned quantities, stock and payments are unchanged. Inspect the items and handle any refund separately; a partial delivery is not a full refund.',
         customer: 'Customer',
         address: 'Delivery address',
         note: 'Customer note',

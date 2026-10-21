@@ -15,6 +15,7 @@ import { Button } from '../components/ui/button';
 import { Alert, Badge, Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { useConfirm } from '../lib/confirm';
 import { useFormat } from '../lib/format';
 import { useI18n } from '../lib/i18n';
 import { openPrint } from '../lib/print';
@@ -63,6 +64,7 @@ export function OrderDetailPage() {
     const ago = useAgo();
     const { can } = useAuth();
     const act = useOrderActions();
+    const confirm = useConfirm();
     const query = useQuery({
         queryKey: ['orders', 'detail', id],
         queryFn: () => adminApi<OrderData>(ORDER, { id }),
@@ -94,6 +96,15 @@ export function OrderDetailPage() {
 
     const number = order.customFields.orderNumber ?? order.code;
     const run = async (action: ActionName, extra: Record<string, unknown> = {}) => {
+        if (
+            action === 'return' &&
+            !(await confirm({
+                title: m.orders.returnDialogTitle,
+                body: m.orders.returnStatusOnly,
+                confirmLabel: m.orders.actions.return,
+            }))
+        )
+            return;
         setBusy(action);
         const error = await act(action, { orderId: order.id, expectedStatus: order.bd.status, ...extra });
         setBusy(null);
@@ -195,6 +206,11 @@ export function OrderDetailPage() {
                     </Alert>
                 </div>
             )}
+            {order.bd.status === 'returned' && (
+                <div className="mb-4">
+                    <Alert tone="warning">{m.orders.returnStatusOnly}</Alert>
+                </div>
+            )}
             <div className="grid gap-4 lg:grid-cols-2">
                 <Card>
                     <CardHeader title={m.orders.items} />
@@ -226,12 +242,14 @@ export function OrderDetailPage() {
                                 <Row label={m.orders.paid}>{format.money(order.bd.paidAmount)}</Row>
                             )}
                         </dl>
-                        <div className="rounded-md bg-amber-50 px-4 py-3">
-                            <p className="text-sm text-amber-900">{m.orders.codDue}</p>
-                            <p className="text-2xl font-semibold tabular-nums text-amber-950">
-                                {format.money(order.bd.codDue)}
-                            </p>
-                        </div>
+                        {order.bd.status !== 'returned' && order.bd.status !== 'cancelled' && (
+                            <div className="rounded-md bg-amber-50 px-4 py-3">
+                                <p className="text-sm text-amber-900">{m.orders.codDue}</p>
+                                <p className="text-2xl font-semibold tabular-nums text-amber-950">
+                                    {format.money(order.bd.codDue)}
+                                </p>
+                            </div>
+                        )}
                     </CardBody>
                 </Card>
                 <Card>

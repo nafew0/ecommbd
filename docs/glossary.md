@@ -71,7 +71,7 @@ One word per idea everywhere: storefront, Dashboard, SMS, help articles. Banglad
 | Cancel reason | বাতিলের কারণ |
 | Fake order | ভুয়া অর্ডার |
 | To collect on delivery (COD due) | ডেলিভারিতে নিতে হবে |
-| Sales today | আজকের বিক্রি |
+| Order value today | আজকের অর্ডারের মূল্য |
 | Print / Reprint | প্রিন্ট / আবার প্রিন্ট |
 | Packing slip | প্যাকিং স্লিপ |
 | Receipt (thermal) | রিসিট |

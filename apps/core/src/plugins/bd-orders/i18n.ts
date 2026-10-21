@@ -1,4 +1,22 @@
 import type { OrderActionErrorCode } from './errors';
+import type { OrderPolicyError } from './order-policy.service';
+
+const policyEn: Record<OrderPolicyError, string> = {
+    'permission-required': 'You do not have permission to perform this order action.',
+    'not-allowed': 'This order can’t move to that status from its current status.',
+    'cancel-reason-required': 'Choose a cancel reason before cancelling a placed order.',
+    'cancel-note-required': 'Write a short note when the cancel reason is “Other”.',
+    'refund-required':
+        'Money was received for this order. Cancellation is unavailable until refund recording is supported.',
+};
+const policyBn: Record<OrderPolicyError, string> = {
+    'permission-required': 'অর্ডারের এই কাজটি করার অনুমতি আপনার নেই।',
+    'not-allowed': 'অর্ডারটি এখনকার অবস্থা থেকে ওই অবস্থায় নেওয়া যায় না।',
+    'cancel-reason-required': 'অর্ডার বাতিলের আগে কারণ বেছে নিন।',
+    'cancel-note-required': 'বাতিলের কারণ “অন্যান্য” হলে একটি ছোট নোট লিখুন।',
+    'refund-required':
+        'এই অর্ডারের টাকা পাওয়া গেছে। রিফান্ডের তথ্য রাখার সুবিধা চালু না হওয়া পর্যন্ত বাতিল করা যাবে না।',
+};
 
 /**
  * Order workflow messages in English and Bangla: action errors (`errorResult.BD_ORDER.<code>`)
@@ -39,15 +57,14 @@ export const orderTranslations = {
     en: {
         error: {
             'bd-orders': {
+                ...policyEn,
                 'invalid-date': 'Dates must look like 2026-10-21.',
-                'cancel-reason-required': 'Choose a cancel reason before cancelling a placed order.',
             },
         },
         errorResult: { BD_ORDER: en },
         message: {
             'bd-orders': {
-                'not-allowed': 'This order can’t move to that status from its current status.',
-                'cancel-reason-required': 'Choose a cancel reason before cancelling a placed order.',
+                ...policyEn,
                 'confirm-first': 'Confirm the order before packing it.',
             },
         },
@@ -55,15 +72,14 @@ export const orderTranslations = {
     bn: {
         error: {
             'bd-orders': {
+                ...policyBn,
                 'invalid-date': 'তারিখ এভাবে লিখুন: 2026-10-21।',
-                'cancel-reason-required': 'অর্ডার বাতিলের আগে কারণ বেছে নিন।',
             },
         },
         errorResult: { BD_ORDER: bn },
         message: {
             'bd-orders': {
-                'not-allowed': 'অর্ডারটি এখনকার অবস্থা থেকে ওই অবস্থায় নেওয়া যায় না।',
-                'cancel-reason-required': 'অর্ডার বাতিলের আগে কারণ বেছে নিন।',
+                ...policyBn,
                 'confirm-first': 'প্যাক করার আগে অর্ডারটি কনফার্ম করুন।',
             },
         },

@@ -42,7 +42,9 @@ export interface OrderStats {
     /** The Dhaka day these figures are for: 00:00 Dhaka time, as UTC. */
     dayStart: Date;
     todayOrders: number;
-    /** Null without the ReadSalesFigures permission. */
+    /** Placed order value, not receipts. Null without ReadSalesFigures. */
+    todayOrderValue: number | null;
+    /** Compatibility alias; same calculation and permission check as todayOrderValue. */
     todaySales: number | null;
     waitingConfirmation: number;
     confirmedNotPacked: number;
@@ -123,7 +125,7 @@ export class OrderListService {
     }
 
     /**
-     * Home widgets for one Dhaka day (default today): orders placed and not cancelled, their sales,
+     * Home widgets for one Dhaka day (default today): orders placed and not cancelled, their value,
      * and the work waiting. An order at 23:59 Dhaka time counts for that day, though it's 17:59 UTC.
      */
     async stats(
@@ -150,6 +152,7 @@ export class OrderListService {
         return {
             dayStart,
             todayOrders: Number(today?.orders ?? 0),
+            todayOrderValue: canSeeSales ? Number(today?.sales ?? 0) : null,
             todaySales: canSeeSales ? Number(today?.sales ?? 0) : null,
             waitingConfirmation: waiting,
             confirmedNotPacked: confirmed,

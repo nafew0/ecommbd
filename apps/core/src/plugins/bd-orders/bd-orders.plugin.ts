@@ -11,6 +11,7 @@ import { OrderActionsService } from './order-actions.service';
 import { autoCancelTask, orderPermissionsStep } from './order-defaults';
 import { OrderListService } from './order-list.service';
 import { OrderSettingsService } from './order-settings.service';
+import { OrderPolicyService } from './order-policy.service';
 import { ordersAdminApiExtensions } from './orders.api';
 import { BdOrderActionResultResolver, OrderInfoResolver, OrdersAdminResolver } from './orders.resolver';
 
@@ -31,6 +32,7 @@ registerStoreDefaults(orderPermissionsStep);
     providers: [
         { provide: APP_INTERCEPTOR, useClass: CancelReasonInterceptor },
         OrderSettingsService,
+        OrderPolicyService,
         OrderActionsService,
         OrderListService,
     ],
