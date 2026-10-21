@@ -196,6 +196,7 @@ Medusa lost the benchmark, so there is no fallback engine. If Vendure ever hits 
 - **Themes:** a theme is a set of Astro components plus a settings JSON. Pages are ordered lists of **sections**, like Shopify. Each section is an Astro component with a field schema.
 - **Page and landing editor, Shopify-style:** a sidebar lists the sections, with forms generated from each section's schema. Next to it is a live preview iframe of the real storefront. Because no second copy of the components exists for the editor, what the merchant sees is exactly what shoppers get. The embedded checkout is a section, so it can go on any landing page.
 - **Meta Pixel and merchant scripts:** these load after the page is interactive. The server-side Conversions API carries the events, so a late-loading pixel loses nothing.
+- **Small enhancements without a framework** (phase 13): search suggestions and filters are plain scripts, loaded only on the pages and at the moment they're needed (suggestions on the search box's first focus). Animations use the `motion` package's small vanilla API inside those scripts, and page changes use CSS view transitions; all of it is off for shoppers who prefer reduced motion. Preact stays for the cart and checkout (phase 14). The look follows the storefront design standard in `CLAUDE.md`.
 - **Fonts:** system fonts by default. Android ships Noto Sans Bengali, so Bangla text needs no font download. A brand font is optional: self-hosted, subset, `woff2`, `font-display: swap`.
 
 **Performance budget (CI fails if exceeded):**

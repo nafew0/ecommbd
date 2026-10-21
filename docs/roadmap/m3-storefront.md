@@ -185,9 +185,18 @@ Search and filters (13), cart and checkout (14), sections and themes (15), Varni
 
 ### Done when
 
-- [ ] Searching "পাঞ্জাবি", "panjabi" (synonym) and "punjabi" (typo) all find the product.
-- [ ] Filters work with JavaScript disabled.
-- [ ] The relevance suite passes, and server time is under 200 ms on 500 products.
+- [x] Searching "পাঞ্জাবি", "panjabi" (synonym) and "punjabi" (typo) all find the product. (End-to-end `bd-search.e2e-spec.ts` on the Bangla and English sites, with phase 05's product form; Playwright `search.spec.ts` on the storefront.)
+- [x] Filters work with JavaScript disabled. (Playwright, JavaScript off: the desktop form and the phone panel opened by `#filters`, one 301 to the canonical address, removable chips.)
+- [x] The relevance suite passes, and server time is under 200 ms on 500 products. (`search-relevance.spec.ts`: 67 queries on a 200-product Bangla/English catalogue. Playwright on 500+ products, 2026-10-22, local: category and filter pages about 35 ms median, about 110 ms when the core's 3-second catalog cache is cold.)
+
+**Built differently from the plan** (see [decisions.md](../decisions.md)): no PostgreSQL full-text or `pg_trgm`. Matching runs in code over Vendure's search index, because PostgreSQL splits Bangla words differently on glibc (production) and musl (our Docker images). Synonyms and the "searches with no results" list are in our merchant admin (**Online store → Search**), not the Dashboard. The storefront was also restyled to the Shopify-like design standard now in `CLAUDE.md`. Every page now loads a 0.4 KB script (plus Vite's 0.9 KB preload helper) that fetches the suggestions code on the search box's first focus, so phase 12's "no JavaScript" check became the 30 KB product-page budget check.
+
+**Notes for later phases:**
+- **Phase 05 (Imtiaz):** tags are Vendure facet values (facet code `tag`). The storefront shows and filters them, but our product form can't set them yet; until it does, support staff add them in the Dashboard.
+- **Phase 15:** the filters and suggestions are plain scripts (`src/scripts/`); sections can reuse `Listing.astro` and the `--…` tokens in `global.css`.
+- **Phase 17:** filter URLs already have one spelling. Varnish should still sort parameters and drop `utm_*`, `fbclid`, `gclid` and `ttclid` from the key. `/search/suggest/` is cacheable for 60 seconds; `/search/` is `no-store`. Once category pages are cached, cache hits no longer reach the core's rate limit.
+
+**Not done here:** product descriptions aren't searched (long imported HTML would slow every search and blur results; names, variations, SKUs, options, tags and categories are). Search results have no category filter (suggestions show matching categories instead).
 
 ### Not in this phase
 
