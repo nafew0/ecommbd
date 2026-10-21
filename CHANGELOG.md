@@ -6,6 +6,16 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Added
 
+- **Phase 06, invoices, packing slips and courier stickers** (plugin `bd-print`, print views in the merchant admin):
+  - A4 and A5 invoices (logo, store contacts, order number with barcode, Dhaka date, customer, address, items, discount, delivery, total, paid and the amount to collect in large type, payment, note, return policy line); packing slips (no prices, a packed box per line); 80 mm thermal receipts; courier stickers 4×6 in, 3×4 in and A4 sheets of 8 or 12 labels.
+  - Bangla, English or both on every label, Bangla digits on/off; phone numbers keep English digits for couriers.
+  - Long invoices continue on more pages with the header repeated and "page 2 of 3"; long addresses on small stickers shrink, then wrap, and the phone and COD amount are never cut off.
+  - Print from the orders list (select up to 100 per page; bigger selections print in batches of 100) or from an order. Each order remembers what was printed; a second print says "Reprint".
+  - Settings → Invoices and stickers: paper sizes, what shows, language, digits and a footer line.
+  - New permission `PrintOrders` (owner, manager, order staff, packer). Packing slips get no prices from the server; print data is never cached.
+  - Our own Code 128 barcodes (no library), checked by decoding with ZXing.
+  - Tests: unit and snapshot tests in Bangla and English, end-to-end tests of the print data, Playwright tests that print every template to PDF, check page sizes, scan barcodes and print 100 orders.
+- **Two developers:** each works on their own branch; the roadmap lists who builds which phases.
 - **Phase 04, BD order workflow, order numbers and confirmation queue** (plugin `bd-orders`):
   - Order statuses New → Confirmed → Packed → Shipped → Delivered, plus Partly delivered, Returned and Cancelled, on Vendure's order process. Every allowed change is in `docs/decisions/order-states.md`; anything else is refused with a clear message, also from Vendure's own mutations. Cancelling needs a reason (fake, customer cancelled, unreachable, duplicate, out of stock, price issue, other).
   - Order numbers 1001, 1002… (optional prefix, e.g. `MF-1001`), given when the order is placed, so abandoned carts leave no gaps.

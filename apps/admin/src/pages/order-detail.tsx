@@ -5,7 +5,7 @@ import {
     isBdCancelReason,
 } from '@ecommbd/shared/order-status';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Phone } from 'lucide-react';
+import { ArrowLeft, Phone, Printer } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { PlaceName } from '../components/address/place-name';
@@ -17,6 +17,7 @@ import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useFormat } from '../lib/format';
 import { useI18n } from '../lib/i18n';
+import { openPrint } from '../lib/print';
 import {
     ACTION_PERMISSIONS,
     type ActionName,
@@ -124,6 +125,18 @@ export function OrderDetailPage() {
                     <div className="flex flex-wrap items-center gap-2">
                         <StatusBadge status={order.bd.status} />
                         <PaymentBadge type={order.bd.paymentType} />
+                        {can('PrintOrders') &&
+                            (['invoice', 'sticker'] as const).map(document => (
+                                <Button
+                                    key={document}
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => openPrint(document, [order.id])}
+                                >
+                                    <Printer className="size-4" aria-hidden />
+                                    {m.print.documents[document]}
+                                </Button>
+                            ))}
                     </div>
                 }
             />

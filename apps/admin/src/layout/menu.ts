@@ -106,7 +106,7 @@ export const MENU: MenuGroup[] = [
             link('payments', '/settings/payments', '08'),
             link('couriers', '/settings/couriers', '19'),
             link('checkout', '/settings/checkout', '14'),
-            link('invoice', '/settings/invoice', '06'),
+            link('invoice', '/settings/invoice', '06', true, 'ReadSettings'),
             link('staff', '/settings/staff', '32', false, 'ReadAdministrator'),
         ],
     },

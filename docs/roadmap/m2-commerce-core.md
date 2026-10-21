@@ -284,6 +284,8 @@ Bulk product editing (35), the returns workflow (37).
 
 **Goal.** The packing desk prints exactly what it needs, in bulk, in Bangla and English, on the printers BD merchants actually own.
 
+> **Built on 2026-10-21** on the `nafew` branch (plugin `bd-print`, print views in the merchant admin). Decisions are in the [decisions log](../decisions.md) (rows starting "Phase 06"). Still open: the one-time check of Bangla printing in Chrome on **Windows** (macOS is done, with screenshots).
+
 ### Decide at start
 
 - **Rendering:** HTML print views printed by the browser, not server-side PDF libraries. Most Node PDF libraries don't shape Bangla conjuncts correctly; the browser does. Confirm with a quick test of both approaches and record the decision.
@@ -331,9 +333,9 @@ Bulk product editing (35), the returns workflow (37).
 
 ### Done when
 
-- [ ] Staff select 100 orders and print A4 invoices and 4×6 stickers with scannable barcodes.
-- [ ] Bangla renders correctly in Chrome on Windows and macOS.
-- [ ] COD amount and phone are never cut off on any sticker size.
+- [x] Staff select 100 orders and print A4 invoices and 4×6 stickers with scannable barcodes. (Playwright `print.spec.ts`: 100 selected in the orders list, both documents rendered, a 100-sheet 4×6 PDF; barcodes decoded with ZXing from screenshots and in unit tests.)
+- [ ] Bangla renders correctly in Chrome on Windows and macOS. (macOS done: screenshots of an A4 invoice and stickers. **Windows still to check** on a staff PC.)
+- [x] COD amount and phone are never cut off on any sticker size. (Playwright, all four sizes, with a 150-character Bangla address.)
 
 ### Not in this phase
 

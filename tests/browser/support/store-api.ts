@@ -97,6 +97,9 @@ export interface PhoneOrderInput {
     name: string;
     phone: string;
     note?: string;
+    /** House, road, village (default: a short Dhaka address). */
+    streetLine1?: string;
+    area?: string;
     /** Stop after the customer step: the shopper is known but no order is placed. */
     customerOnly?: boolean;
 }
@@ -127,8 +130,8 @@ export async function placePhoneOrder(input: PhoneOrderInput): Promise<string> {
             input: {
                 districtId: 'BD3026',
                 thanaId: 'BD3026M26',
-                area: 'Mirpur 10',
-                streetLine1: 'House 12, Road 5, Block C',
+                area: input.area ?? 'Mirpur 10',
+                streetLine1: input.streetLine1 ?? 'House 12, Road 5, Block C',
                 note: input.note,
             },
         },

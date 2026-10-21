@@ -3,12 +3,16 @@ import { en } from '../messages/en';
 import { MENU, visibleMenu } from './menu';
 
 describe('menu', () => {
-    it('shows only built screens: Home, Orders (phase 04), Customers (03) and Settings (02, 04)', () => {
+    it('shows only built screens: Home, Orders (phase 04), Customers (03) and Settings (02, 04, 06)', () => {
         const menu = visibleMenu(MENU, () => true);
         expect(menu.map(group => group.label)).toEqual(['home', 'orders', 'customers', 'settings']);
         expect(menu[1]!.children!.map(child => child.to)).toEqual(['/orders', '/orders/confirm']);
         expect(menu[2]!.children!.map(child => child.to)).toEqual(['/customers']);
-        expect(menu[3]!.children!.map(child => child.to)).toEqual(['/settings/store', '/settings/orders']);
+        expect(menu[3]!.children!.map(child => child.to)).toEqual([
+            '/settings/store',
+            '/settings/orders',
+            '/settings/invoice',
+        ]);
     });
 
     it('hides a screen the role may not open', () => {

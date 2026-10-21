@@ -72,3 +72,8 @@ One word per idea everywhere: storefront, Dashboard, SMS, help articles. Banglad
 | Fake order | ভুয়া অর্ডার |
 | To collect on delivery (COD due) | ডেলিভারিতে নিতে হবে |
 | Sales today | আজকের বিক্রি |
+| Print / Reprint | প্রিন্ট / আবার প্রিন্ট |
+| Packing slip | প্যাকিং স্লিপ |
+| Receipt (thermal) | রিসিট |
+| Courier sticker | কুরিয়ার স্টিকার |
+| Recipient / Sender (on a sticker) | প্রাপক / প্রেরক |

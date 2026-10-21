@@ -11,7 +11,7 @@ export default defineConfig({
     },
     test: {
         name: 'admin',
-        include: ['src/**/*.spec.ts'],
+        include: ['src/**/*.spec.{ts,tsx}'],
         environment: 'node',
     },
 });

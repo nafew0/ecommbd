@@ -33,14 +33,15 @@ function Loading() {
 }
 
 /** Signed-in pages: wait for the session check, then show the app or go to sign-in. */
-function Protected() {
+function Protected({ bare = false }: { bare?: boolean }) {
     const { status } = useAuth();
     const location = useLocation();
     if (status === 'loading') return <Loading />;
     if (status === 'signedOut') {
         return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
     }
-    return <AppLayout />;
+    // Print views have no menu: just the documents and a toolbar.
+    return bare ? <Outlet /> : <AppLayout />;
 }
 
 // Each screen is its own chunk, loaded when first opened: the first load stays small on mobile data.
@@ -53,6 +54,17 @@ const router = createBrowserRouter(
                 {
                     path: '/login',
                     lazy: () => import('./pages/login').then(module => ({ Component: module.LoginPage })),
+                },
+                {
+                    path: '/print',
+                    element: <Protected bare />,
+                    children: [
+                        {
+                            index: true,
+                            lazy: () =>
+                                import('./pages/print').then(module => ({ Component: module.PrintPage })),
+                        },
+                    ],
                 },
                 {
                     path: '/',
@@ -87,6 +99,13 @@ const router = createBrowserRouter(
                             lazy: () =>
                                 import('./pages/order-settings').then(module => ({
                                     Component: module.OrderSettingsPage,
+                                })),
+                        },
+                        {
+                            path: 'settings/invoice',
+                            lazy: () =>
+                                import('./pages/print-settings').then(module => ({
+                                    Component: module.PrintSettingsPage,
                                 })),
                         },
                         {

@@ -1,6 +1,7 @@
 import { BD_ORDER_STATUSES, type BdOrderStatus } from '@ecommbd/shared/order-status';
+import { PRINT_DOCUMENTS, type PrintDocument } from '@ecommbd/shared/print-settings';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { ShoppingBag } from 'lucide-react';
+import { Printer, ShoppingBag } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { usePlaces } from '../components/address/district-thana-picker';
@@ -11,12 +12,15 @@ import { Button } from '../components/ui/button';
 import { Input, Select } from '../components/ui/input';
 import { EmptyState, PageHeader } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { useFormat } from '../lib/format';
 import { useI18n } from '../lib/i18n';
 import { ORDER_FIELDS, type OrderRow } from '../lib/orders';
+import { openPrint } from '../lib/print';
 import { useDebounced } from '../lib/use-debounced';
 
-const PAGE_SIZE = 25;
+/** Up to 100 per page, so the packing desk can select a whole batch to print (phase 06). */
+const PAGE_SIZES = [25, 50, 100];
 
 const ORDERS = `
     query Orders($status: String, $search: String, $dateFrom: String, $dateTo: String, $districtId: String,
@@ -24,7 +28,7 @@ const ORDERS = `
         bdOrders(status: $status, search: $search, dateFrom: $dateFrom, dateTo: $dateTo, districtId: $districtId,
             paymentType: $paymentType, skip: $skip, take: $take) {
             totalItems
-            items { ...BdOrderRow }
+            items { ...BdOrderRow bdPrint { invoicePrintedAt slipPrintedAt stickerPrintedAt } }
         }
         bdOrderCounts(search: $search, dateFrom: $dateFrom, dateTo: $dateTo, districtId: $districtId,
             paymentType: $paymentType) { status count }
@@ -32,8 +36,16 @@ const ORDERS = `
     ${ORDER_FIELDS}
 `;
 
+type Row = OrderRow & {
+    bdPrint: {
+        invoicePrintedAt: string | null;
+        slipPrintedAt: string | null;
+        stickerPrintedAt: string | null;
+    };
+};
+
 interface OrdersData {
-    bdOrders: { totalItems: number; items: OrderRow[] };
+    bdOrders: { totalItems: number; items: Row[] };
     bdOrderCounts: Array<{ status: BdOrderStatus; count: number }>;
 }
 
@@ -55,10 +67,14 @@ export function OrdersPage() {
     const [search, setSearch] = useState('');
     const [filters, setFilters] = useState<Filters>(NO_FILTERS);
     const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(PAGE_SIZES[0]!);
+    const [selected, setSelected] = useState<Set<string>>(new Set());
+    const [printDocument, setPrintDocument] = useState<PrintDocument>('invoice');
+    const { can } = useAuth();
     const term = useDebounced(search.trim());
     const { districts } = usePlaces('');
     const query = useQuery({
-        queryKey: ['orders', 'list', status, term, filters, page],
+        queryKey: ['orders', 'list', status, term, filters, page, pageSize],
         queryFn: () =>
             adminApi<OrdersData>(ORDERS, {
                 status: status === 'all' ? null : status,
@@ -67,8 +83,8 @@ export function OrdersPage() {
                 dateTo: filters.dateTo || null,
                 districtId: filters.districtId || null,
                 paymentType: filters.paymentType || null,
-                skip: (page - 1) * PAGE_SIZE,
-                take: PAGE_SIZE,
+                skip: (page - 1) * pageSize,
+                take: pageSize,
             }),
         placeholderData: keepPreviousData,
         refetchInterval: 60_000,
@@ -93,7 +109,7 @@ export function OrdersPage() {
         setPage(1);
     };
     const c = m.orders.columns;
-    const columns: Column<OrderRow>[] = [
+    const columns: Column<Row>[] = [
         {
             key: 'number',
             header: c.number,
@@ -103,6 +119,12 @@ export function OrdersPage() {
                     className="font-semibold text-teal-800 underline-offset-2 hover:underline"
                 >
                     {m.orders.number(row.customFields.orderNumber ?? row.code)}
+                    {(row.bdPrint.invoicePrintedAt || row.bdPrint.stickerPrintedAt) && (
+                        <Printer
+                            className="ml-1 inline size-3.5 text-slate-500"
+                            aria-label={m.print.printed}
+                        />
+                    )}
                 </Link>
             ),
         },
@@ -223,6 +245,23 @@ export function OrdersPage() {
                                 ))}
                             </Select>
                         </label>
+                        <label className="text-sm">
+                            <span className="block text-slate-600">{m.list.perPage}</span>
+                            <Select
+                                value={String(pageSize)}
+                                onChange={event => {
+                                    setPageSize(Number(event.target.value));
+                                    setPage(1);
+                                }}
+                                className="w-24"
+                            >
+                                {PAGE_SIZES.map(size => (
+                                    <option key={size} value={size}>
+                                        {m.common.number(size)}
+                                    </option>
+                                ))}
+                            </Select>
+                        </label>
                         {filtered && (
                             <Button variant="ghost" size="sm" onClick={() => setFilters(NO_FILTERS)}>
                                 {m.orders.filters.clear}
@@ -230,9 +269,42 @@ export function OrdersPage() {
                         )}
                     </div>
                 }
+                selection={
+                    can('PrintOrders')
+                        ? {
+                              selected,
+                              onChange: setSelected,
+                              actions: (
+                                  <span className="flex flex-wrap items-center gap-2">
+                                      <Select
+                                          aria-label={m.print.choose}
+                                          value={printDocument}
+                                          onChange={event =>
+                                              setPrintDocument(event.target.value as PrintDocument)
+                                          }
+                                          className="min-h-9 w-48 py-1 text-sm"
+                                      >
+                                          {PRINT_DOCUMENTS.map(document => (
+                                              <option key={document} value={document}>
+                                                  {m.print.documents[document]}
+                                              </option>
+                                          ))}
+                                      </Select>
+                                      <Button
+                                          size="sm"
+                                          onClick={() => openPrint(printDocument, [...selected])}
+                                      >
+                                          <Printer className="size-4" aria-hidden />
+                                          {m.print.selectedPrint}
+                                      </Button>
+                                  </span>
+                              ),
+                          }
+                        : undefined
+                }
                 pagination={{
                     page,
-                    pageSize: PAGE_SIZE,
+                    pageSize,
                     total: query.data?.bdOrders.totalItems ?? 0,
                     onChange: setPage,
                 }}
