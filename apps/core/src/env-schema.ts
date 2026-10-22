@@ -1,4 +1,4 @@
-import { envList, envPort, parseEnv } from '@ecommbd/shared';
+import { envList, envPort, parseEnv, parseKeyring } from '@ecommbd/shared';
 import { z } from 'zod';
 
 /**
@@ -17,6 +17,17 @@ export const envSchema = z
         COOKIE_SECRET: z
             .string()
             .min(32, 'must be at least 32 characters (generate one with: openssl rand -hex 32)'),
+        WOO_IMPORT_KEYS: z
+            .string()
+            .refine(value => {
+                try {
+                    parseKeyring(value);
+                    return true;
+                } catch {
+                    return false;
+                }
+            }, 'must be versioned 32-byte base64 keys, e.g. v1:<key>')
+            .optional(),
         SUPERADMIN_USERNAME: z.string(),
         SUPERADMIN_PASSWORD: z.string(),
         CORS_ORIGINS: envList

@@ -222,6 +222,8 @@ The file lands in `apps/core/src/migrations/`. Pending migrations run when the s
 
 The first migration, `<timestamp>-init.ts`, creates the whole schema and is committed. It was generated with `npm run migrate:generate -- init --from-empty`, which diffs against an empty temporary database.
 
+WooCommerce imports (Phase 21) use Settings → WooCommerce migration. Set `WOO_IMPORT_KEYS` on the server and worker, then follow the [implementation plan](docs/roadmap/m5-implementation.md) and [manual acceptance checklist](docs/runbooks/migration-testing.md). Use a staging copy first; real-store correctness and import speed await acceptance. Passwords, redirects and cutover remain deferred to Phase 22.
+
 ## 8. Useful commands
 
 | Command (from the project root) | What it does |

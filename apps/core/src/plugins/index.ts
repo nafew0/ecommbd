@@ -14,6 +14,7 @@ import { MerchantAdminPlugin } from './merchant-admin/merchant-admin.plugin';
 import { NotificationsPlugin, type SmsDriver } from './notifications';
 import { PaymentsBdPlugin } from './payments-bd';
 import { ShippingBdPlugin } from './shipping-bd';
+import { WooImportPlugin } from './woo-import';
 
 /** The built merchant admin (`npm run build -w @ecommbd/admin`), from `src/plugins` or `dist/plugins`. */
 export const ADMIN_APP_DIR = path.join(__dirname, '../../../admin/dist');
@@ -22,6 +23,8 @@ export const ADMIN_APP_DIR = path.join(__dirname, '../../../admin/dist');
 export const DEFAULT_IMAGES_DIR = path.join(__dirname, '../../static/images');
 
 export interface CustomPluginOptions {
+    /** WOO_IMPORT_KEYS: versioned encryption keys for source credentials. */
+    wooImportKeys?: string;
     /** STORE_DEFAULT_LANGUAGE: the storefront's default language for a new store. */
     defaultLanguage: StoreLanguage;
     /** Set up store defaults on start (default true). */
@@ -73,6 +76,7 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
         BdManualOrdersPlugin,
         NotificationsPlugin.init({ driver: options.smsDriver, storefrontUrl: options.storefrontUrl }),
         FraudGuardPlugin,
+        WooImportPlugin.init({ encryptionKeys: options.wooImportKeys }),
         MerchantAdminPlugin.init({
             appDir: ADMIN_APP_DIR,
             imageOrigins: options.assetUrlPrefix ? [new URL(options.assetUrlPrefix).origin] : [],

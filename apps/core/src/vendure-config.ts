@@ -165,6 +165,7 @@ export const config: VendureConfig = {
             appDir: IS_DEV ? path.join(__dirname, '../dist/dashboard') : path.join(__dirname, 'dashboard'),
         }),
         ...customPlugins({
+            wooImportKeys: env.WOO_IMPORT_KEYS,
             defaultLanguage: env.STORE_DEFAULT_LANGUAGE,
             assetUrlPrefix: env.ASSET_URL_PREFIX,
             imagesDir: env.IMAGES_DIR,
@@ -176,7 +177,10 @@ export const config: VendureConfig = {
                 password: env.REDIS_CACHE_PASSWORD,
             },
             redisKeyPrefix: KEY_PREFIX,
-            smsDriver: (env.SMS_DRIVER ?? (IS_DEV ? 'log' : 'none')) === 'log' ? new LogSmsDriver() : new NoSmsDriver(),
+            smsDriver:
+                (env.SMS_DRIVER ?? (IS_DEV ? 'log' : 'none')) === 'log'
+                    ? new LogSmsDriver()
+                    : new NoSmsDriver(),
             storefrontUrl: env.STOREFRONT_URL,
         }),
     ],

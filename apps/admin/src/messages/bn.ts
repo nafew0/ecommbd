@@ -1,5 +1,6 @@
 import { asciiToBanglaDigits } from '@ecommbd/shared/text';
 import type { Messages } from './en';
+import { migrationBn } from './migration';
 
 /** Bangla strings. Terms follow docs/glossary.md; to be reviewed by merchants in phase 33. */
 const n = (value: number) => asciiToBanglaDigits(String(value));
@@ -7,6 +8,7 @@ const n = (value: number) => asciiToBanglaDigits(String(value));
 const n2 = (value: string) => asciiToBanglaDigits(value);
 
 export const bn: Messages = {
+    migration: migrationBn,
     appName: 'স্টোর অ্যাডমিন',
     common: {
         save: 'সেভ করুন',
@@ -80,6 +82,7 @@ export const bn: Messages = {
         coupons: 'কুপন',
         tracking: 'ট্র্যাকিং',
         settings: 'সেটিংস',
+        migration: 'WooCommerce মাইগ্রেশন',
         store: 'স্টোর',
         delivery: 'ডেলিভারি',
         payments: 'পেমেন্ট',
@@ -1074,7 +1077,8 @@ export const bn: Messages = {
         month: 'এই মাসে',
         usageLine: (messages: string, segments: string) => `${messages}টি এসএমএস · ${segments} অংশ`,
         senderId: 'প্রেরকের নাম',
-        senderIdHint: 'নম্বরের বদলে গ্রাহক যে অনুমোদিত নাম দেখবেন (সর্বোচ্চ ১১ অক্ষর)। প্রোভাইডারের নম্বর ব্যবহার করতে খালি রাখুন।',
+        senderIdHint:
+            'নম্বরের বদলে গ্রাহক যে অনুমোদিত নাম দেখবেন (সর্বোচ্চ ১১ অক্ষর)। প্রোভাইডারের নম্বর ব্যবহার করতে খালি রাখুন।',
         events: {
             placed: 'অর্ডার পাওয়া গেছে',
             confirmed: 'অর্ডার কনফার্ম',
@@ -1101,9 +1105,11 @@ export const bn: Messages = {
             storePhone: 'দোকানের ফোন',
             code: 'যাচাই কোড',
         },
-        segments: (units: string, parts: string, cost: string) => `${units} অক্ষর · ${parts}টি এসএমএস · প্রায় ${cost}`,
+        segments: (units: string, parts: string, cost: string) =>
+            `${units} অক্ষর · ${parts}টি এসএমএস · প্রায় ${cost}`,
         longWarning: 'এই মেসেজ প্রতি গ্রাহকের জন্য ৩টি বা বেশি এসএমএস। খরচ বাঁচাতে ছোট করুন।',
-        segmentsHint: 'বাংলা এসএমএসে ৭০ অক্ষর ধরে, ইংরেজিতে ১৬০। লম্বা মেসেজ কয়েক অংশে যায়, প্রতিটি অংশের খরচ আছে।',
+        segmentsHint:
+            'বাংলা এসএমএসে ৭০ অক্ষর ধরে, ইংরেজিতে ১৬০। লম্বা মেসেজ কয়েক অংশে যায়, প্রতিটি অংশের খরচ আছে।',
         limits: 'সীমা',
         quietHours: 'নীরব সময়',
         quietHoursOn: 'রাতে পাঠাবেন না',
@@ -1174,7 +1180,8 @@ export const bn: Messages = {
     },
     incomplete: {
         title: 'অসম্পূর্ণ অর্ডার',
-        description: 'চেকআউটে ফোন নম্বর লিখেছেন কিন্তু অর্ডার করেননি এমন ক্রেতা। কল করুন, বা রিমাইন্ডার পাঠান।',
+        description:
+            'চেকআউটে ফোন নম্বর লিখেছেন কিন্তু অর্ডার করেননি এমন ক্রেতা। কল করুন, বা রিমাইন্ডার পাঠান।',
         tabs: {
             open: 'অপেক্ষায়',
             recovered: 'পরে অর্ডার করেছেন',
@@ -1206,19 +1213,22 @@ export const bn: Messages = {
         order: (number: string) => `অর্ডার #${n2(number)}`,
         emptyTitle: 'এখানে কিছু নেই',
         emptyBody: 'ক্রেতা চেকআউটে ফোন নম্বর লিখে চলে গেলে এখানে দেখাবে।',
-        callScript: 'কল করে বলুন: “আসসালামু আলাইকুম, আমি [দোকানের নাম] থেকে বলছি। আপনি কি আমাদের ওয়েবসাইটে অর্ডার করতে চেয়েছিলেন?” নম্বরটি ভুল করে লেখা হতে পারে, তাই ভদ্রভাবে কথা বলুন।',
+        callScript:
+            'কল করে বলুন: “আসসালামু আলাইকুম, আমি [দোকানের নাম] থেকে বলছি। আপনি কি আমাদের ওয়েবসাইটে অর্ডার করতে চেয়েছিলেন?” নম্বরটি ভুল করে লেখা হতে পারে, তাই ভদ্রভাবে কথা বলুন।',
         expiresNote: '৩০ দিন পরে তথ্য মুছে যায়।',
     },
     blockList: {
         title: 'ব্লক তালিকা',
-        description: 'যেসব ফোন ও আইপি থেকে ওয়েবসাইটে অর্ডার করা যায় না। স্টাফ তাদের অর্ডার নিজে নিতে পারেন।',
+        description:
+            'যেসব ফোন ও আইপি থেকে ওয়েবসাইটে অর্ডার করা যায় না। স্টাফ তাদের অর্ডার নিজে নিতে পারেন।',
         add: 'ফোন বা আইপি ব্লক করুন',
         kind: 'কী ব্লক করবেন',
         kinds: { phone: 'ফোন নম্বর', ip: 'আইপি ঠিকানা' },
         value: 'ফোন নম্বর বা আইপি',
         until: 'যতদিন',
         untilHintPhone: 'সবসময়ের জন্য ব্লক করতে খালি রাখুন।',
-        untilHintIp: 'দিতে হবে, সর্বোচ্চ ৩০ দিন। অনেক মোবাইল ব্যবহারকারী একই আইপি ব্যবহার করেন, তাই একটি আইপি ব্লক হাজারো আসল ক্রেতাকে আটকাতে পারে।',
+        untilHintIp:
+            'দিতে হবে, সর্বোচ্চ ৩০ দিন। অনেক মোবাইল ব্যবহারকারী একই আইপি ব্যবহার করেন, তাই একটি আইপি ব্লক হাজারো আসল ক্রেতাকে আটকাতে পারে।',
         note: 'নোট',
         notePlaceholder: 'যেমন: মার্চে দুটি ভুয়া অর্ডার',
         block: 'ব্লক করুন',
@@ -1240,7 +1250,8 @@ export const bn: Messages = {
             EXPIRY_IN_PAST: 'ভবিষ্যতের কোনো সময় বেছে নিন।',
         },
         customerCard: 'ব্লক তালিকা',
-        customerBlocked: (until: string) => `এই গ্রাহকের ফোন ব্লক করা (${until})। ওয়েবসাইটের অর্ডার ভদ্রভাবে ফেরানো হয়।`,
+        customerBlocked: (until: string) =>
+            `এই গ্রাহকের ফোন ব্লক করা (${until})। ওয়েবসাইটের অর্ডার ভদ্রভাবে ফেরানো হয়।`,
         customerNotBlocked: 'এই গ্রাহক ওয়েবসাইট থেকে অর্ডার করতে পারেন।',
         blockCustomer: 'এই ফোন ব্লক করুন',
     },

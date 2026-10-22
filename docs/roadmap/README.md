@@ -145,7 +145,7 @@ Status values: **Not started** · **In progress** · **Review** · **Done**.
 | [18](m4-integrations.md#phase-18--online-payments-sslcommerz-and-bkash) | Online payments: SSLCommerz and bKash | M4 | SSLCommerz (P0), bKash tokenized (P1) | 08, 14 | L | Not started |
 | [19](m4-integrations.md#phase-19--couriers-i-steadfast-and-pathao) | Couriers I: Steadfast and Pathao | M4 | Courier booking and sync (P0) | 04, 06, 08 | L | Not started |
 | [20](m4-integrations.md#phase-20--meta-pixel-and-conversions-api) | Meta Pixel and Conversions API | M4 | Pixel + CAPI, Purchase trigger (P0), event log (P1) | 04, 14, 16 | L | Not started |
-| [21](m5-migration.md#phase-21--woocommerce-importer-catalog-customers-and-orders) | WooCommerce importer: catalog, customers, orders | M5 | Woo import via API (P0) | 02, 03, 04, 09 | XL | Not started |
+| [21](m5-migration.md#phase-21--woocommerce-importer-catalog-customers-and-orders) | WooCommerce importer: catalog, customers, orders | M5 | Woo import via API (P0) | 02, 03, 04, 09 | XL | **Review** (built 2026-10-22; real-store acceptance pending) |
 | [22](m5-migration.md#phase-22--wordpress-helper-plugin-passwords-seo-urls-and-cutover) | WordPress helper plugin, passwords, SEO URLs, cutover | M5 | Helper plugin, URLs, final sync (P0), passwords, SEO (P1) | 21 | XL | Not started |
 | [23](m6-platform.md#phase-23--server-baseline) | Server baseline | M6 | Platform security (P0) | 01 | L | Not started |
 | [24](m6-platform.md#phase-24--store-provisioning-and-lifecycle) | Store provisioning and lifecycle | M6 | Create store, subdomain, custom domain (P0) | 02, 23 | L | Not started |

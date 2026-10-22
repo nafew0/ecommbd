@@ -12,6 +12,8 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Added
 
+- **Phase 21, WooCommerce REST migration** (`woo-import`): encrypted read-only connections, source inspection, dry-run issues, resumable imports, multi-attribute catalog and guarded image processing, phone-first customer mapping, exact read-only order history, reports and reviewed open COD conversion. English/Bangla admin screens and customer history are included. Generated migration adds five tables. [Plan](docs/roadmap/m5-implementation.md), [manual acceptance checklist](docs/runbooks/migration-testing.md). Compilation/schema/startup checks only; real-store correctness and the one-hour target remain pending. Phase 22 is deferred.
+
 - **Phase 12, storefront foundation** (new app `apps/storefront`, plugin `bd-content`):
   - The shop in Bangla and English, server-rendered with Astro and no JavaScript: home, nested categories with pagination, product pages (photos, variations, price ranges, stock, an "Order on WhatsApp" link), content pages, the four policies, search, and the cart, checkout, account and tracking addresses for the coming phases.
   - WooCommerce-style addresses (`/product/{slug}/`, `/product-category/{parent}/{child}/`); the store's default language without a prefix, the other under `/en/` or `/bn/`. Any other spelling of an address, including an old slug or another Unicode form of a Bangla slug, gets one 301 to the right one. Deleted products answer 410 with suggestions.

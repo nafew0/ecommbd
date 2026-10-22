@@ -15,6 +15,8 @@ export function skipPlaceholderRecipients<H extends HandlesEmail>(handlers: H[])
     for (const handler of handlers) {
         const handle = handler.handle.bind(handler) as Handle;
         const wrapped: Handle = async (...args) => {
+            const event = args[0] as { order?: { customFields?: { imported?: boolean } } } | undefined;
+            if (event?.order?.customFields?.imported) return undefined;
             const result = await handle(...args);
             return result && isPlaceholderEmail(result.recipient) ? undefined : result;
         };
