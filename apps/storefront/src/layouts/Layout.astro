@@ -8,6 +8,9 @@ import Footer from '../components/Footer.astro';
 import Header from '../components/Header.astro';
 import PreviewBar from '../components/PreviewBar.astro';
 import PreviewTools from '../components/PreviewTools.astro';
+import SalesFooter from '../components/SalesFooter.astro';
+import SalesHeader from '../components/SalesHeader.astro';
+import StickyOrderBar from '../components/StickyOrderBar.astro';
 import { otherLang } from '../lib/i18n';
 import type { ImageAttributes } from '../lib/images';
 import { pageContext } from '../lib/page';
@@ -32,6 +35,18 @@ interface Props {
     preload?: ImageAttributes & { sizes: string };
     /** Pages made of sections (phase 15) lay out their own width. */
     fullWidth?: boolean;
+    /** The page's generated stylesheet (lib/sections.ts `pageStyle`), allowed by its hash in the CSP. */
+    css?: string;
+    /** A sales page (phase 16): its own header, footer, width and font, and the order bar. */
+    sales?: {
+        pageId: string;
+        header: 'slim' | 'store' | 'none';
+        footer: boolean;
+        width: 'phone' | 'full';
+        font: string;
+        /** The sticky order bar on phones: the price it shows. */
+        sticky: string | null;
+    };
 }
 
 const {
@@ -45,6 +60,8 @@ const {
     structuredData = [],
     preload,
     fullWidth = false,
+    css: pageCss = '',
+    sales,
 } = Astro.props;
 const { lang, settings, s, href, absolute } = pageContext(Astro);
 const name = storeName(settings, lang);
@@ -58,15 +75,18 @@ const phone = settings.profile.phones[0];
 const theme = Astro.locals.theme;
 const preview = Astro.locals.preview;
 const editorOrigin = preview?.mode === 'editor' ? (env().EDITOR_ORIGIN ?? undefined) : undefined;
+const htmlAttributes = { ...themeAttributes(theme), ...(sales?.font ? { 'data-font': sales.font } : {}) };
+const header = sales?.header ?? 'store';
 ---
 
 <!doctype html>
-<html lang={lang} {...themeAttributes(theme)}>
+<html lang={lang} {...htmlAttributes}>
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>{fullTitle}</title>
         {!hasDefaultColours(theme) && <link rel="stylesheet" href={`/theme.css?v=${themeVersion(theme)}`} />}
+        {pageCss && <style is:inline data-layout-css set:html={pageCss} />}
         {description && <meta name="description" content={description} />}
         {(noindex || preview) && <meta name="robots" content="noindex, follow" />}
         {canonical && <link rel="canonical" href={canonical} />}
@@ -102,21 +122,37 @@ const editorOrigin = preview?.mode === 'editor' ? (env().EDITOR_ORIGIN ?? undefi
         {description && <meta name="twitter:description" content={description} />}
         {image && <meta name="twitter:image" content={absolute(image)} />}
         {structuredData.map(data => <script type="application/ld+json" set:html={jsonLd(data)} />)}
+        <slot name="head" />
     </head>
-    <body data-preview={preview?.mode} data-editor-origin={editorOrigin}>
+    <body data-preview={preview?.mode} data-editor-origin={editorOrigin} data-sales-page={sales?.pageId}>
         <a class="skip-link" href="#main">{s.skipToContent}</a>
-        <Header switchHref={switchHref} />
-        <main id="main" class={fullWidth ? 'main-sections' : 'container'}>
+        {header === 'store' && <Header switchHref={switchHref} />}
+        {header === 'slim' && <SalesHeader switchHref={switchHref} />}
+        <main
+            id="main"
+            class:list={[fullWidth ? 'main-sections' : 'container', { 'main-sales': !!sales, 'main-phone': sales?.width === 'phone' }]}
+        >
             <slot />
         </main>
-        <Footer />
-        <FloatingContact
-            lang={lang}
-            whatsapp={settings.profile.whatsapp}
-            messengerUrl={settings.profile.messengerUrl}
-            phone={phone}
-        />
+        {sales ? sales.footer && <SalesFooter /> : <Footer />}
+        {
+            !sales && (
+                <FloatingContact
+                    lang={lang}
+                    whatsapp={settings.profile.whatsapp}
+                    messengerUrl={settings.profile.messengerUrl}
+                    phone={phone}
+                />
+            )
+        }
+        {sales?.sticky && <StickyOrderBar price={sales.sticky} />}
         <PreviewBar />
         {preview?.mode === 'editor' && <PreviewTools />}
+        <script>
+            // Where the shopper came from (phase 16): a tiny script, on every page.
+            import { recordVisit } from '../scripts/attribution';
+
+            recordVisit();
+        </script>
     </body>
 </html>

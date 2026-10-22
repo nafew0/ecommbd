@@ -1,3 +1,4 @@
+import { attachCountdowns } from './countdown';
 import { attachSlideshows } from './slideshow';
 import { attachVideos } from './video';
 
@@ -63,12 +64,22 @@ async function refresh() {
     const main = document.querySelector('main');
     const fresh = next.querySelector('main');
     if (main && fresh) main.replaceWith(document.adoptNode(fresh));
+    // The Design options' stylesheet (phase 16) changes with the sections.
+    const style = document.querySelector('style[data-layout-css]');
+    const freshStyle = next.querySelector('style[data-layout-css]');
+    if (freshStyle) {
+        if (style) style.replaceWith(document.adoptNode(freshStyle));
+        else document.head.append(document.adoptNode(freshStyle));
+    } else {
+        style?.remove();
+    }
     for (const name of THEME_ATTRIBUTES) {
         const value = next.documentElement.getAttribute(name);
         if (value) document.documentElement.setAttribute(name, value);
     }
     attachSlideshows();
     attachVideos();
+    attachCountdowns();
     highlight(false);
     announce();
 }

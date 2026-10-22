@@ -1,0 +1,121 @@
+---
+import { pick, salesColoursCss } from '@ecommbd/sections';
+import { formatBdPhone } from '@ecommbd/shared/phone';
+import CheckoutSummary from '../../../components/CheckoutSummary.astro';
+import Icon from '../../../components/Icon.astro';
+import Missing from '../../../components/Missing.astro';
+import Layout from '../../../layouts/Layout.astro';
+import { shopperContext } from '../../../lib/cart';
+import { ORDER_BY_CODE } from '../../../lib/checkout-queries';
+import { shopQuery } from '../../../lib/core';
+import { pageContext, privatePage } from '../../../lib/page';
+import { loadSalesPage } from '../../../lib/sales';
+import { pageStyle } from '../../../lib/sections';
+import { salesSlug } from '../../../lib/urls';
+
+/**
+ * A sales page's thank-you page (roadmap phase 16): the merchant's message, the order, a WhatsApp
+ * follow-up and the store's phone, and, when set, a move on to another page of this site after a
+ * few seconds. Only the session that placed the order can read it (Vendure's order-by-code rules).
+ */
+privatePage(Astro);
+const { lang, settings: store, s, href, format } = pageContext(Astro);
+const loaded = await loadSalesPage(Astro, salesSlug(Astro.params.slug ?? ''));
+const shopper = shopperContext(Astro, 'sales');
+const code = Astro.url.searchParams.get('order') ?? '';
+const order =
+    loaded && /^[A-Za-z0-9]{6,40}$/.test(code)
+        ? (await shopQuery(ORDER_BY_CODE, { code }, lang, shopper)).orderByCode
+        : null;
+shopper.session.apply(Astro.response.headers);
+const placed = order?.orderPlacedAt ? order : null;
+const number = placed?.customFields?.orderNumber ?? placed?.code ?? '';
+const cod = placed?.payments?.some(payment => payment.method === 'bd-cod') ?? false;
+const whatsapp = store.profile.whatsapp.replace(/\D/g, '');
+const phone = store.profile.phones[0];
+const thankYou = loaded?.settings.thankYou;
+const message = (thankYou && pick(thankYou.message, lang)) || s.nextSteps;
+// Same-site paths only (checked when saved and when read): never another site.
+const redirect = thankYou?.redirect ? href(thankYou.redirect) : null;
+const css = loaded ? pageStyle(Astro, null, salesColoursCss(Astro.locals.theme, loaded.settings)) : '';
+if (!loaded) Astro.response.status = 404;
+---
+
+{
+    loaded ? (
+        <Layout
+            title={s.thankYouTitle}
+            noindex
+            css={css}
+            sales={{
+                pageId: loaded.page.id,
+                header: loaded.settings.header,
+                footer: loaded.settings.footer,
+                width: loaded.settings.width,
+                font: loaded.settings.font,
+                sticky: null,
+            }}
+        >
+            {placed && redirect && <meta http-equiv="refresh" content={`8;url=${redirect}`} slot="head" />}
+            <section class="thank-you">
+                {placed ? (
+                    <>
+                        <p class="thank-you-mark" aria-hidden="true">
+                            <Icon name="check" size={32} />
+                        </p>
+                        <h1>{s.thankYouTitle}</h1>
+                        <p class="thank-you-number">{s.orderNumberIs(number)}</p>
+                        <p class="thank-you-message">{message}</p>
+                        <div class="thank-you-actions">
+                            {whatsapp && thankYou?.whatsapp && (
+                                <a
+                                    class="button button-whatsapp"
+                                    href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(s.whatsappAboutOrder(number))}`}
+                                    rel="noopener"
+                                >
+                                    <Icon name="whatsapp" />
+                                    {s.messageUs}
+                                </a>
+                            )}
+                            {phone && (
+                                <a class="button button-secondary" href={`tel:${phone}`}>
+                                    <Icon name="phone" />
+                                    {s.supportPhone(formatBdPhone(phone))}
+                                </a>
+                            )}
+                            {redirect && (
+                                <a class="text-link" href={redirect}>
+                                    {s.continueOn}
+                                </a>
+                            )}
+                        </div>
+                        {redirect && <p class="muted">{s.redirectingSoon}</p>}
+                        <CheckoutSummary order={placed} options={null} cod={cod} deliveryKnown />
+                        {cod && (
+                            <p class="muted">
+                                {s.payOnDelivery}:{' '}
+                                {format.price(
+                                    (placed.payments ?? [])
+                                        .filter(payment => payment.method === 'bd-cod' && payment.state === 'Authorized')
+                                        .reduce((sum, payment) => sum + payment.amount, 0),
+                                )}
+                            </p>
+                        )}
+                    </>
+                ) : (
+                    <>
+                        <h1>{s.trackTitle}</h1>
+                        <p>{s.orderNotFound}</p>
+                        <a class="button" href={href('/track/')}>
+                            {s.trackButton}
+                        </a>
+                    </>
+                )}
+            </section>
+        </Layout>
+    ) : (
+        <Layout title={s.notFoundTitle} noindex>
+            <Missing kind="not-found" />
+        </Layout>
+    )
+}

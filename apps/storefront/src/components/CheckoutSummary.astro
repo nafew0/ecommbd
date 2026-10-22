@@ -17,6 +17,8 @@ const { lang, s, format } = pageContext(Astro);
 const codFee = order.surcharges.filter(item => item.sku === 'BD-COD-FEE').reduce((sum, item) => sum + item.priceWithTax, 0);
 const otherSurcharges = order.surcharges.filter(item => item.sku !== 'BD-COD-FEE');
 const advance = cod && options ? options.advanceAmount : 0;
+// The items at their own prices; offers and discounts are listed below it (phase 16's sales page offers).
+const itemsTotal = order.lines.reduce((sum, line) => sum + line.linePriceWithTax, 0);
 ---
 
 <section class="checkout-summary" aria-labelledby="summary-title" data-part="summary">
@@ -43,7 +45,7 @@ const advance = cod && options ? options.advanceAmount : 0;
     <dl class="summary-totals">
         <div>
             <dt>{s.subtotal}</dt>
-            <dd>{format.price(order.subTotalWithTax)}</dd>
+            <dd>{format.price(itemsTotal)}</dd>
         </div>
         <div>
             <dt>{s.deliveryCharge}</dt>

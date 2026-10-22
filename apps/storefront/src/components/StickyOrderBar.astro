@@ -1,0 +1,18 @@
+---
+import { pageContext } from '../lib/page';
+
+/**
+ * The order bar on phones (phase 16): the price and "অর্ডার করুন", fixed at the bottom, jumping to the
+ * order form. The script moves it aside while the form is on screen. Hidden on computers.
+ */
+interface Props {
+    price: string;
+}
+
+const { s } = pageContext(Astro);
+---
+
+<div class="sticky-order" data-sticky-order role="region" aria-label={s.stickyBar}>
+    <span class="sticky-order-price">{Astro.props.price}</span>
+    <a class="button" href="#order" data-order-link>{s.orderNowShort}</a>
+</div>

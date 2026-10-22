@@ -4,7 +4,7 @@ import type { PolicyKey } from '@ecommbd/shared/store-settings';
 import Missing from '../components/Missing.astro';
 import RichText from '../components/RichText.astro';
 import Layout from '../layouts/Layout.astro';
-import { loadLayout, loadSectionData, type LoadedLayout, setCacheTags, visibleSections } from '../lib/sections';
+import { loadLayout, loadSectionData, type LoadedLayout, pageStyle, setCacheTags, visibleSections } from '../lib/sections';
 import Sections from '../sections/Sections.astro';
 import { shopQuery } from '../lib/core';
 import type { Lang } from '../lib/i18n';
@@ -69,6 +69,7 @@ const layout: LoadedLayout | null = pageId ? await loadLayout(Astro, 'page', pag
 const sections = layout ? visibleSections(layout.document) : [];
 const data = layout && sections.length ? await loadSectionData(Astro, sections) : null;
 if (layout && data && !Astro.locals.preview) setCacheTags(Astro, layout, data);
+const css = layout && data ? pageStyle(Astro, layout.document) : '';
 const titleHidden =
     !!shown && !shown.body.trim() && ['hero', 'slideshow', 'banner'].includes(sections[0]?.type ?? '');
 ---
@@ -80,6 +81,7 @@ const titleHidden =
             description={metaDescription(shown.seoDescription, shown.body)}
             canonicalPath={shown.path}
             alternates={alternates(Astro, shown.paths)}
+            css={css}
             fullWidth={!!data}
         >
             <article class:list={['content-page', { container: !!data, 'content-page-empty': titleHidden }]}>

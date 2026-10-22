@@ -3,7 +3,7 @@ import { type Bilingual, pick } from '@ecommbd/sections';
 import Layout from '../layouts/Layout.astro';
 import { largestImageUrl } from '../lib/images';
 import { alternates, canonicalRedirect, pageContext } from '../lib/page';
-import { defaultHome, loadLayout, loadSectionData, setCacheTags, visibleSections } from '../lib/sections';
+import { defaultHome, loadLayout, loadSectionData, pageStyle, setCacheTags, visibleSections } from '../lib/sections';
 import { organization, website } from '../lib/seo';
 import { bilingual, storeName } from '../lib/store';
 import Sections from '../sections/Sections.astro';
@@ -20,6 +20,7 @@ const layout = (await loadLayout(Astro, 'home')) ?? defaultHome(settings);
 const sections = visibleSections(layout.document);
 const data = await loadSectionData(Astro, sections);
 if (!Astro.locals.preview) setCacheTags(Astro, layout, data);
+const css = pageStyle(Astro, layout.document);
 const name = storeName(settings, lang);
 const description = bilingual(settings.profile.shortDescription, lang);
 const logo = settings.profile.logo ? largestImageUrl(settings.profile.logo) : undefined;
@@ -44,6 +45,7 @@ const headingFirst =
     alternates={alternates(Astro, { bn: '/', en: '/' })}
     image={logo}
     fullWidth
+    css={css}
     structuredData={[
         organization({
             name,

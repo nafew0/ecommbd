@@ -14,5 +14,7 @@ declare namespace App {
         preview?: import('./lib/sections').Preview;
         /** The URL had a preview token that is wrong or expired: the live page shows, with a notice. */
         previewExpired?: boolean;
+        /** SHA-256 hashes of the page's generated <style> (phase 16's Design options), for the CSP. */
+        styleHashes?: string[];
     }
 }

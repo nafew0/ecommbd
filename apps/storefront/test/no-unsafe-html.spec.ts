@@ -4,10 +4,11 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * `set:html` writes raw HTML into the page. It's allowed only on the sanitizer's output (in
- * RichText.astro) and the JSON-LD helper's (in Layout.astro). This stands in for a lint rule:
- * ESLint doesn't read .astro files here.
+ * RichText.astro), the JSON-LD helper's and the page's generated stylesheet (in Layout.astro; made
+ * from checked values by `layoutCss`, phase 16). This stands in for a lint rule: ESLint doesn't
+ * read .astro files here.
  */
-const ALLOWED = [/set:html=\{html\}/, /set:html=\{jsonLd\(data\)\}/];
+const ALLOWED = [/set:html=\{html\}/, /set:html=\{jsonLd\(data\)\}/, /set:html=\{pageCss\}/];
 
 function astroFiles(dir: string): string[] {
     return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
@@ -25,7 +26,7 @@ describe('set:html', () => {
                 code: match[0],
             })),
         );
-        expect(uses.map(use => use.file).sort()).toEqual(['Layout.astro', 'RichText.astro']);
+        expect(uses.map(use => use.file).sort()).toEqual(['Layout.astro', 'Layout.astro', 'RichText.astro']);
         for (const use of uses) {
             expect(
                 ALLOWED.some(pattern => pattern.test(use.code)),

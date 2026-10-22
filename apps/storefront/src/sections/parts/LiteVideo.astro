@@ -1,0 +1,43 @@
+---
+import { parseVideo } from '@ecommbd/sections';
+import Icon from '../../components/Icon.astro';
+import type { SectionContext } from '../context';
+
+/**
+ * A lite video: YouTube's thumbnail (or nothing) and our play button. The player loads only when
+ * pressed (src/scripts/video.ts); without JavaScript the button is a link to the video.
+ */
+interface Props {
+    context: SectionContext;
+    url: string;
+    title: string;
+    shape?: 'wide' | 'tall' | 'square';
+}
+
+const { context, url, title, shape = 'wide' } = Astro.props;
+const video = parseVideo(url);
+const site = video?.provider === 'facebook' ? 'Facebook' : 'YouTube';
+---
+
+{
+    video && (
+        <div class:list={['video-frame', `video-${shape}`]} data-video={video.embedUrl} data-video-title={title || site}>
+            {video.thumbnail && (
+                <img class="video-poster" src={video.thumbnail} alt="" width="480" height="360" loading="lazy" decoding="async" />
+            )}
+            <a class="video-play" href={video.watchUrl} rel="noopener" target="_blank" data-video-play>
+                <span class="video-play-icon">
+                    <Icon name="play" size={28} />
+                </span>
+                <span class="visually-hidden">{context.s.playVideo}</span>
+                <span class="video-site">{context.s.watchOn(site)}</span>
+            </a>
+        </div>
+    )
+}
+
+<script>
+    import { attachVideos } from '../../scripts/video';
+
+    attachVideos();
+</script>

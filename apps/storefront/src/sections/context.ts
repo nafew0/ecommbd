@@ -1,6 +1,8 @@
-import { type Bilingual, type ImageValue, type LinkValue, pick } from '@ecommbd/sections';
+import { type Bilingual, type ImageValue, type LinkValue, pick, type SalesPageSettings } from '@ecommbd/sections';
+import type { CheckoutSettings, District } from '../lib/checkout';
 import type { AssetData } from '../lib/images';
 import type { Formatter, Lang, Strings } from '../lib/i18n';
+import type { SalesPageData } from '../lib/sales';
 import { linkHref, type SectionPageData } from '../lib/sections';
 import type { StoreSettings } from '../lib/store';
 
@@ -23,6 +25,15 @@ export interface SectionContext {
     heading: 'h1' | 'h2';
     /** In the page editor's frame: empty sections show what to fill in instead of nothing. */
     editor: boolean;
+    /** On a sales page (phase 16): its product, packs, add-on and settings, and what its order form needs. */
+    sales?: SalesContext;
+}
+
+export interface SalesContext {
+    page: SalesPageData;
+    settings: SalesPageSettings;
+    checkout: CheckoutSettings;
+    districts: District[];
 }
 
 /** Text in the page's language (the other language's when empty). */

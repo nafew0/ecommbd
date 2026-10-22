@@ -1,0 +1,39 @@
+---
+import type { CheckoutValues, ShippingOption } from '../../lib/checkout';
+import { pageContext } from '../../lib/page';
+
+/** The delivery choice and its charge, once the address says where it goes. */
+interface Props {
+    values: CheckoutValues;
+    shipping: ShippingOption[];
+    chosenShipping: string | undefined;
+    /** Taka still to add for free delivery (null when there's no such offer). */
+    free: number | null | undefined;
+    deliveryKnown: boolean;
+}
+
+const { values, shipping, chosenShipping, free, deliveryKnown } = Astro.props;
+const { s, format } = pageContext(Astro);
+---
+
+<fieldset class="checkout-section" data-part="delivery">
+    <legend>{s.deliveryMethod}</legend>
+    {
+        !values.districtId || !values.thanaId ? (
+            <p class="muted">{s.chooseDistrictFirst}</p>
+        ) : shipping.length === 0 ? (
+            <p class="field-error">{s.noDeliveryHere}</p>
+        ) : (
+            <div class="choice-list">
+                {shipping.map(option => (
+                    <label class="choice">
+                        <input type="radio" name="shippingMethodId" value={option.id} checked={option.id === chosenShipping} data-shipping />
+                        <span class="choice-label">{option.name}</span>
+                        <span>{option.priceWithTax ? format.price(option.priceWithTax) : s.free}</span>
+                    </label>
+                ))}
+            </div>
+        )
+    }
+    {free != null && free > 0 && deliveryKnown && <p class="field-hint">{s.freeDeliveryHint(format.price(free))}</p>}
+</fieldset>

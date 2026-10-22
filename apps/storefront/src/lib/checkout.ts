@@ -3,17 +3,21 @@ import type { TadaDocumentNode } from 'gql.tada';
 import { activeOrder, type CartOrder, type ShopperContext } from './cart';
 import {
     ADD_PAYMENT,
+    type CHECKOUT_SETTINGS,
+    type DISTRICTS,
     PAYMENT_OPTIONS,
     REMOVE_LINE,
     SAVE_PROGRESS,
     SEND_OTP,
     SET_ADDRESS,
+    SET_ATTRIBUTION,
     SET_CUSTOMER,
     SET_PARTIAL_ADDRESS,
     SET_PAYMENT_CHOICE,
     SET_SHIPPING,
     SHIPPING_OPTIONS,
     SKIP_OTP,
+    type THANAS,
     TO_STATE,
     VERIFY_OTP,
 } from './checkout-queries';
@@ -62,6 +66,9 @@ export type CheckoutErrors = Partial<Record<CheckoutField | 'form', string>>;
 
 export type PaymentOptions = NonNullable<ResultOf<typeof PAYMENT_OPTIONS>['bdPaymentOptions']>;
 export type ShippingOption = ResultOf<typeof SHIPPING_OPTIONS>['eligibleShippingMethods'][number];
+export type CheckoutSettings = ResultOf<typeof CHECKOUT_SETTINGS>['bdCheckoutSettings'];
+export type District = ResultOf<typeof DISTRICTS>['bdDistricts'][number];
+export type Thana = ResultOf<typeof THANAS>['bdThanas'][number];
 
 export type PlaceOutcome =
     | { kind: 'placed'; code: string }
@@ -246,6 +253,11 @@ async function placeOrder(shopper: ShopperContext, form: FormData, s: Strings): 
     const ask: Ask = (document, variables) => shopQuery(document, variables, shopper.lang, shopper);
     let order = await activeOrder(shopper);
     if (!order || !order.lines.length || !order.active) return { kind: 'empty' };
+
+    // Where the shopper came from (phase 16). Never stops the order.
+    if (shopper.attribution) {
+        await ask(SET_ATTRIBUTION, { input: { ...shopper.attribution } }).catch(() => undefined);
+    }
 
     const website = form.get('website');
     const customer = (

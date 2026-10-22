@@ -1,0 +1,69 @@
+---
+import { parseBdMobile } from '@ecommbd/shared/phone';
+import type { CheckoutErrors, CheckoutValues } from '../../lib/checkout';
+import { pageContext } from '../../lib/page';
+import type { CheckoutSettings } from '../../lib/checkout';
+
+/** Name and mobile number (and the optional ones the store asks for): the checkout's and a sales page's. */
+interface Props {
+    values: CheckoutValues;
+    errors: CheckoutErrors;
+    settings: CheckoutSettings;
+}
+
+const { values, errors, settings } = Astro.props;
+const { s } = pageContext(Astro);
+const phone = parseBdMobile(values.phone);
+const errorFor = (field: keyof CheckoutErrors) => errors[field];
+const describedBy = (field: keyof CheckoutErrors, hint?: string) =>
+    [errors[field] ? `${field}-error` : '', hint ?? ''].filter(Boolean).join(' ') || undefined;
+---
+
+<fieldset class="checkout-section">
+    <legend>{s.contactDetails}</legend>
+    <div class="field">
+        <label for="name">{s.yourName}</label>
+        <input id="name" name="name" value={values.name} autocomplete="name" required maxlength="100" aria-invalid={errorFor('name') ? 'true' : undefined} aria-describedby={describedBy('name')} />
+        {errorFor('name') && <p class="field-error" id="name-error">{errorFor('name')}</p>}
+    </div>
+    <div class="field">
+        <label for="phone">{s.phoneLabel}</label>
+        <input
+            id="phone"
+            name="phone"
+            type="tel"
+            inputmode="tel"
+            autocomplete="tel"
+            value={values.phone}
+            required
+            maxlength="20"
+            placeholder="01XXX-XXXXXX"
+            aria-invalid={errorFor('phone') ? 'true' : undefined}
+            aria-describedby={describedBy('phone', 'phone-consent phone-operator')}
+            data-phone
+        />
+        <p class="field-hint" id="phone-operator" aria-live="polite" data-operator-template={s.operatorHint('{operator}')}>
+            {phone.ok ? s.operatorHint(phone.phone.operator) : ''}
+        </p>
+        {errorFor('phone') && <p class="field-error" id="phone-error">{errorFor('phone')}</p>}
+        <p class="field-hint" id="phone-consent">{s.phoneConsent}</p>
+    </div>
+    {
+        settings.showAlternatePhone && (
+            <div class="field">
+                <label for="alternatePhone">{s.alternatePhoneLabel}</label>
+                <input id="alternatePhone" name="alternatePhone" type="tel" inputmode="tel" value={values.alternatePhone} maxlength="20" aria-invalid={errorFor('alternatePhone') ? 'true' : undefined} aria-describedby={describedBy('alternatePhone')} />
+                {errorFor('alternatePhone') && <p class="field-error" id="alternatePhone-error">{errorFor('alternatePhone')}</p>}
+            </div>
+        )
+    }
+    {
+        settings.showEmail && (
+            <div class="field">
+                <label for="email">{s.emailLabel}</label>
+                <input id="email" name="email" type="email" inputmode="email" autocomplete="email" value={values.email} maxlength="200" aria-invalid={errorFor('email') ? 'true' : undefined} aria-describedby={describedBy('email')} />
+                {errorFor('email') && <p class="field-error" id="email-error">{errorFor('email')}</p>}
+            </div>
+        )
+    }
+</fieldset>

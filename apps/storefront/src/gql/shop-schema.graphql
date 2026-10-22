@@ -3498,6 +3498,11 @@ type Query {
 
   """ThemeSettings from @ecommbd/sections"""
   bdTheme: JSON!
+
+  """
+  A sales page by its address; null when there's none, it's off, or its product is gone. preview: a preview token for its draft
+  """
+  bdSalesPage(slug: String!, preview: String): BdShopSalesPage
 }
 
 type PublicPaymentMethod {
@@ -3714,6 +3719,16 @@ type Mutation {
   No code arrived: order anyway, marked not verified (only when the store allows it, a minute after a code was sent)
   """
   skipBdOtp: BdOtpResult!
+
+  """
+  Replaces the active order's items with a sales page's product (a pack or a quantity) and its add-on
+  """
+  setBdSalesPageOrder(input: BdSalesOrderInput!): BdSalesOrderResult!
+
+  """
+  Saves where the shopper came from on the active order; values are cut to safe lengths
+  """
+  setBdOrderAttribution(input: BdAttributionInput!): Boolean!
 }
 
 input AuthenticationInput {
@@ -4415,6 +4430,105 @@ type BdLayoutPreview {
   """editor (the page editor's frame) or share (a link sent to someone)"""
   mode: String!
   expiresAt: DateTime!
+}
+
+type BdSalesPagePack {
+  quantity: Int!
+
+  """The pack's price"""
+  price: Money!
+
+  """What this many cost at the normal price"""
+  normalPrice: Money!
+
+  """In the request's language"""
+  label: String!
+  popular: Boolean!
+
+  """False when there isn't enough stock for it"""
+  available: Boolean!
+}
+
+type BdSalesPageBump {
+  variant: ProductVariant!
+
+  """The add-on's special price for one"""
+  price: Money!
+  normalPrice: Money!
+  title: String!
+  text: String!
+}
+
+type BdShopSalesPage {
+  id: ID!
+  slug: String!
+  title: String!
+
+  """SalesPageSettings from @ecommbd/sections"""
+  settings: JSON!
+  product: Product!
+
+  """The product can be ordered (enabled and in stock)"""
+  available: Boolean!
+
+  """Without packs: the most one order takes"""
+  maxQuantity: Int!
+  packs: [BdSalesPagePack!]!
+
+  """Null when off or out of stock"""
+  bump: BdSalesPageBump
+
+  """The published sections, or the draft for a preview link"""
+  layout: BdLayout!
+  preview: Boolean!
+}
+
+enum BdSalesOrderErrorCode {
+  NOT_AVAILABLE
+  INVALID_VARIANT
+  INVALID_PACK
+  NOT_ENOUGH_STOCK
+  ORDER_LOCKED
+}
+
+type BdSalesOrderResult {
+  """The active order with the page's items, or null when refused"""
+  order: Order
+  errorCode: BdSalesOrderErrorCode
+
+  """With NOT_ENOUGH_STOCK"""
+  quantityAvailable: Int
+}
+
+input BdSalesOrderInput {
+  slug: String!
+  variantId: ID!
+
+  """A pack's quantity, or 1 to 20 when the page has no packs"""
+  quantity: Int!
+
+  """Add the page's add-on offer"""
+  bump: Boolean
+}
+
+input BdAttributionInput {
+  source: String
+  medium: String
+  campaign: String
+  content: String
+  term: String
+  fbclid: String
+  gclid: String
+  ttclid: String
+
+  """Host name of the site that linked here"""
+  referrer: String
+
+  """The sales page ID"""
+  salesPage: String
+
+  """When the visit happened, ms since 1970"""
+  at: Float
 }
 
 input ProductVariantFilterParameter {

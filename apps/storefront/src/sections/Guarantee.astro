@@ -1,0 +1,33 @@
+---
+import type { DataOf, guarantee } from '@ecommbd/sections';
+import Icon from '../components/Icon.astro';
+import Image from '../components/Image.astro';
+import { assetOf, type SectionContext, tr } from './context';
+
+/** Guarantee (phase 16): a promise beside a seal or photo (our shield when there's none). */
+interface Props {
+    section: DataOf<typeof guarantee>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const seal = assetOf(settings.image, context);
+const Heading = context.heading;
+---
+
+<div class="section-inner guarantee">
+    <div class="guarantee-seal">
+        {
+            seal ? (
+                <Image asset={seal} alt="" lang={context.lang} sizes="120px" preferredWidth={240} />
+            ) : (
+                <Icon name="shield" size={48} />
+            )
+        }
+    </div>
+    <div>
+        {tr(settings.heading, context) && <Heading class="section-title">{tr(settings.heading, context)}</Heading>}
+        {tr(settings.text, context) && <p class="guarantee-text">{tr(settings.text, context)}</p>}
+    </div>
+</div>

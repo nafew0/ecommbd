@@ -301,6 +301,29 @@ export const SAVE_PROGRESS = graphql(`
     }
 `);
 
+/** Sales pages (phase 16): the page's product, pack and add-on in the sales page session. */
+export const SET_SALES_ORDER = graphql(
+    `
+        mutation SetSalesOrder($input: BdSalesOrderInput!) {
+            setBdSalesPageOrder(input: $input) {
+                errorCode
+                quantityAvailable
+                order {
+                    ...CartOrderFields
+                }
+            }
+        }
+    `,
+    [CartOrderFields],
+);
+
+/** Where the shopper came from (phase 16), copied onto the order before it's placed. */
+export const SET_ATTRIBUTION = graphql(`
+    mutation SetAttribution($input: BdAttributionInput!) {
+        setBdOrderAttribution(input: $input)
+    }
+`);
+
 export const OtpFields = graphql(`
     fragment OtpFields on BdOtpResult @_unmask {
         success

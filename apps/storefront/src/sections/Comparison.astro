@@ -1,0 +1,46 @@
+---
+import type { comparison, DataOf } from '@ecommbd/sections';
+import Icon from '../components/Icon.astro';
+import { type SectionContext, tr } from './context';
+import SectionHeader from './parts/SectionHeader.astro';
+
+/** Comparison (phase 16): "without / with" rows, a cross on the left and a tick on the right. */
+interface Props {
+    section: DataOf<typeof comparison>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const rows = section.blocks.filter(block => tr(block.settings.without, context) || tr(block.settings.with, context));
+---
+
+{
+    rows.length > 0 && (
+        <div class="section-inner">
+            <SectionHeader context={context} heading={tr(settings.heading, context)} />
+            <table class="comparison">
+                <thead>
+                    <tr>
+                        <th scope="col">{tr(settings.without, context)}</th>
+                        <th scope="col">{tr(settings.with, context)}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows.map(block => (
+                        <tr>
+                            <td class="comparison-without">
+                                <Icon name="close" size={18} />
+                                {tr(block.settings.without, context)}
+                            </td>
+                            <td class="comparison-with">
+                                <Icon name="check" size={18} />
+                                {tr(block.settings.with, context)}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    )
+}

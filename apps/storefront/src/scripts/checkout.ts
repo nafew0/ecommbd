@@ -13,8 +13,12 @@ import { parseBdMobile } from '@ecommbd/shared/phone';
  */
 
 const PARTS = ['thana', 'delivery', 'payment', 'summary'];
+/** Hidden fields the server fills in (a sales page's form starts with them empty, phase 16). */
+const HIDDEN = ['expectedTotal', 'csrf', 'idempotencyKey', 'stamp'];
+const CHANGES = '[data-district], [data-thana], [data-shipping], [data-payment]';
 
-export function enhanceCheckout(form: HTMLFormElement): void {
+export function enhanceCheckout(form: HTMLFormElement, options: { refreshOn?: string } = {}): void {
+    const changes = options.refreshOn ? `${CHANGES}, ${options.refreshOn}` : CHANGES;
     const status = form.querySelector<HTMLElement>('[data-status]');
     const offline = status?.dataset.offline ?? '';
     let refresh: AbortController | undefined;
@@ -48,7 +52,7 @@ export function enhanceCheckout(form: HTMLFormElement): void {
             const current = form.querySelector(`[data-part="${name}"]`);
             if (next && current) current.replaceWith(next);
         }
-        for (const name of ['expectedTotal', 'csrf']) {
+        for (const name of HIDDEN) {
             const next = page.querySelector<HTMLInputElement>(`input[name="${name}"]`);
             const current = form.querySelector<HTMLInputElement>(`input[name="${name}"]`);
             if (next && current) current.value = next.value;
@@ -76,8 +80,7 @@ export function enhanceCheckout(form: HTMLFormElement): void {
 
     form.addEventListener('change', event => {
         const target = event.target as HTMLElement;
-        if (target.matches('[data-district], [data-thana], [data-shipping], [data-payment]'))
-            void update(target);
+        if (target.matches(changes)) void update(target);
     });
 
     form.addEventListener('submit', event => {

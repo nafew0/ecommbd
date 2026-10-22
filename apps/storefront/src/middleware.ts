@@ -18,14 +18,28 @@ import { systemPage } from './lib/system-pages';
 /** Video sections (phase 15) play YouTube and Facebook in a frame once the shopper presses play. */
 const VIDEO_FRAMES = 'https://www.youtube-nocookie.com https://www.facebook.com';
 
-function securityHeaders(options: { editorFrame?: boolean } = {}): Record<string, string> {
+interface HeaderOptions {
+    editorFrame?: boolean;
+    /** Previews redraw their sections, and their generated styles, without a reload. */
+    preview?: boolean;
+    styleHashes?: string[];
+}
+
+function styleSource(options: HeaderOptions): string {
+    // `astro dev` adds the CSS as inline <style> tags (for live reload); the build serves files.
+    if (import.meta.env.DEV || options.preview) return "style-src 'self' 'unsafe-inline'";
+    // The page's own generated stylesheet (Design options, phase 16), allowed by its hash only.
+    const hashes = (options.styleHashes ?? []).map(hash => `'sha256-${hash}'`);
+    return ["style-src 'self'", ...hashes].join(' ');
+}
+
+function securityHeaders(options: HeaderOptions = {}): Record<string, string> {
     const extra = env().CSP_ALLOWED_ORIGINS.join(' ');
     const editor = options.editorFrame ? env().EDITOR_ORIGIN : undefined;
     const csp = [
         "default-src 'self'",
         `script-src 'self' ${extra}`.trim(),
-        // `astro dev` adds the CSS as inline <style> tags (for live reload); the build serves files.
-        import.meta.env.DEV ? "style-src 'self' 'unsafe-inline'" : "style-src 'self'",
+        styleSource(options),
         // YouTube's own thumbnails for video sections.
         `img-src 'self' data: https://i.ytimg.com ${extra}`.trim(),
         "font-src 'self'",
@@ -49,7 +63,7 @@ function securityHeaders(options: { editorFrame?: boolean } = {}): Record<string
     };
 }
 
-function withHeaders(response: Response, options: { editorFrame?: boolean } = {}): Response {
+function withHeaders(response: Response, options: HeaderOptions = {}): Response {
     for (const [name, value] of Object.entries(securityHeaders(options))) response.headers.set(name, value);
     if (!response.headers.has('cache-control')) {
         // Catalogue pages: cacheable for a minute (Varnish takes over in phase 17).
@@ -76,7 +90,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
         context.locals.requestPath = requestPath;
         const response =
             path === context.url.pathname ? await next() : await next(`${path}${context.url.search}`);
-        return withHeaders(response, { editorFrame: context.locals.preview?.mode === 'editor' });
+        return withHeaders(response, {
+            editorFrame: context.locals.preview?.mode === 'editor',
+            preview: !!context.locals.preview,
+            styleHashes: context.locals.styleHashes,
+        });
     } catch (error) {
         if (error instanceof CoreUnavailableError) return withHeaders(systemPage('unavailable'));
         if (error instanceof RateLimitedError) return withHeaders(systemPage('busy'));

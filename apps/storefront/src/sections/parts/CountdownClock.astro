@@ -1,0 +1,61 @@
+---
+import type { SectionContext } from '../context';
+
+/**
+ * A countdown's digits (phase 16): the Countdown section's and a Custom section element's. The
+ * server's numbers show at once; the script (src/scripts/countdown.ts) keeps them right.
+ */
+interface Props {
+    context: SectionContext;
+    /** For the evergreen count's first-visit time in this browser. */
+    uid: string;
+    /** A fixed deadline (ISO, UTC); empty for evergreen. */
+    endsAt: string;
+    /** Evergreen: hours from each visitor's first visit. */
+    hours?: number;
+    expired: 'message' | 'hide';
+    expiredText: string;
+}
+
+const { context, uid, endsAt, hours = 0, expired, expiredText } = Astro.props;
+const { s, format, lang, settings } = context;
+const left = hours > 0 ? hours * 3600 : Math.max(0, Math.floor((Date.parse(endsAt) - Date.now()) / 1000));
+const ended = hours === 0 && left === 0;
+const units = [
+    { name: 'days', value: Math.floor(left / 86400) },
+    { name: 'hours', value: Math.floor(left / 3600) % 24 },
+    { name: 'minutes', value: Math.floor(left / 60) % 60 },
+    { name: 'seconds', value: left % 60 },
+];
+const two = (value: number) => format.number(value).padStart(2, format.number(0));
+---
+
+<div
+    class="countdown"
+    data-countdown
+    data-key={uid}
+    data-ends={hours > 0 ? undefined : endsAt}
+    data-hours={hours > 0 ? hours : undefined}
+    data-expired={expired}
+    data-digits={lang === 'bn' && settings.locale.banglaDigits ? 'bn' : undefined}
+>
+    <div class="countdown-units" data-units hidden={ended}>
+        {
+            units.map(unit => (
+                <span class="countdown-unit" hidden={unit.name === 'days' && unit.value === 0}>
+                    <span class="countdown-value" data-unit={unit.name}>
+                        {two(unit.value)}
+                    </span>
+                    <span class="countdown-label">{s.countdownUnits[unit.name]}</span>
+                </span>
+            ))
+        }
+    </div>
+    <p class="countdown-ended" data-ended hidden={!ended}>{expiredText}</p>
+</div>
+
+<script>
+    import { attachCountdowns } from '../../scripts/countdown';
+
+    attachCountdowns();
+</script>

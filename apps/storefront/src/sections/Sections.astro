@@ -4,20 +4,29 @@ import Image from '../components/Image.astro';
 import { pageContext } from '../lib/page';
 import { type LoadedLayout, type SectionPageData, visibleSections } from '../lib/sections';
 import Banner from './Banner.astro';
+import Benefits from './Benefits.astro';
 import CollectionList from './CollectionList.astro';
+import Comparison from './Comparison.astro';
 import Contact from './Contact.astro';
-import { assetOf, type SectionContext } from './context';
+import { assetOf, type SalesContext, type SectionContext } from './context';
+import Countdown from './Countdown.astro';
+import Custom from './Custom.astro';
 import DeliveryInfo from './DeliveryInfo.astro';
 import Divider from './Divider.astro';
 import Faq from './Faq.astro';
 import FeaturedProduct from './FeaturedProduct.astro';
+import Guarantee from './Guarantee.astro';
 import Hero from './Hero.astro';
 import ImageGrid from './ImageGrid.astro';
 import ImageWithText from './ImageWithText.astro';
 import Multicolumn from './Multicolumn.astro';
+import OrderForm from './OrderForm.astro';
+import PricePacks from './PricePacks.astro';
 import ProductGrid from './ProductGrid.astro';
 import RichTextSection from './RichTextSection.astro';
+import SalesHero from './SalesHero.astro';
 import Slideshow from './Slideshow.astro';
+import Specs from './Specs.astro';
 import Testimonials from './Testimonials.astro';
 import TrustBadges from './TrustBadges.astro';
 import Video from './Video.astro';
@@ -33,9 +42,11 @@ interface Props {
     data: SectionPageData;
     /** The home page: the first section's heading is the page's h1. */
     firstIsH1?: boolean;
+    /** A sales page (phase 16): its product, offers and order form data. */
+    sales?: SalesContext;
 }
 
-const { layout, data, firstIsH1 = false } = Astro.props;
+const { layout, data, firstIsH1 = false, sales } = Astro.props;
 const { lang, defaultLang, settings, s, format, href, absolute } = pageContext(Astro);
 const editor = Astro.locals.preview?.mode === 'editor';
 const sections = visibleSections(layout.document);
@@ -60,7 +71,32 @@ const COMPONENTS: Record<string, any> = {
     contact: Contact,
     'whatsapp-cta': WhatsappCta,
     divider: Divider,
+    // Phase 16
+    'sales-hero': SalesHero,
+    benefits: Benefits,
+    specs: Specs,
+    'price-packs': PricePacks,
+    comparison: Comparison,
+    countdown: Countdown,
+    guarantee: Guarantee,
+    'order-form': OrderForm,
+    custom: Custom,
 };
+
+// "Order now" below a section only makes sense when the page has an order form to jump to.
+const hasOrderForm = !!sales && sections.some(section => section.type === 'order-form');
+
+/** A fixed countdown that has already ended, set to hide: nothing to show at all. */
+function endedAndHidden(section: SectionData) {
+    if (section.type !== 'countdown') return false;
+    const settings = section.settings as { mode?: string; endsAt?: string; expired?: string };
+    return (
+        settings.mode === 'fixed' &&
+        settings.expired === 'hide' &&
+        !!settings.endsAt &&
+        Date.parse(settings.endsAt) <= Date.now()
+    );
+}
 
 /** Light text on dark backgrounds (the brand colour's own text colour, white on dark and images). */
 function inverse(section: SectionData) {
@@ -81,7 +117,7 @@ function flush(section: SectionData) {
 {
     sections.map((section, index) => {
         const Component = COMPONENTS[section.type];
-        if (!Component) return null;
+        if (!Component || endedAndHidden(section)) return null;
         const context: SectionContext = {
             lang,
             defaultLang,
@@ -95,6 +131,7 @@ function flush(section: SectionData) {
             first: index === 0,
             heading: firstIsH1 && index === 0 ? 'h1' : 'h2',
             editor,
+            sales,
         };
         const { style } = section;
         const background = style.background === 'image' ? assetOf(style.backgroundImage, context) : undefined;
@@ -117,6 +154,7 @@ function flush(section: SectionData) {
                         flush: flush(section),
                     },
                 ]}
+                data-u={section.uid}
                 data-section={editor ? section.uid : undefined}
                 data-section-name={editor ? pick(sectionDefinition(section.type)!.name, lang) : undefined}
             >
@@ -126,6 +164,13 @@ function flush(section: SectionData) {
                     </div>
                 )}
                 <Component section={section} context={context} />
+                {style.orderButton && hasOrderForm && section.type !== 'order-form' && (
+                    <div class="section-inner section-order">
+                        <a class="button sales-button" href="#order" data-order-link>
+                            {s.orderNow}
+                        </a>
+                    </div>
+                )}
             </section>
         );
     })

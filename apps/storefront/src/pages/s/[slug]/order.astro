@@ -1,0 +1,166 @@
+---
+import { type DataOf, type orderForm, pick, salesColoursCss } from '@ecommbd/sections';
+import { isValidIdempotencyKey } from '@ecommbd/shared/idempotency';
+import Missing from '../../../components/Missing.astro';
+import SalesOrderForm, { type SalesFormState } from '../../../components/SalesOrderForm.astro';
+import Layout from '../../../layouts/Layout.astro';
+import { shopperContext } from '../../../lib/cart';
+import { type CheckoutErrors, placeOnce, quote, readValues, saveProgress } from '../../../lib/checkout';
+import { SET_SALES_ORDER, THANAS } from '../../../lib/checkout-queries';
+import { shopQuery } from '../../../lib/core';
+import { csrfToken, formStamp, isSameSite, verifyCsrf } from '../../../lib/csrf';
+import { pageContext, privatePage } from '../../../lib/page';
+import { loadSalesPage, readChoice, salesFormData, salesOrderError } from '../../../lib/sales';
+import { pageStyle } from '../../../lib/sections';
+import { salesPath, salesSlug } from '../../../lib/urls';
+
+/**
+ * A sales page's order (roadmap phase 16). Never cached. The page's form posts here: "refresh"
+ * puts the chosen pack and add-on in the sales page session's order and shows the delivery charge
+ * and total; "place" runs the checkout's own steps (validation, fake-order checks, SMS code,
+ * idempotency, src/lib/checkout.ts) and goes to the thank-you page. The answer is the same form,
+ * filled in; the script swaps it into the page.
+ */
+privatePage(Astro);
+const { lang, s, href, format } = pageContext(Astro);
+const slug = salesSlug(Astro.params.slug ?? '');
+const loaded = await loadSalesPage(Astro, slug);
+const formSection = loaded?.layout.document.sections.find(
+    (section): section is DataOf<typeof orderForm> => section.type === 'order-form' && !section.hidden,
+);
+const pagePath = loaded ? href(salesPath(loaded.page.slug)) : href('/');
+if (loaded && (Astro.request.method !== 'POST' || !formSection)) {
+    return Astro.redirect(`${pagePath}#order`, 303);
+}
+if (loaded && !isSameSite(Astro.request)) return new Response(null, { status: 403 });
+
+let state: SalesFormState | null = null;
+let css = '';
+if (loaded && formSection) {
+    const { page } = loaded;
+    const shopper = shopperContext(Astro, 'sales');
+    const form = await Astro.request.formData();
+    const values = readValues(form);
+    const choice = readChoice(form, page);
+    const action = form.get('action') ?? 'place';
+    const postedKey = form.get('idempotencyKey');
+    const idempotencyKey = isValidIdempotencyKey(postedKey) ? postedKey : crypto.randomUUID();
+    const postedStamp = form.get('stamp');
+    const stamp = typeof postedStamp === 'string' && postedStamp ? postedStamp : formStamp();
+    let errors: CheckoutErrors = {};
+    let notice: string | null = null;
+    let otp: SalesFormState['otp'] = null;
+
+    if (action === 'progress') {
+        await saveProgress(shopper, form, { salesPage: page.id });
+        const headers = new Headers({ 'cache-control': 'no-store' });
+        shopper.session.apply(headers);
+        return new Response(null, { status: 204, headers });
+    }
+
+    // The pack, variant and add-on as chosen now: the order always matches the form.
+    const set = (
+        await shopQuery(
+            SET_SALES_ORDER,
+            { input: { slug: page.slug, variantId: choice.variantId, quantity: choice.quantity, bump: choice.bump } },
+            lang,
+            shopper,
+        )
+    ).setBdSalesPageOrder;
+    if (set.errorCode) {
+        errors.form = salesOrderError(set.errorCode, set.quantityAvailable ?? null, s, format.number);
+    } else if (action === 'place') {
+        // The form gets its token with its first answer (the district shows the delivery charge).
+        if (!verifyCsrf(form.get('csrf'), shopper.session.id)) {
+            notice = s.sessionExpired;
+        } else {
+            const outcome = await placeOnce(shopper, form, s);
+            if (outcome.kind === 'placed') {
+                const headers = new Headers({
+                    location: `${href(salesPath(page.slug, 'thank-you/'))}?order=${encodeURIComponent(outcome.code)}`,
+                    'cache-control': 'no-store',
+                });
+                shopper.session.apply(headers);
+                return new Response(null, { status: 303, headers });
+            }
+            if (outcome.kind === 'invalid') errors = outcome.errors;
+            if (outcome.kind === 'review') notice = outcome.message;
+            if (outcome.kind === 'busy') notice = s.busy;
+            if (outcome.kind === 'empty') errors.form = s.salesNotAvailable;
+            if (outcome.kind === 'otp') otp = { message: outcome.message, error: outcome.error };
+            if (Object.keys(errors).length && !errors.form) errors.form = s.fixFields;
+        }
+    }
+
+    const [{ order, shipping, options }, thanas] = await Promise.all([
+        quote(shopper, values),
+        values.districtId
+            ? shopQuery(THANAS, { districtId: values.districtId, lang }, lang).then(result => result.bdThanas)
+            : Promise.resolve([]),
+    ]);
+    shopper.session.apply(Astro.response.headers);
+    state = {
+        values,
+        errors,
+        notice,
+        otp,
+        order,
+        shipping,
+        options,
+        thanas,
+        csrf: csrfToken(shopper.session.id),
+        idempotencyKey,
+        stamp,
+        choice,
+    };
+    css = pageStyle(Astro, null, salesColoursCss(Astro.locals.theme, loaded.settings));
+} else {
+    Astro.response.status = 404;
+}
+const form = loaded && state && formSection ? await salesFormData(lang).then(data => ({ ...data, loaded, state })) : null;
+---
+
+{
+    form && formSection ? (
+        <Layout
+            title={pick(formSection.settings.heading, lang) || form.loaded.page.title}
+            noindex
+            fullWidth
+            css={css}
+            sales={{
+                pageId: form.loaded.page.id,
+                header: form.loaded.settings.header,
+                footer: form.loaded.settings.footer,
+                width: form.loaded.settings.width,
+                font: form.loaded.settings.font,
+                sticky: null,
+            }}
+        >
+            <section class="section section-order-form bg-subtle space-m width-narrow" id="order">
+                <div class="section-inner order-section">
+                    <p>
+                        <a class="text-link" href={pagePath}>
+                            {form.loaded.page.title}
+                        </a>
+                    </p>
+                    <h1 class="section-title">{pick(formSection.settings.heading, lang) || s.orderNow}</h1>
+                    <SalesOrderForm
+                        sales={{ page: form.loaded.page, settings: form.loaded.settings, checkout: form.checkout, districts: form.districts }}
+                        settings={formSection.settings}
+                        state={form.state}
+                    />
+                </div>
+            </section>
+        </Layout>
+    ) : (
+        <Layout title={s.notFoundTitle} noindex>
+            <Missing kind="not-found" />
+        </Layout>
+    )
+}
+
+<script>
+    import { enhanceSalesPage } from '../../../scripts/sales-page';
+
+    enhanceSalesPage();
+</script>

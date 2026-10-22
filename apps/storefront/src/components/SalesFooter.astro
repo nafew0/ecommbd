@@ -1,0 +1,31 @@
+---
+import { policyLabel, POLICY_SLUGS } from '@ecommbd/shared/content';
+import type { PolicyKey } from '@ecommbd/shared/store-settings';
+import { pageContext } from '../lib/page';
+import { bilingual, storeName } from '../lib/store';
+
+/** A sales page's small footer (phase 16): the store's name, its policies and the year. */
+const { lang, settings, href, format } = pageContext(Astro);
+const name = storeName(settings, lang);
+const policies = (Object.keys(POLICY_SLUGS) as PolicyKey[]).filter(key => bilingual(settings.policies[key], lang));
+const year = format.number(new Date().getUTCFullYear());
+---
+
+<footer class="sales-footer">
+    <div class="container">
+        <p>
+            <a href={href('/')}>{name}</a> · {year}
+        </p>
+        {
+            policies.length > 0 && (
+                <ul class="sales-footer-links">
+                    {policies.map(key => (
+                        <li>
+                            <a href={href(`/${POLICY_SLUGS[key]}/`)}>{policyLabel(key, lang)}</a>
+                        </li>
+                    ))}
+                </ul>
+            )
+        }
+    </div>
+</footer>

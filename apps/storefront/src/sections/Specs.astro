@@ -1,0 +1,47 @@
+---
+import type { DataOf, specs } from '@ecommbd/sections';
+import { type SectionContext, tr } from './context';
+import SectionHeader from './parts/SectionHeader.astro';
+
+/** Specifications (label and value) or numbered "how to use" steps (phase 16). */
+interface Props {
+    section: DataOf<typeof specs>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const rows = section.blocks.filter(block => tr(block.settings.label, context));
+---
+
+{
+    rows.length > 0 && (
+        <div class="section-inner">
+            <SectionHeader context={context} heading={tr(settings.heading, context)} />
+            {settings.look === 'steps' ? (
+                <ol class="steps">
+                    {rows.map((block, index) => (
+                        <li class="step">
+                            <span class="step-number" aria-hidden="true">
+                                {context.format.number(index + 1)}
+                            </span>
+                            <span>
+                                <strong>{tr(block.settings.label, context)}</strong>
+                                {tr(block.settings.value, context) && <span class="step-text">{tr(block.settings.value, context)}</span>}
+                            </span>
+                        </li>
+                    ))}
+                </ol>
+            ) : (
+                <dl class="specs">
+                    {rows.map(block => (
+                        <div class="spec-row">
+                            <dt>{tr(block.settings.label, context)}</dt>
+                            <dd>{tr(block.settings.value, context) || '—'}</dd>
+                        </div>
+                    ))}
+                </dl>
+            )}
+        </div>
+    )
+}

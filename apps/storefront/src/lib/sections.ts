@@ -3,6 +3,7 @@ import {
     defaultHomeLayout,
     type featuredProduct,
     LAYOUT_LIMITS,
+    layoutCss,
     type LayoutDocument,
     type LinkValue,
     type productGrid,
@@ -12,6 +13,7 @@ import {
     type ThemeSettings,
 } from '@ecommbd/sections';
 import type { AstroGlobal } from 'astro';
+import { createHash } from 'node:crypto';
 import { env } from '../env';
 import { clientIpOf, RateLimitedError, type ResultOf, shopQuery } from './core';
 import type { AssetData } from './images';
@@ -260,6 +262,21 @@ export function linkHref(
 export function setCacheTags(Astro: AstroGlobal, layout: LoadedLayout | null, data: SectionPageData) {
     const tags = [layout?.layoutId ? `layout:${layout.layoutId}` : 'layout:default', 'theme', ...data.tags];
     Astro.response.headers.set('xkey', tags.slice(0, 100).join(' '));
+}
+
+/**
+ * The page's generated stylesheet (phase 16): the sections' Design options and Custom section
+ * elements, plus anything page-wide (a sales page's colours). Made from checked values only, and
+ * allowed by its hash in the Content Security Policy (the middleware adds it). Call it in the
+ * page's own frontmatter, before the response starts.
+ */
+export function pageStyle(Astro: AstroGlobal, document: LayoutDocument | null, extra = ''): string {
+    const css = extra + (document ? layoutCss(document) : '');
+    if (css) {
+        const hash = createHash('sha256').update(css).digest('base64');
+        Astro.locals.styleHashes = [...(Astro.locals.styleHashes ?? []), hash];
+    }
+    return css;
 }
 
 /** The admin's origin for the editor's frame (null: this site's own). */

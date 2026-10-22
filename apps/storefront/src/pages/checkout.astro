@@ -1,5 +1,9 @@
 ---
-import { formatBdPhone, parseBdMobile } from '@ecommbd/shared/phone';
+import AddressFields from '../components/checkout/AddressFields.astro';
+import ContactFields from '../components/checkout/ContactFields.astro';
+import DeliveryChoice from '../components/checkout/DeliveryChoice.astro';
+import OtpStep from '../components/checkout/OtpStep.astro';
+import PaymentChoice from '../components/checkout/PaymentChoice.astro';
 import CheckoutSummary from '../components/CheckoutSummary.astro';
 import Layout from '../layouts/Layout.astro';
 import { activeOrder, applyCartCookies, shopperContext } from '../lib/cart';
@@ -95,15 +99,7 @@ applyCartCookies(Astro.response.headers, shopper, order);
 const deliveryKnown = !!values.districtId && !!values.thanaId && shipping.length > 0;
 const chosenShipping = order.shippingLines[0]?.shippingMethod.id;
 const cod = values.payment !== '' && !MFS_PROVIDERS.includes(values.payment as never);
-const mfs = options?.mfs ?? [];
-const providerName = (provider: string) => s.mfsNames[provider] ?? provider;
-const how = (accountType: string) => s.accountTypes[accountType] ?? s.accountTypes.personal!;
 const free = order.bdDelivery.freeDeliveryRemaining;
-const phone = parseBdMobile(values.phone);
-const errorFor = (field: keyof CheckoutErrors) => errors[field];
-const describedBy = (field: keyof CheckoutErrors, hint?: string) =>
-    [errors[field] ? `${field}-error` : '', hint ?? ''].filter(Boolean).join(' ') || undefined;
-const both = (bn: string, en: string) => (lang === 'bn' ? `${bn} · ${en}` : `${en} · ${bn}`);
 ---
 
 {
@@ -143,226 +139,15 @@ const both = (bn: string, en: string) => (lang === 'bn' ? `${bn} · ${en}` : `${
             }
 
             <div class="checkout-main">
-                <fieldset class="checkout-section">
-                    <legend>{s.contactDetails}</legend>
-                    <div class="field">
-                        <label for="name">{s.yourName}</label>
-                        <input id="name" name="name" value={values.name} autocomplete="name" required maxlength="100" aria-invalid={errorFor('name') ? 'true' : undefined} aria-describedby={describedBy('name')} />
-                        {errorFor('name') && <p class="field-error" id="name-error">{errorFor('name')}</p>}
-                    </div>
-                    <div class="field">
-                        <label for="phone">{s.phoneLabel}</label>
-                        <input
-                            id="phone"
-                            name="phone"
-                            type="tel"
-                            inputmode="tel"
-                            autocomplete="tel"
-                            value={values.phone}
-                            required
-                            maxlength="20"
-                            placeholder="01XXX-XXXXXX"
-                            aria-invalid={errorFor('phone') ? 'true' : undefined}
-                            aria-describedby={describedBy('phone', 'phone-consent phone-operator')}
-                            data-phone
-                        />
-                        <p class="field-hint" id="phone-operator" aria-live="polite" data-operator-template={s.operatorHint('{operator}')}>
-                            {phone.ok ? s.operatorHint(phone.phone.operator) : ''}
-                        </p>
-                        {errorFor('phone') && <p class="field-error" id="phone-error">{errorFor('phone')}</p>}
-                        <p class="field-hint" id="phone-consent">{s.phoneConsent}</p>
-                    </div>
-                    {
-                        settings.showAlternatePhone && (
-                            <div class="field">
-                                <label for="alternatePhone">{s.alternatePhoneLabel}</label>
-                                <input id="alternatePhone" name="alternatePhone" type="tel" inputmode="tel" value={values.alternatePhone} maxlength="20" aria-invalid={errorFor('alternatePhone') ? 'true' : undefined} aria-describedby={describedBy('alternatePhone')} />
-                                {errorFor('alternatePhone') && <p class="field-error" id="alternatePhone-error">{errorFor('alternatePhone')}</p>}
-                            </div>
-                        )
-                    }
-                    {
-                        settings.showEmail && (
-                            <div class="field">
-                                <label for="email">{s.emailLabel}</label>
-                                <input id="email" name="email" type="email" inputmode="email" autocomplete="email" value={values.email} maxlength="200" aria-invalid={errorFor('email') ? 'true' : undefined} aria-describedby={describedBy('email')} />
-                                {errorFor('email') && <p class="field-error" id="email-error">{errorFor('email')}</p>}
-                            </div>
-                        )
-                    }
-                </fieldset>
+                <ContactFields values={values} errors={errors} settings={settings} />
 
-                <fieldset class="checkout-section">
-                    <legend>{s.deliveryAddress}</legend>
-                    <div class="field-row">
-                        <div class="field">
-                            <label for="districtId">{s.districtLabel}</label>
-                            <select id="districtId" name="districtId" autocomplete="address-level1" required aria-invalid={errorFor('districtId') ? 'true' : undefined} aria-describedby={describedBy('districtId')} data-district>
-                                <option value="">{s.choose}</option>
-                                {districts.map(district => (
-                                    <option value={district.id} selected={district.id === values.districtId}>
-                                        {both(district.nameBn, district.nameEn)}
-                                    </option>
-                                ))}
-                            </select>
-                            {errorFor('districtId') && <p class="field-error" id="districtId-error">{errorFor('districtId')}</p>}
-                        </div>
-                        <div class="field" data-part="thana">
-                            <label for="thanaId">{s.thanaLabel}</label>
-                            <select id="thanaId" name="thanaId" autocomplete="address-level2" required disabled={!values.districtId} aria-invalid={errorFor('thanaId') ? 'true' : undefined} aria-describedby={describedBy('thanaId')} data-thana>
-                                <option value="">{s.choose}</option>
-                                {thanas.map(thana => (
-                                    <option value={thana.id} selected={thana.id === values.thanaId}>
-                                        {both(thana.nameBn, thana.nameEn)}
-                                    </option>
-                                ))}
-                                {values.districtId && <option value="other" selected={values.thanaId === 'other'}>{s.thanaOther}</option>}
-                            </select>
-                            {errorFor('thanaId') && <p class="field-error" id="thanaId-error">{errorFor('thanaId')}</p>}
-                        </div>
-                    </div>
-                    <button class="text-link update-button" type="submit" name="action" value="refresh" data-refresh>
-                        {values.districtId ? s.updateTotal : s.showThanas}
-                    </button>
-                    <div class="field">
-                        <label for="area">{s.areaLabel}</label>
-                        <input id="area" name="area" value={values.area} maxlength="100" aria-invalid={errorFor('area') ? 'true' : undefined} aria-describedby={describedBy('area', 'area-hint')} />
-                        <p class="field-hint" id="area-hint">{s.areaHint}</p>
-                        {errorFor('area') && <p class="field-error" id="area-error">{errorFor('area')}</p>}
-                    </div>
-                    <div class="field">
-                        <label for="streetLine1">{s.streetLabel}</label>
-                        <textarea id="streetLine1" name="streetLine1" rows="2" autocomplete="street-address" required maxlength="300" aria-invalid={errorFor('streetLine1') ? 'true' : undefined} aria-describedby={describedBy('streetLine1', 'street-hint')}>{values.streetLine1}</textarea>
-                        <p class="field-hint" id="street-hint">{s.streetHint}</p>
-                        {errorFor('streetLine1') && <p class="field-error" id="streetLine1-error">{errorFor('streetLine1')}</p>}
-                    </div>
-                    <div class="field">
-                        <label for="landmark">{s.landmarkLabel}</label>
-                        <input id="landmark" name="landmark" value={values.landmark} maxlength="150" />
-                    </div>
-                    {
-                        settings.showNote && (
-                            <div class="field">
-                                <label for="note">{s.noteLabel}</label>
-                                <textarea id="note" name="note" rows="2" maxlength="500" aria-invalid={errorFor('note') ? 'true' : undefined} aria-describedby={describedBy('note')}>{values.note}</textarea>
-                                {errorFor('note') && <p class="field-error" id="note-error">{errorFor('note')}</p>}
-                            </div>
-                        )
-                    }
-                </fieldset>
+                <AddressFields values={values} errors={errors} settings={settings} districts={districts} thanas={thanas} />
 
-                <fieldset class="checkout-section" data-part="delivery">
-                    <legend>{s.deliveryMethod}</legend>
-                    {
-                        !values.districtId || !values.thanaId ? (
-                            <p class="muted">{s.chooseDistrictFirst}</p>
-                        ) : shipping.length === 0 ? (
-                            <p class="field-error">{s.noDeliveryHere}</p>
-                        ) : (
-                            <div class="choice-list">
-                                {shipping.map(option => (
-                                    <label class="choice">
-                                        <input type="radio" name="shippingMethodId" value={option.id} checked={option.id === chosenShipping} data-shipping />
-                                        <span class="choice-label">{option.name}</span>
-                                        <span>{option.priceWithTax ? format.price(option.priceWithTax) : s.free}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        )
-                    }
-                    {free != null && free > 0 && deliveryKnown && <p class="field-hint">{s.freeDeliveryHint(format.price(free))}</p>}
-                </fieldset>
+                <DeliveryChoice values={values} shipping={shipping} chosenShipping={chosenShipping} free={free} deliveryKnown={deliveryKnown} />
 
-                <fieldset class="checkout-section" data-part="payment">
-                    <legend>{s.paymentMethod}</legend>
-                    {errorFor('payment') && <p class="field-error" id="payment-error">{errorFor('payment')}</p>}
-                    <div class="choice-list">
-                        <div class="choice-block">
-                            <label class="choice">
-                                <input type="radio" name="payment" value="cod" checked={cod} data-payment />
-                                <span class="choice-label">{s.cashOnDeliveryLong}</span>
-                            </label>
-                            <div class="choice-panel">
-                                {options && options.codFee > 0 && <p class="field-hint">{s.codFeeNote(format.price(options.codFee))}</p>}
-                                {options && !options.codAvailable && options.codUnavailableMessage && <p class="field-error">{options.codUnavailableMessage}</p>}
-                                {
-                                    options && options.advanceAmount > 0 && (
-                                        <div class="mfs-box">
-                                            <p>{s.advanceNeeded(format.price(options.advanceAmount))}</p>
-                                            <div class="field">
-                                                <span class="field-label" id="advance-provider-label">{s.advanceProvider}</span>
-                                                <div class="choice-list compact" role="radiogroup" aria-labelledby="advance-provider-label">
-                                                    {mfs.map(account => (
-                                                        <label class="choice">
-                                                            <input type="radio" name="advanceProvider" value={account.provider} checked={values.advanceProvider === account.provider} />
-                                                            <span class="choice-label">{providerName(account.provider)}</span>
-                                                            <span class="muted">{s.sendMoneyTo(format.price(options.advanceAmount), providerName(account.provider), formatBdPhone(account.number), how(account.accountType))}</span>
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                                {errorFor('advanceProvider') && <p class="field-error">{errorFor('advanceProvider')}</p>}
-                                            </div>
-                                            <div class="field-row">
-                                                <div class="field">
-                                                    <label for="advanceSender">{s.senderNumberLabel}</label>
-                                                    <input id="advanceSender" name="advanceSender" type="tel" inputmode="tel" value={values.advanceSender} maxlength="20" aria-invalid={errorFor('advanceSender') ? 'true' : undefined} aria-describedby={describedBy('advanceSender')} />
-                                                    {errorFor('advanceSender') && <p class="field-error" id="advanceSender-error">{errorFor('advanceSender')}</p>}
-                                                </div>
-                                                <div class="field">
-                                                    <label for="advanceTransactionId">{s.transactionIdLabel}</label>
-                                                    <input id="advanceTransactionId" name="advanceTransactionId" value={values.advanceTransactionId} maxlength="20" autocapitalize="characters" autocomplete="off" aria-invalid={errorFor('advanceTransactionId') ? 'true' : undefined} aria-describedby={describedBy('advanceTransactionId')} />
-                                                    {errorFor('advanceTransactionId') && <p class="field-error" id="advanceTransactionId-error">{errorFor('advanceTransactionId')}</p>}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )
-                                }
-                            </div>
-                        </div>
-                        {
-                            mfs.map(account => (
-                                <div class="choice-block">
-                                    <label class="choice">
-                                        <input type="radio" name="payment" value={account.provider} checked={values.payment === account.provider} data-payment />
-                                        <span class="choice-label">{s.payWith(providerName(account.provider))}</span>
-                                    </label>
-                                    <div class="choice-panel mfs-box">
-                                        <p>{s.sendMoneyTo(format.price(order.totalWithTax), providerName(account.provider), formatBdPhone(account.number), how(account.accountType))}</p>
-                                        <div class="field-row">
-                                            <div class="field">
-                                                <label for={`sender-${account.provider}`}>{s.senderNumberLabel}</label>
-                                                <input id={`sender-${account.provider}`} name={`senderNumber.${account.provider}`} type="tel" inputmode="tel" value={values.payment === account.provider ? values.senderNumber : ''} maxlength="20" aria-invalid={values.payment === account.provider && errorFor('senderNumber') ? 'true' : undefined} />
-                                                {values.payment === account.provider && errorFor('senderNumber') && <p class="field-error">{errorFor('senderNumber')}</p>}
-                                            </div>
-                                            <div class="field">
-                                                <label for={`trx-${account.provider}`}>{s.transactionIdLabel}</label>
-                                                <input id={`trx-${account.provider}`} name={`transactionId.${account.provider}`} value={values.payment === account.provider ? values.transactionId : ''} maxlength="20" autocapitalize="characters" autocomplete="off" aria-invalid={values.payment === account.provider && errorFor('transactionId') ? 'true' : undefined} />
-                                                {values.payment === account.provider && errorFor('transactionId') && <p class="field-error">{errorFor('transactionId')}</p>}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
-                        }
-                    </div>
-                </fieldset>
+                <PaymentChoice values={values} errors={errors} options={options} order={order} cod={cod} />
 
-                {
-                    otp && (
-                        <fieldset class="checkout-section otp-section" data-otp>
-                            <legend>{s.otpTitle}</legend>
-                            <p>{otp.message}</p>
-                            <div class="field">
-                                <label for="otp">{s.otpLabel}</label>
-                                <input id="otp" name="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" aria-invalid={otp.error ? 'true' : undefined} aria-describedby={otp.error ? 'otp-error' : undefined} />
-                                {otp.error && <p class="field-error" id="otp-error">{otp.error}</p>}
-                            </div>
-                            <button class="text-link" type="submit" name="action" value="place" formnovalidate data-otp-resend>
-                                {s.otpResend}
-                            </button>
-                        </fieldset>
-                    )
-                }
+                <OtpStep otp={otp} />
             </div>
 
             <aside class="checkout-aside">

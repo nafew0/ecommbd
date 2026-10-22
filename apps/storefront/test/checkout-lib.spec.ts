@@ -43,6 +43,24 @@ describe('the shopper session (Vendure cookies passed through)', () => {
         expect(ended.cookieHeader).toBeUndefined();
     });
 
+    it('keeps a sales page session apart from the cart, under its own cookie', () => {
+        const session = new ShopSession(
+            'shop-session=cart; lp-session=sales; lp-session.sig=sig',
+            'lp-session',
+        );
+        // The core knows one name; the browser keeps the two sessions apart.
+        expect(session.cookieHeader).toBe('shop-session=sales; shop-session.sig=sig');
+        expect(session.id).toBe('sales');
+        session.absorb(['shop-session=next; path=/; httponly']);
+        const headers = new Headers();
+        session.apply(headers);
+        expect(headers.getSetCookie()).toEqual([
+            'lp-session=next; Path=/; Max-Age=2592000; SameSite=Lax; HttpOnly',
+            'lp-session.sig=sig; Path=/; Max-Age=2592000; SameSite=Lax; HttpOnly',
+        ]);
+        expect(new ShopSession('shop-session=cart', 'lp-session').exists).toBe(false);
+    });
+
     it('keeps the cart count readable by the page, and clears it at zero', () => {
         expect(cartCountCookie(3)).toBe('cart_count=3; Path=/; Max-Age=2592000; SameSite=Lax');
         expect(cartCountCookie(0)).toContain('Max-Age=0');

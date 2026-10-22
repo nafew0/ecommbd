@@ -436,6 +436,80 @@ export const LAYOUT_PREVIEW = graphql(
     [LayoutFields],
 );
 
+/** A sales page (phase 16): settings, product with its variants, packs, add-on and sections. */
+export const SALES_PAGE = graphql(
+    `
+        query SalesPage($slug: String!, $preview: String) {
+            bdSalesPage(slug: $slug, preview: $preview) {
+                id
+                slug
+                title
+                settings
+                available
+                maxQuantity
+                preview
+                product {
+                    id
+                    name
+                    slug
+                    customFields {
+                        youtubeUrl
+                    }
+                    featuredAsset {
+                        ...AssetFields
+                    }
+                    assets {
+                        ...AssetFields
+                    }
+                    variants {
+                        id
+                        name
+                        priceWithTax
+                        stockLevel
+                        options {
+                            name
+                        }
+                        customFields {
+                            oldPrice
+                            isDefault
+                        }
+                    }
+                }
+                packs {
+                    quantity
+                    price
+                    normalPrice
+                    label
+                    popular
+                    available
+                }
+                bump {
+                    price
+                    normalPrice
+                    title
+                    text
+                    variant {
+                        id
+                        name
+                        featuredAsset {
+                            ...AssetFields
+                        }
+                        product {
+                            featuredAsset {
+                                ...AssetFields
+                            }
+                        }
+                    }
+                }
+                layout {
+                    ...LayoutFields
+                }
+            }
+        }
+    `,
+    [AssetFields, LayoutFields],
+);
+
 export const THEME = graphql(`
     query Theme {
         bdTheme
