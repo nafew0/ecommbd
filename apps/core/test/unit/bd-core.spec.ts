@@ -121,4 +121,12 @@ describe('contentSecurityPolicy', () => {
             "img-src 'self' data: blob: https://cdn.example.com;",
         );
     });
+
+    it('frames only this origin, plus the storefront for the page editor’s preview', () => {
+        expect(contentSecurityPolicy()).toContain("frame-src 'self';");
+        expect(contentSecurityPolicy([], ['http://localhost:4321'])).toContain(
+            "frame-src 'self' http://localhost:4321;",
+        );
+        expect(contentSecurityPolicy()).toContain("frame-ancestors 'none'");
+    });
 });

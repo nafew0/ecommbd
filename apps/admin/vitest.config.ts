@@ -7,6 +7,7 @@ export default defineConfig({
         alias: {
             '@': path.resolve(__dirname, 'src'),
             '@ecommbd/shared': path.resolve(__dirname, '../../packages/shared/src'),
+            '@ecommbd/sections': path.resolve(__dirname, '../../packages/sections/src/index.ts'),
         },
     },
     test: {

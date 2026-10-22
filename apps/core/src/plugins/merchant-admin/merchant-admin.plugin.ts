@@ -11,6 +11,8 @@ export interface MerchantAdminPluginOptions {
     route?: string;
     /** Extra origins images may load from, e.g. the asset server when it's on another domain. */
     imageOrigins?: string[];
+    /** The storefront, when it isn't this origin: the page editor previews it in a frame (phase 15). */
+    frameOrigins?: string[];
 }
 
 /**
@@ -39,7 +41,7 @@ export class MerchantAdminPlugin implements NestModule {
     }
 }
 
-export function contentSecurityPolicy(imageOrigins: string[] = []): string {
+export function contentSecurityPolicy(imageOrigins: string[] = [], frameOrigins: string[] = []): string {
     return [
         "default-src 'self'",
         "script-src 'self'",
@@ -47,6 +49,7 @@ export function contentSecurityPolicy(imageOrigins: string[] = []): string {
         `img-src 'self' data: blob: ${imageOrigins.join(' ')}`.trim(),
         "font-src 'self'",
         "connect-src 'self'",
+        `frame-src 'self' ${frameOrigins.join(' ')}`.trim(),
         "object-src 'none'",
         "base-uri 'self'",
         "form-action 'self'",
@@ -57,7 +60,7 @@ export function contentSecurityPolicy(imageOrigins: string[] = []): string {
 export function createAdminRouter(options: MerchantAdminPluginOptions) {
     const { appDir, route = 'admin' } = options;
     const indexFile = path.join(appDir, 'index.html');
-    const csp = contentSecurityPolicy(options.imageOrigins);
+    const csp = contentSecurityPolicy(options.imageOrigins, options.frameOrigins);
     const router = express.Router();
 
     router.use((req: Request, res: Response, next: NextFunction) => {

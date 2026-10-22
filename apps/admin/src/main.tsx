@@ -67,6 +67,27 @@ const router = createBrowserRouter(
                     ],
                 },
                 {
+                    // Full-screen editors (phase 15): the page editor and the theme, with their own top bar.
+                    path: '/store',
+                    element: <Protected bare />,
+                    children: [
+                        {
+                            path: 'design/:kind/:pageId?',
+                            lazy: () =>
+                                import('./pages/page-editor').then(module => ({
+                                    Component: module.PageEditorPage,
+                                })),
+                        },
+                        {
+                            path: 'theme',
+                            lazy: () =>
+                                import('./pages/theme-editor').then(module => ({
+                                    Component: module.ThemeEditorPage,
+                                })),
+                        },
+                    ],
+                },
+                {
                     path: '/',
                     element: <Protected />,
                     children: [

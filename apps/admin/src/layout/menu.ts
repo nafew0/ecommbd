@@ -81,9 +81,10 @@ export const MENU: MenuGroup[] = [
         label: 'onlineStore',
         icon: Globe,
         children: [
-            link('theme', '/store/theme', '15'),
-            link('homePage', '/store/home', '15'),
-            link('headerFooter', '/store/header-footer', '15'),
+            link('theme', '/store/theme', '15', true, 'EditStorefront'),
+            link('homePage', '/store/design/home', '15', true, 'EditStorefront'),
+            // The announcement bar and header layout are in Theme, footer links in Menus.
+            link('productPage', '/store/design/product', '15', true, 'EditStorefront'),
             link('menus', '/store/menus', '12', true, 'ManageContent'),
             link('pages', '/store/pages', '12', true, 'ManageContent'),
             link('search', '/store/search', '13', true, 'ManageContent'),

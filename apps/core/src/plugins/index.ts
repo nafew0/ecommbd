@@ -90,6 +90,9 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
         MerchantAdminPlugin.init({
             appDir: ADMIN_APP_DIR,
             imageOrigins: options.assetUrlPrefix ? [new URL(options.assetUrlPrefix).origin] : [],
+            frameOrigins: [options.previewStorefrontUrl ?? options.storefrontUrl]
+                .filter((url): url is string => !!url)
+                .map(url => new URL(url).origin),
         }),
         // Needs Vendure's DefaultSearchPlugin (vendure-config.ts), whose index it reads.
         BdSearchPlugin.init({

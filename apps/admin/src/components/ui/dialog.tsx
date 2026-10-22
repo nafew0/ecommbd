@@ -14,6 +14,8 @@ interface DialogProps {
     variant?: 'center' | 'drawer';
     /** Closing by Escape or the backdrop is allowed unless false (e.g. while saving). */
     dismissible?: boolean;
+    /** `wide` for pickers with a grid (the page editor's section library). */
+    size?: 'default' | 'wide';
 }
 
 /**
@@ -29,6 +31,7 @@ export function Dialog({
     footer,
     variant = 'center',
     dismissible = true,
+    size = 'default',
 }: DialogProps) {
     const m = useMessages();
     const ref = useRef<HTMLDialogElement>(null);
@@ -55,8 +58,8 @@ export function Dialog({
             }}
             className={cn(
                 'bg-white p-0 text-slate-900 shadow-xl backdrop:bg-slate-900/40',
-                variant === 'center' &&
-                    'm-auto w-[calc(100%-2rem)] max-w-lg rounded-lg max-h-[calc(100dvh-2rem)]',
+                variant === 'center' && 'm-auto w-[calc(100%-2rem)] rounded-lg max-h-[calc(100dvh-2rem)]',
+                variant === 'center' && (size === 'wide' ? 'max-w-4xl' : 'max-w-lg'),
                 variant === 'drawer' && 'm-0 h-dvh max-h-dvh w-72 max-w-[85vw]',
             )}
         >

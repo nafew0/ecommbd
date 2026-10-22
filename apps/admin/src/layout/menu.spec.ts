@@ -27,6 +27,9 @@ describe('menu', () => {
         ]);
         expect(menu[3]!.children!.map(child => child.to)).toEqual(['/customers', '/customers/blocked']);
         expect(menu[4]!.children!.map(child => child.to)).toEqual([
+            '/store/theme',
+            '/store/design/home',
+            '/store/design/product',
             '/store/menus',
             '/store/pages',
             '/store/search',
@@ -56,6 +59,7 @@ describe('menu', () => {
                     'CreateManualOrder',
                     'ReadProduct',
                     'ReadCatalog',
+                    'EditStorefront',
                 ].includes(permission),
         );
         expect(menu.map(group => group.label)).toEqual(['home']);

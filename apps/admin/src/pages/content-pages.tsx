@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { FileText, Plus } from 'lucide-react';
+import { FileText, Palette, Plus } from 'lucide-react';
 import { Link } from 'react-router';
 import { type Column, ListPage } from '../components/list-page';
 import { Badge, EmptyState, PageHeader } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { useFormat } from '../lib/format';
 import { useI18n } from '../lib/i18n';
 
@@ -35,6 +36,7 @@ export function ContentPagesPage() {
     const { messages: m, language } = useI18n();
     const c = m.content;
     const format = useFormat();
+    const { can } = useAuth();
     const query = useQuery({
         queryKey: ['contentPages'],
         queryFn: () =>
@@ -72,6 +74,24 @@ export function ContentPagesPage() {
             hideOnMobile: true,
             cell: page => format.dateTime(page.updatedAt),
         },
+        // Sections below the page's text (phase 15).
+        ...(can('EditStorefront')
+            ? [
+                  {
+                      key: 'sections',
+                      header: m.design.sections,
+                      cell: (page: ContentPage) => (
+                          <Link
+                              to={`/store/design/page/${page.id}`}
+                              className="inline-flex items-center gap-1.5 text-sm font-medium text-teal-800 hover:underline"
+                          >
+                              <Palette className="size-4" aria-hidden />
+                              {m.design.editSections}
+                          </Link>
+                      ),
+                  },
+              ]
+            : []),
     ];
     const newPage = (
         <Link
