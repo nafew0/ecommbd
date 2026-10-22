@@ -22,9 +22,10 @@ export default defineConfig({
     build: { inlineStylesheets: 'never' },
     devToolbar: { enabled: false },
     vite: {
-        // Bundle the server's dependencies: in this monorepo, packages hoisted for the core (an older
-        // `cookie`, for one) would otherwise be picked up at runtime instead of Astro's own.
-        ssr: { noExternal: true },
+        // Bundle the server's dependencies in the build: in this monorepo, packages hoisted for the core
+        // (an older `cookie`, for one) would otherwise be picked up at runtime instead of Astro's own.
+        // Not in `astro dev`: its module runner can't run CommonJS packages ("require is not defined").
+        ssr: { noExternal: process.argv.includes('dev') ? [] : true },
         resolve: {
             alias: { '@ecommbd/shared': path.resolve(here, '../../packages/shared/src') },
         },
