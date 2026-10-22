@@ -393,9 +393,16 @@ Coupon field (35), customer login and saved addresses (34), online gateway redir
 
 ### Done when
 
-- [ ] A merchant builds a home page with 6 sections, previews it on mobile, publishes it, and the live page updates within seconds.
-- [ ] Both themes render every section correctly in both languages.
-- [ ] Every starter layout stays within the performance budget.
+- [x] A merchant builds a home page with 6 sections, previews it on mobile, publishes it, and the live page updates within seconds. (Playwright `sections.spec.ts`, 2026-10-22: six sections added from the library in the editor, the heading typed, the draft checked in the phone-width preview frame, published; the live page had all six about 2.2 seconds after "Publish".)
+- [x] Both themes render every section correctly in both languages. (`npm run test:visual`: 144 snapshots, all 18 sections in Minimal and Bazaar, Bangla and English, at 390 and 1280 pixels wide, reviewed by eye and stable across runs.)
+- [x] Every starter layout stays within the performance budget. (Playwright, phone: fashion, food and cosmetics 1.4 KB, gadgets 2.3 KB of first-party JavaScript gzipped against 30 KB; LCP about 0.12 s locally.)
+
+**Built differently from the plan** (see [decisions.md](../decisions.md)): the plugin is `bd-sections` (our prefix). A page's sections show below its phase 12 text; titles, addresses and SEO stay on the page. Layout JSON uses `uid`, `assetId` and `ref` instead of `id`, because Vendure re-encodes every `id` in JSON responses. The "Header and footer" screen became part of Theme (announcement bar, header layout) and Menus. Visual snapshots run as their own command, not in CI (they depend on the system's fonts). Sections and their store data load in a few batched Shop API calls per page; product grids use phase 13's search.
+
+**Notes for later phases:**
+- **Phase 16:** sales pages are a fourth layout type, `landing` (already in `LAYOUT_TYPES`): add its sections to `packages/sections` (with `layouts: ['landing']` where they only belong there), a slug for each landing layout, and a storefront route; the editor, drafts, history, previews and themes work unchanged. The embedded checkout can reuse `src/lib/checkout.ts`.
+- **Phase 17:** pages with sections send `xkey: layout:<id> theme product:<id> … collection:<id>` (at most 100 tags). Publishing and theme saves already purge the storefront's data cache (`StorefrontPurger` in `bd-sections`); Varnish purging can hang off the same calls.
+- **New section fields later:** raise the section's `version` and add a migration (`migrations[n]` turns version n's data into n + 1); stored drafts and published pages are read through it.
 
 ### Not in this phase
 

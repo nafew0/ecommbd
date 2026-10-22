@@ -165,6 +165,8 @@ Category and search pages use the core's `bdSearch` query (plugin `bd-search`, p
 
 Cart and checkout (phase 14) post to the storefront's own routes, which use the shopper's `shop-session` cookie with the core. Set `CSRF_SECRET` in `apps/storefront/.env` (32+ random characters; required in staging and production). Order tracking lookups are limited per address with `TRACKING_RATE_LIMIT_PER_IP` in `apps/core/.env` (default 20 per 10 minutes); the browser tests raise it for their own core.
 
+The page editor and theme screen (phase 15, **Online store → Theme / Home page / Product page**, and **Edit sections** on each page) show the storefront in a frame. In development the admin (:3000) and the storefront (:4321) are different origins: the core points preview links at `STOREFRONT_URL` (default `http://localhost:4321` in dev) and the storefront lets `EDITOR_ORIGIN` (default `http://localhost:3000` in dev) frame its preview pages. Live stores serve both on one site, so neither is needed. Publishing purges the storefront's data cache through the cache Redis, so the live page changes within seconds. Section definitions, themes and starter layouts are in `packages/sections`.
+
 ## 5. Production build and start
 
 This is how a store runs on a CloudPanel server:
@@ -246,6 +248,7 @@ The first migration, `<timestamp>-init.ts`, creates the whole schema and is comm
 | `npm test` | Unit tests (fast, no database) |
 | `npm run test:e2e` | End-to-end tests: a real Vendure server against the Docker PostgreSQL and cache Redis (`TEST_DB_*` and `TEST_REDIS_CACHE_*` override the connection) |
 | `npm run test:browser` | Browser tests with Playwright on a desktop and a phone (needs `npm run build` first, and `npx playwright install chromium` once) |
+| `npm run test:visual` | Visual snapshots of every page section in both themes and languages, phone and desktop (`tests/visual`, baselines per platform; `-- --update-snapshots=all` after a deliberate design change, then review the images) |
 
 **Before pushing:** run `npm run lint`, `npm run typecheck`, `npm test` and `npm run test:e2e`. GitHub runs all of them, plus the build and browser tests, on every push and pull request (`.github/workflows/ci.yml`).
 

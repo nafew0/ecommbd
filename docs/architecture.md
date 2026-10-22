@@ -158,13 +158,13 @@ Buying one only to study its features and screens is fine. Don't copy its code.
 | `bd-print` | Print data, printed marks and print settings for invoices, packing slips, receipts and courier stickers; the print views are pages of the merchant admin, printed by the browser |
 | `bd-content` | Storefront pages and header/footer menus, slug history (old URLs redirect, deleted products answer 410), SEO fields on products and categories, sanitized descriptions |
 | `bd-images` | Checks and cleans every uploaded image before it is stored (type from its bytes, 15 MB, 40 megapixels, metadata and GPS removed), then makes WebP sizes on the worker, served at `/img`; one copy per content hash |
+| `bd-sections` | Page layouts (home page, product page template, phase 12's pages): autosaved drafts with a revision check, publishing with a version stamp, the last 20 versions, signed preview tokens, saved sections; theme settings; purges the storefront's data cache on publish. Section definitions are in `packages/sections` |
 | `payments-*` | COD, manual bKash/Nagad (TrxID), SSLCommerz, bKash tokenized, partial advance |
 | `shipping-bd` | Inside/outside Dhaka and per-district rates |
 | `couriers-*` | Steadfast, Pathao, RedX booking and status sync |
 | `meta-capi` | Pixel + Conversions API, Purchase trigger setting |
 | `images` | WebP generation (Decision 3) |
 | `woo-import` | WooCommerce migration |
-| `sections` | Page and landing-page content for the storefront editor |
 | `cache-purge` | Tags pages in Varnish and purges them on change |
 | `central-client` | Talks to the central system: SMS, fraud score, health, licence |
 
@@ -193,8 +193,8 @@ Medusa lost the benchmark, so there is no fallback engine. If Vendure ever hits 
 - **Varnish setup:** CloudPanel's built-in Varnish setting is aimed at PHP sites, so the deploy agent manages one Varnish instance per server, with one backend per store.
 - **Data:** the storefront calls the core's Shop API on localhost. Settings, menus and collections are cached in Redis (shared with the core) and in an in-process cache.
 - **Cart and checkout** (changed in phase 14): forms post to the storefront's own routes (`/cart/`, `/checkout/`), which call the Shop API on localhost with the shopper's session cookie and pass it back with a 30-day lifetime. The same routes serve the plain forms and the small scripts, so checkout works without JavaScript and CSRF and idempotency live in one place (see decisions.md). `/shop-api` stays routed by Nginx for gateway callbacks and future apps.
-- **Themes:** a theme is a set of Astro components plus a settings JSON. Pages are ordered lists of **sections**, like Shopify. Each section is an Astro component with a field schema.
-- **Page and landing editor, Shopify-style:** a sidebar lists the sections, with forms generated from each section's schema. Next to it is a live preview iframe of the real storefront. Because no second copy of the components exists for the editor, what the merchant sees is exactly what shoppers get. The embedded checkout is a section, so it can go on any landing page.
+- **Themes** (built in phase 15): two looks, Minimal and Bazaar, over the same sections. A theme is data attributes on `<html>` (theme, font, buttons, header, cards, logo size) that the stylesheet follows, plus `/theme.css?v=<hash>` when the merchant changed the theme's colours (no inline styles under the CSP). Pages are ordered lists of **sections**, like Shopify: each section is an Astro component (`apps/storefront/src/sections/`) with a field schema in `packages/sections`, shared by the core, the storefront and the editor.
+- **Page and landing editor, Shopify-style** (built in phase 15): a sidebar lists the sections, with forms generated from each section's schema. Next to it is a live preview frame of the real storefront showing the draft (`?preview=<signed token>`, never cached). Because no second copy of the components exists for the editor, what the merchant sees is exactly what shoppers get. The embedded checkout is a section, so it can go on any landing page (phase 16).
 - **Meta Pixel and merchant scripts:** these load after the page is interactive. The server-side Conversions API carries the events, so a late-loading pixel loses nothing.
 - **Small enhancements without a framework** (phase 13): search suggestions and filters are plain scripts, loaded only on the pages and at the moment they're needed (suggestions on the search box's first focus). Animations use the `motion` package's small vanilla API inside those scripts, and page changes use CSS view transitions; all of it is off for shoppers who prefer reduced motion. Preact stays for the cart and checkout (phase 14). The look follows the storefront design standard in `CLAUDE.md`.
 - **Fonts:** system fonts by default. Android ships Noto Sans Bengali, so Bangla text needs no font download. A brand font is optional: self-hosted, subset, `woff2`, `font-display: swap`.
@@ -347,7 +347,7 @@ npm workspaces, Vendure's own tooling default. Add Turborepo once there are seve
 ```
 apps/
   core/          Vendure project from @vendure/create (one build, run per store)
-    src/plugins/ our Vendure plugins (bd-checkout, bd-orders, payments-*, couriers-*, meta-capi, images, woo-import, sections, cache-purge, central-client)
+    src/plugins/ our Vendure plugins (bd-checkout, bd-orders, bd-sections, payments-*, couriers-*, meta-capi, images, woo-import, cache-purge, central-client)
   admin/         merchant admin: React + Vite, Bangla and English, served by the core at /admin
   storefront/    Astro SSR + Preact islands, themes and sections
   central/       central system: API + admin
@@ -355,7 +355,7 @@ apps/
   wp-migrator/   WordPress helper plugin (PHP)
 packages/
   bd-geo/        divisions → districts → upazilas/thanas, courier area ID maps
-  sections/      section schemas shared by storefront and editor
+  sections/      section schemas, data migrations, themes and starter layouts, shared by the core, storefront and editor
 patches/         patch-package patches to Vendure, only if ever needed, each documented
 infra/
   server/        server baseline script (PostgreSQL, pgBackRest, Redis ×2, Varnish, Node, PM2, agent)

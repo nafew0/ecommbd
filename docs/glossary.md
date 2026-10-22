@@ -86,3 +86,8 @@ One word per idea everywhere: storefront, Dashboard, SMS, help articles. Banglad
 | Checkout / Place order | চেকআউট / অর্ডার করুন |
 | Track order | অর্ডার ট্র্যাক করুন |
 | Verification code (OTP) | কোড (SMS-এর কোড) |
+| Theme | থিম |
+| Home page | হোম পেজ |
+| Draft / Publish | ড্রাফট / পাবলিশ করুন |
+| Preview | প্রিভিউ |
+| Page editor | পেজ এডিটর |
