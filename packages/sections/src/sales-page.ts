@@ -1,6 +1,6 @@
 import { type ImageValue, readValue } from './fields';
 import { type Bilingual, cleanText, EMPTY_TEXT, isRecord } from './text';
-import { FONTS, type FontName, normalizeHex } from './theme';
+import { FONTS, type FontName, normalizeHex, type ThemeSettings, themeVariables } from './theme';
 
 /**
  * A sales page's own settings (roadmap phase 16), next to its sections: how the page around the
@@ -235,4 +235,23 @@ export function toSalesSlug(input: string): string {
         .replace(/-{2,}/g, '-')
         .replace(/^-|-$/g, '')
         .slice(0, SALES_LIMITS.slug);
+}
+
+/**
+ * A sales page's own colours over the store theme's, as CSS (empty when it keeps the theme's). The
+ * tripled attribute outranks the theme's own stylesheet; values are checked hex colours.
+ */
+export function salesColoursCss(theme: ThemeSettings, settings: SalesPageSettings): string {
+    const { main, sale, background } = settings.colours;
+    if (!main && !sale && !background) return '';
+    const colours = {
+        ...theme.colours,
+        ...(main ? { accent: main } : {}),
+        ...(sale ? { sale } : {}),
+        ...(background ? { background } : {}),
+    };
+    const declarations = Object.entries(themeVariables({ ...theme, colours }))
+        .map(([name, value]) => `${name}:${value}`)
+        .join(';');
+    return `html[data-theme][data-theme][data-theme]{${declarations}}`;
 }

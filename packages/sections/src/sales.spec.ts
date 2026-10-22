@@ -10,9 +10,11 @@ import {
     readPrice,
     readSalesSettings,
     SALES_LIMITS,
+    salesColoursCss,
     toSalesSlug,
 } from './sales-page';
 import { COLUMN_LAYOUTS, ELEMENT_KINDS } from './sections/custom';
+import { readThemeSettings } from './theme';
 
 const product = { name: { bn: 'খাঁটি সরিষার তেল', en: 'Pure mustard oil' } };
 
@@ -240,6 +242,18 @@ describe('sales page settings', () => {
         expect(isSameSitePath('https://evil.example')).toBe(false);
         expect(isSameSitePath('/a b')).toBe(false);
         expect(isSameSitePath(`/${'a'.repeat(300)}`)).toBe(false);
+    });
+
+    it("put the page's own colours over the theme's", () => {
+        const theme = readThemeSettings({});
+        expect(salesColoursCss(theme, defaultSalesSettings())).toBe('');
+        const settings = readSalesSettings({ colours: { main: '#0a6b3d', sale: '#d4380d' } });
+        const css = salesColoursCss(theme, settings);
+        expect(css.startsWith('html[data-theme][data-theme][data-theme]{')).toBe(true);
+        expect(css).toContain('--accent:#0a6b3d');
+        expect(css).toContain('--on-accent:#ffffff');
+        expect(css).toContain('--sale:#d4380d');
+        expect(css).toContain(`--background:${theme.colours.background}`);
     });
 
     it('work out what a pack saves', () => {

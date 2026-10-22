@@ -133,7 +133,7 @@ describe('the generated stylesheet', () => {
             'border:2px solid var(--line)',
             '--heading-size:clamp(30px,3.75vw,48px)',
             '--heading-weight:800',
-            'font-size:18px',
+            '--text-size:18px',
             '--shade:0.4',
         ]) {
             expect(css).toContain(part);
@@ -141,6 +141,10 @@ describe('the generated stylesheet', () => {
         expect(css).toContain(
             `@media (max-width:749px){${selector}{--pad-top:24px;--pad-bottom:16px;--heading-size:28px}}`,
         );
+        // Headings and text inside take the sizes.
+        expect(css).toContain(`${selector} :is(h1,h2){font-size:var(--heading-size)}`);
+        expect(css).toContain(`${selector} :is(.section-bg,.hero-media) img{opacity:calc(1 - var(--shade))}`);
+        expect(css).toContain(`${selector} :is(p,li,dd,dt,summary,td,th){font-size:var(--text-size)}`);
     });
 
     it('styles Custom section elements, and only spaces get a height', () => {
@@ -153,29 +157,42 @@ describe('the generated stylesheet', () => {
             weight: '700',
             align: 'center',
         });
-        Object.assign(image!.settings, { width: 80, radius: 12, padding: 8, spaceBelow: 16, height: 100 });
+        Object.assign(image!.settings, {
+            width: 80,
+            align: 'center',
+            radius: 12,
+            padding: 8,
+            spaceBelow: 16,
+            height: 100,
+        });
         Object.assign(heading!.settings, { borderWidth: 1 });
         Object.assign(section.blocks[2]!.settings, {
             borderWidth: 2,
             borderColor: '#dddddd',
             background: '#fafafa',
         });
+        Object.assign(section.blocks[3]!.settings, { width: 50, align: 'end' });
         const spacer = { uid: 'spacer01', settings: { ...image!.settings, kind: 'spacer', height: 48 } };
         section.blocks.push(spacer);
         const css = layoutCss(readDocument({ sections: [section] }));
         // A block whose uid skipped reading is left out.
         const broken = { ...section, blocks: [{ uid: '"]{', settings: { ...image!.settings } }] };
-        expect(layoutCss({ sections: [broken] })).toBe('');
+        expect(layoutCss({ sections: [broken] })).not.toContain('.el[');
         expect(css).toContain(
             `.el[data-u="${heading!.uid}"]{color:#aa0000;--el-color:#aa0000;font-size:clamp(40px,5vw,64px);font-weight:700;text-align:center;--el-align:center;border:1px solid currentColor}`,
         );
         expect(css).toContain(
-            `.el[data-u="${image!.uid}"]{width:80%;padding:8px;border-radius:12px;--radius:12px;margin-bottom:16px}`,
+            `.el[data-u="${image!.uid}"]{text-align:center;--el-align:center;width:80%;margin-inline:auto;padding:8px;border-radius:12px;--radius:12px;margin-bottom:16px}`,
         );
         expect(css).toContain(
             `.el[data-u="${section.blocks[2]!.uid}"]{background:#fafafa;border:2px solid #dddddd}`,
         );
-        expect(css).toContain('.el[data-u="spacer01"]{width:80%');
+        expect(css).toContain('.el[data-u="spacer01"]{text-align:center;--el-align:center;width:80%');
+        expect(css).toContain(
+            `.el[data-u="${section.blocks[3]!.uid}"]{text-align:end;--el-align:end;width:50%;margin-inline:auto 0}`,
+        );
+        // The columns' gap, from the section's setting.
+        expect(css).toContain(`.section[data-u="${section.uid}"] .custom{column-gap:32px}`);
         expect(css).toContain('height:48px');
         expect(css).toContain(`@media (max-width:749px){.el[data-u="${heading!.uid}"]{font-size:32px}}`);
     });

@@ -50,8 +50,24 @@ function sectionRules(section: SectionData): Rules {
     if (number(d.headingSize)) rules.all.push(`--heading-size:${fluid(d.headingSize)}`);
     if (number(d.headingSizePhone)) rules.phone.push(`--heading-size:${px(d.headingSizePhone)}`);
     if (weight(d.headingWeight)) rules.all.push(`--heading-weight:${d.headingWeight}`);
-    if (number(d.textSize)) rules.all.push(`font-size:${px(d.textSize)}`);
+    if (number(d.textSize)) rules.all.push(`--text-size:${px(d.textSize)}`);
     if (number(d.shade)) rules.all.push(`--shade:${d.shade / 100}`);
+    return rules;
+}
+
+/** Rules for what's inside a styled section: its headings and text take the chosen sizes, its image the shade. */
+function insideRules(section: SectionData, selector: string): string[] {
+    const d = section.style.design;
+    const rules: string[] = [];
+    if (number(d.headingSize) || number(d.headingSizePhone)) {
+        rules.push(`${selector} :is(h1,h2){font-size:var(--heading-size)}`);
+    }
+    if (number(d.textSize)) {
+        rules.push(`${selector} :is(p,li,dd,dt,summary,td,th){font-size:var(--text-size)}`);
+    }
+    if (number(d.shade)) {
+        rules.push(`${selector} :is(.section-bg,.hero-media) img{opacity:calc(1 - var(--shade))}`);
+    }
     return rules;
 }
 
@@ -66,7 +82,12 @@ function elementRules(settings: Record<string, unknown>): Rules {
     if (settings.align === 'start' || settings.align === 'center' || settings.align === 'end') {
         rules.all.push(`text-align:${settings.align}`, `--el-align:${settings.align}`);
     }
-    if (number(settings.width)) rules.all.push(`width:${settings.width}%`);
+    if (number(settings.width)) {
+        rules.all.push(`width:${settings.width}%`);
+        // A narrower element sits where it's aligned.
+        if (settings.align === 'center') rules.all.push('margin-inline:auto');
+        if (settings.align === 'end') rules.all.push('margin-inline:auto 0');
+    }
     if (number(settings.padding)) rules.all.push(`padding:${px(settings.padding)}`);
     if (number(settings.radius))
         rules.all.push(`border-radius:${px(settings.radius)}`, `--radius:${px(settings.radius)}`);
@@ -91,8 +112,12 @@ export function layoutCss(document: LayoutDocument): string {
     const out: Rules = { all: [], phone: [] };
     for (const section of document.sections) {
         if (section.hidden || !UID.test(section.uid)) continue;
-        write(`.section[data-u="${section.uid}"]`, sectionRules(section), out);
+        const selector = `.section[data-u="${section.uid}"]`;
+        write(selector, sectionRules(section), out);
+        out.all.push(...insideRules(section, selector));
         if (section.type !== 'custom') continue;
+        const gap = (section.settings as { gap?: unknown }).gap;
+        if (number(gap)) out.all.push(`${selector} .custom{column-gap:${px(gap)}}`);
         for (const block of section.blocks) {
             if (!UID.test(block.uid)) continue;
             write(`.el[data-u="${block.uid}"]`, elementRules(block.settings as Record<string, unknown>), out);
