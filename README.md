@@ -167,6 +167,8 @@ Cart and checkout (phase 14) post to the storefront's own routes, which use the 
 
 The page editor and theme screen (phase 15, **Online store → Theme / Home page / Product page**, and **Edit sections** on each page) show the storefront in a frame. In development the admin (:3000) and the storefront (:4321) are different origins: the core points preview links at `STOREFRONT_URL` (default `http://localhost:4321` in dev) and the storefront lets `EDITOR_ORIGIN` (default `http://localhost:3000` in dev) frame its preview pages. Live stores serve both on one site, so neither is needed. Publishing purges the storefront's data cache through the cache Redis, so the live page changes within seconds. Section definitions, themes and starter layouts are in `packages/sections`.
 
+Sales pages (phase 16, **Sales pages** in the admin) are at `/s/<address>/` on the storefront and edited in the same page editor. Their pack and add-on prices come from an automatic promotion named "Sales page offer" (created with the store's defaults): switching it off switches the offers off. The order form posts to `/s/<address>/order/`, never cached.
+
 ## 5. Production build and start
 
 This is how a store runs on a CloudPanel server:

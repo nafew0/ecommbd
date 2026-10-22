@@ -42,6 +42,15 @@ One word per idea everywhere: storefront, Dashboard, SMS, help articles. Banglad
 | Sales page (landing page) | সেলস পেজ |
 | Template | টেমপ্লেট |
 | Section | সেকশন |
+| Sales page | সেলস পেজ |
+| Pack (sales page offer) | প্যাক |
+| Add-on offer (order bump) | সাথে নেওয়ার অফার |
+| Custom section | নিজের মতো সেকশন |
+| Element (in a custom section) | এলিমেন্ট |
+| Design (tab) | ডিজাইন |
+| Campaign | ক্যাম্পেইন |
+| Where it came from (attribution) | কোথা থেকে এসেছে |
+| Countdown | কাউন্টডাউন |
 | Order now | এখনই অর্ডার করুন |
 | Store settings | স্টোর সেটিংস |
 | Dashboard | ড্যাশবোর্ড |

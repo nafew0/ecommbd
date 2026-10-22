@@ -508,10 +508,10 @@ Sales-page sections and the embedded checkout (16), custom CSS (later, P2), free
 
 ### Done when
 
-- [ ] A merchant who has never built a page makes a sales page from a template and a product, and publishes it, in about 5 minutes.
-- [ ] A shopper orders with a pack and an order bump on the sales page.
-- [ ] The order shows its campaign and sales page.
-- [ ] All twelve templates meet the sales page performance budget.
+- [x] A merchant who has never built a page makes a sales page from a template and a product, and publishes it, in about 5 minutes. (Playwright `sales-pages.spec.ts`, 2026-10-22: **Sales pages → New sales page**, a name, a product and a template, then the editor opens on the filled page; the hero's heading changed and published in 2 seconds of scripted clicks. A person reading the screens needs a few minutes.)
+- [x] A shopper orders with a pack and an order bump on the sales page. (Playwright, desktop and phone: a 2-pack with the add-on, then a single one without it, totals exact to the poisha, thank-you page; the same without JavaScript. End-to-end `bd-sales-pages.e2e-spec.ts`: the offer's discount, refused packs and variants, stock.)
+- [x] The order shows its campaign and sales page. (End-to-end and Playwright: UTM values, `fbclid`, the referrer and the sales page saved on the order, shown on the order screen, filtered in the order list and counted in **Orders by campaign**; the last non-direct visit wins.)
+- [x] All twelve templates meet the sales page performance budget. (Playwright, phone, 2026-10-22: 3.4–4.1 KB of first-party JavaScript gzipped against 45 KB; LCP about 0.1 s locally.)
 
 ### Not in this phase
 
