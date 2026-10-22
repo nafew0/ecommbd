@@ -1,4 +1,5 @@
 import { type Bilingual, cleanText, EMPTY_TEXT, isRecord } from './text';
+import { normalizeHex } from './theme';
 
 /**
  * Field types for section settings (roadmap phase 15). Each type knows its default, how to read a
@@ -138,6 +139,30 @@ export interface VideoField extends FieldBase {
     kind: 'video';
 }
 
+/** Any colour (phase 16's Design options): a checked `#rrggbb`, or empty for "as the theme". */
+export interface HexField extends FieldBase {
+    kind: 'hex';
+}
+
+/** A size or amount that may be left automatic: a number within limits, or null. */
+export interface SizeField extends FieldBase {
+    kind: 'size';
+    min: number;
+    max: number;
+    step: number;
+    unit: 'px' | '%' | 'h';
+}
+
+/** A moment (a countdown's end), stored as an ISO date-time in UTC; entered in Dhaka time. */
+export interface DateTimeField extends FieldBase {
+    kind: 'datetime';
+}
+
+/** An amount of money in poisha, whole taka (prices in a custom section). */
+export interface MoneyField extends FieldBase {
+    kind: 'money';
+}
+
 export type Field =
     | TextField
     | TextareaField
@@ -152,7 +177,11 @@ export type Field =
     | SelectField
     | ToggleField
     | RangeField
-    | VideoField;
+    | VideoField
+    | HexField
+    | SizeField
+    | DateTimeField
+    | MoneyField;
 
 export type FieldKind = Field['kind'];
 export type Fields = Readonly<Record<string, Field>>;
@@ -176,9 +205,13 @@ export type FieldValue<F> = F extends { kind: 'text' | 'textarea' | 'richText' }
                   ? boolean
                   : F extends { kind: 'range' }
                     ? number
-                    : F extends { kind: 'video' }
+                    : F extends { kind: 'video' | 'hex' | 'datetime' }
                       ? string
-                      : never;
+                      : F extends { kind: 'size' }
+                        ? number | null
+                        : F extends { kind: 'money' }
+                          ? number | null
+                          : never;
 
 export type Values<Fs extends Fields> = { -readonly [K in keyof Fs]: FieldValue<Fs[K]> };
 
@@ -252,6 +285,34 @@ export const field = {
     }),
     video: (label: Bilingual, options: Options<VideoField> = {}): VideoField => ({
         kind: 'video',
+        label,
+        ...options,
+    }),
+    hex: (label: Bilingual, options: Options<HexField> = {}): HexField => ({
+        kind: 'hex',
+        label,
+        ...options,
+    }),
+    size: (
+        label: Bilingual,
+        range: { min: number; max: number; step?: number; unit?: SizeField['unit'] },
+        options: Omit<Options<SizeField>, 'min' | 'max' | 'step' | 'unit'> = {},
+    ): SizeField => ({
+        kind: 'size',
+        label,
+        min: range.min,
+        max: range.max,
+        step: range.step ?? 1,
+        unit: range.unit ?? 'px',
+        ...options,
+    }),
+    datetime: (label: Bilingual, options: Options<DateTimeField> = {}): DateTimeField => ({
+        kind: 'datetime',
+        label,
+        ...options,
+    }),
+    money: (label: Bilingual, options: Options<MoneyField> = {}): MoneyField => ({
+        kind: 'money',
         label,
         ...options,
     }),
@@ -377,7 +438,40 @@ export function readValue(definition: Field, value: unknown): unknown {
             return readNumber(value, definition);
         case 'video':
             return typeof value === 'string' ? value.trim().slice(0, MAX_URL) : '';
+        case 'hex':
+            return value === '' || value === null || value === undefined ? '' : (normalizeHex(value) ?? '');
+        case 'size':
+            return readSize(value, definition);
+        case 'datetime':
+            return readDateTime(value);
+        case 'money':
+            return readMoney(value);
     }
+}
+
+/** A number within the field's limits, on its steps; null (automatic) for empty or nonsense. */
+export function readSize(
+    value: unknown,
+    definition: { min: number; max: number; step: number },
+): number | null {
+    const number = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+    if (typeof number !== 'number' || !Number.isFinite(number)) return null;
+    const stepped =
+        Math.round((number - definition.min) / definition.step) * definition.step + definition.min;
+    return Math.min(definition.max, Math.max(definition.min, Math.round(stepped * 100) / 100));
+}
+
+function readDateTime(value: unknown): string {
+    if (typeof value !== 'string' || !value.trim()) return '';
+    const time = Date.parse(value);
+    return Number.isNaN(time) ? '' : new Date(time).toISOString();
+}
+
+/** Poisha, rounded to whole taka, from 0 to ৳10 crore; null when empty. */
+function readMoney(value: unknown): number | null {
+    const number = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+    if (typeof number !== 'number' || !Number.isFinite(number) || number < 0) return null;
+    return Math.min(Math.round(number / 100) * 100, 1_000_000_000);
 }
 
 /** A fresh copy of a field's default. */

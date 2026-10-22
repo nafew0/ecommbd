@@ -1,14 +1,34 @@
 import type { LayoutType, SectionDefinition } from './define';
 import { contact, whatsappCta } from './sections/contact';
+import { customSection } from './sections/custom';
 import { faq, imageWithText, multicolumn, richText } from './sections/content';
 import { banner, hero, slideshow } from './sections/intro';
 import { divider } from './sections/layout';
 import { imageGrid, video } from './sections/media';
 import { collectionList, featuredProduct, productGrid } from './sections/products';
+import {
+    benefits,
+    comparison,
+    countdown,
+    guarantee,
+    orderForm,
+    pricePacks,
+    salesHero,
+    specs,
+} from './sections/sales';
 import { deliveryInfo, testimonials, trustBadges } from './sections/trust';
 
 export {
     banner,
+    benefits,
+    comparison,
+    countdown,
+    customSection,
+    guarantee,
+    orderForm,
+    pricePacks,
+    salesHero,
+    specs,
     collectionList,
     contact,
     deliveryInfo,
@@ -48,6 +68,16 @@ export const SECTIONS: readonly SectionDefinition[] = [
     contact,
     whatsappCta,
     divider,
+    // Phase 16: sales sections and the Custom section.
+    salesHero,
+    benefits,
+    specs,
+    pricePacks,
+    comparison,
+    countdown,
+    guarantee,
+    orderForm,
+    customSection,
 ];
 
 const BY_TYPE = new Map(SECTIONS.map(definition => [definition.type, definition]));

@@ -40,7 +40,9 @@ describe('the section library', () => {
                 expect(definition.blocks.fields).toHaveProperty(definition.blocks.titleField);
             }
         }
-        expect(sectionsFor('home')).toHaveLength(SECTIONS.length);
+        // The sales hero, packs and order form need a sales page's product and offers.
+        expect(sectionsFor('home')).toHaveLength(SECTIONS.length - 3);
+        expect(sectionsFor('landing')).toHaveLength(SECTIONS.length);
         expect(sectionDefinition('nope')).toBeUndefined();
     });
 

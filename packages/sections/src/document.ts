@@ -220,7 +220,7 @@ export function* eachField(document: LayoutDocument): Generator<FieldVisit> {
     }
 }
 
-export type LayoutIssueCode = FieldIssueCode | 'duplicateAnchor' | 'tooManySections';
+export type LayoutIssueCode = FieldIssueCode | 'duplicateAnchor' | 'tooManySections' | 'duplicateOrderForm';
 
 export interface LayoutIssue {
     sectionId: string;
@@ -247,6 +247,11 @@ export function documentIssues(document: LayoutDocument): LayoutIssue[] {
             issues.push({ sectionId: section.uid, field: 'style.anchor', code: 'duplicateAnchor' });
         }
         anchors.add(section.style.anchor);
+    }
+    // A sales page takes orders through one form.
+    const forms = document.sections.filter(section => section.type === 'order-form');
+    for (const extra of forms.slice(1)) {
+        issues.push({ sectionId: extra.uid, field: 'sections', code: 'duplicateOrderForm' });
     }
     if (document.sections.length > LAYOUT_LIMITS.sections) {
         issues.push({
