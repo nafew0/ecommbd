@@ -234,6 +234,7 @@ describe('running the initializer again', () => {
             'fraud-permissions',
             'search-synonyms',
             'storefront-permissions',
+            'sales-page-offer-promotion',
         ]);
         expect(await storeState()).toEqual(before);
     });

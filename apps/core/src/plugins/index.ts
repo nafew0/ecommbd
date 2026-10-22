@@ -18,6 +18,7 @@ import { ShippingBdPlugin } from './shipping-bd';
 import { BdSearchPlugin, type SearchRateLimits } from './bd-search';
 import { BdTrackingPlugin, type TrackingRateLimits } from './bd-tracking';
 import { BdSectionsPlugin } from './bd-sections';
+import { BdSalesPagesPlugin } from './bd-sales-pages';
 
 /** The built merchant admin (`npm run build -w @ecommbd/admin`), from `src/plugins` or `dist/plugins`. */
 export const ADMIN_APP_DIR = path.join(__dirname, '../../../admin/dist');
@@ -112,5 +113,7 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
             redis: options.cacheRedis,
             redisKeyPrefix: options.redisKeyPrefix,
         }),
+        // Uses bd-sections' layouts and bd-orders' permissions.
+        BdSalesPagesPlugin.init({ storefrontUrl: options.previewStorefrontUrl ?? options.storefrontUrl }),
     ];
 }

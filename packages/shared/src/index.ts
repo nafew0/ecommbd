@@ -1,3 +1,4 @@
+export * from './attribution';
 export * from './barcode';
 export * from './catalog';
 export * from './checkout';

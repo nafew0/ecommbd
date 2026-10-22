@@ -44,7 +44,26 @@ import { BdPageLayout, BdPageLayoutVersion, BdSavedSection } from './entities';
 import { createPreviewToken, verifyPreviewToken } from './preview-token';
 import { StorefrontPurger } from './storefront-purger';
 
-export type EditableLayoutType = 'home' | 'product' | 'page';
+export type EditableLayoutType = 'home' | 'product' | 'page' | 'landing';
+
+/**
+ * Another plugin's pages with layouts (phase 16: sales pages, `landing:<id>`). That plugin makes
+ * each layout when it makes the page, and says what the editor calls it and where it's previewed.
+ */
+export interface LayoutOwner {
+    title(ctx: RequestContext, ownerId: ID): Promise<string>;
+    /** The storefront path, e.g. `/s/chia-seeds/`. */
+    path(ctx: RequestContext, ownerId: ID): Promise<string>;
+}
+
+const OWNERS = new Map<string, LayoutOwner>();
+
+export function registerLayoutOwner(type: 'landing', owner: LayoutOwner): void {
+    OWNERS.set(type, owner);
+}
+
+/** `landing:12` → `12`. */
+const ownerIdOf = (layout: BdPageLayout) => layout.key.slice(layout.key.indexOf(':') + 1);
 
 export interface LayoutWarning {
     sectionId: string;
@@ -138,10 +157,11 @@ export class LayoutService {
         type: EditableLayoutType,
         pageId?: ID | null,
     ): Promise<BdPageLayout | null> {
-        if (type === 'page' && !pageId) return null;
-        const key = type === 'page' ? `page:${pageId}` : type;
+        if ((type === 'page' || type === 'landing') && !pageId) return null;
+        const key = type === 'page' || type === 'landing' ? `${type}:${pageId}` : type;
         const existing = await this.repo(ctx).findOne({ where: { key } });
-        if (existing) return existing;
+        // Sales pages make their own layout (from a template) when they're made.
+        if (existing || type === 'landing') return existing;
         let draft: LayoutDocument;
         if (type === 'page') {
             if (!(await this.connection.getRepository(ctx, BdPage).findOne({ where: { id: pageId! } })))
@@ -167,6 +187,8 @@ export class LayoutService {
     /** The layout as the editor sees it: IDs encoded, with warnings and the page's title. */
     async adminView(ctx: RequestContext, layout: BdPageLayout): Promise<AdminLayoutView> {
         let title = '';
+        const owner = OWNERS.get(layout.type);
+        if (owner) title = await owner.title(ctx, ownerIdOf(layout));
         if (layout.pageId) {
             const translations = await this.connection
                 .getRepository(ctx, BdPageTranslation)
@@ -459,6 +481,8 @@ export class LayoutService {
     }
 
     private async previewPath(ctx: RequestContext, layout: BdPageLayout, language: string): Promise<string> {
+        const owner = OWNERS.get(layout.type);
+        if (owner) return owner.path(ctx, ownerIdOf(layout));
         if (layout.type === 'page' && layout.pageId) {
             const translations = await this.connection
                 .getRepository(ctx, BdPageTranslation)
@@ -484,9 +508,9 @@ export class LayoutService {
     /** The published layout for the storefront; null before the first publish. */
     async published(ctx: RequestContext, type: string, pageId?: ID | null): Promise<ShopLayoutView | null> {
         const key =
-            type === 'page'
+            type === 'page' || type === 'landing'
                 ? pageId
-                    ? `page:${pageId}`
+                    ? `${type}:${pageId}`
                     : null
                 : type === 'home' || type === 'product'
                   ? type
@@ -561,6 +585,24 @@ export class LayoutService {
             default:
                 return undefined;
         }
+    }
+
+    /** Makes another plugin's layout with its first draft (a sales page from a template), IDs as stored. */
+    async createOwned(ctx: RequestContext, type: 'landing', ownerId: ID, draft: LayoutDocument) {
+        const document = readDocument(draft, { sanitize: sanitizeRichText });
+        return this.repo(ctx).save(
+            new BdPageLayout({ type, key: `${type}:${ownerId}`, pageId: null, draft: document }),
+        );
+    }
+
+    /** The draft of another plugin's layout, for copying (IDs as stored). */
+    async ownedDraft(ctx: RequestContext, type: 'landing', ownerId: ID): Promise<LayoutDocument | null> {
+        return (await this.repo(ctx).findOne({ where: { key: `${type}:${ownerId}` } }))?.draft ?? null;
+    }
+
+    async deleteOwned(ctx: RequestContext, type: 'landing', ownerId: ID) {
+        await this.repo(ctx).delete({ key: `${type}:${ownerId}` });
+        await this.purger.purge(['layouts']);
     }
 
     /** A copy of a page, switched off, with its sections as a draft. */

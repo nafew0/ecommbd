@@ -5,7 +5,7 @@ import { editStorefrontPermission } from './constants';
 import { type EditableLayoutType, LayoutService } from './layout.service';
 import { ThemeService } from './theme.service';
 
-const EDITABLE: EditableLayoutType[] = ['home', 'product', 'page'];
+const EDITABLE: EditableLayoutType[] = ['home', 'product', 'page', 'landing'];
 
 @Resolver()
 export class SectionsShopResolver {
