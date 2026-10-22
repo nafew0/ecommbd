@@ -5,7 +5,16 @@ import gql from 'graphql-tag';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { IncompleteCheckoutService } from '../../src/plugins/fraud-guard';
 import { LogSmsDriver } from '../../src/plugins/notifications';
-import { ADD_ITEM, DHAKA, MIRPUR, payAndPlace, placePhoneOrder, prepareCheckout, SET_CUSTOMER, TRANSITION } from '../support/checkout';
+import {
+    ADD_ITEM,
+    DHAKA,
+    MIRPUR,
+    payAndPlace,
+    placePhoneOrder,
+    prepareCheckout,
+    SET_CUSTOMER,
+    TRANSITION,
+} from '../support/checkout';
 import {
     addMigrationOnlyObjects,
     createTestConfig,
@@ -17,7 +26,9 @@ registerInitializer('postgres', new PostgresInitializer());
 
 const PORT = 3064;
 const driver = new LogSmsDriver();
-const { server, adminClient, shopClient } = createTestEnvironment(createTestConfig(PORT, {}, { smsDriver: driver }));
+const { server, adminClient, shopClient } = createTestEnvironment(
+    createTestConfig(PORT, {}, { smsDriver: driver }),
+);
 
 const SAVE_PROGRESS = gql`
     mutation ($input: BdCheckoutProgressInput!) {
@@ -125,7 +136,9 @@ const e164 = (phone: string) => `+880${phone.slice(1)}`;
 
 async function fraudSettings(patch: (s: FraudSettings) => Partial<FraudSettings> = () => ({})) {
     const settings = defaultFraudSettings();
-    const { updateBdFraudSettings } = await adminClient.query(SAVE_FRAUD, { input: { ...settings, ...patch(settings) } });
+    const { updateBdFraudSettings } = await adminClient.query(SAVE_FRAUD, {
+        input: { ...settings, ...patch(settings) },
+    });
     expect(updateBdFraudSettings.errors).toEqual([]);
 }
 
@@ -159,24 +172,32 @@ const lastCode = (phone: string) => {
 };
 
 async function waitForCode(phone: string, count: number) {
-    for (let i = 0; i < 50 && driver.sent.filter(m => m.to === e164(phone)).length < count; i += 1) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    return lastCode(phone);
+    await expect
+        .poll(
+            () =>
+                driver.sent.filter(m => m.to === e164(phone)).length >= count ? lastCode(phone) : undefined,
+            { timeout: 15_000 },
+        )
+        .toMatch(/^\d{6}$/);
+    return lastCode(phone)!;
 }
 
 /** Moves this phone's codes back in time (cooldown passed, or expired). */
 async function ageCodes(phone: string, ms: number, field: 'createdAt' | 'expiresAt' = 'createdAt') {
     await server.app
         .get(TransactionalConnection)
-        .rawConnection.query(`UPDATE "bd_otp_code" SET "${field}" = "${field}" - $2 * interval '1 millisecond' WHERE "phone" = $1`, [
-            e164(phone),
-            ms,
-        ]);
+        .rawConnection.query(
+            `UPDATE "bd_otp_code" SET "${field}" = "${field}" - $2 * interval '1 millisecond' WHERE "phone" = $1`,
+            [e164(phone), ms],
+        );
 }
 
 beforeAll(async () => {
-    await server.init({ initialData: testInitialData, productsCsvPath: testProductsCsvPath, customerCount: 0 });
+    await server.init({
+        initialData: testInitialData,
+        productsCsvPath: testProductsCsvPath,
+        customerCount: 0,
+    });
     await addMigrationOnlyObjects(server);
     await adminClient.asSuperAdmin();
     const sms = defaultSmsSettings();
@@ -254,7 +275,9 @@ describe('incomplete checkouts', () => {
                 }
             }
         `;
-        expect((await adminClient.query(send, { id: record!.id })).sendBdIncompleteCheckoutSms.smsSentAt).toBeTruthy();
+        expect(
+            (await adminClient.query(send, { id: record!.id })).sendBdIncompleteCheckoutSms.smsSentAt,
+        ).toBeTruthy();
         await adminClient.query(send, { id: record!.id });
         await new Promise(resolve => setTimeout(resolve, 500));
         const reminders = driver.sent.filter(message => message.to === e164(phone));
@@ -341,7 +364,11 @@ describe('block list and velocity', () => {
 
         await shopClient.asAnonymousUser();
         await prepareCheckout(shopClient, { phone });
-        const refused = await shopClient.query(TRANSITION, { state: 'ArrangingPayment' }, { languageCode: 'en' });
+        const refused = await shopClient.query(
+            TRANSITION,
+            { state: 'ArrangingPayment' },
+            { languageCode: 'en' },
+        );
         expect(refused.transitionOrderToState.transitionError).toBe(
             'Sorry, we can’t take this order online. Please call or message us to order.',
         );
@@ -356,7 +383,9 @@ describe('block list and velocity', () => {
         const block = (value: string, expiresAt?: Date) =>
             adminClient.query(BLOCK, { input: { kind: 'ip', value, expiresAt } }).then(r => r.blockBdContact);
         expect((await block('203.0.113.9')).error).toBe('EXPIRY_REQUIRED');
-        expect((await block('203.0.113.9', new Date(Date.now() + 40 * 86_400_000))).error).toBe('EXPIRY_TOO_LONG');
+        expect((await block('203.0.113.9', new Date(Date.now() + 40 * 86_400_000))).error).toBe(
+            'EXPIRY_TOO_LONG',
+        );
         expect((await block('not-an-ip', new Date(Date.now() + 3_600_000))).error).toBe('INVALID_IP');
         // Tests reach the server from localhost (IPv4 or IPv6).
         const entries = [
@@ -384,7 +413,9 @@ describe('block list and velocity', () => {
         const other = newPhone();
         await placePhoneOrder(shopClient, { phone: other });
         // The merchant's message in the store's language (Bangla here; the storefront asks for its own).
-        expect((await readyForCod(other)).transitionError).toBe(defaultFraudSettings().velocity.duplicateOrderMessage.bn);
+        expect((await readyForCod(other)).transitionError).toBe(
+            defaultFraudSettings().velocity.duplicateOrderMessage.bn,
+        );
         // Staff can still take an order for that phone.
     });
 
@@ -478,13 +509,22 @@ describe('verification code for COD', () => {
             }
         `);
         expect(bdPaymentOptions.codOtpRequired).toBe(true);
-        const refused = (await shopClient.query(PAY, { method: 'bd-cod' }, { languageCode: 'en' })).addPaymentToOrder;
-        expect(refused.paymentErrorMessage).toBe('Enter the code we sent to your phone by SMS to confirm the order.');
+        const refused = (await shopClient.query(PAY, { method: 'bd-cod' }, { languageCode: 'en' }))
+            .addPaymentToOrder;
+        expect(refused.paymentErrorMessage).toBe(
+            'Enter the code we sent to your phone by SMS to confirm the order.',
+        );
 
-        expect((await shopClient.query(SEND_OTP)).sendBdOtp).toMatchObject({ success: true, retryAfterSeconds: 60 });
+        expect((await shopClient.query(SEND_OTP)).sendBdOtp).toMatchObject({
+            success: true,
+            retryAfterSeconds: 60,
+        });
         const code = await waitForCode(phone, 1);
         expect(code).toMatch(/^\d{6}$/);
-        expect((await shopClient.query(SEND_OTP)).sendBdOtp).toMatchObject({ success: false, errorCode: 'COOLDOWN' });
+        expect((await shopClient.query(SEND_OTP)).sendBdOtp).toMatchObject({
+            success: false,
+            errorCode: 'COOLDOWN',
+        });
 
         const wrong = code === '000000' ? '111111' : '000000';
         expect((await shopClient.query(VERIFY_OTP, { code: wrong })).verifyBdOtp).toMatchObject({
@@ -504,7 +544,9 @@ describe('verification code for COD', () => {
         // The code isn't kept in the SMS list once sent.
         const [row] = await server.app
             .get(TransactionalConnection)
-            .rawConnection.query(`SELECT "body" FROM "bd_sms_message" WHERE "event" = 'otp' AND "to" = $1`, [e164(phone)]);
+            .rawConnection.query(`SELECT "body" FROM "bd_sms_message" WHERE "event" = 'otp' AND "to" = $1`, [
+                e164(phone),
+            ]);
         expect(row.body).not.toContain(code);
         expect(row.body).toContain('••••••');
     });
@@ -518,32 +560,45 @@ describe('verification code for COD', () => {
         const wrong = code === '000000' ? '111111' : '000000';
         await shopClient.query(VERIFY_OTP, { code: wrong });
         await shopClient.query(VERIFY_OTP, { code: wrong });
-        expect((await shopClient.query(VERIFY_OTP, { code: wrong })).verifyBdOtp.errorCode).toBe('TOO_MANY_ATTEMPTS');
-        expect((await shopClient.query(VERIFY_OTP, { code })).verifyBdOtp.errorCode).toBe('TOO_MANY_ATTEMPTS');
+        expect((await shopClient.query(VERIFY_OTP, { code: wrong })).verifyBdOtp.errorCode).toBe(
+            'TOO_MANY_ATTEMPTS',
+        );
+        expect((await shopClient.query(VERIFY_OTP, { code })).verifyBdOtp.errorCode).toBe(
+            'TOO_MANY_ATTEMPTS',
+        );
 
         await ageCodes(phone, 61_000);
         await shopClient.query(SEND_OTP);
         await ageCodes(phone, 6 * 60_000, 'expiresAt');
-        expect((await shopClient.query(VERIFY_OTP, { code: '123456' })).verifyBdOtp.errorCode).toBe('EXPIRED');
+        expect((await shopClient.query(VERIFY_OTP, { code: '123456' })).verifyBdOtp.errorCode).toBe(
+            'EXPIRED',
+        );
 
         for (let sent = 2; sent < 5; sent += 1) {
             await ageCodes(phone, 61_000);
             expect((await shopClient.query(SEND_OTP)).sendBdOtp.success).toBe(true);
         }
         await ageCodes(phone, 61_000);
-        expect((await shopClient.query(SEND_OTP)).sendBdOtp).toMatchObject({ success: false, errorCode: 'DAILY_LIMIT' });
+        expect((await shopClient.query(SEND_OTP)).sendBdOtp).toMatchObject({
+            success: false,
+            errorCode: 'DAILY_LIMIT',
+        });
     });
 
     it('asks first-time phones only, when set so', async () => {
         await fraudSettings(s => ({ otp: { ...s.otp, mode: 'firstTime' } }));
         const phone = newPhone();
         await readyForCod(phone);
-        expect((await shopClient.query(PAY, { method: 'bd-cod' })).addPaymentToOrder.paymentErrorMessage).toBeTruthy();
+        expect(
+            (await shopClient.query(PAY, { method: 'bd-cod' })).addPaymentToOrder.paymentErrorMessage,
+        ).toBeTruthy();
         await fraudSettings();
         await placePhoneOrder(shopClient, { phone });
         await fraudSettings(s => ({ otp: { ...s.otp, mode: 'firstTime' } }));
         await readyForCod(phone);
-        expect((await shopClient.query(PAY, { method: 'bd-cod' })).addPaymentToOrder.state).toBe('PaymentAuthorized');
+        expect((await shopClient.query(PAY, { method: 'bd-cod' })).addPaymentToOrder.state).toBe(
+            'PaymentAuthorized',
+        );
     });
 
     it('lets a shopper with no SMS order unverified, if the store allows it', async () => {

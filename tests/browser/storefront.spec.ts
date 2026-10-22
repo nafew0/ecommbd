@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { gzipSync } from 'node:zlib';
-import { resetHome } from './support/sections';
+import { resetHome, waitForStorefront } from './support/sections';
 import { adminSession, type ApiSession } from './support/store-api';
 import { ensureStorefrontFixtures, type StorefrontFixtures } from './support/storefront-seed';
 
@@ -40,6 +40,14 @@ test.beforeAll(async () => {
     }
     // The home page a new store has (phase 15 sections), whatever another test published.
     await resetHome(admin);
+    for (const path of [
+        `/en/product/${enc(fixtures.panjabi.en)}/`,
+        `/product/${enc(fixtures.panjabi.bn)}/`,
+    ]) {
+        await waitForStorefront(`${SITE}${path}`, html =>
+            html.includes(`wa.me/${settings.profile.whatsapp.replace(/\D/g, '')}`),
+        );
+    }
     // New products reach the search index and categories through the worker.
     await expect
         .poll(async () => (await fetch(`${SITE}/product-category/${enc(fixtures.men.bn)}/`)).status, {

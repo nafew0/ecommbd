@@ -8,6 +8,7 @@ import Footer from '../components/Footer.astro';
 import Header from '../components/Header.astro';
 import PreviewBar from '../components/PreviewBar.astro';
 import PreviewTools from '../components/PreviewTools.astro';
+import Vitals from '../components/Vitals.astro';
 import SalesFooter from '../components/SalesFooter.astro';
 import SalesHeader from '../components/SalesHeader.astro';
 import StickyOrderBar from '../components/StickyOrderBar.astro';
@@ -154,5 +155,6 @@ const header = sales?.header ?? 'store';
 
             recordVisit();
         </script>
-    </body>
+    <Vitals />
+</body>
 </html>

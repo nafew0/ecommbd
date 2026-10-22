@@ -1,0 +1,18 @@
+---
+import { env } from '../env';
+import { routeKind } from '../lib/cache-policy';
+const enabled = !Astro.locals.preview && !/^\/(?:en\/|bn\/)?(?:t|track|account)(?:\/|$)/.test(Astro.url.pathname);
+---
+{enabled && <span hidden data-speed-sample={env().VITALS_SAMPLE_RATE} data-speed-route={routeKind(Astro.url.pathname)}></span>}
+<script>
+    import { onCLS, onINP, onLCP, type Metric } from 'web-vitals';
+    const element = document.querySelector<HTMLElement>('[data-speed-sample]');
+    if (element && Math.random() < Number(element.dataset.speedSample)) {
+        const route = element.dataset.speedRoute ?? 'other';
+        const send = ({ id, name, value }: Metric) => {
+            const body = JSON.stringify({ metricId: id, name, value, route });
+            navigator.sendBeacon('/cache-metrics', new Blob([body], { type: 'application/json' }));
+        };
+        onLCP(send); onINP(send); onCLS(send);
+    }
+</script>

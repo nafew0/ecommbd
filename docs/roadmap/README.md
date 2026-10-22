@@ -141,7 +141,7 @@ Status values: **Not started** · **In progress** · **Review** · **Done**.
 | [14](m3-storefront.md#phase-14--cart-checkout-and-order-tracking) | Cart, checkout and order tracking | M3 | Buy Now, cart, one-page checkout (P0) | 03, 07, 08, 11, 12 | L | **Review** (built 2026-10-22) |
 | [15](m3-storefront.md#phase-15--sections-themes-and-the-page-editor) | Sections, themes and the page editor | M3 | Themes, editor (P0) | 12, 13, 14 | XL | **Review** (built 2026-10-22) |
 | [16](m3-storefront.md#phase-16--sales-pages-landing-pages-funnels-and-attribution) | Sales pages: landing pages, funnels and attribution | M3 | Sales page builder (P0), order bump (P1) | 14, 15 | L | **Review** (built 2026-10-22) |
-| [17](m3-storefront.md#phase-17--speed-layer-varnish-purging-and-performance-budgets) | Speed layer: Varnish, purging and budgets | M3 | Speed success criterion | 12–16 | M | Not started |
+| [17](m3-storefront.md#phase-17--speed-layer-varnish-purging-and-performance-budgets) | Speed layer: Varnish, purging and budgets | M3 | Speed success criterion | 12–16 | M | **Review** (built/tested 2026-10-23; production deployment and BD field measurements remain 23–29) |
 | [18](m4-integrations.md#phase-18--online-payments-sslcommerz-and-bkash) | Online payments: SSLCommerz and bKash | M4 | SSLCommerz (P0), bKash tokenized (P1) | 08, 14 | L | Not started |
 | [19](m4-integrations.md#phase-19--couriers-i-steadfast-and-pathao) | Couriers I: Steadfast and Pathao | M4 | Courier booking and sync (P0) | 04, 06, 08 | L | Not started |
 | [20](m4-integrations.md#phase-20--meta-pixel-and-conversions-api) | Meta Pixel and Conversions API | M4 | Pixel + CAPI, Purchase trigger (P0), event log (P1) | 04, 14, 16 | L | Not started |

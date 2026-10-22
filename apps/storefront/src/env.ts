@@ -23,6 +23,11 @@ export const envSchema = z
         REDIS_CACHE_USERNAME: z.string().optional(),
         REDIS_CACHE_PASSWORD: z.string().optional(),
         REDIS_KEY_PREFIX: z.string().default('ecommbd-dev'),
+        CACHE_STORE_ID: z
+            .string()
+            .regex(/^[a-zA-Z0-9_-]{1,48}$/)
+            .optional(),
+        VITALS_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.1),
         /** Extra origins for the Content Security Policy, e.g. a store's analytics (comma-separated). */
         CSP_ALLOWED_ORIGINS: z
             .string()

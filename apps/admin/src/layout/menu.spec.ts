@@ -39,6 +39,7 @@ describe('menu', () => {
         ]);
         expect(menu[6]!.children!.map(child => child.to)).toEqual([
             '/settings/store',
+            '/settings/woocommerce',
             '/settings/orders',
             '/settings/delivery',
             '/settings/payments',
@@ -54,6 +55,7 @@ describe('menu', () => {
             permission =>
                 ![
                     'ReadSettings',
+                    'RunMigration',
                     'ReadCustomer',
                     'ReadOrder',
                     'ConfirmOrder',

@@ -7,6 +7,24 @@ const host = process.env.TEST_REDIS_CACHE_HOST ?? '127.0.0.1';
 const port = Number(process.env.TEST_REDIS_CACHE_PORT ?? 63791);
 
 describe('the data cache without Redis', () => {
+    it('does not reuse an in-flight old load after invalidation', async () => {
+        const cache = new DataCache({ ttlSeconds: 60, prefix: 'test-race' });
+        let release!: (value: number) => void;
+        const old = cache.get(
+            'settings',
+            ['settings'],
+            () =>
+                new Promise<number>(resolve => {
+                    release = resolve;
+                }),
+        );
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await cache.invalidate(['settings']);
+        expect(await cache.get('settings', ['settings'], async () => 2)).toBe(2);
+        release(1);
+        expect(await old).toBe(1);
+        expect(await cache.get('settings', ['settings'], async () => 3)).toBe(2);
+    });
     it('loads once, even for requests at the same moment', async () => {
         const cache = new DataCache({ ttlSeconds: 60, prefix: 'test' });
         let loads = 0;
@@ -46,7 +64,13 @@ describe('the data cache without Redis', () => {
 
 /** Unit tests run without services too: the Redis part is skipped when Redis isn't up. */
 const redisUp = await new Promise<boolean>(resolve => {
-    const probe = new Redis({ host, port, lazyConnect: true, maxRetriesPerRequest: 0, retryStrategy: () => null });
+    const probe = new Redis({
+        host,
+        port,
+        lazyConnect: true,
+        maxRetriesPerRequest: 0,
+        retryStrategy: () => null,
+    });
     probe.on('error', () => undefined);
     probe.connect().then(
         () => {

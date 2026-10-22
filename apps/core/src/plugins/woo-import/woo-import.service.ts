@@ -480,14 +480,14 @@ export class WooImportService implements OnModuleInit {
                     if (locked.leaseOwner !== owner) throw new Error('IMPORT_LEASE_LOST');
                     await this.mapper.finalize(txCtx, source);
                     await this.extras.finalize(txCtx, source, run);
+                    await this.events.publish(
+                        new WooImportCompletedEvent(txCtx, Number(source.id), Number(run.id)),
+                    );
                     await this.connection
                         .getRepository(txCtx, WooRun)
                         .update(run.id, { leaseUntil: new Date(Date.now() + 300_000) });
                 });
                 await this.search.reindex(ctx);
-                await this.events.publish(
-                    new WooImportCompletedEvent(ctx, Number(source.id), Number(run.id)),
-                );
             }
             run.verification = await this.verify(ctx, source, run);
             const errors = await this.connection

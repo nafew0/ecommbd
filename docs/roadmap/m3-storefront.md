@@ -594,10 +594,12 @@ A/B testing (later), one-click post-purchase upsell (44), full campaign reports 
 
 ### Done when
 
-- [ ] A product edit appears on cached product and category pages within 3 seconds.
-- [ ] A crawl test shows a Varnish hit ratio above 90%.
-- [ ] Lighthouse CI budgets block pull requests that exceed them.
-- [ ] No personal content is ever served from cache (proved by the two-session test).
+- [x] A product edit appears on cached product and category pages within 3 seconds.
+- [x] A crawl test shows a Varnish hit ratio above 90%.
+- [x] Lighthouse CI budgets block pull requests that exceed them (local positive and deliberate negative assertions; workflow wired, remote CI not run here).
+- [x] No personal content is served from cache in the tested private/session routes (including the two-session browser test).
+
+Built and tested 2026-10-23. See the [implementation plan](phase-17-implementation.md), [test evidence](../runbooks/phase-17-test-results.md) and [operations runbook](../runbooks/storefront-cache.md). Local lab results do not establish production Bangladesh ISP latency or real-user p75.
 
 ### Not in this phase
 

@@ -14,6 +14,7 @@ import {
     AssetService,
     ChannelService,
     CurrencyCode,
+    EventBus,
     ID,
     isGraphQlErrorResult,
     LanguageCode,
@@ -23,6 +24,7 @@ import {
 } from '@vendure/core';
 import { SETTINGS_KEYS } from '../constants';
 import { POLICY_TEMPLATES } from './policy-templates';
+import { StorefrontChangedEvent } from '../../cache-purge/events';
 
 export interface StoreSettingsChange {
     at: string;
@@ -52,6 +54,7 @@ export class StoreSettingsService {
         private assetService: AssetService,
         private administratorService: AdministratorService,
         private requestContextService: RequestContextService,
+        private events: EventBus,
     ) {}
 
     /** The stored settings, with any field added since they were saved filled from the defaults. */
@@ -156,6 +159,7 @@ export class StoreSettingsService {
         if (!result.result) {
             throw new Error(`Could not save store settings: ${result.error}`);
         }
+        await this.events.publish(new StorefrontChangedEvent(ctx, ['settings', 'pages', 'menus']));
     }
 
     private async recordChange(ctx: RequestContext, fields: string[]) {

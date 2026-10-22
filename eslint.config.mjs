@@ -19,6 +19,8 @@ export default tseslint.config(
             'apps/storefront/src/gql/**',
             'playwright-report/**',
             'test-results/**',
+            '.performance/**',
+            '.lighthouseci/**',
         ],
     },
     js.configs.recommended,

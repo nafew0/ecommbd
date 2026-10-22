@@ -337,7 +337,7 @@ export class SalesPageService {
         }
         if (errors.length) return { page: null, errors };
         await this.repo(ctx).save(page);
-        await this.purge();
+        await this.purge(ctx);
         return { page: await this.findOne(ctx, page.id), errors: [] };
     }
 
@@ -388,7 +388,7 @@ export class SalesPageService {
         if (!page) return false;
         await this.layouts.deleteOwned(ctx, 'landing', page.id);
         await this.repo(ctx).delete(page.id);
-        await this.purge();
+        await this.purge(ctx);
         return true;
     }
 
@@ -402,8 +402,8 @@ export class SalesPageService {
         return page ? `/s/${encodeSlug(page.slug)}/` : '/';
     }
 
-    private purge() {
-        return this.purger.purge([SALES_PAGES_CACHE_TAG]);
+    private purge(ctx: RequestContext) {
+        return this.purger.purge(ctx, [SALES_PAGES_CACHE_TAG]);
     }
 
     // ---- Shop ----

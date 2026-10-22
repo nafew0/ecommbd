@@ -15,3 +15,5 @@ playwright-report
 playwright-report-migration
 test-results
 .vendure/
+.performance/
+.lighthouseci/

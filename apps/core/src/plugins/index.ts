@@ -20,6 +20,7 @@ import { BdSearchPlugin, type SearchRateLimits } from './bd-search';
 import { BdTrackingPlugin, type TrackingRateLimits } from './bd-tracking';
 import { BdSectionsPlugin } from './bd-sections';
 import { BdSalesPagesPlugin } from './bd-sales-pages';
+import { CachePurgePlugin } from './cache-purge';
 
 /** The built merchant admin (`npm run build -w @ecommbd/admin`), from `src/plugins` or `dist/plugins`. */
 export const ADMIN_APP_DIR = path.join(__dirname, '../../../admin/dist');
@@ -31,6 +32,12 @@ export interface CustomPluginOptions {
     /** WOO_IMPORT_KEYS: versioned encryption keys for source credentials. */
     wooImportKeys?: string;
     wooPublicUrl?: string;
+    cacheStoreId?: string;
+    cachePurgeUrl?: string;
+    cachePurgeSecret?: string;
+    cacheWarmUrl?: string;
+    cacheBatchMs?: number;
+    cachePollMs?: number;
     /** STORE_DEFAULT_LANGUAGE: the storefront's default language for a new store. */
     defaultLanguage: StoreLanguage;
     /** Set up store defaults on start (default true). */
@@ -120,5 +127,16 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
         }),
         // Uses bd-sections' layouts and bd-orders' permissions.
         BdSalesPagesPlugin.init({ storefrontUrl: options.previewStorefrontUrl ?? options.storefrontUrl }),
+        CachePurgePlugin.init({
+            storeId: options.cacheStoreId ?? options.redisKeyPrefix,
+            redis: options.cacheRedis,
+            redisKeyPrefix: options.redisKeyPrefix,
+            purgeUrl: options.cachePurgeUrl,
+            purgeSecret: options.cachePurgeSecret,
+            warmUrl: options.cacheWarmUrl,
+            storefrontUrl: options.previewStorefrontUrl ?? options.storefrontUrl,
+            batchMs: options.cacheBatchMs,
+            pollMs: options.cachePollMs,
+        }),
     ];
 }

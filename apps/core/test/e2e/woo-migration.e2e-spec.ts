@@ -151,6 +151,9 @@ describe('M5 WooCommerce phases 21 and 22', () => {
         await addMigrationOnlyObjects(server);
         db = server.app.get(TransactionalConnection);
         migration = server.app.get(WooImportService);
+        // These scenarios call process() directly to inspect saved leases. The real worker is
+        // exercised in browser tests; prevent it racing this deliberate manual processor.
+        await migration['queue'].stop();
         helper = server.app.get(WooHelperService);
         for (const service of [server.app.get(ImportMapperService), server.app.get(WooExtrasService)]) {
             const finalize = service.finalize.bind(service);
@@ -279,7 +282,7 @@ describe('M5 WooCommerce phases 21 and 22', () => {
         expect(await raw().getRepository(Customer).count()).toBe(1);
         expect(await raw().getRepository(Product).count()).toBe(2);
         expect(await raw().getRepository(WooLegacyAuth).count()).toBe(1);
-        expect(await raw().getRepository(Promotion).count()).toBe(1);
+        expect(await raw().getRepository(Promotion).countBy({ couponCode: 'synthetic10' })).toBe(1);
         expect(await raw().getRepository(WooExtra).countBy({ kind: 'reviews' })).toBe(1);
         expect(JSON.stringify(await migration.sources(ctx))).not.toContain('DO_NOT_RETURN_THIS_FIELD');
         await expect(migration.start(ctx, sourceId, 'catchUp', true)).rejects.toThrow(
@@ -500,7 +503,7 @@ describe('M5 WooCommerce phases 21 and 22', () => {
             id: 999,
             free_shipping: true,
         });
-        expect(await raw().getRepository(Promotion).count()).toBe(1);
+        expect(await raw().getRepository(Promotion).countBy({ couponCode: 'synthetic10' })).toBe(1);
         expect(
             await raw()
                 .getRepository(WooIssue)

@@ -28,7 +28,7 @@ export class ThemeService {
         if (errors.length) return { settings: null, errors, warnings };
         const saved = await this.settingsStore.set(ctx, THEME_KEY, settings);
         if (!saved.result) throw new Error(`Could not save the theme: ${saved.error}`);
-        await this.purger.purge(['theme']);
+        await this.purger.purge(ctx, ['theme'], true);
         return { settings, errors: [], warnings };
     }
 }

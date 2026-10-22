@@ -1,6 +1,7 @@
 import { looksLikeHtml, parsePageInput, type SettingsFieldError, sanitizeRichText } from '@ecommbd/shared';
 import { Injectable } from '@nestjs/common';
-import { type ID, RequestContext, TransactionalConnection } from '@vendure/core';
+import { EventBus, type ID, RequestContext, TransactionalConnection } from '@vendure/core';
+import { StorefrontChangedEvent } from '../cache-purge/events';
 import { In, Not } from 'typeorm';
 import { CONTENT_LANGUAGES } from './constants';
 import { BdPage, BdPageTranslation } from './entities';
@@ -14,6 +15,7 @@ export class PageService {
     constructor(
         private connection: TransactionalConnection,
         private slugs: SlugHistoryService,
+        private events: EventBus,
     ) {}
 
     async list(ctx: RequestContext, options: { skip?: number; take?: number } = {}) {
@@ -95,6 +97,7 @@ export class PageService {
             await translations.save(row);
         }
         await this.slugs.record('page', saved.id, wanted);
+        await this.events.publish(new StorefrontChangedEvent(ctx, ['pages', 'menus', 'layouts']));
         return { page: (await this.findOne(ctx, saved.id))!, errors: [] };
     }
 
@@ -104,6 +107,7 @@ export class PageService {
         if (!page) return false;
         await this.connection.getRepository(ctx, BdPage).delete(page.id);
         await this.slugs.markDeleted('page', page.id);
+        await this.events.publish(new StorefrontChangedEvent(ctx, ['pages', 'menus', 'layouts']));
         return true;
     }
 }

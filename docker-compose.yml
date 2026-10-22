@@ -1,6 +1,17 @@
 # Local development services. Ports are offset so they don't clash with a
 # PostgreSQL or Redis already running on this machine.
 services:
+  varnish:
+    profiles: [speed]
+    build: ./infra/varnish
+    environment:
+      STOREFRONT_HOST: host.docker.internal
+      STOREFRONT_PORT: ${STOREFRONT_PORT:-4321}
+      CACHE_PURGE_SECRET: ${CACHE_PURGE_SECRET:-0000000000000000000000000000000000000000000000000000000000000000}
+    extra_hosts: ['host.docker.internal:host-gateway']
+    ports:
+      - '127.0.0.1:${VARNISH_PORT:-6081}:80'
+      - '127.0.0.1:${VARNISH_PURGE_PORT:-6082}:6082'
   postgres:
     image: postgres:17-alpine
     environment:

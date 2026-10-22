@@ -82,6 +82,7 @@ export class ContentAdminResolver {
     }
 
     @Mutation()
+    @Transaction()
     @Allow(manageContentPermission.Permission)
     updateBdMenus(@Ctx() ctx: RequestContext, @Args() args: { input: unknown }) {
         return this.menus.update(ctx, args.input);

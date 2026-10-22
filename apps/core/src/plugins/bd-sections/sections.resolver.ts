@@ -1,5 +1,5 @@
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { Allow, Ctx, type ID, Permission, RequestContext } from '@vendure/core';
+import { Allow, Ctx, type ID, Permission, RequestContext, Transaction } from '@vendure/core';
 import { manageContentPermission } from '../bd-content/constants';
 import { editStorefrontPermission } from './constants';
 import { type EditableLayoutType, LayoutService } from './layout.service';
@@ -135,6 +135,7 @@ export class SectionsAdminResolver {
     }
 
     @Mutation()
+    @Transaction()
     @Allow(editStorefrontPermission.Permission)
     updateBdThemeSettings(@Ctx() ctx: RequestContext, @Args() args: { input: unknown }) {
         return this.theme.update(ctx, args.input);

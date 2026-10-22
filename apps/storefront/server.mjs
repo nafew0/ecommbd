@@ -20,7 +20,7 @@ const host = process.env.HOST ?? '0.0.0.0';
 const coreUrl = new URL(process.env.CORE_URL ?? 'http://localhost:3000');
 const live = ['staging', 'production'].includes(process.env.APP_ENV ?? '');
 const proxyCore = (process.env.PROXY_CORE ?? (live ? 'false' : 'true')) === 'true';
-const PROXIED = ['/img/', '/assets/', '/shop-api', '/woo-migrate/'];
+const PROXIED = ['/img/', '/assets/', '/shop-api', '/woo-migrate/', '/cache-metrics'];
 
 const TYPES = {
     '.css': 'text/css; charset=utf-8',
@@ -87,7 +87,10 @@ async function health(res) {
         response => (response.ok ? 'ok' : 'down'),
         () => 'down',
     );
-    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+    res.writeHead(core === 'ok' ? 200 : 503, {
+        'content-type': 'application/json',
+        'cache-control': 'no-store',
+    });
     res.end(JSON.stringify({ status: 'ok', core }));
 }
 

@@ -21,6 +21,16 @@ export const envSchema = z
             .url()
             .refine(value => new URL(value).protocol === 'https:', 'must use HTTPS')
             .optional(),
+        CACHE_STORE_ID: z
+            .string()
+            .regex(/^[a-zA-Z0-9_-]{1,48}$/)
+            .optional(),
+        CACHE_PURGE_URL: z.url().optional(),
+        CACHE_PURGE_SECRET: z
+            .string()
+            .regex(/^[a-f0-9]{64}$/)
+            .optional(),
+        CACHE_WARM_URL: z.url().optional(),
         WOO_IMPORT_KEYS: z
             .string()
             .refine(value => {
@@ -81,6 +91,12 @@ export const envSchema = z
         RELEASE_VERSION: z.string().optional(),
     })
     .superRefine((value, context) => {
+        if (value.CACHE_PURGE_URL && !value.CACHE_PURGE_SECRET)
+            context.addIssue({
+                code: 'custom',
+                path: ['CACHE_PURGE_SECRET'],
+                message: 'is required with CACHE_PURGE_URL',
+            });
         if (!live(value.APP_ENV)) {
             return;
         }

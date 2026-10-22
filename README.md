@@ -252,6 +252,7 @@ WooCommerce migration (Phases 21–22) uses Settings → WooCommerce migration. 
 | `npm test` | Unit tests (fast, no database) |
 | `npm run test:e2e` | End-to-end tests: a real Vendure server against the Docker PostgreSQL and cache Redis (`TEST_DB_*` and `TEST_REDIS_CACHE_*` override the connection) |
 | `npm run test:browser` | Browser tests with Playwright on a desktop and a phone (needs `npm run build` first, and `npx playwright install chromium` once) |
+| `npm run test:speed` | Disposable real-Varnish browser checks, size-limit and mobile Lighthouse gates; build first, with PostgreSQL, Redis and Docker running. `SPEED_ALL_BROWSERS=1` also runs all desktop/phone browser tests through Varnish |
 | `npm run test:visual` | Visual snapshots of every page section in both themes and languages, phone and desktop (`tests/visual`, baselines per platform; `-- --update-snapshots=all` after a deliberate design change, then review the images) |
 
 **Before pushing:** run `npm run lint`, `npm run typecheck`, `npm test` and `npm run test:e2e`. GitHub runs all of them, plus the build and browser tests, on every push and pull request (`.github/workflows/ci.yml`).

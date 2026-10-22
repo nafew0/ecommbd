@@ -6,6 +6,7 @@ import { getTheme } from './lib/sections';
 import { getSettings } from './lib/store';
 import { systemPage } from './lib/system-pages';
 import { legacyUrl } from './lib/migration';
+import { tagResponse } from './lib/cache-policy';
 
 /**
  * Every request (roadmap phase 12):
@@ -67,8 +68,8 @@ function securityHeaders(options: HeaderOptions = {}): Record<string, string> {
 function withHeaders(response: Response, options: HeaderOptions = {}): Response {
     for (const [name, value] of Object.entries(securityHeaders(options))) response.headers.set(name, value);
     if (!response.headers.has('cache-control')) {
-        // Catalogue pages: cacheable for a minute (Varnish takes over in phase 17).
-        response.headers.set('cache-control', 'public, max-age=60');
+        // Shared HTML stays in Varnish; browsers revalidate so purges take effect immediately.
+        response.headers.set('cache-control', 'public, max-age=0, s-maxage=604800, must-revalidate');
     }
     return response;
 }
@@ -101,11 +102,16 @@ export const onRequest = defineMiddleware(async (context, next) => {
         const response =
             path === context.url.pathname ? await next() : await next(`${path}${context.url.search}`);
         if (canResolve && response.status === 404) await legacyUrl(requestPath + context.url.search, true);
-        return withHeaders(response, {
-            editorFrame: context.locals.preview?.mode === 'editor',
-            preview: !!context.locals.preview,
-            styleHashes: context.locals.styleHashes,
-        });
+        return tagResponse(
+            withHeaders(response, {
+                editorFrame: context.locals.preview?.mode === 'editor',
+                preview: !!context.locals.preview,
+                styleHashes: context.locals.styleHashes,
+            }),
+            context.request,
+            env().CACHE_STORE_ID ?? env().REDIS_KEY_PREFIX,
+            !!context.locals.preview,
+        );
     } catch (error) {
         if (error instanceof CoreUnavailableError) return withHeaders(systemPage('unavailable'));
         if (error instanceof RateLimitedError) return withHeaders(systemPage('busy'));

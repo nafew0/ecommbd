@@ -389,10 +389,10 @@ export class LayoutService {
                 }),
             );
             await versions.delete({ layoutId: layout.id, version: LessThanOrEqual(version - HISTORY_LIMIT) });
+            await this.purger.purge(txCtx, ['layouts']);
             return null;
         });
         if (result) return result;
-        await this.purger.purge(['layouts']);
         return {
             layout: await this.adminView(ctx, (await this.findOne(ctx, id))!),
             errors: [],
@@ -602,7 +602,7 @@ export class LayoutService {
 
     async deleteOwned(ctx: RequestContext, type: 'landing', ownerId: ID) {
         await this.repo(ctx).delete({ key: `${type}:${ownerId}` });
-        await this.purger.purge(['layouts']);
+        await this.purger.purge(ctx, ['layouts']);
     }
 
     /** A copy of a page, switched off, with its sections as a draft. */
