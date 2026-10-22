@@ -270,12 +270,10 @@ export class SalesPageService {
             errors.push({ field: 'title', code: 'tooMany' });
         if (errors.length || !template || !product) return { page: null, errors };
 
-        const names = await this.connection
-            .getRepository(ctx, Product)
-            .findOne({
-                where: { id: product.id },
-                relations: ['translations', 'customFields.feedbackAssets'],
-            });
+        const names = await this.connection.getRepository(ctx, Product).findOne({
+            where: { id: product.id },
+            relations: ['translations', 'customFields.feedbackAssets'],
+        });
         const name = (language: string) =>
             names?.translations.find(item => item.languageCode === language)?.name ?? '';
         const fields = (names?.customFields ?? {}) as {

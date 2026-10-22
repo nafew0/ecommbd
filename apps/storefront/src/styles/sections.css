@@ -1575,6 +1575,23 @@ body[data-preview='editor'] [data-section].preview-selected::before {
     position: relative;
 }
 
+/* Centred (the hero's default) or right-aligned, as the Style tab says. */
+.align-center .sales-hero-text {
+    text-align: center;
+}
+
+.align-end .sales-hero-text {
+    text-align: end;
+}
+
+.align-center .sales-offer {
+    justify-content: center;
+}
+
+.align-end .sales-offer {
+    justify-content: flex-end;
+}
+
 .sales-hero-media > img,
 .sales-hero-media > .image-placeholder {
     width: 100%;

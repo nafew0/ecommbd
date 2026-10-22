@@ -2,20 +2,44 @@ import {
     createSection,
     defaultThemeSettings,
     type LayoutDocument,
-    SECTIONS,
     type SectionData,
+    sectionsFor,
     THEMES,
 } from '@ecommbd/sections';
 import { expect, test } from '@playwright/test';
+import {
+    createSalesPage,
+    deleteSalesPage,
+    ensureSalesProducts,
+    publishSalesPage,
+    updateSalesSettings,
+} from '../browser/support/sales';
 import { publishLayout, setTheme, waitForStorefront } from '../browser/support/sections';
 import { adminSession, type ApiSession } from '../browser/support/store-api';
 import { ensureStorefrontFixtures } from '../browser/support/storefront-seed';
 
 /**
- * Every section (roadmap phase 15) on one page, in both themes and both languages, compared with
- * its saved snapshot. The page uses the storefront test store's own products, categories and
- * photos, so it looks the same on every run.
+ * Every section (roadmap phases 15 and 16) in both themes and both languages, compared with its
+ * saved snapshot: the page sections on a page, the sales sections and a styled Custom section on
+ * a sales page. They use the storefront test store's own products, categories and photos, so they
+ * look the same on every run.
  */
+
+/** Phase 16's sections, snapshotted on the sales page below. */
+const SALES_TYPES = [
+    'sales-hero',
+    'benefits',
+    'specs',
+    'price-packs',
+    'comparison',
+    'countdown',
+    'guarantee',
+    'custom',
+    'order-form',
+];
+
+/** Phase 15's sections, on a page. */
+const PAGE_SECTIONS = sectionsFor('page').filter(definition => !SALES_TYPES.includes(definition.type));
 
 const SITE = process.env.STOREFRONT_URL ?? 'http://localhost:4321';
 const PAGE_SLUG = { en: 'visual-sections', bn: 'ভিজ্যুয়াল-সেকশন' };
@@ -53,7 +77,7 @@ async function ids(api: ApiSession) {
 /** All eighteen sections with realistic Bangla and English content. */
 function gallery(refs: Awaited<ReturnType<typeof ids>>): LayoutDocument {
     const photo = (index: number) => refs.photos[index % refs.photos.length]!;
-    const sections: SectionData[] = SECTIONS.map(definition => createSection(definition.type));
+    const sections: SectionData[] = PAGE_SECTIONS.map(definition => createSection(definition.type));
     const byType = (type: string) => sections.find(section => section.type === type)!;
     const set = (type: string, settings: Record<string, unknown>) =>
         Object.assign(byType(type).settings, settings);
@@ -153,12 +177,98 @@ test.describe('sections, as shoppers see them', () => {
                 await page.waitForLoadState('networkidle');
                 // The floating chat buttons sit over whatever section is on screen.
                 await page.evaluate(() => document.querySelector('.floating-contact')?.remove());
-                for (const definition of SECTIONS) {
+                for (const definition of PAGE_SECTIONS) {
                     const section = page.locator(`main > section.section-${definition.type}`).first();
                     await section.scrollIntoViewIfNeeded();
                     await expect(section).toHaveScreenshot(`${definition.type}-${theme}-${lang}.png`, {
                         // Contact details come from store settings, which other tests change.
                         mask: definition.type === 'contact' ? [section.locator('.contact-detail')] : [],
+                    });
+                }
+            });
+        }
+    }
+});
+
+/** The sales sections and a Custom section with its own design, as a sales page shows them. */
+function salesGallery(photo: { assetId: string; preview: string }): LayoutDocument {
+    const sections = SALES_TYPES.map(type => createSection(type));
+    const byType = (type: string) => sections.find(section => section.type === type)!;
+    Object.assign(byType('sales-hero').settings, { badge: text('15% off', '১৫% ছাড়') });
+    Object.assign(byType('benefits').settings, { look: 'grid', columns: 4 });
+    // A deadline far away; its ticking digits are masked.
+    Object.assign(byType('countdown').settings, { endsAt: '2099-12-31T18:00:00.000Z' });
+    const custom = byType('custom');
+    custom.style.design = {
+        ...custom.style.design,
+        background: '#0b3d2e',
+        text: '#ffffff',
+        button: '#f5b301',
+        radius: 4,
+        paddingTop: 48,
+        paddingBottom: 48,
+    };
+    custom.blocks[0]!.settings.image = photo;
+    Object.assign(custom.blocks[1]!.settings, { size: 36, color: '#f5b301' });
+    return { sections };
+}
+
+test.describe('sales sections, as shoppers see them', () => {
+    test.describe.configure({ mode: 'serial' });
+    let salesPage: { id: string; slug: string };
+
+    test.beforeAll(async () => {
+        test.setTimeout(180_000);
+        admin ??= await adminSession();
+        await ensureStorefrontFixtures(admin);
+        const products = await ensureSalesProducts(admin);
+        const { photos, products: productIds } = await ids(admin);
+        const made = await createSalesPage(admin, {
+            title: 'Visual sales sections',
+            template: 'general',
+            productId: productIds[0]!,
+            slug: `visual-sales-${Date.now()}`,
+        });
+        salesPage = made;
+        const page = await updateSalesSettings(admin, made, settings => ({
+            ...settings,
+            bump: {
+                enabled: true,
+                variantId: products.spoon.variantId,
+                price: 12_000,
+                title: { bn: 'একটি কাঠের চামচ', en: 'A wooden spoon' },
+                text: { bn: 'মধুর সাথে ব্যবহারের জন্য', en: 'For the honey' },
+            },
+        }));
+        await publishSalesPage(admin, page, salesGallery(photos[0]!));
+    });
+
+    test.afterAll(async () => {
+        await deleteSalesPage(admin, salesPage.id);
+        await setTheme(admin);
+    });
+
+    for (const theme of THEMES) {
+        for (const lang of ['bn', 'en'] as const) {
+            test(`every sales section in ${theme}, ${lang === 'bn' ? 'Bangla' : 'English'}`, async ({
+                page,
+            }) => {
+                await setTheme(admin, defaultThemeSettings(theme));
+                const path = `${lang === 'bn' ? '' : '/en'}/s/${salesPage.slug}/`;
+                await waitForStorefront(`${SITE}${path}`, html => html.includes(`data-theme="${theme}"`));
+                await page.goto(`${SITE}${path}`);
+                await page.evaluate(() => document.fonts.ready);
+                for (const section of await page.locator('main > section.section').all()) {
+                    await section.scrollIntoViewIfNeeded();
+                }
+                await page.waitForLoadState('networkidle');
+                // The order bar sits over whatever section is on screen.
+                await page.evaluate(() => document.querySelector('[data-sticky-order]')?.remove());
+                for (const type of SALES_TYPES) {
+                    const section = page.locator(`main > section.section-${type}`).first();
+                    await section.scrollIntoViewIfNeeded();
+                    await expect(section).toHaveScreenshot(`${type}-${theme}-${lang}.png`, {
+                        mask: type === 'countdown' ? [section.locator('.countdown-units')] : [],
                     });
                 }
             });
