@@ -19,7 +19,8 @@ function securityHeaders(): Record<string, string> {
     const csp = [
         "default-src 'self'",
         `script-src 'self' ${extra}`.trim(),
-        "style-src 'self'",
+        // `astro dev` adds the CSS as inline <style> tags (for live reload); the build serves files.
+        import.meta.env.DEV ? "style-src 'self' 'unsafe-inline'" : "style-src 'self'",
         `img-src 'self' data: ${extra}`.trim(),
         "font-src 'self'",
         `connect-src 'self' ${extra}`.trim(),
