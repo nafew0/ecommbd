@@ -17,6 +17,10 @@ export const envSchema = z
         COOKIE_SECRET: z
             .string()
             .min(32, 'must be at least 32 characters (generate one with: openssl rand -hex 32)'),
+        WOO_PUBLIC_URL: z
+            .url()
+            .refine(value => new URL(value).protocol === 'https:', 'must use HTTPS')
+            .optional(),
         WOO_IMPORT_KEYS: z
             .string()
             .refine(value => {

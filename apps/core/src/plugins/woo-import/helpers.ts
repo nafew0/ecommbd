@@ -7,7 +7,18 @@ import { createHash } from 'node:crypto';
 export type WooRecord = Record<string, any>;
 export const digest = (value: unknown) =>
     createHash('sha256')
-        .update(JSON.stringify(value) ?? 'null')
+        // PostgreSQL jsonb changes object-key order. Hash semantic JSON, preserving array order.
+        .update(
+            JSON.stringify(value, (_key, item) =>
+                item && typeof item === 'object' && !Array.isArray(item)
+                    ? Object.fromEntries(
+                          Object.keys(item)
+                              .sort()
+                              .map(key => [key, item[key]]),
+                      )
+                    : item,
+            ) ?? 'null',
+        )
         .digest('hex');
 export const text = (value: unknown, max = 500) =>
     typeof value === 'string' ? value.slice(0, max).trim() : '';
@@ -83,3 +94,43 @@ export const safeDescription = (value: unknown) =>
     sanitizeRichText(stripShortcodes(text(value, 500_000)).text);
 export const arrays = (value: unknown): WooRecord[] =>
     Array.isArray(value) ? value.filter(v => v && typeof v === 'object') : [];
+
+/** Third-party settings can contain secrets: expose only a migration reference allowlist. */
+export function sourceSettings(row: WooRecord) {
+    return {
+        id: 1,
+        currency: text(row.currency, 3),
+        pricesIncludeTax: typeof row.pricesIncludeTax === 'boolean' ? row.pricesIncludeTax : null,
+        taxesEnabled: typeof row.taxesEnabled === 'boolean' ? row.taxesEnabled : null,
+        weightUnit: text(row.weightUnit, 10),
+        wooVersion: text(row.wooVersion, 40),
+        wordpressVersion: text(row.wordpressVersion, 40),
+        pixelId: text(row.pixelId, 32).replace(/[^0-9]/g, ''),
+        permalinks: Object.fromEntries(
+            ['product_base', 'category_base', 'tag_base', 'attribute_base'].map(key => [
+                key,
+                text(row.permalinks?.[key], 500),
+            ]),
+        ),
+        shippingZones: arrays(Object.values(row.shippingZones ?? {})).map(zone => ({
+            id: zone.zone_id ?? zone.id,
+            name: text(zone.zone_name ?? zone.name, 200),
+            locations: arrays(zone.zone_locations).map(location => ({
+                type: text(location.type, 30),
+                code: text(location.code, 200),
+            })),
+        })),
+        redirects: arrays(row.redirects)
+            .slice(0, 2000)
+            .map(rule => ({
+                path: text(rule.path, 1000),
+                target: text(rule.target, 1000),
+                status: rule.status === 410 ? 410 : 301,
+            })),
+        warnings: Array.isArray(row.warnings)
+            ? row.warnings.filter(
+                  (value: unknown) => typeof value === 'string' && /^[A-Z][A-Z_0-9]{2,63}$/.test(value),
+              )
+            : [],
+    };
+}

@@ -23,11 +23,11 @@
 
 ## Scope boundary
 
-Phase 22 is explicitly deferred by the user. No WordPress helper plugin, pairing/upload protocol, legacy password authentication, custom permalink routing, redirect crawler, password/coupon/review migration, or cutover tooling is implemented here. The connector interface remains extensible for that later phase. Source URL mappings are retained as data so Phase 22 can build redirects without re-importing the catalog.
+This document covers Phase 21. The helper, password compatibility, SEO/redirects, coupons/reviews and cutover tools are documented separately in the [Phase 22 plan](phase-22-implementation.md), now implemented on the same branch. Source URL mappings and the connector interface let that phase reuse the catalog and history rather than re-importing them under new identities.
 
 ## Verification ownership
 
-Per the user's request, implementation checks are limited to lint/type/build, database migration and basic startup checks. Do not run integration, browser, load or live-store tests. The manual checklist in `docs/runbooks/migration-testing.md` is the acceptance handover. Phase 21 stays in Review until the user validates them against authorized source stores; the one-hour import target is not claimed from static checks.
+The initial Phase 21 handover used compilation/schema/startup checks. The user subsequently authorized full testing of both phases. See [test results](../runbooks/migration-test-results.md) for unit, integration, Playwright, WordPress-version and synthetic scale checks, including Phase 21 repairs found through them. The manual checklist remains the real-store acceptance handover. No production performance or merchant cutover is claimed from local fixtures.
 
 ## Pilot decisions and limits
 

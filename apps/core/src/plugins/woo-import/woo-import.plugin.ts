@@ -1,8 +1,15 @@
 import { OnApplicationBootstrap } from '@nestjs/common';
-import { I18nService, PluginCommonModule, RoleService, VendurePlugin } from '@vendure/core';
+import { I18nService, PluginCommonModule, RoleService, ScheduledTask, VendurePlugin } from '@vendure/core';
 import { registerStoreDefaults } from '../bd-core';
 import { BdImagesPlugin } from '../bd-images';
-import { runMigrationPermission, schema, WooImportResolver } from './api';
+import { WooHelperService } from './helper.service';
+import { WooHelperController } from './helper.controller';
+import { WooExtrasService } from './extras.service';
+import { WooRedirectService } from './redirect.service';
+import { WooChunk, WooPairing, WooLegacyAuth, WooRedirect, WooMiss, WooExtra } from './helper-entities';
+import { WooPasswordHashingStrategy } from './passwords';
+import { json } from 'express';
+import { runMigrationPermission, schema, shopSchema, WooImportResolver, WooUrlResolver } from './api';
 import { LegacyOrder, WooIssue, WooMapping, WooRun, WooSource } from './entities';
 import { ImportMapperService } from './import-mapper.service';
 import { WooOpenOrderService } from './open-order.service';
@@ -25,6 +32,11 @@ registerStoreDefaults({
     },
 });
 const en = {
+    freshUpload: 'Create a fresh helper pairing and upload the changed source before running catch-up.',
+    pairing: 'The pairing code or upload token is invalid, expired or revoked. Create a new pairing.',
+    chunk: 'This upload was refused: check its signature, timestamp, sequence and size.',
+    helperNotReady: 'Wait for the WordPress helper to finish uploading before starting an import.',
+    redirectLoop: 'This rule creates a redirect loop. Choose a final page instead.',
     connection:
         'Could not read the WooCommerce API ({reason}). Check HTTPS, Read keys and security-plugin access.',
     settings:
@@ -45,6 +57,11 @@ const en = {
     quote: 'The destination totals differ from WooCommerce. Review the order instead of changing the old totals.',
 };
 const bn: Record<keyof typeof en, string> = {
+    freshUpload: 'শেষ পরিবর্তন সিঙ্ক করার আগে নতুন পেয়ারিং করে পুরোনো স্টোরের তথ্য আবার আপলোড করুন।',
+    pairing: 'পেয়ারিং কোড বা আপলোড টোকেন ভুল, মেয়াদ শেষ বা বাতিল হয়েছে। নতুন পেয়ারিং করুন।',
+    chunk: 'আপলোড নেওয়া যায়নি। স্বাক্ষর, সময়, ক্রম ও আকার যাচাই করুন।',
+    helperNotReady: 'ইমপোর্ট শুরুর আগে WordPress থেকে সব তথ্য আপলোড হওয়া পর্যন্ত অপেক্ষা করুন।',
+    redirectLoop: 'এই নিয়মে একই ঠিকানায় ঘুরে ফিরে আসে। শেষ পাতার ঠিকানা দিন।',
     connection:
         'WooCommerce API পড়া যায়নি ({reason})। HTTPS, Read অনুমতির কী এবং নিরাপত্তা প্লাগইনের অনুমতি দেখুন।',
     settings: 'পুরোনো স্টোরের মুদ্রা জানা যায়নি। কী দিয়ে WooCommerce সেটিংস পড়ার অনুমতি আছে কি না দেখুন।',
@@ -66,15 +83,48 @@ const bn: Record<keyof typeof en, string> = {
 
 @VendurePlugin({
     imports: [PluginCommonModule, BdImagesPlugin],
-    entities: [WooSource, WooRun, WooMapping, WooIssue, LegacyOrder],
+    entities: [
+        WooSource,
+        WooRun,
+        WooMapping,
+        WooIssue,
+        LegacyOrder,
+        WooChunk,
+        WooPairing,
+        WooLegacyAuth,
+        WooRedirect,
+        WooMiss,
+        WooExtra,
+    ],
+    controllers: [WooHelperController],
     providers: [
         ImportMapperService,
         WooImportService,
         WooOpenOrderService,
+        WooHelperService,
+        WooExtrasService,
+        WooRedirectService,
         { provide: WOO_OPTIONS, useFactory: () => WooImportPlugin.options },
     ],
     adminApiExtensions: { schema, resolvers: [WooImportResolver] },
+    shopApiExtensions: { schema: shopSchema, resolvers: [WooUrlResolver] },
     configuration: config => {
+        config.apiOptions.middleware = [
+            ...(config.apiOptions.middleware ?? []),
+            { route: '/woo-migrate', beforeListen: true, handler: json({ limit: '2mb' }) },
+        ];
+        config.schedulerOptions.tasks = [
+            ...(config.schedulerOptions.tasks ?? []),
+            new ScheduledTask({
+                id: 'woo-secret-expiry',
+                description: 'Expire unused WooCommerce credentials',
+                schedule: '19 3 * * *',
+                execute: ({ injector }) => injector.get(WooHelperService).cleanup(),
+            }),
+        ];
+        config.authOptions.passwordHashingStrategy = new WooPasswordHashingStrategy(
+            WooImportPlugin.options.encryptionKeys,
+        );
         config.authOptions.customPermissions = [
             ...(config.authOptions.customPermissions ?? []),
             runMigrationPermission,

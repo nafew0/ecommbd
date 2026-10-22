@@ -4,6 +4,7 @@ import { CoreUnavailableError, RateLimitedError } from './lib/core';
 import { parseLocalePath } from './lib/urls';
 import { getSettings } from './lib/store';
 import { systemPage } from './lib/system-pages';
+import { legacyUrl } from './lib/migration';
 
 /**
  * Every request (roadmap phase 12):
@@ -62,8 +63,18 @@ export const onRequest = defineMiddleware(async (context, next) => {
         context.locals.defaultLang = defaultLang;
         context.locals.settings = settings;
         context.locals.requestPath = requestPath;
+        const canResolve =
+            context.request.method === 'GET' &&
+            !/^\/(?:_astro|assets|img|health|cart|checkout|track|t|api)(?:\/|$)/.test(path);
+        if (canResolve) {
+            const legacy = await legacyUrl(requestPath + context.url.search);
+            if (legacy?.status === 410) return withHeaders(new Response(null, { status: 410 }));
+            if (legacy?.status === 301 && legacy.target && legacy.target !== requestPath + context.url.search)
+                return withHeaders(context.redirect(legacy.target, 301));
+        }
         const response =
             path === context.url.pathname ? await next() : await next(`${path}${context.url.search}`);
+        if (canResolve && response.status === 404) await legacyUrl(requestPath + context.url.search, true);
         return withHeaders(response);
     } catch (error) {
         if (error instanceof CoreUnavailableError) return withHeaders(systemPage('unavailable'));

@@ -16,13 +16,14 @@ import { z } from 'zod';
 import { LegacyOrder, WooIssue, WooMapping, WooRun, WooSource } from './entities';
 import { arrays, digest, gmt, minor, text, WooRecord } from './helpers';
 import { ImportMapperService } from './import-mapper.service';
-import { REST_STAGES, WooRestConnector } from './rest-connector';
+import { REST_STAGES, WooRestConnector, SourceConnector } from './rest-connector';
+import { WooHelperService } from './helper.service';
+import { WooExtrasService } from './extras.service';
+import { WooChunk, WooPairing } from './helper-entities';
 import { markWooImportContext, WooImportCompletedEvent } from './context';
 
-export const WOO_OPTIONS = Symbol('WOO_OPTIONS');
-export interface WooImportOptions {
-    encryptionKeys?: string;
-}
+import { WOO_OPTIONS, WooImportOptions } from './options';
+export { WOO_OPTIONS, WooImportOptions } from './options';
 const sourceInput = z.object({
     url: z
         .url()
@@ -68,6 +69,8 @@ export class WooImportService implements OnModuleInit {
         private mapper: ImportMapperService,
         private search: SearchService,
         private events: EventBus,
+        private helper: WooHelperService,
+        private extras: WooExtrasService,
         @Inject(WOO_OPTIONS) options: WooImportOptions,
     ) {
         if (options.encryptionKeys) this.keyring = parseKeyring(options.encryptionKeys);
@@ -160,7 +163,8 @@ export class WooImportService implements OnModuleInit {
             return this.sourceDto(source);
         });
     }
-    private connector(ctx: RequestContext, source: WooSource) {
+    private async connector(ctx: RequestContext, source: WooSource): Promise<SourceConnector> {
+        if (source.settings.transport === 'helper') return this.helper.connector(source);
         if (!source.credentials) throw new UserInputError('error.woo-import.credentials');
         const credentials = JSON.parse(
             decryptSecret(source.credentials, this.keys(), `woo:${ctx.channelId}:${source.url}`),
@@ -181,18 +185,26 @@ export class WooImportService implements OnModuleInit {
             throw new UserInputError('error.woo-import.input');
         const run = await this.connection.withTransaction(ctx, async txCtx => {
             const source = await this.source(txCtx, sourceId, true);
-            if (!source.credentials || source.completed)
+            if ((!source.credentials && source.settings.transport !== 'helper') || source.completed)
                 throw new UserInputError('error.woo-import.credentials');
+            if (source.settings.transport === 'helper') await this.helper.connector(source);
             await this.ensureIdle(txCtx, sourceId);
             if (mode !== 'dryRun') {
                 const dry = await this.connection.getRepository(txCtx, WooRun).findOne({
                     where: { sourceId, mode: 'dryRun', status: In(['completed', 'needsReview']) },
                     order: { id: 'DESC' },
                 });
-                if (!dry || !acknowledge) throw new UserInputError('error.woo-import.review');
+                if (!dry || !acknowledge || dry.verification.sourceRevision !== this.sourceRevision(source))
+                    throw new UserInputError('error.woo-import.review');
             }
             if (mode === 'catchUp' && !source.lastSyncedAt)
                 throw new UserInputError('error.woo-import.review');
+            if (
+                mode === 'catchUp' &&
+                source.settings.transport === 'helper' &&
+                source.settings.lastImportedPairingId === source.settings.helperPairingId
+            )
+                throw new UserInputError('error.woo-import.freshUpload');
             return this.connection.getRepository(txCtx, WooRun).save(
                 new WooRun({
                     sourceId,
@@ -205,7 +217,10 @@ export class WooImportService implements OnModuleInit {
                             : null,
                     cursor: { stage: 0, offset: 0, size: 100 },
                     counts: {},
-                    verification: { inspection: source.settings.inspection } as never,
+                    verification: {
+                        inspection: source.settings.inspection,
+                        sourceRevision: this.sourceRevision(source),
+                    } as never,
                 }),
             );
         });
@@ -221,6 +236,16 @@ export class WooImportService implements OnModuleInit {
                 .update(run.id, { status: 'failed', error: 'QUEUE_UNAVAILABLE' });
             throw new UserInputError('error.woo-import.queue');
         }
+    }
+    private sourceRevision(source: WooSource) {
+        return digest({
+            url: source.url,
+            imageHosts: source.imageHosts,
+            pairing: source.settings.helperPairingId,
+            currency: source.settings.currency,
+            tax: source.settings.pricesIncludeTax,
+            weight: source.settings.weightUnit,
+        });
     }
     async run(ctx: RequestContext, id: number) {
         const run = await this.connection.getRepository(ctx, WooRun).findOneBy({ id });
@@ -263,7 +288,8 @@ export class WooImportService implements OnModuleInit {
                 .getCount();
             if (others) throw new UserInputError('error.woo-import.busy');
             const source = await this.source(txCtx, locked.sourceId, true);
-            if (!source.credentials) throw new UserInputError('error.woo-import.credentials');
+            if (!source.credentials && source.settings.transport !== 'helper')
+                throw new UserInputError('error.woo-import.credentials');
             await repo.update(id, { status: 'queued', leaseUntil: null, leaseOwner: null, error: null });
             return locked;
         });
@@ -277,10 +303,17 @@ export class WooImportService implements OnModuleInit {
             await this.connection
                 .getRepository(txCtx, WooSource)
                 .update(sourceId, { credentials: null, completed: true });
+            await this.helper.revoke(txCtx, sourceId);
+            const pairings = await this.connection.getRepository(txCtx, WooPairing).findBy({ sourceId });
+            for (const pairing of pairings)
+                await this.connection
+                    .getRepository(txCtx, WooChunk)
+                    .delete({ pairingId: Number(pairing.id) });
             return true;
         });
     }
-    private async augment(connector: WooRestConnector, kind: string, record: WooRecord) {
+    private async augment(connector: SourceConnector, kind: string, record: WooRecord) {
+        if (connector.stages) return record;
         if (kind === 'products' && record.type === 'variable')
             record._variations = await connector.children(`products/${record.id}/variations`);
         if (kind === 'orders') {
@@ -317,13 +350,14 @@ export class WooImportService implements OnModuleInit {
             )
             .execute();
         if (!claimed.affected) return { skipped: true };
-        let connector: WooRestConnector | undefined;
+        let connector: SourceConnector | undefined;
         try {
             const run = await repo.findOneByOrFail({ id: runId });
             const source = await this.source(ctx, run.sourceId, true);
-            connector = this.connector(ctx, source);
-            while (run.cursor.stage < REST_STAGES.length) {
-                const kind = REST_STAGES[run.cursor.stage];
+            connector = await this.connector(ctx, source);
+            const stages = connector.stages ?? REST_STAGES;
+            while (run.cursor.stage < stages.length) {
+                const kind = stages[run.cursor.stage];
                 // Final catch-up is a full reconciliation. Child notes/refunds need not bump
                 // parent modification dates, and a live source can change while pages are read.
                 const page = await connector.page(
@@ -377,6 +411,8 @@ export class WooImportService implements OnModuleInit {
                             await this.mapper.inspectRecord(txCtx, source, run, kind, record);
                             if (run.mode !== 'dryRun')
                                 result = await this.mapper.apply(txCtx, source, run, kind, record);
+                            if (run.mode !== 'dryRun')
+                                await this.extras.apply(txCtx, source, run, kind, record);
                             if (kind === 'orders') run.verification = this.totals(record, run.verification);
                             const samples = (run.verification.samples ?? []) as Array<
                                 Record<string, unknown>
@@ -443,6 +479,7 @@ export class WooImportService implements OnModuleInit {
                         .getOneOrFail();
                     if (locked.leaseOwner !== owner) throw new Error('IMPORT_LEASE_LOST');
                     await this.mapper.finalize(txCtx, source);
+                    await this.extras.finalize(txCtx, source, run);
                     await this.connection
                         .getRepository(txCtx, WooRun)
                         .update(run.id, { leaseUntil: new Date(Date.now() + 300_000) });
@@ -469,9 +506,17 @@ export class WooImportService implements OnModuleInit {
             );
             if (!finished.affected) throw new Error('IMPORT_LEASE_LOST');
             if (run.mode !== 'dryRun' && status === 'completed')
-                await this.connection
-                    .getRepository(ctx, WooSource)
-                    .update(source.id, { lastSyncedAt: run.watermark });
+                await this.connection.getRepository(ctx, WooSource).update(source.id, {
+                    lastSyncedAt: run.watermark,
+                    ...(source.settings.transport === 'helper'
+                        ? {
+                              settings: {
+                                  ...(await this.source(ctx, Number(source.id))).settings,
+                                  lastImportedPairingId: Number(source.settings.helperPairingId),
+                              },
+                          }
+                        : {}),
+                });
             return { status, counts: run.counts };
         } catch (error) {
             await repo.update(

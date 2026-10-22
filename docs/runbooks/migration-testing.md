@@ -1,6 +1,6 @@
 # Phase 21 — manual acceptance checklist
 
-Status: ready for user testing; production acceptance is pending. Phase 22 is deferred.
+Status: automated Phase 21/22 checks are recorded in [test results](migration-test-results.md); real merchant acceptance is pending. This checklist covers Phase 21; the helper, passwords, URLs and cutover are covered by the [Phase 22 plan](../roadmap/phase-22-implementation.md) and [cutover runbook](cutover.md).
 
 ## Prepare
 

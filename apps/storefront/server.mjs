@@ -20,7 +20,7 @@ const host = process.env.HOST ?? '0.0.0.0';
 const coreUrl = new URL(process.env.CORE_URL ?? 'http://localhost:3000');
 const live = ['staging', 'production'].includes(process.env.APP_ENV ?? '');
 const proxyCore = (process.env.PROXY_CORE ?? (live ? 'false' : 'true')) === 'true';
-const PROXIED = ['/img/', '/assets/', '/shop-api'];
+const PROXIED = ['/img/', '/assets/', '/shop-api', '/woo-migrate/'];
 
 const TYPES = {
     '.css': 'text/css; charset=utf-8',

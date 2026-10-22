@@ -226,7 +226,7 @@ The file lands in `apps/core/src/migrations/`. Pending migrations run when the s
 
 The first migration, `<timestamp>-init.ts`, creates the whole schema and is committed. It was generated with `npm run migrate:generate -- init --from-empty`, which diffs against an empty temporary database.
 
-WooCommerce imports (Phase 21) use Settings → WooCommerce migration. Set `WOO_IMPORT_KEYS` on the server and worker, then follow the [implementation plan](docs/roadmap/m5-implementation.md) and [manual acceptance checklist](docs/runbooks/migration-testing.md). Use a staging copy first; real-store correctness and import speed await acceptance. Passwords, redirects and cutover remain deferred to Phase 22.
+WooCommerce migration (Phases 21–22) uses Settings → WooCommerce migration. Set `WOO_IMPORT_KEYS` on server and worker and an HTTPS `STOREFRONT_URL` (or `WOO_PUBLIC_URL` for the helper endpoint). See the [Phase 21 plan](docs/roadmap/m5-implementation.md), [Phase 22 plan](docs/roadmap/phase-22-implementation.md), [test results](docs/runbooks/migration-test-results.md) and [cutover runbook](docs/runbooks/cutover.md). Build the installable helper with `python3 apps/wp-migrator/package.py`; source consumer keys remain an alternative. Migration password tests need PHP CLI to generate independent WordPress hash fixtures. Rehearse against an authorized store copy before a real domain switch.
 
 ## 8. Useful commands
 

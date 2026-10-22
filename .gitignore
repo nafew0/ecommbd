@@ -12,4 +12,6 @@ bench/results/*-smoke.*
 bench/vendure/.vendure
 coverage
 playwright-report
+playwright-report-migration
 test-results
+.vendure/

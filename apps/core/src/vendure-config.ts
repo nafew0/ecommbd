@@ -166,6 +166,7 @@ export const config: VendureConfig = {
         }),
         ...customPlugins({
             wooImportKeys: env.WOO_IMPORT_KEYS,
+            wooPublicUrl: env.WOO_PUBLIC_URL ?? env.STOREFRONT_URL,
             defaultLanguage: env.STORE_DEFAULT_LANGUAGE,
             assetUrlPrefix: env.ASSET_URL_PREFIX,
             imagesDir: env.IMAGES_DIR,

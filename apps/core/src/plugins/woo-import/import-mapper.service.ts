@@ -313,7 +313,7 @@ export class ImportMapperService {
             customFields: { bdCategory: true },
         };
         const category = old?.targetId
-            ? await this.collections.update(ctx, { id: old.targetId, ...input })
+            ? await this.collections.update(ctx, { id: Number(old.targetId), ...input })
             : await this.collections.create(ctx, { ...input, filters: [] });
         await this.remember(ctx, source, 'categories', String(row.id), category.id, row, {
             parent: Number(row.parent) || 0,
@@ -334,7 +334,7 @@ export class ImportMapperService {
         }
         const input = { code: `woo-${source.id}-tag-${row.id}`, translations: this.translations(row.name) };
         const value = old?.targetId
-            ? await this.facetValues.update(ctx, { id: old.targetId, ...input })
+            ? await this.facetValues.update(ctx, { id: Number(old.targetId), ...input })
             : await this.facetValues.create(ctx, (await this.facets.findOne(ctx, facet.targetId!))!, input);
         await this.remember(ctx, source, 'tags', String(row.id), value.id, row);
     }
@@ -495,7 +495,7 @@ export class ImportMapperService {
             customFields: { featured: !!row.featured, categoryId: primary?.targetId ?? null },
         };
         const product = old?.targetId
-            ? await this.products.update(ctx, { id: old.targetId, ...input })
+            ? await this.products.update(ctx, { id: Number(old.targetId), ...input })
             : await this.products.create(ctx, input);
         const variations = row.type === 'variable' ? arrays(row._variations) : [row];
         if (!variations.length) throw new Error('VARIABLE_PRODUCT_HAS_NO_VARIATIONS');
@@ -595,8 +595,8 @@ export class ImportMapperService {
                 useGlobalOutOfStockThreshold: false,
                 outOfStockThreshold:
                     variant.backorders === 'yes' || variant.backorders === 'notify' ? -1_000_000 : 0,
-                optionIds: selection,
-                facetValueIds: [...tagIds, ...attributeFacets],
+                optionIds: selection.map(Number),
+                facetValueIds: [...tagIds, ...attributeFacets].map(Number),
                 featuredAssetId: (await this.image(ctx, source, run, variant.image?.src)) ?? assetIds[0],
                 translations: this.translations(
                     `${row.name}${
@@ -622,7 +622,7 @@ export class ImportMapperService {
                 },
             };
             const saved = mapped?.targetId
-                ? (await this.variants.update(ctx, [{ id: mapped.targetId, ...variantInput }]))[0]
+                ? (await this.variants.update(ctx, [{ id: Number(mapped.targetId), ...variantInput }]))[0]
                 : (await this.variants.create(ctx, [{ productId: product.id, ...variantInput }]))[0];
             kept.add(String(saved.id));
             const quantity = Number.isSafeInteger(variant.stock_quantity) ? variant.stock_quantity : 0;
@@ -774,7 +774,7 @@ export class ImportMapperService {
         const { countryCode: _country, resolved: _resolved, ...fields } = address;
         const saved = await this.connection.getRepository(ctx, Address).save(
             new Address({
-                ...(id ? { id } : {}),
+                ...(id ? { id: Number(id) } : {}),
                 ...fields,
                 phoneNumber: address.phoneNumber ?? customer.customFields.phone ?? '',
                 country,
@@ -901,8 +901,7 @@ export class ImportMapperService {
                 )
                 .map(p => p.targetId!);
             await this.collections.update(ctx, {
-                id: category.targetId,
-                parentId: parent?.targetId ?? root.id,
+                id: Number(category.targetId),
                 inheritFilters: false,
                 filters: [
                     {
@@ -914,6 +913,16 @@ export class ImportMapperService {
                     },
                 ],
             });
+            const current = await this.connection
+                .getRepository(ctx, Collection)
+                .findOneByOrFail({ id: Number(category.targetId) });
+            const parentId = parent?.targetId ? Number(parent.targetId) : root.id;
+            if (String(current.parentId) !== String(parentId))
+                await this.collections.move(ctx, {
+                    collectionId: Number(category.targetId),
+                    parentId,
+                    index: 0,
+                });
         }
     }
 }

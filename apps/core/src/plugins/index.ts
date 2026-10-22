@@ -28,6 +28,7 @@ export const DEFAULT_IMAGES_DIR = path.join(__dirname, '../../static/images');
 export interface CustomPluginOptions {
     /** WOO_IMPORT_KEYS: versioned encryption keys for source credentials. */
     wooImportKeys?: string;
+    wooPublicUrl?: string;
     /** STORE_DEFAULT_LANGUAGE: the storefront's default language for a new store. */
     defaultLanguage: StoreLanguage;
     /** Set up store defaults on start (default true). */
@@ -85,7 +86,7 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
         BdManualOrdersPlugin,
         NotificationsPlugin.init({ driver: options.smsDriver, storefrontUrl: options.storefrontUrl }),
         FraudGuardPlugin,
-        WooImportPlugin.init({ encryptionKeys: options.wooImportKeys }),
+        WooImportPlugin.init({ encryptionKeys: options.wooImportKeys, publicUrl: options.wooPublicUrl }),
         MerchantAdminPlugin.init({
             appDir: ADMIN_APP_DIR,
             imageOrigins: options.assetUrlPrefix ? [new URL(options.assetUrlPrefix).origin] : [],

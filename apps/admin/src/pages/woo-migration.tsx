@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Button } from '../components/ui/button';
 import { Input, Select } from '../components/ui/input';
 import { Alert, Card, CardBody, CardHeader, PageHeader } from '../components/ui/misc';
@@ -7,12 +7,18 @@ import { adminApi, ApiError } from '../lib/api';
 import { useConfirm } from '../lib/confirm';
 import { useI18n } from '../lib/i18n';
 import { LegacyOrders } from '../components/legacy-orders';
+import { WooCutover } from '../components/woo-cutover';
 
 interface Source {
     id: string;
     url: string;
     completed: boolean;
-    settings: { currency?: string; weightUnit?: string };
+    settings: {
+        currency?: string;
+        weightUnit?: string;
+        cutover?: { checked: string[] };
+        reference?: { pixelId?: string; shippingZones?: unknown; permalinks?: unknown };
+    };
 }
 interface Run {
     id: string;
@@ -69,6 +75,12 @@ export function WooMigrationPage() {
         queryFn: () =>
             adminApi<{ wooRun: Run }>('query($id:ID!){wooRun(id:$id)}', { id: activeId }).then(r => r.wooRun),
     });
+    useEffect(() => {
+        if (run.data && ['completed', 'needsReview'].includes(run.data.status)) {
+            void client.invalidateQueries({ queryKey: ['woo', 'history'] });
+            void client.invalidateQueries({ queryKey: ['woo', 'sources'] });
+        }
+    }, [run.data?.id, run.data?.status, client]);
     async function action(fn: () => Promise<unknown>) {
         setBusy(true);
         setError(false);
@@ -165,6 +177,12 @@ export function WooMigrationPage() {
             )}
             {notice && <Alert>{notice}</Alert>}
             <div className="space-y-4">
+                <WooCutover
+                    key={`helper-${sourceId}`}
+                    sourceId={sourceId}
+                    checked={selectedSource?.settings.cutover?.checked}
+                    reference={selectedSource?.settings.reference}
+                />
                 <Card>
                     <CardHeader title={m.source} />
                     <CardBody>
@@ -286,7 +304,7 @@ export function WooMigrationPage() {
                                 {run.data && (
                                     <>
                                         {run.data.status === 'running' &&
-                                            run.data.cursor.stage < 5 &&
+                                            run.data.cursor.stage < 8 &&
                                             (() => {
                                                 const kind = [
                                                     'categories',
@@ -294,6 +312,9 @@ export function WooMigrationPage() {
                                                     'products',
                                                     'customers',
                                                     'orders',
+                                                    'coupons',
+                                                    'reviews',
+                                                    'settings',
                                                 ][run.data.cursor.stage] as keyof typeof m.stages;
                                                 const total = (
                                                     run.data.verification.sourceCounts as

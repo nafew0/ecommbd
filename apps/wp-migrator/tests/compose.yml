@@ -1,0 +1,62 @@
+services:
+  db:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: fixture-only
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wordpress
+      MARIADB_PASSWORD: fixture-only
+    healthcheck:
+      test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+      interval: 2s
+      timeout: 2s
+      retries: 40
+  wordpress:
+    image: wordpress:php8.3-apache
+    depends_on:
+      db:
+        condition: service_healthy
+    environment: &wp-env
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: fixture-only
+      WORDPRESS_DB_NAME: wordpress
+    ports: ['127.0.0.1:18980:80']
+    volumes:
+      - wp:/var/www/html
+      - ../:/var/www/html/wp-content/plugins/ecommbd-migrator:ro
+  cli:
+    image: wordpress:cli
+    user: '33:33'
+    environment: *wp-env
+    volumes:
+      - wp:/var/www/html
+      - ../:/var/www/html/wp-content/plugins/ecommbd-migrator:ro
+  db-old:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: fixture-only
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wordpress
+      MARIADB_PASSWORD: fixture-only
+    healthcheck:
+      test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+      interval: 2s
+      timeout: 2s
+      retries: 40
+  wordpress-old:
+    image: wordpress:5.8.3-php7.4-apache
+    platform: linux/amd64
+    depends_on:
+      db-old:
+        condition: service_healthy
+    environment:
+      <<: *wp-env
+      WORDPRESS_DB_HOST: db-old
+    ports: ['127.0.0.1:18981:80']
+    volumes:
+      - wp-old:/var/www/html
+      - ../:/var/www/html/wp-content/plugins/ecommbd-migrator:ro
+volumes:
+  wp:
+  wp-old:

@@ -2,7 +2,7 @@ import { createHttpClient, type HttpClient, HttpError } from '@ecommbd/shared';
 import { sourceRecord, type WooRecord } from './helpers';
 
 export const REST_STAGES = ['categories', 'tags', 'products', 'customers', 'orders'] as const;
-export type Resource = (typeof REST_STAGES)[number] | 'coupons' | 'reviews';
+export type Resource = (typeof REST_STAGES)[number] | 'coupons' | 'reviews' | 'settings';
 const ROUTES: Record<string, string> = {
     categories: 'products/categories',
     tags: 'products/tags',
@@ -14,6 +14,7 @@ export interface SourcePage {
     total: number | null;
 }
 export interface SourceConnector {
+    readonly stages?: Resource[];
     page(
         kind: Resource,
         offset: number,

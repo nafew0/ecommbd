@@ -1,0 +1,632 @@
+{
+  "categories": [
+    {
+      "id": 15,
+      "slug": "uncategorized",
+      "parent": 0,
+      "name": "Synthetic category 15",
+      "description": "Synthetic fixture category",
+      "link": "https://woo.fixture.test/shop-category/uncategorized/"
+    },
+    {
+      "id": 16,
+      "slug": "poshak",
+      "parent": 0,
+      "name": "Synthetic category 16",
+      "description": "Synthetic fixture category",
+      "link": "https://woo.fixture.test/shop-category/poshak/"
+    },
+    {
+      "id": 17,
+      "slug": "panjabi",
+      "parent": 16,
+      "name": "Synthetic category 17",
+      "description": "Synthetic fixture category",
+      "link": "https://woo.fixture.test/shop-category/panjabi/"
+    }
+  ],
+  "tags": [],
+  "products": [
+    {
+      "id": 10,
+      "type": "simple",
+      "status": "publish",
+      "slug": "fixture-panjabi",
+      "price": "1500",
+      "regular_price": "1500",
+      "sale_price": "",
+      "manage_stock": true,
+      "stock_quantity": 27,
+      "stock_status": "instock",
+      "backorders": "no",
+      "weight": "0.4",
+      "dimensions": {
+        "length": "",
+        "width": "",
+        "height": ""
+      },
+      "tax_status": "taxable",
+      "virtual": false,
+      "downloadable": false,
+      "catalog_visibility": "visible",
+      "attributes": [],
+      "default_attributes": [],
+      "categories": [
+        {
+          "id": 17,
+          "name": "Panjabi",
+          "slug": "panjabi"
+        }
+      ],
+      "tags": [],
+      "date_created_gmt": "2026-10-22T01:26:38",
+      "date_modified_gmt": "2026-10-22T01:26:38",
+      "date_on_sale_from_gmt": null,
+      "date_on_sale_to_gmt": null,
+      "name": "Synthetic product 10",
+      "description": "<p>Synthetic fixture</p>[vc_row]<script>bad()</script>",
+      "short_description": "Synthetic short description",
+      "sku": "SYNTHETIC-10",
+      "images": [],
+      "permalink": "https://woo.fixture.test/item/fixture-panjabi/",
+      "_seo": {
+        "title": "Synthetic SEO",
+        "description": "Synthetic SEO description"
+      }
+    },
+    {
+      "id": 11,
+      "type": "variable",
+      "status": "publish",
+      "slug": "fixture-shirt",
+      "price": "800",
+      "regular_price": "",
+      "sale_price": "",
+      "manage_stock": false,
+      "stock_quantity": null,
+      "stock_status": "instock",
+      "backorders": "no",
+      "weight": "",
+      "dimensions": {
+        "length": "",
+        "width": "",
+        "height": ""
+      },
+      "tax_status": "taxable",
+      "virtual": false,
+      "downloadable": false,
+      "catalog_visibility": "visible",
+      "attributes": [
+        {
+          "id": 0,
+          "name": "Size",
+          "slug": "Size",
+          "position": 0,
+          "visible": true,
+          "variation": true,
+          "options": ["M", "L"]
+        },
+        {
+          "id": 0,
+          "name": "Colour",
+          "slug": "Colour",
+          "position": 0,
+          "visible": true,
+          "variation": true,
+          "options": ["লাল", "Blue"]
+        }
+      ],
+      "default_attributes": [],
+      "categories": [
+        {
+          "id": 15,
+          "name": "Uncategorized",
+          "slug": "uncategorized"
+        }
+      ],
+      "tags": [],
+      "date_created_gmt": "2026-10-22T01:26:38",
+      "date_modified_gmt": "2026-10-22T01:26:38",
+      "date_on_sale_from_gmt": null,
+      "date_on_sale_to_gmt": null,
+      "name": "Synthetic product 11",
+      "description": "<p>Synthetic fixture</p>[vc_row]<script>bad()</script>",
+      "short_description": "Synthetic short description",
+      "sku": "SYNTHETIC-11",
+      "images": [],
+      "permalink": "https://woo.fixture.test/item/fixture-shirt/",
+      "_seo": {
+        "title": "Synthetic SEO",
+        "description": "Synthetic SEO description"
+      },
+      "_variations": [
+        {
+          "id": 12,
+          "type": "variation",
+          "status": "publish",
+          "price": "800",
+          "regular_price": "800",
+          "sale_price": "",
+          "manage_stock": true,
+          "stock_quantity": 10,
+          "stock_status": "instock",
+          "backorders": "no",
+          "weight": "",
+          "dimensions": {
+            "length": "",
+            "width": "",
+            "height": ""
+          },
+          "tax_status": "taxable",
+          "virtual": false,
+          "downloadable": false,
+          "attributes": [
+            {
+              "id": 0,
+              "name": "Size",
+              "slug": "size",
+              "option": "M"
+            },
+            {
+              "id": 0,
+              "name": "Colour",
+              "slug": "colour",
+              "option": "লাল"
+            }
+          ],
+          "date_created_gmt": "2026-10-22T01:26:38",
+          "date_modified_gmt": "2026-10-22T01:26:38",
+          "date_on_sale_from_gmt": null,
+          "date_on_sale_to_gmt": null,
+          "sku": "SYNTHETIC-V-12"
+        },
+        {
+          "id": 13,
+          "type": "variation",
+          "status": "publish",
+          "price": "800",
+          "regular_price": "800",
+          "sale_price": "",
+          "manage_stock": true,
+          "stock_quantity": 10,
+          "stock_status": "instock",
+          "backorders": "no",
+          "weight": "",
+          "dimensions": {
+            "length": "",
+            "width": "",
+            "height": ""
+          },
+          "tax_status": "taxable",
+          "virtual": false,
+          "downloadable": false,
+          "attributes": [
+            {
+              "id": 0,
+              "name": "Size",
+              "slug": "size",
+              "option": "M"
+            },
+            {
+              "id": 0,
+              "name": "Colour",
+              "slug": "colour",
+              "option": "Blue"
+            }
+          ],
+          "date_created_gmt": "2026-10-22T01:26:38",
+          "date_modified_gmt": "2026-10-22T01:26:38",
+          "date_on_sale_from_gmt": null,
+          "date_on_sale_to_gmt": null,
+          "sku": "SYNTHETIC-V-13"
+        },
+        {
+          "id": 14,
+          "type": "variation",
+          "status": "publish",
+          "price": "800",
+          "regular_price": "800",
+          "sale_price": "",
+          "manage_stock": true,
+          "stock_quantity": 10,
+          "stock_status": "instock",
+          "backorders": "no",
+          "weight": "",
+          "dimensions": {
+            "length": "",
+            "width": "",
+            "height": ""
+          },
+          "tax_status": "taxable",
+          "virtual": false,
+          "downloadable": false,
+          "attributes": [
+            {
+              "id": 0,
+              "name": "Size",
+              "slug": "size",
+              "option": "L"
+            },
+            {
+              "id": 0,
+              "name": "Colour",
+              "slug": "colour",
+              "option": "লাল"
+            }
+          ],
+          "date_created_gmt": "2026-10-22T01:26:38",
+          "date_modified_gmt": "2026-10-22T01:26:38",
+          "date_on_sale_from_gmt": null,
+          "date_on_sale_to_gmt": null,
+          "sku": "SYNTHETIC-V-14"
+        },
+        {
+          "id": 15,
+          "type": "variation",
+          "status": "publish",
+          "price": "800",
+          "regular_price": "800",
+          "sale_price": "",
+          "manage_stock": true,
+          "stock_quantity": 10,
+          "stock_status": "instock",
+          "backorders": "no",
+          "weight": "",
+          "dimensions": {
+            "length": "",
+            "width": "",
+            "height": ""
+          },
+          "tax_status": "taxable",
+          "virtual": false,
+          "downloadable": false,
+          "attributes": [
+            {
+              "id": 0,
+              "name": "Size",
+              "slug": "size",
+              "option": "L"
+            },
+            {
+              "id": 0,
+              "name": "Colour",
+              "slug": "colour",
+              "option": "Blue"
+            }
+          ],
+          "date_created_gmt": "2026-10-22T01:26:38",
+          "date_modified_gmt": "2026-10-22T01:26:38",
+          "date_on_sale_from_gmt": null,
+          "date_on_sale_to_gmt": null,
+          "sku": "SYNTHETIC-V-15"
+        }
+      ]
+    }
+  ],
+  "customers": [
+    {
+      "id": 2,
+      "email": "synthetic-2@example.com",
+      "first_name": "Synthetic",
+      "last_name": "Customer",
+      "billing": {
+        "first_name": "Synthetic",
+        "last_name": "Customer",
+        "company": "",
+        "address_1": "House 12 Road 5",
+        "address_2": "",
+        "city": "Dhanmondi",
+        "state": "BD-13",
+        "postcode": "1209",
+        "country": "BD",
+        "email": "synthetic@example.com",
+        "phone": "01712345678"
+      },
+      "shipping": {
+        "first_name": "Synthetic",
+        "last_name": "Customer",
+        "company": "",
+        "address_1": "House 12 Road 5",
+        "address_2": "",
+        "city": "Dhanmondi",
+        "state": "BD-13",
+        "postcode": "1209",
+        "country": "BD",
+        "email": "synthetic@example.com",
+        "phone": "01712345678"
+      },
+      "_role": "customer"
+    }
+  ],
+  "orders": [
+    {
+      "id": 16,
+      "number": "16",
+      "status": "processing",
+      "currency": "BDT",
+      "version": "11.2.1",
+      "prices_include_tax": false,
+      "date_created_gmt": "2026-10-22T01:26:38",
+      "date_modified_gmt": "2026-10-22T01:26:38",
+      "date_paid_gmt": null,
+      "date_completed_gmt": null,
+      "customer_id": 2,
+      "discount_total": "0.00",
+      "discount_tax": "0.00",
+      "shipping_total": "60.00",
+      "shipping_tax": "0.00",
+      "cart_tax": "0.00",
+      "total": "1560.00",
+      "total_tax": "0.00",
+      "payment_method": "cod",
+      "payment_method_title": "",
+      "fee_lines": [],
+      "coupon_lines": [],
+      "tax_lines": [],
+      "shipping_lines": [
+        {
+          "id": 2,
+          "method_title": "Standard",
+          "method_id": "",
+          "instance_id": "",
+          "total": "60.00",
+          "total_tax": "0.00",
+          "taxes": [],
+          "tax_status": "taxable",
+          "meta_data": []
+        }
+      ],
+      "billing": {
+        "first_name": "Synthetic",
+        "last_name": "Customer",
+        "company": "",
+        "address_1": "House 12 Road 5",
+        "address_2": "",
+        "city": "Dhanmondi",
+        "state": "BD-13",
+        "postcode": "1209",
+        "country": "BD",
+        "email": "synthetic@example.com",
+        "phone": "01712345678"
+      },
+      "shipping": {
+        "first_name": "Synthetic",
+        "last_name": "Customer",
+        "company": "",
+        "address_1": "House 12 Road 5",
+        "address_2": "",
+        "city": "Dhanmondi",
+        "state": "BD-13",
+        "postcode": "1209",
+        "country": "BD",
+        "email": "synthetic@example.com",
+        "phone": "01712345678"
+      },
+      "customer_note": "Synthetic customer note",
+      "transaction_id": "synthetic-reference",
+      "line_items": [
+        {
+          "id": 1,
+          "product_id": 10,
+          "variation_id": 0,
+          "quantity": 1,
+          "subtotal": "1500.00",
+          "subtotal_tax": "0.00",
+          "total": "1500.00",
+          "total_tax": "0.00",
+          "price": 1500,
+          "taxes": [],
+          "name": "Synthetic line",
+          "sku": "SYNTHETIC-LINE"
+        }
+      ],
+      "_notes": [
+        {
+          "id": 2,
+          "note": "Synthetic note",
+          "customer_note": false,
+          "date_created_gmt": "2026-10-22T01:26:38"
+        },
+        {
+          "id": 3,
+          "note": "Synthetic note",
+          "customer_note": false,
+          "date_created_gmt": "2026-10-22T01:26:38"
+        },
+        {
+          "id": 4,
+          "note": "Synthetic note",
+          "customer_note": false,
+          "date_created_gmt": "2026-10-22T01:26:38"
+        },
+        {
+          "id": 5,
+          "note": "Synthetic note",
+          "customer_note": false,
+          "date_created_gmt": "2026-10-22T01:26:38"
+        },
+        {
+          "id": 6,
+          "note": "Synthetic note",
+          "customer_note": false,
+          "date_created_gmt": "2026-10-22T01:26:38"
+        },
+        {
+          "id": 7,
+          "note": "Synthetic note",
+          "customer_note": true,
+          "date_created_gmt": "2026-10-22T01:26:38"
+        },
+        {
+          "id": 8,
+          "note": "Synthetic note",
+          "customer_note": false,
+          "date_created_gmt": "2026-10-22T01:26:38"
+        }
+      ],
+      "_refunds": [],
+      "refunds": []
+    },
+    {
+      "id": 17,
+      "number": "17",
+      "status": "completed",
+      "currency": "BDT",
+      "version": "11.2.1",
+      "prices_include_tax": false,
+      "date_created_gmt": "2026-10-22T01:26:38",
+      "date_modified_gmt": "2026-10-22T01:26:38",
+      "date_paid_gmt": "2026-10-22T01:26:38",
+      "date_completed_gmt": "2026-10-22T01:26:38",
+      "customer_id": 2,
+      "discount_total": "0.00",
+      "discount_tax": "0.00",
+      "shipping_total": "0.00",
+      "shipping_tax": "0.00",
+      "cart_tax": "0.00",
+      "total": "2999.25",
+      "total_tax": "0.00",
+      "payment_method": "",
+      "payment_method_title": "",
+      "fee_lines": [],
+      "coupon_lines": [],
+      "tax_lines": [],
+      "shipping_lines": [],
+      "billing": {
+        "first_name": "Synthetic",
+        "last_name": "Customer",
+        "company": "",
+        "address_1": "House 12 Road 5",
+        "address_2": "",
+        "city": "Dhanmondi",
+        "state": "BD-13",
+        "postcode": "1209",
+        "country": "BD",
+        "email": "synthetic@example.com",
+        "phone": "01712345678"
+      },
+      "shipping": {
+        "first_name": "Synthetic",
+        "last_name": "Customer",
+        "company": "",
+        "address_1": "House 12 Road 5",
+        "address_2": "",
+        "city": "Dhanmondi",
+        "state": "BD-13",
+        "postcode": "1209",
+        "country": "BD",
+        "email": "synthetic@example.com",
+        "phone": "01712345678"
+      },
+      "customer_note": "Synthetic customer note",
+      "transaction_id": "synthetic-reference",
+      "line_items": [
+        {
+          "id": 3,
+          "product_id": 10,
+          "variation_id": 0,
+          "quantity": 2,
+          "subtotal": "3000.00",
+          "subtotal_tax": "0.00",
+          "total": "3000.00",
+          "total_tax": "0.00",
+          "price": 1500,
+          "taxes": [],
+          "name": "Synthetic line",
+          "sku": "SYNTHETIC-LINE"
+        }
+      ],
+      "_notes": [
+        {
+          "id": 9,
+          "note": "Synthetic note",
+          "customer_note": false,
+          "date_created_gmt": "2026-10-22T01:26:38"
+        },
+        {
+          "id": 10,
+          "note": "Synthetic note",
+          "customer_note": false,
+          "date_created_gmt": "2026-10-22T01:26:38"
+        },
+        {
+          "id": 11,
+          "note": "Synthetic note",
+          "customer_note": false,
+          "date_created_gmt": "2026-10-22T01:26:38"
+        },
+        {
+          "id": 12,
+          "note": "Synthetic note",
+          "customer_note": false,
+          "date_created_gmt": "2026-10-22T01:26:38"
+        },
+        {
+          "id": 13,
+          "note": "Synthetic note",
+          "customer_note": false,
+          "date_created_gmt": "2026-10-22T01:26:38"
+        }
+      ],
+      "_refunds": [
+        {
+          "id": 18,
+          "amount": "125.25",
+          "reason": "Synthetic refund",
+          "date_created_gmt": "2026-10-22T01:26:38"
+        }
+      ],
+      "refunds": [
+        {
+          "id": 18,
+          "total": "-125.25"
+        }
+      ]
+    }
+  ],
+  "coupons": [
+    {
+      "id": 19,
+      "code": "synthetic10",
+      "discount_type": "percent",
+      "amount": "10",
+      "usage_limit": 20,
+      "usage_count": 0,
+      "minimum_amount": "0.00",
+      "maximum_amount": "0.00",
+      "meta_data": []
+    }
+  ],
+  "reviews": [
+    {
+      "id": 14,
+      "product_id": 10,
+      "status": "approved",
+      "rating": 5,
+      "review": "<p>Synthetic review</p><script>bad()</script>",
+      "reviewer": "Synthetic reviewer",
+      "date_created_gmt": "2026-10-22 01:26:38"
+    }
+  ],
+  "settings": [
+    {
+      "id": 1,
+      "currency": "BDT",
+      "pricesIncludeTax": false,
+      "taxesEnabled": false,
+      "weightUnit": "kg",
+      "wooVersion": "11.2.1",
+      "wordpressVersion": "7.1.3",
+      "permalinks": {
+        "product_base": "/item",
+        "category_base": "shop-category",
+        "tag_base": "product-tag",
+        "attribute_base": "",
+        "use_verbose_page_rules": false
+      },
+      "pixelId": "1234567890",
+      "redirects": [],
+      "warnings": []
+    }
+  ]
+}
