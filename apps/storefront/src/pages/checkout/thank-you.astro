@@ -1,0 +1,86 @@
+---
+import CheckoutSummary from '../../components/CheckoutSummary.astro';
+import Icon from '../../components/Icon.astro';
+import Layout from '../../layouts/Layout.astro';
+import { shopperContext } from '../../lib/cart';
+import { ORDER_BY_CODE } from '../../lib/checkout-queries';
+import { shopQuery } from '../../lib/core';
+import { canonicalRedirect, pageContext, privatePage } from '../../lib/page';
+
+/**
+ * After the order (roadmap phase 14). Only the session that placed it can read it (Vendure's
+ * order-by-code rules); anyone else gets "track it with your number and phone".
+ */
+const redirect = canonicalRedirect(Astro, '/checkout/thank-you/');
+if (redirect) return redirect;
+privatePage(Astro);
+const { lang, settings, s, href, format } = pageContext(Astro);
+const shopper = shopperContext(Astro);
+const code = Astro.url.searchParams.get('order') ?? '';
+const order = /^[A-Za-z0-9]{6,40}$/.test(code)
+    ? (await shopQuery(ORDER_BY_CODE, { code }, lang, shopper)).orderByCode
+    : null;
+shopper.session.apply(Astro.response.headers);
+const placed = order?.orderPlacedAt ? order : null;
+const number = placed?.customFields?.orderNumber ?? placed?.code ?? '';
+const cod = placed?.payments?.some(payment => payment.method === 'bd-cod') ?? false;
+const mfsPending = placed?.payments?.some(
+    payment => payment.method !== 'bd-cod' && payment.state === 'Authorized',
+);
+const whatsapp = settings.profile.whatsapp.replace(/\D/g, '');
+---
+
+<Layout title={s.thankYouTitle} noindex>
+    <section class="thank-you">
+        {
+            placed ? (
+                <>
+                    <p class="thank-you-mark" aria-hidden="true">
+                        <Icon name="bag" size={32} />
+                    </p>
+                    <h1>{s.thankYouTitle}</h1>
+                    <p class="thank-you-number">{s.orderNumberIs(number)}</p>
+                    <p>{s.nextSteps}</p>
+                    {mfsPending && <p>{s.mfsPending}</p>}
+                    <div class="thank-you-actions">
+                        {placed.bdTrackingToken && (
+                            <a class="button" href={href(`/t/${placed.bdTrackingToken}/`)}>
+                                {s.trackThisOrder}
+                            </a>
+                        )}
+                        {whatsapp && (
+                            <a
+                                class="button button-whatsapp"
+                                href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(s.whatsappAboutOrder(number))}`}
+                                rel="noopener"
+                            >
+                                <Icon name="whatsapp" />
+                                {s.messageUs}
+                            </a>
+                        )}
+                        <a class="text-link" href={href('/')}>
+                            {s.continueShopping}
+                        </a>
+                    </div>
+                    <CheckoutSummary order={placed} options={null} cod={cod} deliveryKnown />
+                    <p class="muted">
+                        {s.payOnDelivery}:{' '}
+                        {format.price(
+                            (placed.payments ?? [])
+                                .filter(payment => payment.method === 'bd-cod' && payment.state === 'Authorized')
+                                .reduce((sum, payment) => sum + payment.amount, 0),
+                        )}
+                    </p>
+                </>
+            ) : (
+                <>
+                    <h1>{s.trackTitle}</h1>
+                    <p>{s.orderNotFound}</p>
+                    <a class="button" href={href('/track/')}>
+                        {s.trackButton}
+                    </a>
+                </>
+            )
+        }
+    </section>
+</Layout>

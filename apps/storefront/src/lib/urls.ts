@@ -21,14 +21,17 @@ function decodeSegment(segment: string): string {
 }
 
 /**
- * The one canonical spelling of a path: each segment decoded, composed (NFC), lowercased and
- * re-encoded; empty segments removed; a trailing slash unless it names a file.
+ * The one canonical spelling of a path: each segment decoded, composed (NFC), lowercased (except a
+ * tracking token) and re-encoded; empty segments removed; a trailing slash unless it names a file.
  */
 export function normalizePath(path: string): string {
-    const segments = path
-        .split('/')
-        .filter(Boolean)
-        .map(segment => encodeURIComponent(decodeSegment(segment).normalize('NFC').toLowerCase()));
+    const parts = path.split('/').filter(Boolean);
+    // Tracking tokens (`/t/<token>/`, phase 14) are case-sensitive: only they keep their case.
+    const token = parts[0]?.toLowerCase() === 't' ? 1 : -1;
+    const segments = parts.map((segment, index) => {
+        const text = decodeSegment(segment).normalize('NFC');
+        return encodeURIComponent(index === token ? text : text.toLowerCase());
+    });
     if (!segments.length) return '/';
     const joined = `/${segments.join('/')}`;
     return isFilePath(joined) ? joined : `${joined}/`;

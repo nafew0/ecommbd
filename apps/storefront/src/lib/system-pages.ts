@@ -3,7 +3,7 @@
  * unreachable. No data and no template, so they work when nothing else does.
  */
 
-type Kind = 'maintenance' | 'suspended' | 'unavailable' | 'error';
+type Kind = 'maintenance' | 'suspended' | 'unavailable' | 'busy' | 'error';
 
 const TEXT: Record<Kind, { status: number; bn: [string, string]; en: [string, string] }> = {
     maintenance: {
@@ -20,6 +20,11 @@ const TEXT: Record<Kind, { status: number; bn: [string, string]; en: [string, st
         status: 503,
         bn: ['কিছুক্ষণের জন্য বন্ধ', 'দোকানটি কিছুক্ষণের জন্য বন্ধ আছে। এক মিনিট পরে আবার চেষ্টা করুন।'],
         en: ['Temporarily unavailable', 'The shop is temporarily unavailable. Please try again in a minute.'],
+    },
+    busy: {
+        status: 429,
+        bn: ['একটু অপেক্ষা করুন', 'অনেক বেশি খোঁজা হয়েছে। এক মিনিট পরে আবার চেষ্টা করুন।'],
+        en: ['Please wait a moment', 'Too many searches. Please wait a minute and try again.'],
     },
     error: {
         status: 500,
@@ -55,5 +60,6 @@ export function systemPage(kind: Kind): Response {
     });
     // Search engines come back later instead of dropping the pages.
     if (status === 503) headers.set('retry-after', kind === 'unavailable' ? '60' : '3600');
+    if (status === 429) headers.set('retry-after', '60');
     return new Response(html, { status, headers });
 }

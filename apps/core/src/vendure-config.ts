@@ -182,6 +182,11 @@ export const config: VendureConfig = {
                     ? new LogSmsDriver()
                     : new NoSmsDriver(),
             storefrontUrl: env.STOREFRONT_URL,
+            searchRateLimits: {
+                search: { limit: env.SEARCH_RATE_LIMIT_PER_MINUTE, windowMs: 60_000 },
+                suggest: { limit: env.SEARCH_RATE_LIMIT_PER_MINUTE * 2, windowMs: 60_000 },
+            },
+            trackingRateLimits: { perIp: { limit: env.TRACKING_RATE_LIMIT_PER_IP, windowMs: 10 * 60_000 } },
         }),
     ],
 };

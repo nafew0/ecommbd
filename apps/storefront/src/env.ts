@@ -36,8 +36,17 @@ export const envSchema = z
             .pipe(z.array(z.url())),
         /** Seconds the data cache keeps settings, menus and categories. */
         CACHE_TTL_SECONDS: z.coerce.number().int().min(0).max(3600).default(60),
+        /** Signs the checkout form's CSRF token and timestamp (phase 14). At least 32 characters. */
+        CSRF_SECRET: z.string().min(32, 'must be at least 32 characters').optional(),
     })
     .superRefine((value, context) => {
+        if (live(value.APP_ENV) && !value.CSRF_SECRET) {
+            context.addIssue({
+                code: 'custom',
+                path: ['CSRF_SECRET'],
+                message: 'is required in staging and production (32+ random characters)',
+            });
+        }
         if (live(value.APP_ENV) && !value.SITE_URL) {
             context.addIssue({
                 code: 'custom',
@@ -50,6 +59,10 @@ export const envSchema = z
         ...value,
         SITE_URL: (value.SITE_URL ?? 'http://localhost:4321').replace(/\/$/, ''),
         CORE_URL: value.CORE_URL.replace(/\/$/, ''),
+        // Development and tests only: a fixed secret (live environments must set their own).
+        CSRF_SECRET: value.CSRF_SECRET ?? 'development-only-csrf-secret-not-for-production',
+        /** Session cookies get `Secure` outside development. */
+        SECURE_COOKIES: live(value.APP_ENV),
     }));
 
 export type Env = z.infer<typeof envSchema>;

@@ -43,6 +43,8 @@ beforeAll(async () => {
         orderPlacedAt: `now() - (n || ' minutes')::interval`,
         customFieldsOrdernumber: `(100000 + n)::text`,
         customFieldsConfirmqueueat: `CASE WHEN n <= ${NEW_ORDERS} THEN now() - (n || ' minutes')::interval END`,
+        // Unique per order, and given at placement (phase 14): the copies get none.
+        customFieldsTrackingtoken: 'NULL',
     };
     const names = columns.map(column => `"${column.column_name}"`).join(', ');
     const values = columns

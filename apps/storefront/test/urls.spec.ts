@@ -21,6 +21,12 @@ describe('normalizePath', () => {
         expect(normalizePath('')).toBe('/');
     });
 
+    it('keeps the case of a tracking token, and only that', () => {
+        expect(normalizePath('/T/LYnHXnW3hzq1p8Cvpsy9bQ')).toBe('/t/LYnHXnW3hzq1p8Cvpsy9bQ/');
+        expect(normalizePath('/en/T/AbC')).toBe('/en/t/abc/');
+        expect(normalizePath('/Product/AbC/')).toBe('/product/abc/');
+    });
+
     it('leaves file paths without a slash', () => {
         expect(normalizePath('/sitemap.xml')).toBe('/sitemap.xml');
         expect(normalizePath('/Robots.TXT')).toBe('/robots.txt');

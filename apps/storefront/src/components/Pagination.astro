@@ -1,0 +1,66 @@
+---
+import type { Formatter, Strings } from '../lib/i18n';
+import Icon from './Icon.astro';
+
+/** Numbered pages with previous and next (phase 13): 1 … 4 5 6 … 12. */
+interface Props {
+    page: number;
+    pages: number;
+    /** The address of a page, filters kept. */
+    hrefFor: (page: number) => string;
+    s: Strings;
+    format: Formatter;
+}
+
+const { page, pages, hrefFor, s, format } = Astro.props;
+const shown = [...new Set([1, page - 1, page, page + 1, pages])].filter(n => n >= 1 && n <= pages).sort((a, b) => a - b);
+const items: Array<number | 'gap'> = [];
+shown.forEach((n, index) => {
+    if (index > 0 && n - shown[index - 1]! > 1) items.push('gap');
+    items.push(n);
+});
+---
+
+{
+    pages > 1 && (
+        <nav class="pagination" aria-label={s.pagination}>
+            <ul>
+                {page > 1 && (
+                    <li>
+                        <a rel="prev" href={hrefFor(page - 1)}>
+                            <Icon name="chevron-left" />
+                            <span class="visually-hidden">{s.previous}</span>
+                        </a>
+                    </li>
+                )}
+                {items.map(item =>
+                    item === 'gap' ? (
+                        <li>
+                            <span aria-hidden="true">…</span>
+                        </li>
+                    ) : (
+                        <li>
+                            {item === page ? (
+                                <span aria-current="page" aria-label={s.pageNumber(item)}>
+                                    {format.number(item)}
+                                </span>
+                            ) : (
+                                <a href={hrefFor(item)} aria-label={s.pageNumber(item)}>
+                                    {format.number(item)}
+                                </a>
+                            )}
+                        </li>
+                    ),
+                )}
+                {page < pages && (
+                    <li>
+                        <a rel="next" href={hrefFor(page + 1)}>
+                            <Icon name="chevron-right" />
+                            <span class="visually-hidden">{s.next}</span>
+                        </a>
+                    </li>
+                )}
+            </ul>
+        </nav>
+    )
+}

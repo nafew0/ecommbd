@@ -90,6 +90,7 @@ export const en = {
         invoice: 'Invoices and stickers',
         staff: 'Staff',
         orderSettings: 'Orders',
+        search: 'Search',
     },
     home: {
         greeting: (name: string) => `Welcome, ${name}`,
@@ -1262,6 +1263,30 @@ export const en = {
         title: 'Page not found',
         body: 'This page doesn’t exist, or it hasn’t been built yet.',
         home: 'Go to home',
+    },
+    search: {
+        title: 'Search',
+        description:
+            'Help shoppers find products: words that mean the same thing, and what shoppers searched for but didn’t find.',
+        readOnly: 'You can see these settings, but your role can’t change them.',
+        saved: 'Search settings saved.',
+        synonyms: 'Synonyms',
+        synonymsHint:
+            'Words in one group find each other, in both directions. Put Bangla, English and Banglish spellings together, separated by commas. Typos are found on their own.',
+        noSynonyms: 'No synonyms yet.',
+        group: (n: string) => `Group ${n}`,
+        placeholder: 'panjabi, পাঞ্জাবি, punjabi',
+        addGroup: 'Add a group',
+        remove: 'Remove this group',
+        misses: 'Searches with no results',
+        missesHint:
+            'What shoppers searched for in the last 30 days and didn’t find. Add the product, or a synonym that leads to it.',
+        noMisses: 'Nothing yet',
+        noMissesBody: 'Every search in the last 30 days found something.',
+        term: 'Search words',
+        times: 'Times',
+        lastSearched: 'Last searched',
+        addAsSynonym: 'Add as synonym',
     },
 };
 

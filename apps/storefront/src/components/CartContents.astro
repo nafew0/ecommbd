@@ -1,0 +1,107 @@
+---
+import type { CartOrder } from '../lib/cart';
+import { pageContext } from '../lib/page';
+import { localePath, productPath } from '../lib/urls';
+import Icon from './Icon.astro';
+import Image from './Image.astro';
+
+/**
+ * The cart's lines and subtotal (roadmap phase 14), on the cart page and in the drawer. Every
+ * button is a plain form posting to `/cart/`; in the drawer the script sends them instead.
+ */
+interface Props {
+    order: CartOrder | null;
+    message?: string;
+    drawer?: boolean;
+}
+
+const { order, message, drawer = false } = Astro.props;
+const { lang, defaultLang, s, href, format } = pageContext(Astro);
+const lines = order?.lines ?? [];
+const soldOut = lines.some(line => line.productVariant.stockLevel === 'OUT_OF_STOCK');
+const cartAction = href('/cart/');
+---
+
+<div class="cart" data-cart data-count={order?.totalQuantity ?? 0}>
+    {message && <p class="notice" role="alert">{message}</p>}
+    {
+        lines.length ? (
+            <>
+                <ul class="cart-lines">
+                    {lines.map(line => {
+                        const variant = line.productVariant;
+                        const out = variant.stockLevel === 'OUT_OF_STOCK';
+                        const extra = variant.name !== variant.product.name ? variant.name.replace(variant.product.name, '').trim() : '';
+                        return (
+                            <li class:list={['cart-line', { 'is-out': out }]}>
+                                <a class="cart-line-media" href={localePath(lang, defaultLang, productPath(variant.product.slug))} tabindex="-1">
+                                    <Image asset={line.featuredAsset} alt="" lang={lang} sizes="80px" preferredWidth={160} />
+                                </a>
+                                <div class="cart-line-info">
+                                    <a href={localePath(lang, defaultLang, productPath(variant.product.slug))}>{variant.product.name}</a>
+                                    {extra && <span class="muted">{extra}</span>}
+                                    <span>{format.price(line.unitPriceWithTax)}</span>
+                                    {out && <span class="cart-line-warning">{s.soldOutInCart}</span>}
+                                    <div class="cart-line-actions">
+                                        <form method="post" action={cartAction} class="quantity-form" data-cart-form>
+                                            <input type="hidden" name="intent" value="update" />
+                                            <input type="hidden" name="lineId" value={line.id} />
+                                            <button class="quantity-button" name="quantity" value={line.quantity - 1} aria-label={s.decrease}>
+                                                −
+                                            </button>
+                                            <span class="quantity-value" aria-label={s.quantity}>
+                                                {format.number(line.quantity)}
+                                            </span>
+                                            <button
+                                                class="quantity-button"
+                                                name="quantity"
+                                                value={line.quantity + 1}
+                                                aria-label={s.increase}
+                                                disabled={out}
+                                            >
+                                                +
+                                            </button>
+                                        </form>
+                                        <form method="post" action={cartAction} data-cart-form>
+                                            <input type="hidden" name="intent" value="remove" />
+                                            <input type="hidden" name="lineId" value={line.id} />
+                                            <button class="text-link">{s.remove}</button>
+                                        </form>
+                                    </div>
+                                </div>
+                                <span class="cart-line-total">{format.price(line.linePriceWithTax)}</span>
+                            </li>
+                        );
+                    })}
+                </ul>
+                <div class="cart-footer">
+                    <p class="cart-subtotal">
+                        <span>{s.subtotal}</span>
+                        <span>{format.price(order!.subTotalWithTax)}</span>
+                    </p>
+                    <p class="muted">{s.deliveryAtCheckout}</p>
+                    {soldOut ? (
+                        <span class="button is-disabled" aria-disabled="true">{s.checkout}</span>
+                    ) : (
+                        <a class="button checkout-button" href={href('/checkout/')}>
+                            {s.checkout}
+                        </a>
+                    )}
+                    {!drawer && (
+                        <a class="text-link" href={href('/')}>
+                            {s.continueShopping}
+                        </a>
+                    )}
+                </div>
+            </>
+        ) : (
+            <div class="cart-empty">
+                <Icon name="bag" size={40} />
+                <p>{s.cartEmpty}</p>
+                <a class="button button-secondary" href={href('/')}>
+                    {s.continueShopping}
+                </a>
+            </div>
+        )
+    }
+</div>

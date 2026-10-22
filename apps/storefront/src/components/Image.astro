@@ -1,6 +1,7 @@
 ---
 import { type AssetData, imageAttributes } from '../lib/images';
 import { t, type Lang } from '../lib/i18n';
+import Icon from './Icon.astro';
 
 interface Props {
     asset: AssetData | null | undefined;
@@ -34,12 +35,7 @@ const attributes = asset ? imageAttributes(asset, preferredWidth) : null;
         />
     ) : (
         <div class:list={['image-placeholder', className]} role="img" aria-label={t(lang).noImage}>
-            <svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true">
-                <path
-                    fill="currentColor"
-                    d="M21 5v14H3V5h18m0-2H3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Zm-7.1 9.1-2.8 3.6-2-2.4L6 17h12l-4.1-4.9Z"
-                />
-            </svg>
+            <Icon name="image" size={40} />
         </div>
     )
 }

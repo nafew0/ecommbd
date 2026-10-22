@@ -1,19 +1,20 @@
 ---
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
+import Listing from '../../components/Listing.astro';
 import Missing from '../../components/Missing.astro';
-import ProductCard from '../../components/ProductCard.astro';
 import RichText from '../../components/RichText.astro';
 import Layout from '../../layouts/Layout.astro';
-import { type ResultOf, shopQuery } from '../../lib/core';
+import { clientIpOf, type ResultOf, shopQuery } from '../../lib/core';
+import { canonicalListingSearch, isRefined, parseListing, SEARCH_SORT_ENUM } from '../../lib/filters';
 import { otherLang } from '../../lib/i18n';
 import { largestImageUrl } from '../../lib/images';
 import { alternates, canonicalRedirect, pageContext } from '../../lib/page';
-import { COLLECTION, type ProductCardFields, PRODUCTS_BY_ID, SEARCH, SLUG_LOOKUP } from '../../lib/queries';
+import { BD_SEARCH, COLLECTION, type ProductCardFields, PRODUCTS_BY_ID, SLUG_LOOKUP } from '../../lib/queries';
 import { breadcrumbList, metaDescription } from '../../lib/seo';
 import { categoryPath, lookupSlug } from '../../lib/urls';
 
 const PER_PAGE = 24;
-const { lang, defaultLang, s, href, absolute, format } = pageContext(Astro);
+const { lang, s, href, absolute } = pageContext(Astro);
 
 type Collection = NonNullable<ResultOf<typeof COLLECTION>['collection']>;
 const pathOf = (collection: Collection) =>
@@ -38,26 +39,40 @@ if (!collection) {
     // The full path is canonical: a wrong or missing parent redirects too.
     const redirect = canonicalRedirect(Astro, pathOf(collection));
     if (redirect) return redirect;
+    // And the filters have one spelling (phase 13).
+    const search = canonicalListingSearch(Astro.url, 'category');
+    if (search !== null) return Astro.redirect(`${href(pathOf(collection))}${search}`, 301);
 }
 
-const page = Math.max(1, Number.parseInt(Astro.url.searchParams.get('page') ?? '1', 10) || 1);
+const state = parseListing(Astro.url.searchParams, 'category');
+const refined = isRefined(state, 'category');
+const { bdSearch: result } = collection
+    ? await shopQuery(
+          BD_SEARCH,
+          {
+              input: {
+                  collectionId: collection.id,
+                  filters: state.filters,
+                  priceMin: state.priceMin,
+                  priceMax: state.priceMax,
+                  inStockOnly: state.inStock,
+                  sort: SEARCH_SORT_ENUM[state.sort],
+                  take: PER_PAGE,
+                  skip: (state.page - 1) * PER_PAGE,
+              },
+          },
+          lang,
+          { clientIp: clientIpOf(Astro.request, () => Astro.clientAddress) },
+      )
+    : { bdSearch: null };
 let products: Array<ResultOf<typeof ProductCardFields>> = [];
-let total = 0;
-if (collection) {
-    const { search } = await shopQuery(
-        SEARCH,
-        { input: { collectionId: collection.id, groupByProduct: true, take: PER_PAGE, skip: (page - 1) * PER_PAGE } },
-        lang,
-    );
-    total = search.totalItems;
-    const ids = search.items.map(item => item.productId);
-    if (ids.length) {
-        const found = (await shopQuery(PRODUCTS_BY_ID, { ids, take: ids.length }, lang)).products.items;
-        products = ids.map(id => found.find(product => product.id === id)).filter(product => !!product);
-    }
+if (result?.productIds.length) {
+    const found = (await shopQuery(PRODUCTS_BY_ID, { ids: result.productIds, take: result.productIds.length }, lang))
+        .products.items;
+    products = result.productIds.map(id => found.find(product => product.id === id)).filter(product => !!product);
 }
-const pages = Math.max(1, Math.ceil(total / PER_PAGE));
-if (collection && page > pages) {
+const pages = Math.max(1, Math.ceil((result?.totalItems ?? 0) / PER_PAGE));
+if (collection && state.page > pages) {
     missing = 'not-found';
     Astro.response.status = 404;
 }
@@ -77,24 +92,28 @@ const crumbs = [
 ---
 
 {
-    collection && !missing ? (
+    collection && result && !missing ? (
         <Layout
             title={collection.customFields?.seoTitle || collection.name}
             description={metaDescription(collection.customFields?.seoDescription, collection.description)}
-            canonicalPath={canonicalPath ? `${canonicalPath}${pageQuery(page)}` : null}
-            alternates={alternates(Astro, {
-                [lang]: `${canonicalPath}${pageQuery(page)}`,
-                ...(otherCollection ? { [other]: `${pathOf(otherCollection)}${pageQuery(page)}` } : {}),
-            })}
+            canonicalPath={canonicalPath && !refined ? `${canonicalPath}${pageQuery(state.page)}` : null}
+            noindex={refined}
+            alternates={
+                refined
+                    ? []
+                    : alternates(Astro, {
+                          [lang]: `${canonicalPath}${pageQuery(state.page)}`,
+                          ...(otherCollection ? { [other]: `${pathOf(otherCollection)}${pageQuery(state.page)}` } : {}),
+                      })
+            }
             image={collection.featuredAsset ? largestImageUrl(collection.featuredAsset) : undefined}
             structuredData={[breadcrumbList(crumbs.map(crumb => ({ name: crumb.name, url: absolute(crumb.href) })))]}
         >
             <Breadcrumbs crumbs={crumbs} label={s.breadcrumb} />
             <header class="page-header">
                 <h1>{collection.name}</h1>
-                <p class="muted">{s.products(total)}</p>
+                {collection.description && <RichText content={collection.description} />}
             </header>
-            {collection.description && <RichText content={collection.description} />}
             {(collection.children?.length ?? 0) > 0 && (
                 <nav class="subcategories" aria-label={s.subcategories}>
                     <ul>
@@ -106,33 +125,18 @@ const crumbs = [
                     </ul>
                 </nav>
             )}
-            {products.length ? (
-                <>
-                    <h2 class="visually-hidden">{s.productsHeading}</h2>
-                    <ul class="product-grid">
-                        {products.map(product => (
-                            <ProductCard product={product} lang={lang} defaultLang={defaultLang} format={format} />
-                        ))}
-                    </ul>
-                </>
-            ) : (
-                <p class="muted">{s.noProducts}</p>
-            )}
-            {pages > 1 && (
-                <nav class="pagination" aria-label={s.pageOf(page, pages)}>
-                    {page > 1 && (
-                        <a rel="prev" href={href(`${canonicalPath}${pageQuery(page - 1)}`)}>
-                            {s.previous}
-                        </a>
-                    )}
-                    <span>{s.pageOf(page, pages)}</span>
-                    {page < pages && (
-                        <a rel="next" href={href(`${canonicalPath}${pageQuery(page + 1)}`)}>
-                            {s.next}
-                        </a>
-                    )}
-                </nav>
-            )}
+            <Listing
+                kind="category"
+                state={state}
+                result={result}
+                products={products}
+                basePath={href(canonicalPath!)}
+                perPage={PER_PAGE}
+            >
+                <p slot="empty" class="muted">
+                    {s.noProducts}
+                </p>
+            </Listing>
         </Layout>
     ) : (
         <Layout title={missing === 'gone' ? s.goneTitle : s.notFoundTitle} noindex>

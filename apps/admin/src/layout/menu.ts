@@ -86,6 +86,7 @@ export const MENU: MenuGroup[] = [
             link('headerFooter', '/store/header-footer', '15'),
             link('menus', '/store/menus', '12', true, 'ManageContent'),
             link('pages', '/store/pages', '12', true, 'ManageContent'),
+            link('search', '/store/search', '13', true, 'ManageContent'),
         ],
     },
     {

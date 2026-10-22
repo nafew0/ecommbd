@@ -77,3 +77,12 @@ One word per idea everywhere: storefront, Dashboard, SMS, help articles. Banglad
 | Receipt (thermal) | রিসিট |
 | Courier sticker | কুরিয়ার স্টিকার |
 | Recipient / Sender (on a sticker) | প্রাপক / প্রেরক |
+| Search (shopper / merchant admin) | খুঁজুন / সার্চ |
+| Filter / Sort | ফিল্টার / সাজান |
+| Synonym | সমার্থক শব্দ |
+| Sale (badge) | ছাড় |
+| In stock only | শুধু স্টকে আছে |
+| Add to cart / Buy now | কার্টে যোগ করুন / এখনই কিনুন |
+| Checkout / Place order | চেকআউট / অর্ডার করুন |
+| Track order | অর্ডার ট্র্যাক করুন |
+| Verification code (OTP) | কোড (SMS-এর কোড) |
