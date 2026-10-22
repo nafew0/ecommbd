@@ -12,7 +12,7 @@ import {
 } from '@ecommbd/sections';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowDown, ArrowUp, CircleCheck, CircleX, Plus, X } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { cn } from '../../lib/cn';
 import { useI18n } from '../../lib/i18n';
 import { ImageUpload } from '../form/image-upload';
@@ -578,6 +578,182 @@ function VideoControl({ field, value, onChange, issue }: FieldControlProps) {
     );
 }
 
+/** Any colour (phase 16's Design options): the browser's colour picker and the hex code, or none. */
+function HexControl({ field, value, onChange, issue }: FieldControlProps) {
+    const { messages: m, language: ui } = useI18n();
+    const id = useId();
+    const input = useRef<HTMLInputElement>(null);
+    const hex = (value as string) || '';
+    const [typed, setTyped] = useState(hex);
+    // Undo, redo or the picker changed it: show it, unless the merchant is typing.
+    useEffect(() => {
+        if (document.activeElement !== input.current) setTyped(hex);
+    }, [hex]);
+    const valid = (text: string) => /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.test(text.trim());
+    const normalize = (text: string) => {
+        const digits = text.trim().toLowerCase().replace('#', '');
+        return `#${digits.length === 3 ? [...digits].map(digit => digit + digit).join('') : digits}`;
+    };
+    return (
+        <div>
+            <Label htmlFor={id}>{field.label[ui]}</Label>
+            <div className="flex items-center gap-2">
+                <span className="relative size-11 shrink-0 overflow-hidden rounded-md border border-slate-300">
+                    <input
+                        type="color"
+                        aria-label={field.label[ui]}
+                        value={hex || '#ffffff'}
+                        onChange={event => onChange(event.target.value)}
+                        className="absolute inset-0 size-full cursor-pointer border-0 p-0"
+                    />
+                    {!hex && (
+                        // No colour chosen: a slash, like "none" in design tools.
+                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white">
+                            <span className="h-px w-8 rotate-45 bg-red-500" />
+                        </span>
+                    )}
+                </span>
+                <Input
+                    ref={input}
+                    id={id}
+                    value={typed}
+                    placeholder={m.design.auto}
+                    maxLength={7}
+                    spellCheck={false}
+                    className="font-mono uppercase"
+                    aria-invalid={typed !== '' && !valid(typed) ? true : undefined}
+                    onChange={event => {
+                        const next = event.target.value;
+                        setTyped(next);
+                        if (next.trim() === '') onChange('');
+                        else if (/^#?[0-9a-f]{6}$/i.test(next.trim())) onChange(normalize(next));
+                    }}
+                    onBlur={() => {
+                        if (valid(typed)) onChange(normalize(typed));
+                        setTyped(valid(typed) ? normalize(typed) : hex);
+                    }}
+                />
+                {hex && (
+                    <Button variant="ghost" size="sm" onClick={() => onChange('')}>
+                        {m.design.clear}
+                    </Button>
+                )}
+            </div>
+            {field.hint && <Hint>{field.hint[ui]}</Hint>}
+            {issue && <Hint tone="error">{issue}</Hint>}
+        </div>
+    );
+}
+
+/** A size within limits, or automatic (empty): a slider with the number, and "Auto". */
+function SizeControl({ field, value, onChange }: FieldControlProps) {
+    const { messages: m, language: ui } = useI18n();
+    const id = useId();
+    if (field.kind !== 'size') return null;
+    const size = value as number | null;
+    const unit = field.unit === '%' ? '%' : field.unit === 'h' ? m.design.hoursShort : 'px';
+    const shown = (n: number) =>
+        ui === 'bn' ? String(n).replace(/\d/g, digit => '০১২৩৪৫৬৭৮৯'[Number(digit)]!) : String(n);
+    return (
+        <div>
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+                <label htmlFor={id} className="text-sm font-medium text-slate-800">
+                    {field.label[ui]}
+                </label>
+                <span className="flex items-center gap-1.5">
+                    <output
+                        htmlFor={id}
+                        className={cn(
+                            'min-w-12 rounded px-2 py-0.5 text-center text-sm font-medium tabular-nums',
+                            size == null ? 'text-slate-500' : 'bg-slate-100',
+                        )}
+                    >
+                        {size == null ? m.design.auto : `${shown(size)} ${unit}`}
+                    </output>
+                    {size != null && (
+                        <button
+                            type="button"
+                            onClick={() => onChange(null)}
+                            className="rounded px-1.5 py-0.5 text-xs font-medium text-teal-800 hover:bg-teal-50"
+                        >
+                            {m.design.auto}
+                        </button>
+                    )}
+                </span>
+            </div>
+            <input
+                id={id}
+                type="range"
+                min={field.min}
+                max={field.max}
+                step={field.step}
+                value={size ?? field.min}
+                onChange={event => onChange(Number(event.target.value))}
+                className={cn('h-2 w-full cursor-pointer accent-teal-700', size == null && 'opacity-50')}
+            />
+            {field.hint && <Hint>{field.hint[ui]}</Hint>}
+        </div>
+    );
+}
+
+/** Dhaka time is UTC+6 all year (no daylight saving). */
+const DHAKA_MS = 6 * 60 * 60 * 1000;
+
+/** A date and time, chosen in Dhaka time and stored in UTC (ISO). */
+function DateTimeControl({ field, value, onChange, issue }: FieldControlProps) {
+    const { messages: m, language: ui } = useI18n();
+    const id = useId();
+    const iso = value as string;
+    const local = iso ? new Date(Date.parse(iso) + DHAKA_MS).toISOString().slice(0, 16) : '';
+    return (
+        <div>
+            <Label htmlFor={id}>{field.label[ui]}</Label>
+            <Input
+                id={id}
+                type="datetime-local"
+                value={local}
+                onChange={event =>
+                    onChange(
+                        event.target.value ? new Date(`${event.target.value}:00+06:00`).toISOString() : '',
+                    )
+                }
+            />
+            <Hint>{m.design.dhakaTime}</Hint>
+            {issue && <Hint tone="error">{issue}</Hint>}
+        </div>
+    );
+}
+
+/** An amount in whole taka, stored in poisha; empty for none. */
+function MoneyControl({ field, value, onChange }: FieldControlProps) {
+    const { language: ui } = useI18n();
+    const id = useId();
+    const poisha = value as number | null;
+    return (
+        <div>
+            <Label htmlFor={id}>{field.label[ui]}</Label>
+            <div className="flex min-h-11 items-center rounded-md border border-slate-300 bg-white focus-within:outline-2 focus-within:outline-teal-600">
+                <span className="pl-3 text-slate-500" aria-hidden>
+                    ৳
+                </span>
+                <input
+                    id={id}
+                    inputMode="numeric"
+                    className="min-w-0 flex-1 bg-transparent py-2 pr-3 pl-1 text-base outline-none"
+                    value={poisha == null ? '' : String(poisha / 100)}
+                    onChange={event => {
+                        const digits = event.target.value
+                            .replace(/[০-৯]/g, digit => String('০১২৩৪৫৬৭৮৯'.indexOf(digit)))
+                            .replace(/[^\d]/g, '');
+                        onChange(digits ? Math.min(Number(digits), 10_000_000) * 100 : null);
+                    }}
+                />
+            </div>
+            {field.hint && <Hint>{field.hint[ui]}</Hint>}
+        </div>
+    );
+}
+
 const SWATCHES: Record<(typeof PALETTE_COLOURS)[number], string> = {
     text: 'bg-slate-900',
     accent: 'bg-teal-700',
@@ -646,5 +822,13 @@ export function FieldControl(props: FieldControlProps) {
             return <VideoControl {...props} />;
         case 'colour':
             return <ColourControl {...props} />;
+        case 'hex':
+            return <HexControl {...props} />;
+        case 'size':
+            return <SizeControl {...props} />;
+        case 'datetime':
+            return <DateTimeControl {...props} />;
+        case 'money':
+            return <MoneyControl {...props} />;
     }
 }

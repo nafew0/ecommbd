@@ -18,20 +18,21 @@ import { useI18n } from '../lib/i18n';
 import { ORDER_FIELDS, type OrderRow } from '../lib/orders';
 import { openPrint } from '../lib/print';
 import { useDebounced } from '../lib/use-debounced';
+import { fetchSalesPages } from '../components/design/design-api';
 
 /** Up to 100 per page, so the packing desk can select a whole batch to print (phase 06). */
 const PAGE_SIZES = [25, 50, 100];
 
 const ORDERS = `
     query Orders($status: String, $search: String, $dateFrom: String, $dateTo: String, $districtId: String,
-        $paymentType: String, $skip: Int, $take: Int) {
+        $paymentType: String, $campaign: String, $salesPageId: ID, $skip: Int, $take: Int) {
         bdOrders(status: $status, search: $search, dateFrom: $dateFrom, dateTo: $dateTo, districtId: $districtId,
-            paymentType: $paymentType, skip: $skip, take: $take) {
+            paymentType: $paymentType, campaign: $campaign, salesPageId: $salesPageId, skip: $skip, take: $take) {
             totalItems
             items { ...BdOrderRow bdPrint { invoicePrintedAt slipPrintedAt stickerPrintedAt } }
         }
         bdOrderCounts(search: $search, dateFrom: $dateFrom, dateTo: $dateTo, districtId: $districtId,
-            paymentType: $paymentType) { status count }
+            paymentType: $paymentType, campaign: $campaign, salesPageId: $salesPageId) { status count }
     }
     ${ORDER_FIELDS}
 `;
@@ -54,23 +55,44 @@ interface Filters {
     dateTo: string;
     districtId: string;
     paymentType: string;
+    /** utm_campaign, exactly (phase 16). */
+    campaign: string;
+    salesPageId: string;
 }
 
-const NO_FILTERS: Filters = { dateFrom: '', dateTo: '', districtId: '', paymentType: '' };
+const NO_FILTERS: Filters = {
+    dateFrom: '',
+    dateTo: '',
+    districtId: '',
+    paymentType: '',
+    campaign: '',
+    salesPageId: '',
+};
 
 /** All orders (roadmap phase 04): status tabs with counts, search, Dhaka-date and other filters. */
 export function OrdersPage() {
     const { messages: m } = useI18n();
     const format = useFormat();
     const [params, setParams] = useSearchParams();
+    const { can } = useAuth();
     const status = (params.get('status') as BdOrderStatus | null) ?? 'all';
     const [search, setSearch] = useState('');
-    const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+    // A sales page's order count and the campaign view link here with their filter set.
+    const [filters, setFilters] = useState<Filters>(() => ({
+        ...NO_FILTERS,
+        campaign: params.get('campaign') ?? '',
+        salesPageId: params.get('salesPageId') ?? '',
+    }));
+    const salesPages = useQuery({
+        queryKey: ['salesPages', 'filter'],
+        queryFn: () => fetchSalesPages('', 0, 100),
+        enabled: can('EditStorefront'),
+        staleTime: 60_000,
+    });
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(PAGE_SIZES[0]!);
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [printDocument, setPrintDocument] = useState<PrintDocument>('invoice');
-    const { can } = useAuth();
     const term = useDebounced(search.trim());
     const { districts } = usePlaces('');
     const query = useQuery({
@@ -83,6 +105,8 @@ export function OrdersPage() {
                 dateTo: filters.dateTo || null,
                 districtId: filters.districtId || null,
                 paymentType: filters.paymentType || null,
+                campaign: filters.campaign.trim() || null,
+                salesPageId: filters.salesPageId || null,
                 skip: (page - 1) * pageSize,
                 take: pageSize,
             }),
@@ -245,6 +269,32 @@ export function OrdersPage() {
                                 ))}
                             </Select>
                         </label>
+                        <label className="text-sm">
+                            <span className="block text-slate-600">{m.orders.filters.campaign}</span>
+                            <Input
+                                value={filters.campaign}
+                                onChange={event => setFilter('campaign', event.target.value)}
+                                placeholder="utm_campaign"
+                                className="w-44"
+                            />
+                        </label>
+                        {(salesPages.data?.items.length ?? 0) > 0 && (
+                            <label className="text-sm">
+                                <span className="block text-slate-600">{m.orders.filters.salesPage}</span>
+                                <Select
+                                    value={filters.salesPageId}
+                                    onChange={event => setFilter('salesPageId', event.target.value)}
+                                    className="w-48"
+                                >
+                                    <option value="">{m.orders.filters.anySalesPage}</option>
+                                    {salesPages.data!.items.map(item => (
+                                        <option key={item.id} value={item.id}>
+                                            {item.title}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </label>
+                        )}
                         <label className="text-sm">
                             <span className="block text-slate-600">{m.list.perPage}</span>
                             <Select

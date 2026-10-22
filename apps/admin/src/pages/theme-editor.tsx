@@ -213,7 +213,7 @@ function ThemeEditor({ saved }: { saved: ThemeSettings }) {
             <div className="flex min-h-0 flex-1">
                 <aside
                     className={cn(
-                        'w-full min-w-0 overflow-y-auto border-r border-slate-200 bg-white lg:w-[380px] lg:shrink-0',
+                        'relative w-full min-w-0 overflow-y-auto border-r border-slate-200 bg-white lg:w-[380px] lg:shrink-0',
                         mobileTab === 'preview' && 'max-lg:hidden',
                     )}
                 >

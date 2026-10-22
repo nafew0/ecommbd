@@ -1,9 +1,15 @@
-import type { LayoutDocument, SectionData, ThemeProblem, ThemeSettings } from '@ecommbd/sections';
+import type {
+    LayoutDocument,
+    SalesPageSettings,
+    SectionData,
+    ThemeProblem,
+    ThemeSettings,
+} from '@ecommbd/sections';
 import { adminApi } from '../../lib/api';
 
 /** Admin API calls for the page editor and the theme screen (roadmap phase 15, bd-sections). */
 
-export type LayoutKind = 'home' | 'product' | 'page';
+export type LayoutKind = 'home' | 'product' | 'page' | 'landing';
 
 export interface LayoutWarning {
     sectionId: string;
@@ -243,4 +249,111 @@ export function fetchStoreLogo() {
         logo: result.bdStoreSettings.logo,
         storeName: result.bdStoreSettings.settings.profile.storeName,
     }));
+}
+
+// ---- Sales pages (roadmap phase 16, bd-sales-pages) ----
+
+export type SalesPageStatus = 'live' | 'off' | 'notPublished' | 'productMissing';
+
+export interface SalesPage {
+    id: string;
+    title: string;
+    slug: string;
+    template: string;
+    active: boolean;
+    productId: string | null;
+    settings: SalesPageSettings;
+    layoutId: string | null;
+    status: SalesPageStatus;
+    orderCount: number;
+    url: string;
+    createdBy: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface SalesPageProblem {
+    field: string;
+    code: string;
+    suggestion: string | null;
+}
+
+export interface SalesPageResult {
+    page: SalesPage | null;
+    errors: SalesPageProblem[];
+}
+
+export interface SalesPageInput {
+    title?: string;
+    slug?: string;
+    template?: string;
+    productId?: string;
+    active?: boolean;
+    settings?: SalesPageSettings;
+}
+
+const SALES_PAGE = `id title slug template active productId settings layoutId status orderCount url createdBy createdAt updatedAt`;
+const SALES_RESULT = `page { ${SALES_PAGE} } errors { field code suggestion }`;
+
+export function fetchSalesPages(search: string, skip: number, take: number) {
+    return adminApi<{ bdSalesPages: { items: SalesPage[]; totalItems: number } }>(
+        `query ($search: String, $skip: Int, $take: Int) { bdSalesPages(search: $search, skip: $skip, take: $take) { totalItems items { ${SALES_PAGE} } } }`,
+        { search: search || null, skip, take },
+    ).then(result => result.bdSalesPages);
+}
+
+export function fetchSalesPage(id: string) {
+    return adminApi<{ bdSalesPage: SalesPage | null }>(
+        `query ($id: ID!) { bdSalesPage(id: $id) { ${SALES_PAGE} } }`,
+        { id },
+    ).then(result => result.bdSalesPage);
+}
+
+export function createSalesPage(input: SalesPageInput) {
+    return adminApi<{ createBdSalesPage: SalesPageResult }>(
+        `mutation ($input: BdSalesPageInput!) { createBdSalesPage(input: $input) { ${SALES_RESULT} } }`,
+        { input },
+    ).then(result => result.createBdSalesPage);
+}
+
+export function updateSalesPage(id: string, input: SalesPageInput) {
+    return adminApi<{ updateBdSalesPage: SalesPageResult }>(
+        `mutation ($id: ID!, $input: BdSalesPageInput!) { updateBdSalesPage(id: $id, input: $input) { ${SALES_RESULT} } }`,
+        { id, input },
+    ).then(result => result.updateBdSalesPage);
+}
+
+export function duplicateSalesPage(id: string) {
+    return adminApi<{ duplicateBdSalesPage: SalesPageResult }>(
+        `mutation ($id: ID!) { duplicateBdSalesPage(id: $id) { ${SALES_RESULT} } }`,
+        { id },
+    ).then(result => result.duplicateBdSalesPage);
+}
+
+export function deleteSalesPage(id: string) {
+    return adminApi<{ deleteBdSalesPage: boolean }>(`mutation ($id: ID!) { deleteBdSalesPage(id: $id) }`, {
+        id,
+    }).then(result => result.deleteBdSalesPage);
+}
+
+export interface VariantOption {
+    id: string;
+    name: string;
+    priceWithTax: number;
+    product: { id: string; name: string };
+}
+
+/** A product's variants (the add-on offer picks one). */
+export function fetchVariants(productId: string) {
+    return adminApi<{ product: { variants: VariantOption[] } | null }>(
+        `query ($id: ID!) { product(id: $id) { variants { id name priceWithTax product { id name } } } }`,
+        { id: productId },
+    ).then(result => result.product?.variants ?? []);
+}
+
+export function fetchVariant(id: string) {
+    return adminApi<{ productVariant: VariantOption | null }>(
+        `query ($id: ID!) { productVariant(id: $id) { id name priceWithTax product { id name } } }`,
+        { id },
+    ).then(result => result.productVariant);
 }

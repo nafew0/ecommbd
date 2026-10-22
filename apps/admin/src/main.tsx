@@ -240,6 +240,20 @@ const router = createBrowserRouter(
                                 })),
                         },
                         {
+                            path: 'sales-pages',
+                            lazy: () =>
+                                import('./pages/sales-pages').then(module => ({
+                                    Component: module.SalesPagesPage,
+                                })),
+                        },
+                        {
+                            path: 'orders/campaigns',
+                            lazy: () =>
+                                import('./pages/order-campaigns').then(module => ({
+                                    Component: module.OrderCampaignsPage,
+                                })),
+                        },
+                        {
                             path: 'store/pages/:id',
                             lazy: () =>
                                 import('./pages/content-page-edit').then(module => ({

@@ -1,6 +1,9 @@
 import {
     createSection,
     copySection,
+    LANDING_CATEGORIES,
+    LANDING_CATEGORY_NAMES,
+    LANDING_TEMPLATES,
     type LayoutType,
     pick,
     SECTION_CATEGORIES,
@@ -44,6 +47,7 @@ export function AddSectionDialog({
     layoutType,
     onAdd,
     onTemplate,
+    onLandingTemplate,
     initialTab = 'sections',
 }: {
     open: boolean;
@@ -51,6 +55,8 @@ export function AddSectionDialog({
     layoutType: LayoutType;
     onAdd(section: SectionData): void;
     onTemplate(name: StarterName): void;
+    /** Sales pages (phase 16) pick from their own twelve templates. */
+    onLandingTemplate?(id: string): void;
     initialTab?: LibraryTab;
 }) {
     const { messages: m, language } = useI18n();
@@ -183,7 +189,34 @@ export function AddSectionDialog({
                     </ul>
                 </div>
             )}
-            {tab === 'templates' && (
+            {tab === 'templates' && layoutType === 'landing' && (
+                <div className="space-y-6">
+                    <p className="text-sm text-slate-600">{d.landingTemplatesDescription}</p>
+                    {LANDING_CATEGORIES.map(category => (
+                        <section key={category}>
+                            <h3 className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                                {pick(LANDING_CATEGORY_NAMES[category], language)}
+                            </h3>
+                            <ul className="grid gap-3 sm:grid-cols-2">
+                                {LANDING_TEMPLATES.filter(template => template.category === category).map(
+                                    template => (
+                                        <li key={template.id}>
+                                            <LandingTemplateCard
+                                                id={template.id}
+                                                onPick={() => {
+                                                    onLandingTemplate?.(template.id);
+                                                    onClose();
+                                                }}
+                                            />
+                                        </li>
+                                    ),
+                                )}
+                            </ul>
+                        </section>
+                    ))}
+                </div>
+            )}
+            {tab === 'templates' && layoutType !== 'landing' && (
                 <div>
                     <p className="mb-4 text-sm text-slate-600">{d.templatesDescription}</p>
                     <ul className="grid gap-3 sm:grid-cols-2">
@@ -233,6 +266,57 @@ export function AddSectionDialog({
                 </div>
             )}
         </Dialog>
+    );
+}
+
+/** A sales page template (phase 16): its sections in miniature, its name and what it's for. */
+export function LandingTemplateCard({
+    id,
+    onPick,
+    selected = false,
+}: {
+    id: string;
+    onPick(): void;
+    selected?: boolean;
+}) {
+    const { messages: m, language } = useI18n();
+    const template = LANDING_TEMPLATES.find(item => item.id === id)!;
+    const types = template
+        .build({ name: { bn: '', en: '' } })
+        .sections.filter(section => !section.hidden)
+        .map(section => section.type);
+    return (
+        <button
+            type="button"
+            onClick={onPick}
+            aria-pressed={selected}
+            className={cn(
+                'group flex w-full gap-3 rounded-lg border bg-white p-3 text-left transition hover:border-teal-600 hover:shadow-md focus-visible:outline-2 focus-visible:outline-teal-600',
+                selected ? 'border-teal-600 ring-2 ring-teal-600/30' : 'border-slate-200',
+            )}
+        >
+            <span className="flex w-20 shrink-0 flex-col gap-1 rounded bg-slate-50 p-1.5 ring-1 ring-slate-200">
+                {types.slice(0, 5).map((type, index) => (
+                    <SectionThumbnail key={`${type}-${index}`} type={type} className="w-full rounded-sm" />
+                ))}
+            </span>
+            <span className="min-w-0">
+                <span className="flex items-center gap-1.5 font-medium">
+                    {selected ? (
+                        <Check className="size-4 text-teal-700" aria-hidden />
+                    ) : (
+                        <LayoutTemplate className="size-4 text-teal-700" aria-hidden />
+                    )}
+                    {pick(template.name, language)}
+                </span>
+                <span className="mt-1 block text-sm text-slate-600">
+                    {pick(template.description, language)}
+                </span>
+                <span className="mt-2 block text-xs text-slate-500">
+                    {m.design.sectionCountShort(types.length)}
+                </span>
+            </span>
+        </button>
     );
 }
 

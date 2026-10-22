@@ -1,6 +1,16 @@
 import {
     BadgeCheck,
+    BadgePercent,
+    Blocks,
     CirclePlay,
+    ClipboardList,
+    ListChecks,
+    Scale,
+    Settings2,
+    ShieldCheck,
+    Table2,
+    Tags,
+    Timer,
     CircleQuestionMark,
     Columns2,
     Columns3,
@@ -40,6 +50,18 @@ const ICONS: Record<string, LucideIcon> = {
     contact: Phone,
     'whatsapp-cta': MessageCircle,
     divider: SeparatorHorizontal,
+    // Phase 16
+    'sales-hero': BadgePercent,
+    benefits: ListChecks,
+    specs: Table2,
+    'price-packs': Tags,
+    comparison: Scale,
+    countdown: Timer,
+    guarantee: ShieldCheck,
+    'order-form': ClipboardList,
+    custom: Blocks,
+    /** The editor's "Page settings" panel. */
+    settings: Settings2,
 };
 
 export function SectionIcon({ type, className }: { type: string; className?: string }) {

@@ -3,13 +3,14 @@ import { en } from '../messages/en';
 import { MENU, visibleMenu } from './menu';
 
 describe('menu', () => {
-    it('shows only built screens: Home, Orders, Products, Customers, Online store and Settings', () => {
+    it('shows only built screens: Home, Orders, Products, Customers, Sales pages, Online store and Settings', () => {
         const menu = visibleMenu(MENU, () => true);
         expect(menu.map(group => group.label)).toEqual([
             'home',
             'orders',
             'products',
             'customers',
+            'salesPages',
             'onlineStore',
             'settings',
         ]);
@@ -18,6 +19,7 @@ describe('menu', () => {
             '/orders/confirm',
             '/orders/phone',
             '/orders/incomplete',
+            '/orders/campaigns',
             '/orders/payments',
         ]);
         expect(menu[2]!.children!.map(child => child.to)).toEqual([
@@ -26,7 +28,8 @@ describe('menu', () => {
             '/products/stock',
         ]);
         expect(menu[3]!.children!.map(child => child.to)).toEqual(['/customers', '/customers/blocked']);
-        expect(menu[4]!.children!.map(child => child.to)).toEqual([
+        expect(menu[4]!.link!.to).toBe('/sales-pages');
+        expect(menu[5]!.children!.map(child => child.to)).toEqual([
             '/store/theme',
             '/store/design/home',
             '/store/design/product',
@@ -34,7 +37,7 @@ describe('menu', () => {
             '/store/pages',
             '/store/search',
         ]);
-        expect(menu[5]!.children!.map(child => child.to)).toEqual([
+        expect(menu[6]!.children!.map(child => child.to)).toEqual([
             '/settings/store',
             '/settings/orders',
             '/settings/delivery',
@@ -68,6 +71,7 @@ describe('menu', () => {
         expect(packer.find(group => group.label === 'orders')!.children!.map(child => child.to)).toEqual([
             '/orders',
             '/orders/incomplete',
+            '/orders/campaigns',
         ]);
     });
 
