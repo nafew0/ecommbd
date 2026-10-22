@@ -55,6 +55,7 @@ export function createTestConfig(
             // Tests read what was "sent" from this driver.
             smsDriver: new LogSmsDriver(),
             storefrontUrl: 'https://shop.example.com',
+            previewSecret: 'test-preview-secret-0123456789abcdef',
             ...pluginOptions,
         }),
     });

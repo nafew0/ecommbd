@@ -186,6 +186,9 @@ export const config: VendureConfig = {
                 suggest: { limit: env.SEARCH_RATE_LIMIT_PER_MINUTE * 2, windowMs: 60_000 },
             },
             trackingRateLimits: { perIp: { limit: env.TRACKING_RATE_LIMIT_PER_IP, windowMs: 10 * 60_000 } },
+            previewSecret: env.COOKIE_SECRET,
+            // `npm run dev:storefront` serves the storefront on :4321; live stores share one site.
+            previewStorefrontUrl: env.STOREFRONT_URL ?? (IS_DEV ? 'http://localhost:4321' : undefined),
         }),
     ],
 };
