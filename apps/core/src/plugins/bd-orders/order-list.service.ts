@@ -31,6 +31,10 @@ export interface OrderListFilters {
     districtId?: string | null;
     /** cod, advance or prepaid */
     paymentType?: string | null;
+    /** utm_campaign, exactly (phase 16's attribution fields, from bd-sales-pages). */
+    campaign?: string | null;
+    /** The sales page an order came from (phase 16). */
+    salesPageId?: string | null;
 }
 
 export interface Page {
@@ -188,6 +192,14 @@ export class OrderListService {
         if (filters.districtId) {
             qb.andWhere(`(${SHIPPING} #>> '{customFields,districtId}') = :districtId`, {
                 districtId: filters.districtId,
+            });
+        }
+        if (filters.campaign) {
+            qb.andWhere('order.customFields.utmCampaign = :campaign', { campaign: filters.campaign });
+        }
+        if (filters.salesPageId) {
+            qb.andWhere('order.customFields.salesPageId = :salesPageId', {
+                salesPageId: String(filters.salesPageId),
             });
         }
         if (filters.paymentType === 'cod') {

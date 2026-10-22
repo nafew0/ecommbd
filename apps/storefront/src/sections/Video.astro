@@ -1,0 +1,74 @@
+---
+import { type DataOf, parseVideo, type video } from '@ecommbd/sections';
+import Icon from '../components/Icon.astro';
+import Image from '../components/Image.astro';
+import { assetOf, type SectionContext, tr } from './context';
+import EditorHint from './parts/EditorHint.astro';
+import SectionHeader from './parts/SectionHeader.astro';
+
+/**
+ * Video (lite): a cover image with a play button. Nothing from YouTube or Facebook loads until the
+ * shopper presses play; then the small script swaps in the player. Without JavaScript the button is
+ * a link to the video.
+ */
+interface Props {
+    section: DataOf<typeof video>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const { s } = context;
+const parsed = parseVideo(settings.video);
+const poster = assetOf(settings.poster, context);
+const caption = tr(settings.caption, context);
+const site = parsed?.provider === 'facebook' ? 'Facebook' : 'YouTube';
+---
+
+{
+    parsed ? (
+        <div class="section-inner">
+            <SectionHeader context={context} heading={tr(settings.heading, context)} />
+            <figure class="video">
+                <div
+                    class:list={['video-frame', `video-${settings.shape}`]}
+                    data-video={parsed.embedUrl}
+                    data-video-title={caption || tr(settings.heading, context) || site}
+                >
+                    {poster ? (
+                        <Image
+                            asset={poster}
+                            alt=""
+                            lang={context.lang}
+                            sizes="(min-width: 990px) 760px, 100vw"
+                            preferredWidth={960}
+                            class="video-poster"
+                        />
+                    ) : parsed.thumbnail ? (
+                        <img class="video-poster" src={parsed.thumbnail} alt="" width="480" height="360" loading="lazy" decoding="async" />
+                    ) : null}
+                    <a class="video-play" href={parsed.watchUrl} rel="noopener" target="_blank" data-video-play>
+                        <span class="video-play-icon">
+                            <Icon name="play" size={28} />
+                        </span>
+                        <span class="visually-hidden">{s.playVideo}</span>
+                        <span class="video-site">{s.watchOn(site)}</span>
+                    </a>
+                </div>
+                {caption && <figcaption>{caption}</figcaption>}
+            </figure>
+        </div>
+    ) : (
+        context.editor && (
+            <div class="section-inner">
+                <EditorHint text={s.editorAddVideo} icon="play" />
+            </div>
+        )
+    )
+}
+
+<script>
+    import { attachVideos } from '../scripts/video';
+
+    attachVideos();
+</script>

@@ -45,6 +45,10 @@ const ORDER = `
             ...BdOrderRow
             ${ORDER_PAYMENT_FIELDS}
             surcharges { sku priceWithTax }
+            bdAttribution {
+                salesPage { id title slug }
+                source medium campaign content term fbclid gclid ttclid referrer at
+            }
             history(options: { sort: { createdAt: DESC }, take: 100 }) {
                 items { id type createdAt data administrator { firstName lastName } }
             }
@@ -62,12 +66,28 @@ interface HistoryItem {
     administrator: { firstName: string; lastName: string } | null;
 }
 
+/** Where the order came from (phase 16): plain text from links anyone can make, shown escaped. */
+interface Attribution {
+    salesPage: { id: string; title: string; slug: string } | null;
+    source: string | null;
+    medium: string | null;
+    campaign: string | null;
+    content: string | null;
+    term: string | null;
+    fbclid: string | null;
+    gclid: string | null;
+    ttclid: string | null;
+    referrer: string | null;
+    at: string | null;
+}
+
 interface OrderData {
     order:
         | (OrderRow & {
               history: { items: HistoryItem[] };
               payments: OrderPayment[];
               surcharges: Array<{ sku: string; priceWithTax: number }>;
+              bdAttribution: Attribution;
           })
         | null;
     bdOrderSettings: { skipConfirmationForPrepaid: boolean };
@@ -339,6 +359,7 @@ export function OrderDetailPage() {
                         )}
                     </CardBody>
                 </Card>
+                <AttributionCard attribution={order.bdAttribution} />
                 <Card className="lg:col-span-2">
                     <CardHeader title={m.orders.history} />
                     <CardBody>
@@ -475,5 +496,67 @@ function BackLink() {
             <ArrowLeft className="size-4" aria-hidden />
             {m.orders.back}
         </Link>
+    );
+}
+
+/** The sales page and the ad or link an order came from (phase 16); nothing when it came directly. */
+function AttributionCard({ attribution }: { attribution: Attribution }) {
+    const { messages: m } = useI18n();
+    const format = useFormat();
+    const a = m.orders.attribution;
+    const clickIds = [
+        attribution.fbclid && 'Facebook',
+        attribution.gclid && 'Google',
+        attribution.ttclid && 'TikTok',
+    ].filter(Boolean);
+    const rows: Array<[string, string | null]> = [
+        [a.source, attribution.source],
+        [a.medium, attribution.medium],
+        [a.campaign, attribution.campaign],
+        [a.content, attribution.content],
+        [a.term, attribution.term],
+        [a.referrer, attribution.referrer],
+        [a.clickIds, clickIds.length ? clickIds.join(', ') : null],
+    ];
+    const shown = rows.filter(([, value]) => value);
+    if (!attribution.salesPage && !shown.length) return null;
+    return (
+        <Card>
+            <CardHeader title={a.title} />
+            <CardBody>
+                {attribution.salesPage && (
+                    <p>
+                        <span className="text-sm text-slate-600">{a.salesPage}: </span>
+                        <Link
+                            to={`/store/design/landing/${attribution.salesPage.id}`}
+                            className="font-medium break-words text-teal-800 underline"
+                        >
+                            {attribution.salesPage.title}
+                        </Link>
+                    </p>
+                )}
+                {shown.length > 0 && (
+                    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+                        {shown.map(([label, value]) => (
+                            <div key={label} className="contents">
+                                <dt className="text-slate-600">{label}</dt>
+                                <dd className="min-w-0 break-words">{value}</dd>
+                            </div>
+                        ))}
+                    </dl>
+                )}
+                {attribution.at && (
+                    <p className="text-xs text-slate-500">{a.visited(format.dateTime(attribution.at))}</p>
+                )}
+                {attribution.campaign && (
+                    <Link
+                        to={`/orders?campaign=${encodeURIComponent(attribution.campaign)}`}
+                        className="block text-sm text-teal-800 underline"
+                    >
+                        {a.sameCampaign}
+                    </Link>
+                )}
+            </CardBody>
+        </Card>
     );
 }

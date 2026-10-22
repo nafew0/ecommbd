@@ -1,0 +1,30 @@
+---
+import type { DataOf, orderForm } from '@ecommbd/sections';
+import SalesOrderForm from '../components/SalesOrderForm.astro';
+import { type SectionContext, tr } from './context';
+import SectionHeader from './parts/SectionHeader.astro';
+
+/** The order form section (phase 16): the page's one form, at `#order`. */
+interface Props {
+    section: DataOf<typeof orderForm>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+---
+
+{
+    context.sales && (
+        <div class="section-inner order-section">
+            <SectionHeader context={context} heading={tr(settings.heading, context)} text={tr(settings.text, context)} />
+            <SalesOrderForm sales={context.sales} settings={settings} />
+        </div>
+    )
+}
+
+<script>
+    import { enhanceSalesPage } from '../scripts/sales-page';
+
+    enhanceSalesPage();
+</script>

@@ -1,0 +1,69 @@
+---
+import type { DataOf, pricePacks } from '@ecommbd/sections';
+import { percentOff, startingVariant } from '../lib/sales';
+import { type SectionContext, tr } from './context';
+import SectionHeader from './parts/SectionHeader.astro';
+
+/**
+ * Price and packs (phase 16): each pack's price, the normal price crossed out, the percent off and
+ * the popular one marked. "Order this pack" jumps to the order form with that pack chosen (the
+ * script picks it; without JavaScript it just jumps). A page without packs shows the price.
+ */
+interface Props {
+    section: DataOf<typeof pricePacks>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const { s, format, sales } = context;
+const packs = sales?.page.packs ?? [];
+const variant = sales ? startingVariant(sales.page.product.variants) : undefined;
+const label = (quantity: number, own: string) => own || s.pieces(format.number(quantity), quantity === 1);
+---
+
+{
+    sales && (
+        <div class="section-inner">
+            <SectionHeader context={context} heading={tr(settings.heading, context)} text={tr(settings.text, context)} />
+            {packs.length > 0 ? (
+                <ul class:list={['packs', `count-${Math.min(packs.length, 4)}`]}>
+                    {packs.map(pack => {
+                        const off = percentOff(pack.price, pack.normalPrice);
+                        return (
+                            <li class:list={['pack', { 'pack-popular': pack.popular, 'pack-unavailable': !pack.available }]}>
+                                {pack.popular && <span class="pack-flag">{s.popularPack}</span>}
+                                <span class="pack-name">{label(pack.quantity, pack.label)}</span>
+                                <span class="pack-price">{format.price(pack.price)}</span>
+                                {pack.normalPrice > pack.price && (
+                                    <span class="pack-was">
+                                        <s>{format.price(pack.normalPrice)}</s>
+                                        {off > 0 && <span class="pack-off">{s.percentOff(format.number(off))}</span>}
+                                    </span>
+                                )}
+                                {pack.available ? (
+                                    tr(settings.button, context) && (
+                                        <a class:list={['button', { 'button-secondary': !pack.popular }]} href="#order" data-pack-link={pack.quantity}>
+                                            {tr(settings.button, context)}
+                                        </a>
+                                    )
+                                ) : (
+                                    <span class="pack-stock">{s.notEnoughStock}</span>
+                                )}
+                            </li>
+                        );
+                    })}
+                </ul>
+            ) : (
+                variant && (
+                    <p class="price price-large packs-single">
+                        <span class="price-now">{format.price(variant.priceWithTax)}</span>
+                        {variant.customFields?.oldPrice != null && variant.customFields.oldPrice > variant.priceWithTax && (
+                            <s class="price-old">{format.price(variant.customFields.oldPrice)}</s>
+                        )}
+                    </p>
+                )
+            )}
+        </div>
+    )
+}

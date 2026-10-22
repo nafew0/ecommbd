@@ -103,7 +103,7 @@ export class MenuService {
         const other = language === 'en' ? 'bn' : 'en';
         const resolved: ResolvedMenuLink[] = [];
         for (const item of items) {
-            const url = await this.urlOf(ctx, item.link);
+            const url = await this.linkUrl(ctx, item.link);
             // A link to something deleted since is left out rather than shown broken.
             if (!url) continue;
             resolved.push({
@@ -115,7 +115,8 @@ export class MenuService {
         return resolved;
     }
 
-    private async urlOf(ctx: RequestContext, link: MenuLink): Promise<string | null> {
+    /** A link's path in the request's language (or its URL); null when its target is gone or hidden. */
+    async linkUrl(ctx: RequestContext, link: MenuLink): Promise<string | null> {
         switch (link.type) {
             case 'url':
                 return link.url;

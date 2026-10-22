@@ -25,6 +25,8 @@ export const RESERVED_SLUGS: readonly string[] = [
     'checkout',
     'track',
     't',
+    // Sales pages (phase 16): /s/<slug>/.
+    's',
     'account',
     'bn',
     'en',

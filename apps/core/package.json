@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@ecommbd/bd-geo": "0.1.0",
+    "@ecommbd/sections": "0.1.0",
     "@ecommbd/shared": "0.1.0",
     "@nestjs/common": "12.2.0",
     "@nestjs/graphql": "14.0.3",

@@ -1,0 +1,55 @@
+---
+import type { DataOf, productGrid } from '@ecommbd/sections';
+import ProductCard from '../components/ProductCard.astro';
+import { collectionPath } from '../lib/sections';
+import { type SectionContext, tr } from './context';
+import EditorHint from './parts/EditorHint.astro';
+import SectionHeader from './parts/SectionHeader.astro';
+
+/** Product grid: newest, best selling, one category's or hand-picked products, as product cards. */
+interface Props {
+    section: DataOf<typeof productGrid>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const products = context.data.grids.get(section.uid) ?? [];
+const collection = settings.collection ? context.data.collections.get(settings.collection) : undefined;
+const viewAll = !settings.viewAll
+    ? null
+    : settings.source === 'newest'
+      ? context.href('/search/')
+      : settings.source === 'popular'
+        ? `${context.href('/search/')}?sort=popular`
+        : settings.source === 'collection' && collection
+          ? context.href(collectionPath(collection))
+          : null;
+---
+
+{
+    (products.length > 0 || context.editor) && (
+        <div class="section-inner">
+            <SectionHeader
+                context={context}
+                heading={tr(settings.heading, context)}
+                text={tr(settings.text, context)}
+                viewAll={products.length > 0 ? viewAll : null}
+            />
+            {products.length > 0 ? (
+                <ul class:list={['product-grid', `cols-${settings.columns}`, `phone-cols-${settings.phoneColumns}`]}>
+                    {products.map(product => (
+                        <ProductCard
+                            product={product}
+                            lang={context.lang}
+                            defaultLang={context.defaultLang}
+                            format={context.format}
+                        />
+                    ))}
+                </ul>
+            ) : (
+                <EditorHint text={context.s.editorPickProducts} icon="tag" />
+            )}
+        </div>
+    )
+}

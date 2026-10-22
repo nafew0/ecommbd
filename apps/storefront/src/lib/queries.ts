@@ -392,3 +392,161 @@ export const SITEMAP_PAGES = graphql(`
         }
     }
 `);
+
+/** Page sections (phase 15): a published layout with its images. */
+const LayoutFields = graphql(
+    `
+        fragment LayoutFields on BdLayout @_unmask {
+            id
+            type
+            pageId
+            version
+            document
+            assets {
+                ...AssetFields
+            }
+        }
+    `,
+    [AssetFields],
+);
+
+export const LAYOUT = graphql(
+    `
+        query Layout($type: String!, $pageId: ID) {
+            bdLayout(type: $type, pageId: $pageId) {
+                ...LayoutFields
+            }
+        }
+    `,
+    [LayoutFields],
+);
+
+export const LAYOUT_PREVIEW = graphql(
+    `
+        query LayoutPreview($token: String!) {
+            bdLayoutPreview(token: $token) {
+                mode
+                expiresAt
+                layout {
+                    ...LayoutFields
+                }
+            }
+        }
+    `,
+    [LayoutFields],
+);
+
+/** A sales page (phase 16): settings, product with its variants, packs, add-on and sections. */
+export const SALES_PAGE = graphql(
+    `
+        query SalesPage($slug: String!, $preview: String) {
+            bdSalesPage(slug: $slug, preview: $preview) {
+                id
+                slug
+                title
+                settings
+                available
+                maxQuantity
+                preview
+                product {
+                    id
+                    name
+                    slug
+                    customFields {
+                        youtubeUrl
+                    }
+                    featuredAsset {
+                        ...AssetFields
+                    }
+                    assets {
+                        ...AssetFields
+                    }
+                    variants {
+                        id
+                        name
+                        priceWithTax
+                        stockLevel
+                        options {
+                            name
+                        }
+                        customFields {
+                            oldPrice
+                            isDefault
+                        }
+                    }
+                }
+                packs {
+                    quantity
+                    price
+                    normalPrice
+                    label
+                    popular
+                    available
+                }
+                bump {
+                    price
+                    normalPrice
+                    title
+                    text
+                    variant {
+                        id
+                        name
+                        featuredAsset {
+                            ...AssetFields
+                        }
+                        product {
+                            featuredAsset {
+                                ...AssetFields
+                            }
+                        }
+                    }
+                }
+                layout {
+                    ...LayoutFields
+                }
+            }
+        }
+    `,
+    [AssetFields, LayoutFields],
+);
+
+export const THEME = graphql(`
+    query Theme {
+        bdTheme
+    }
+`);
+
+export const COLLECTIONS_BY_ID = graphql(
+    `
+        query CollectionsById($ids: [String!]!) {
+            collections(options: { filter: { id: { in: $ids } }, take: 50 }) {
+                items {
+                    id
+                    name
+                    breadcrumbs {
+                        slug
+                    }
+                    featuredAsset {
+                        ...AssetFields
+                    }
+                }
+            }
+        }
+    `,
+    [AssetFields],
+);
+
+/** Featured products: the card's fields plus the description. */
+export const FEATURED_PRODUCTS = graphql(
+    `
+        query FeaturedProducts($ids: [String!]!, $take: Int!) {
+            products(options: { filter: { id: { in: $ids } }, take: $take }) {
+                items {
+                    ...ProductCardFields
+                    description
+                }
+            }
+        }
+    `,
+    [ProductCardFields],
+);

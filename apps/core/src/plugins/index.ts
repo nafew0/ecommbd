@@ -18,6 +18,8 @@ import { WooImportPlugin } from './woo-import';
 // Last: its store-defaults step runs after the others (the order files load in).
 import { BdSearchPlugin, type SearchRateLimits } from './bd-search';
 import { BdTrackingPlugin, type TrackingRateLimits } from './bd-tracking';
+import { BdSectionsPlugin } from './bd-sections';
+import { BdSalesPagesPlugin } from './bd-sales-pages';
 
 /** The built merchant admin (`npm run build -w @ecommbd/admin`), from `src/plugins` or `dist/plugins`. */
 export const ADMIN_APP_DIR = path.join(__dirname, '../../../admin/dist');
@@ -55,6 +57,10 @@ export interface CustomPluginOptions {
     searchCatalogCacheMs?: number;
     /** Rate limits for order tracking (tests set low ones). */
     trackingRateLimits?: Partial<TrackingRateLimits>;
+    /** Signs page preview links (COOKIE_SECRET). */
+    previewSecret: string;
+    /** Where preview links point (STOREFRONT_URL, or the storefront's dev address); relative without it. */
+    previewStorefrontUrl?: string;
 }
 
 /**
@@ -90,6 +96,9 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
         MerchantAdminPlugin.init({
             appDir: ADMIN_APP_DIR,
             imageOrigins: options.assetUrlPrefix ? [new URL(options.assetUrlPrefix).origin] : [],
+            frameOrigins: [options.previewStorefrontUrl ?? options.storefrontUrl]
+                .filter((url): url is string => !!url)
+                .map(url => new URL(url).origin),
         }),
         // Needs Vendure's DefaultSearchPlugin (vendure-config.ts), whose index it reads.
         BdSearchPlugin.init({
@@ -103,5 +112,13 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
             rateLimitKeyPrefix: `${options.redisKeyPrefix}:rl:`,
             rateLimits: options.trackingRateLimits,
         }),
+        BdSectionsPlugin.init({
+            secret: options.previewSecret,
+            storefrontUrl: options.previewStorefrontUrl ?? options.storefrontUrl,
+            redis: options.cacheRedis,
+            redisKeyPrefix: options.redisKeyPrefix,
+        }),
+        // Uses bd-sections' layouts and bd-orders' permissions.
+        BdSalesPagesPlugin.init({ storefrontUrl: options.previewStorefrontUrl ?? options.storefrontUrl }),
     ];
 }

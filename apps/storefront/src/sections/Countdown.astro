@@ -1,0 +1,40 @@
+---
+import type { countdown, DataOf } from '@ecommbd/sections';
+import { type SectionContext, tr } from './context';
+import CountdownClock from './parts/CountdownClock.astro';
+import EditorHint from './parts/EditorHint.astro';
+import SectionHeader from './parts/SectionHeader.astro';
+
+/** Countdown (phase 16): time left on the offer, to a fixed date or the same hours for each visitor. */
+interface Props {
+    section: DataOf<typeof countdown>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const evergreen = settings.mode === 'evergreen';
+const ready = evergreen || !!settings.endsAt;
+---
+
+{
+    ready ? (
+        <div class="section-inner">
+            <SectionHeader context={context} heading={tr(settings.heading, context)} />
+            <CountdownClock
+                context={context}
+                uid={section.uid}
+                endsAt={settings.endsAt}
+                hours={evergreen ? settings.hours : 0}
+                expired={settings.expired}
+                expiredText={tr(settings.expiredText, context)}
+            />
+        </div>
+    ) : (
+        context.editor && (
+            <div class="section-inner">
+                <EditorHint text={context.s.editorSetDeadline} icon="clock" />
+            </div>
+        )
+    )
+}

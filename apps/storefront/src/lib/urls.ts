@@ -63,6 +63,14 @@ export const categoryPath = (slugs: string[]) => `/product-category/${slugs.map(
 
 export const pagePath = (slug: string) => `/${encodeSlug(slug)}/`;
 
+/** Sales pages (phase 16): `/s/<slug>/`. */
+export const salesPath = (slug: string, rest = '') => `/s/${encodeSlug(slug)}/${rest}`;
+
+/** A sales page's slug from a URL, as the core stores it: decoded, composed (NFC), lowercase. */
+export function salesSlug(segment: string): string {
+    return decodeSegment(segment).normalize('NFC').toLowerCase();
+}
+
 /** A slug from a URL as Vendure stores it: decoded, decomposed (NFD), lowercase. */
 export function lookupSlug(segment: string): string {
     return decodeSegment(segment).normalize('NFD').toLowerCase();

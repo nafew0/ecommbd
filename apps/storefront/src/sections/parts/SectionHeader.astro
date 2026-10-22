@@ -1,0 +1,30 @@
+---
+import type { SectionContext } from '../context';
+
+/** A section's heading, optional intro text and an optional "View all" link beside the heading. */
+interface Props {
+    context: SectionContext;
+    heading: string;
+    text?: string;
+    viewAll?: string | null;
+}
+
+const { context, heading, text, viewAll } = Astro.props;
+const Heading = context.heading;
+---
+
+{
+    (heading || text || viewAll) && (
+        <div class="section-head">
+            <div class="section-head-row">
+                {heading && <Heading class="section-title">{heading}</Heading>}
+                {viewAll && (
+                    <a class="section-link" href={viewAll}>
+                        {context.s.viewAll}
+                    </a>
+                )}
+            </div>
+            {text && <p class="section-text">{text}</p>}
+        </div>
+    )
+}

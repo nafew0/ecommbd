@@ -132,6 +132,10 @@ export const ordersAdminApiExtensions = gql`
             dateTo: String
             districtId: String
             paymentType: String
+            "utm_campaign, exactly"
+            campaign: String
+            "The sales page the orders came from"
+            salesPageId: ID
             skip: Int
             take: Int
         ): OrderList!
@@ -142,6 +146,8 @@ export const ordersAdminApiExtensions = gql`
             dateTo: String
             districtId: String
             paymentType: String
+            campaign: String
+            salesPageId: ID
         ): [BdOrderStatusCount!]!
         "New orders to call, oldest first; snoozed: only those set to call later"
         bdConfirmationQueue(snoozed: Boolean, skip: Int, take: Int): OrderList!

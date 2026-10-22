@@ -1,0 +1,39 @@
+---
+import type { benefits, DataOf, IconName } from '@ecommbd/sections';
+import Icon from '../components/Icon.astro';
+import { type SectionContext, tr } from './context';
+import SectionHeader from './parts/SectionHeader.astro';
+
+/** Benefits (phase 16): "what you get", as a checklist or a grid of icons. */
+interface Props {
+    section: DataOf<typeof benefits>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const items = section.blocks.filter(block => tr(block.settings.title, context));
+---
+
+{
+    items.length > 0 && (
+        <div class="section-inner">
+            <SectionHeader context={context} heading={tr(settings.heading, context)} />
+            <ul class:list={['benefits', `benefits-${settings.look}`, `columns-${settings.columns}`]}>
+                {items.map(block => (
+                    <li class="benefit">
+                        <span class="benefit-icon">
+                            <Icon name={block.settings.icon as IconName} size={settings.look === 'grid' ? 28 : 20} />
+                        </span>
+                        <span>
+                            <strong class="benefit-title">{tr(block.settings.title, context)}</strong>
+                            {tr(block.settings.text, context) && (
+                                <span class="benefit-text">{tr(block.settings.text, context)}</span>
+                            )}
+                        </span>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    )
+}

@@ -1,0 +1,62 @@
+---
+import type { DataOf, IconName, multicolumn } from '@ecommbd/sections';
+import Icon from '../components/Icon.astro';
+import Image from '../components/Image.astro';
+import { assetOf, hrefOf, relOf, type SectionContext, tr } from './context';
+import SectionHeader from './parts/SectionHeader.astro';
+
+/** Columns: each with an image or one of our icons, a title, text and an optional link. */
+interface Props {
+    section: DataOf<typeof multicolumn>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+---
+
+<div class="section-inner">
+    <SectionHeader context={context} heading={tr(settings.heading, context)} />
+    <ul class:list={['columns', `cols-${settings.columns}`]}>
+        {
+            section.blocks.map(block => {
+                const image = assetOf(block.settings.image, context);
+                const href = hrefOf(block.settings.link, context);
+                const title = tr(block.settings.title, context);
+                return (
+                    <li class="column">
+                        {image ? (
+                            <div class="column-media">
+                                <Image
+                                    asset={image}
+                                    alt=""
+                                    lang={context.lang}
+                                    sizes={`(min-width: 990px) ${Math.round(1200 / settings.columns)}px, 100vw`}
+                                    preferredWidth={480}
+                                />
+                            </div>
+                        ) : (
+                            <span class="column-icon">
+                                <Icon name={block.settings.icon as IconName} size={28} />
+                            </span>
+                        )}
+                        {title && (
+                            <h3 class="column-title">
+                                {href ? (
+                                    <a href={href} rel={relOf(href)}>
+                                        {title}
+                                    </a>
+                                ) : (
+                                    title
+                                )}
+                            </h3>
+                        )}
+                        {tr(block.settings.text, context) && (
+                            <p class="column-text">{tr(block.settings.text, context)}</p>
+                        )}
+                    </li>
+                );
+            })
+        }
+    </ul>
+</div>

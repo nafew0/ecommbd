@@ -1,0 +1,22 @@
+---
+import type { DataOf, richText } from '@ecommbd/sections';
+import RichText from '../components/RichText.astro';
+import { hrefOf, type SectionContext, tr } from './context';
+import Buttons from './parts/Buttons.astro';
+
+/** Rich text: a heading, text (sanitized again here) and a button. */
+interface Props {
+    section: DataOf<typeof richText>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const Heading = context.heading;
+---
+
+<div class="section-inner prose-block">
+    {tr(settings.heading, context) && <Heading class="section-title">{tr(settings.heading, context)}</Heading>}
+    <RichText content={tr(settings.text, context)} />
+    <Buttons buttons={[{ label: tr(settings.button, context), href: hrefOf(settings.link, context) }]} />
+</div>

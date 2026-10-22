@@ -1,0 +1,56 @@
+---
+import type { DataOf, deliveryInfo } from '@ecommbd/sections';
+import Icon from '../components/Icon.astro';
+import { type SectionContext, tr } from './context';
+import SectionHeader from './parts/SectionHeader.astro';
+
+/** Delivery information: the charge and time for each area, and a note (cash on delivery). */
+interface Props {
+    section: DataOf<typeof deliveryInfo>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { s } = context;
+const areas = section.blocks.filter(block => tr(block.settings.area, context));
+---
+
+<div class="section-inner">
+    <SectionHeader context={context} heading={tr(section.settings.heading, context)} />
+    {
+        areas.length > 0 && (
+            <ul class="delivery-areas">
+                {areas.map(block => (
+                    <li class="delivery-area">
+                        <span class="delivery-icon">
+                            <Icon name="truck" size={24} />
+                        </span>
+                        <h3>{tr(block.settings.area, context)}</h3>
+                        <dl>
+                            {tr(block.settings.charge, context) && (
+                                <div>
+                                    <dt>{s.deliveryChargeShort}</dt>
+                                    <dd class="delivery-charge">{tr(block.settings.charge, context)}</dd>
+                                </div>
+                            )}
+                            {tr(block.settings.time, context) && (
+                                <div>
+                                    <dt>{s.deliveryTime}</dt>
+                                    <dd>{tr(block.settings.time, context)}</dd>
+                                </div>
+                            )}
+                        </dl>
+                    </li>
+                ))}
+            </ul>
+        )
+    }
+    {
+        tr(section.settings.note, context) && (
+            <p class="delivery-note">
+                <Icon name="cash" size={20} />
+                <span>{tr(section.settings.note, context)}</span>
+            </p>
+        )
+    }
+</div>

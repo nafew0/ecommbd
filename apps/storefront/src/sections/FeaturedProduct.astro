@@ -1,0 +1,76 @@
+---
+import type { DataOf, featuredProduct } from '@ecommbd/sections';
+import { richTextToPlain } from '@ecommbd/shared/rich-text';
+import Icon from '../components/Icon.astro';
+import Image from '../components/Image.astro';
+import Price from '../components/Price.astro';
+import { productPath } from '../lib/urls';
+import { type SectionContext, tr } from './context';
+import EditorHint from './parts/EditorHint.astro';
+
+/** Featured product: one product, large, with its price, the start of its description and order buttons. */
+interface Props {
+    section: DataOf<typeof featuredProduct>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const { s, format } = context;
+const product = settings.product ? context.data.featured.get(settings.product) : undefined;
+const variants = product ? [...product.variants].sort((a, b) => a.priceWithTax - b.priceWithTax) : [];
+const prices = variants.map(variant => variant.priceWithTax);
+const oldPrice = variants[0]?.customFields?.oldPrice ?? null;
+const url = product ? context.href(productPath(product.slug)) : '';
+const summary = product && settings.showDescription ? richTextToPlain(product.description, 240) : '';
+const whatsapp = context.settings.profile.whatsapp.replace(/\D/g, '');
+const Heading = context.heading;
+---
+
+{
+    product ? (
+        <div class:list={['section-inner featured', { 'featured-reverse': settings.imagePosition === 'right' }]}>
+            <a class="featured-media" href={url} tabindex="-1" aria-hidden="true">
+                <Image
+                    asset={product.featuredAsset}
+                    alt=""
+                    lang={context.lang}
+                    sizes="(min-width: 750px) 50vw, 100vw"
+                    preferredWidth={800}
+                    priority={context.first}
+                />
+            </a>
+            <div class="featured-info">
+                {tr(settings.badge, context) && <p class="hero-badge">{tr(settings.badge, context)}</p>}
+                <Heading class="featured-name">
+                    <a href={url}>{product.name}</a>
+                </Heading>
+                {prices.length > 0 && (
+                    <Price min={prices[0]!} max={prices[prices.length - 1]!} oldPrice={oldPrice} format={format} large />
+                )}
+                {summary && <p class="featured-summary">{summary}</p>}
+                <div class="section-buttons">
+                    <a class="button" href={url}>
+                        {tr(settings.button, context) || s.orderNow}
+                    </a>
+                    {whatsapp && (
+                        <a
+                            class="button button-secondary"
+                            href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(s.whatsappMessage(product.name, context.absolute(url)))}`}
+                            rel="noopener"
+                        >
+                            <Icon name="whatsapp" size={18} />
+                            {s.orderOnWhatsapp}
+                        </a>
+                    )}
+                </div>
+            </div>
+        </div>
+    ) : (
+        context.editor && (
+            <div class="section-inner">
+                <EditorHint text={s.editorPickProduct} icon="tag" />
+            </div>
+        )
+    )
+}

@@ -8,7 +8,7 @@
   "scripts": {
     "services:up": "docker compose up -d",
     "services:down": "docker compose stop",
-    "build:packages": "npm run build -w @ecommbd/shared && npm run build -w @ecommbd/bd-geo",
+    "build:packages": "npm run build -w @ecommbd/shared && npm run build -w @ecommbd/bd-geo && npm run build -w @ecommbd/sections",
     "dev": "npm run build:packages && npm run build -w @ecommbd/admin && npm run dev -w @ecommbd/core",
     "dev:admin": "npm run dev -w @ecommbd/admin",
     "dev:storefront": "npm run build:packages && npm run dev -w @ecommbd/storefront",
@@ -23,6 +23,7 @@
     "test": "npm run build:packages && npm run test --workspaces --if-present",
     "test:e2e": "npm run build:packages && npm run test:e2e -w @ecommbd/core",
     "test:browser": "playwright test",
+    "test:visual": "playwright test -c playwright.visual.config.ts",
     "migrate:generate": "npm exec -w @ecommbd/core -- vendure migrate -g",
     "migrate:run": "npm exec -w @ecommbd/core -- vendure migrate -r",
     "doctor": "npm exec -w @ecommbd/core -- vendure doctor"

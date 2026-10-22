@@ -15,7 +15,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@ecommbd/shared/*": ["../../packages/shared/src/*"]
+      "@ecommbd/shared/*": ["../../packages/shared/src/*"],
+      "@ecommbd/sections": ["../../packages/sections/src/index.ts"]
     }
   },
   "include": ["src", "vite.config.ts", "vitest.config.ts"]

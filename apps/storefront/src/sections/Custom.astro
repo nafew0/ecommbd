@@ -1,0 +1,145 @@
+---
+import { COLUMN_LAYOUTS, type ColumnLayout, customSection, type DataOf, type IconName } from '@ecommbd/sections';
+import Icon from '../components/Icon.astro';
+import Image from '../components/Image.astro';
+import RichText from '../components/RichText.astro';
+import { percentOff } from '../lib/sales';
+import { assetOf, hrefOf, relOf, type SectionContext, tr } from './context';
+import CountdownClock from './parts/CountdownClock.astro';
+import EditorHint from './parts/EditorHint.astro';
+import LiteVideo from './parts/LiteVideo.astro';
+
+/**
+ * Custom section (phase 16): columns of elements the merchant picks and styles one by one, like a
+ * page builder. Each element is a `.el` with its uid; its own look (colour, size, spacing, border…)
+ * comes from the page's generated stylesheet. On phones the columns stack, last first if asked.
+ */
+interface Props {
+    section: DataOf<typeof customSection>;
+    context: SectionContext;
+}
+
+type Element = DataOf<typeof customSection>['blocks'][number];
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const { s, format, lang } = context;
+const widths = COLUMN_LAYOUTS[settings.layout as ColumnLayout] ?? COLUMN_LAYOUTS['1-1'];
+const columns = widths.map((_, index) =>
+    section.blocks.filter(block => Math.min(Number(block.settings.column), widths.length) - 1 === index),
+);
+const lines = (text: string) =>
+    text
+        .split('\n')
+        .map(line => line.trim())
+        .filter(Boolean);
+const buttonClass = (look: string) => (look === 'link' ? 'text-link' : look === 'outline' ? 'button button-secondary' : 'button');
+const empty = section.blocks.length === 0;
+const kind = (block: Element) => block.settings.kind;
+---
+
+{
+    empty ? (
+        context.editor && (
+            <div class="section-inner">
+                <EditorHint text={s.editorAddElements} icon="box" />
+            </div>
+        )
+    ) : (
+        <div
+            class:list={['section-inner', 'custom', `valign-${settings.verticalAlign}`, { 'custom-reverse': settings.phoneOrder === 'reverse' }]}
+            data-columns={widths.join('-')}
+        >
+            {columns.map(blocks => (
+                <div class="custom-column">
+                    {blocks.map(block => {
+                        const b = block.settings;
+                        const href = hrefOf(b.link, context);
+                        const image = assetOf(b.image, context);
+                        return (
+                            <div class:list={['el', `el-${b.kind}`]} data-u={block.uid}>
+                                {kind(block) === 'heading' && tr(b.heading, context) && (
+                                    b.tag === 'h3' ? (
+                                        <h3 class="el-heading">{tr(b.heading, context)}</h3>
+                                    ) : b.tag === 'p' ? (
+                                        <p class="el-heading">{tr(b.heading, context)}</p>
+                                    ) : (
+                                        <h2 class="el-heading">{tr(b.heading, context)}</h2>
+                                    )
+                                )}
+                                {kind(block) === 'text' && <RichText content={tr(b.text, context)} />}
+                                {kind(block) === 'image' &&
+                                    (image ? (
+                                        href ? (
+                                            <a href={href} rel={relOf(href)}>
+                                                <Image asset={image} alt="" lang={lang} sizes="(min-width: 990px) 50vw, 100vw" preferredWidth={960} />
+                                            </a>
+                                        ) : (
+                                            <Image asset={image} alt="" lang={lang} sizes="(min-width: 990px) 50vw, 100vw" preferredWidth={960} />
+                                        )
+                                    ) : (
+                                        context.editor && <EditorHint text={s.editorAddImage} />
+                                    ))}
+                                {kind(block) === 'button' && tr(b.label, context) && href && (
+                                    <a class={buttonClass(b.look)} href={href} rel={relOf(href)} data-order-link={href === '#order' ? '' : undefined}>
+                                        {tr(b.label, context)}
+                                    </a>
+                                )}
+                                {kind(block) === 'list' && (
+                                    <ul class="el-list">
+                                        {lines(tr(b.items, context)).map(item => (
+                                            <li>
+                                                <Icon name={b.icon as IconName} size={18} />
+                                                <span>{item}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                                {kind(block) === 'iconbox' && (
+                                    <div class="el-iconbox">
+                                        <span class="el-iconbox-icon">
+                                            {image ? (
+                                                <Image asset={image} alt="" lang={lang} sizes="64px" preferredWidth={160} />
+                                            ) : (
+                                                <Icon name={b.icon as IconName} size={28} />
+                                            )}
+                                        </span>
+                                        {tr(b.heading, context) && <h3>{tr(b.heading, context)}</h3>}
+                                        {tr(b.body, context) && <p>{tr(b.body, context)}</p>}
+                                    </div>
+                                )}
+                                {kind(block) === 'video' && <LiteVideo context={context} url={b.video} title={tr(b.heading, context)} />}
+                                {kind(block) === 'countdown' &&
+                                    (b.endsAt ? (
+                                        <CountdownClock context={context} uid={block.uid} endsAt={b.endsAt} expired="message" expiredText={s.offerEnded} />
+                                    ) : (
+                                        context.editor && <EditorHint text={s.editorSetDeadline} icon="clock" />
+                                    ))}
+                                {kind(block) === 'price' && b.price != null && (
+                                    <p class="el-price">
+                                        <span class="price-now">{format.price(b.price)}</span>
+                                        {b.oldPrice != null && b.oldPrice > b.price && (
+                                            <>
+                                                <s class="price-old">{format.price(b.oldPrice)}</s>
+                                                <span class="el-price-off">{s.percentOff(format.number(percentOff(b.price, b.oldPrice)))}</span>
+                                            </>
+                                        )}
+                                    </p>
+                                )}
+                                {kind(block) === 'badge' && tr(b.label, context) && <span class="el-badge">{tr(b.label, context)}</span>}
+                                {kind(block) === 'stars' && (
+                                    <span class="el-stars" role="img" aria-label={s.stars(b.rating)}>
+                                        {[1, 2, 3, 4, 5].map(n => (
+                                            <Icon name={n <= b.rating ? 'star-filled' : 'star'} size={20} />
+                                        ))}
+                                    </span>
+                                )}
+                                {kind(block) === 'divider' && <hr class="el-divider" />}
+                            </div>
+                        );
+                    })}
+                </div>
+            ))}
+        </div>
+    )
+}

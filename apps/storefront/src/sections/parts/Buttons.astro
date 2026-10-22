@@ -1,0 +1,26 @@
+---
+import { relOf } from '../context';
+
+/** Up to two buttons; one without a label or a destination isn't shown. */
+interface Props {
+    buttons: Array<{ label: string; href: string | null }>;
+}
+
+const shown = Astro.props.buttons.filter(button => button.label && button.href);
+---
+
+{
+    shown.length > 0 && (
+        <div class="section-buttons">
+            {shown.map((button, index) => (
+                <a
+                    class:list={['button', { 'button-secondary': index > 0 }]}
+                    href={button.href!}
+                    rel={relOf(button.href)}
+                >
+                    {button.label}
+                </a>
+            ))}
+        </div>
+    )
+}

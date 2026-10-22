@@ -1,0 +1,19 @@
+---
+import Icon, { type IconName } from '../../components/Icon.astro';
+
+/**
+ * Only in the page editor's preview: what an empty section needs (shoppers see nothing there).
+ * The text comes from the section's own name and the editor's language-neutral icon.
+ */
+interface Props {
+    text: string;
+    icon?: IconName;
+}
+
+const { text, icon = 'image' } = Astro.props;
+---
+
+<div class="editor-hint">
+    <Icon name={icon} size={28} />
+    <p>{text}</p>
+</div>

@@ -1,0 +1,82 @@
+---
+import type { CheckoutErrors, CheckoutValues } from '../../lib/checkout';
+import { pageContext } from '../../lib/page';
+import type { CheckoutSettings, District, Thana } from '../../lib/checkout';
+
+/** District → thana and the full address, and the note: the checkout's and a sales page's. */
+interface Props {
+    values: CheckoutValues;
+    errors: CheckoutErrors;
+    settings: CheckoutSettings;
+    districts: District[];
+    thanas: Thana[];
+    /** A sales page's order form can leave the note out. */
+    showNote?: boolean;
+}
+
+const { values, errors, settings, districts, thanas, showNote = true } = Astro.props;
+const { lang, s } = pageContext(Astro);
+const errorFor = (field: keyof CheckoutErrors) => errors[field];
+const describedBy = (field: keyof CheckoutErrors, hint?: string) =>
+    [errors[field] ? `${field}-error` : '', hint ?? ''].filter(Boolean).join(' ') || undefined;
+const both = (bn: string, en: string) => (lang === 'bn' ? `${bn} · ${en}` : `${en} · ${bn}`);
+---
+
+<fieldset class="checkout-section">
+    <legend>{s.deliveryAddress}</legend>
+    <div class="field-row">
+        <div class="field">
+            <label for="districtId">{s.districtLabel}</label>
+            <select id="districtId" name="districtId" autocomplete="address-level1" required aria-invalid={errorFor('districtId') ? 'true' : undefined} aria-describedby={describedBy('districtId')} data-district>
+                <option value="">{s.choose}</option>
+                {districts.map(district => (
+                    <option value={district.id} selected={district.id === values.districtId}>
+                        {both(district.nameBn, district.nameEn)}
+                    </option>
+                ))}
+            </select>
+            {errorFor('districtId') && <p class="field-error" id="districtId-error">{errorFor('districtId')}</p>}
+        </div>
+        <div class="field" data-part="thana">
+            <label for="thanaId">{s.thanaLabel}</label>
+            <select id="thanaId" name="thanaId" autocomplete="address-level2" required disabled={!values.districtId} aria-invalid={errorFor('thanaId') ? 'true' : undefined} aria-describedby={describedBy('thanaId')} data-thana>
+                <option value="">{s.choose}</option>
+                {thanas.map(thana => (
+                    <option value={thana.id} selected={thana.id === values.thanaId}>
+                        {both(thana.nameBn, thana.nameEn)}
+                    </option>
+                ))}
+                {values.districtId && <option value="other" selected={values.thanaId === 'other'}>{s.thanaOther}</option>}
+            </select>
+            {errorFor('thanaId') && <p class="field-error" id="thanaId-error">{errorFor('thanaId')}</p>}
+        </div>
+    </div>
+    <button class="text-link update-button" type="submit" name="action" value="refresh" data-refresh>
+        {values.districtId ? s.updateTotal : s.showThanas}
+    </button>
+    <div class="field">
+        <label for="area">{s.areaLabel}</label>
+        <input id="area" name="area" value={values.area} maxlength="100" aria-invalid={errorFor('area') ? 'true' : undefined} aria-describedby={describedBy('area', 'area-hint')} />
+        <p class="field-hint" id="area-hint">{s.areaHint}</p>
+        {errorFor('area') && <p class="field-error" id="area-error">{errorFor('area')}</p>}
+    </div>
+    <div class="field">
+        <label for="streetLine1">{s.streetLabel}</label>
+        <textarea id="streetLine1" name="streetLine1" rows="2" autocomplete="street-address" required maxlength="300" aria-invalid={errorFor('streetLine1') ? 'true' : undefined} aria-describedby={describedBy('streetLine1', 'street-hint')}>{values.streetLine1}</textarea>
+        <p class="field-hint" id="street-hint">{s.streetHint}</p>
+        {errorFor('streetLine1') && <p class="field-error" id="streetLine1-error">{errorFor('streetLine1')}</p>}
+    </div>
+    <div class="field">
+        <label for="landmark">{s.landmarkLabel}</label>
+        <input id="landmark" name="landmark" value={values.landmark} maxlength="150" />
+    </div>
+    {
+        settings.showNote && showNote && (
+            <div class="field">
+                <label for="note">{s.noteLabel}</label>
+                <textarea id="note" name="note" rows="2" maxlength="500" aria-invalid={errorFor('note') ? 'true' : undefined} aria-describedby={describedBy('note')}>{values.note}</textarea>
+                {errorFor('note') && <p class="field-error" id="note-error">{errorFor('note')}</p>}
+            </div>
+        )
+    }
+</fieldset>

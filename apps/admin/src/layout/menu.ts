@@ -55,6 +55,7 @@ export const MENU: MenuGroup[] = [
             link('confirmOrders', '/orders/confirm', '04', true, 'ConfirmOrder'),
             link('phoneOrder', '/orders/phone', '05', true, 'CreateManualOrder'),
             link('incompleteOrders', '/orders/incomplete', '11', true, 'ReadOrder'),
+            link('ordersByCampaign', '/orders/campaigns', '16', true, 'ReadOrder'),
             link('verifyPayments', '/orders/payments', '08', true, 'VerifyPayment'),
         ],
     },
@@ -76,14 +77,19 @@ export const MENU: MenuGroup[] = [
             link('blockList', '/customers/blocked', '11', true, 'ReadCustomer'),
         ],
     },
-    { label: 'salesPages', icon: PanelsTopLeft, link: link('landingPages', '/sales-pages', '16') },
+    {
+        label: 'salesPages',
+        icon: PanelsTopLeft,
+        link: link('landingPages', '/sales-pages', '16', true, 'EditStorefront'),
+    },
     {
         label: 'onlineStore',
         icon: Globe,
         children: [
-            link('theme', '/store/theme', '15'),
-            link('homePage', '/store/home', '15'),
-            link('headerFooter', '/store/header-footer', '15'),
+            link('theme', '/store/theme', '15', true, 'EditStorefront'),
+            link('homePage', '/store/design/home', '15', true, 'EditStorefront'),
+            // The announcement bar and header layout are in Theme, footer links in Menus.
+            link('productPage', '/store/design/product', '15', true, 'EditStorefront'),
             link('menus', '/store/menus', '12', true, 'ManageContent'),
             link('pages', '/store/pages', '12', true, 'ManageContent'),
             link('search', '/store/search', '13', true, 'ManageContent'),

@@ -8,7 +8,10 @@ import { env } from '../env';
  */
 
 export const SESSION_COOKIE = 'shop-session';
-const NAMES = [SESSION_COOKIE, `${SESSION_COOKIE}.sig`];
+/** Sales pages (phase 16) order in a session of their own, so the shopper's cart is left alone. */
+export const SALES_SESSION_COOKIE = 'lp-session';
+/** The core's cookie names; the browser's may differ (`lp-session`). */
+const CORE_NAMES = [SESSION_COOKIE, `${SESSION_COOKIE}.sig`];
 export const SESSION_MAX_AGE = 30 * 24 * 60 * 60;
 
 /** The value of each cookie in a `Cookie` header. */
@@ -31,13 +34,18 @@ function cookieLine(name: string, value: string, maxAge: number, httpOnly = true
 }
 
 export class ShopSession {
+    /** By the core's cookie names. */
     private readonly values = new Map<string, string>();
+    /** By the browser's cookie names. */
     private readonly outgoing = new Map<string, string>();
+    /** The browser's name for each of the core's cookies. */
+    private readonly browserName: (coreName: string) => string;
 
-    constructor(cookieHeader: string | null) {
+    constructor(cookieHeader: string | null, browserCookie = SESSION_COOKIE) {
+        this.browserName = name => name.replace(SESSION_COOKIE, browserCookie);
         const cookies = parseCookies(cookieHeader);
-        for (const name of NAMES) {
-            const value = cookies.get(name);
+        for (const name of CORE_NAMES) {
+            const value = cookies.get(this.browserName(name));
             if (value) this.values.set(name, value);
         }
     }
@@ -53,29 +61,37 @@ export class ShopSession {
         return this.values.get(SESSION_COOKIE);
     }
 
+    /** Whether the browser sent a session (a new shopper hasn't one). */
+    get exists(): boolean {
+        return this.values.size > 0;
+    }
+
     /** Takes the core's `Set-Cookie` headers: our session cookies are kept and passed on with a lifetime. */
     absorb(setCookies: string[]) {
         for (const line of setCookies) {
             const [pair = ''] = line.split(';');
             const index = pair.indexOf('=');
             const name = pair.slice(0, index).trim();
-            if (!NAMES.includes(name)) continue;
+            if (!CORE_NAMES.includes(name)) continue;
             const value = pair.slice(index + 1).trim();
+            const browser = this.browserName(name);
             // An expired cookie (the core ended the session) is passed on as a deletion.
             if (!value || /expires=Thu, 01 Jan 1970/i.test(line)) {
                 this.values.delete(name);
-                this.outgoing.set(name, cookieLine(name, '', 0));
+                this.outgoing.set(browser, cookieLine(browser, '', 0));
                 continue;
             }
             this.values.set(name, value);
-            this.outgoing.set(name, cookieLine(name, value, SESSION_MAX_AGE));
+            this.outgoing.set(browser, cookieLine(browser, value, SESSION_MAX_AGE));
         }
     }
 
     /** Adds the cookies for the browser: new ones from the core, else the current ones again (30 days from now). */
     apply(headers: Headers) {
         for (const [name, value] of this.values) {
-            if (!this.outgoing.has(name)) this.outgoing.set(name, cookieLine(name, value, SESSION_MAX_AGE));
+            const browser = this.browserName(name);
+            if (!this.outgoing.has(browser))
+                this.outgoing.set(browser, cookieLine(browser, value, SESSION_MAX_AGE));
         }
         for (const line of this.outgoing.values()) headers.append('set-cookie', line);
     }

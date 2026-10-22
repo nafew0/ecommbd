@@ -1,0 +1,14 @@
+---
+import type { DataOf, divider } from '@ecommbd/sections';
+import type { SectionContext } from './context';
+
+/** Divider: space between sections, with or without a line. */
+interface Props {
+    section: DataOf<typeof divider>;
+    context: SectionContext;
+}
+
+const { section } = Astro.props;
+---
+
+<div class="section-inner">{section.settings.line ? <hr class="divider" /> : <div class="divider-space" />}</div>

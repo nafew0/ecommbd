@@ -27,7 +27,11 @@ export default defineConfig({
         // Not in `astro dev`: its module runner can't run CommonJS packages ("require is not defined").
         ssr: { noExternal: process.argv.includes('dev') ? [] : true },
         resolve: {
-            alias: { '@ecommbd/shared': path.resolve(here, '../../packages/shared/src') },
+            alias: {
+                '@ecommbd/shared': path.resolve(here, '../../packages/shared/src'),
+                // Sections and themes (phase 15): browser-safe, straight from the source like shared.
+                '@ecommbd/sections': path.resolve(here, '../../packages/sections/src/index.ts'),
+            },
         },
         // `astro dev`: images and the Shop API come from the core, as Nginx does in production.
         server: {

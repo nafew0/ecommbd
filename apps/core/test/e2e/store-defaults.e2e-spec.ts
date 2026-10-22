@@ -234,6 +234,8 @@ describe('running the initializer again', () => {
             'fraud-permissions',
             'woo-import-permission-v1',
             'search-synonyms',
+            'storefront-permissions',
+            'sales-page-offer-promotion',
         ]);
         expect(await storeState()).toEqual(before);
     });

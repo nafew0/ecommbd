@@ -1,0 +1,28 @@
+---
+import { pageContext } from '../../lib/page';
+
+/** The SMS code step for cash on delivery, when the store asks for it. */
+interface Props {
+    otp: { message: string; error?: string } | null;
+}
+
+const { otp } = Astro.props;
+const { s } = pageContext(Astro);
+---
+
+{
+    otp && (
+        <fieldset class="checkout-section otp-section" data-otp>
+            <legend>{s.otpTitle}</legend>
+            <p>{otp.message}</p>
+            <div class="field">
+                <label for="otp">{s.otpLabel}</label>
+                <input id="otp" name="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" aria-invalid={otp.error ? 'true' : undefined} aria-describedby={otp.error ? 'otp-error' : undefined} />
+                {otp.error && <p class="field-error" id="otp-error">{otp.error}</p>}
+            </div>
+            <button class="text-link" type="submit" name="action" value="place" formnovalidate data-otp-resend>
+                {s.otpResend}
+            </button>
+        </fieldset>
+    )
+}

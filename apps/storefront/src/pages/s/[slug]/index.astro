@@ -1,0 +1,116 @@
+---
+import { pick, salesColoursCss, type SectionData } from '@ecommbd/sections';
+import Missing from '../../../components/Missing.astro';
+import Layout from '../../../layouts/Layout.astro';
+import { imageAttributes, largestImageUrl } from '../../../lib/images';
+import { alternates, canonicalRedirect, pageContext } from '../../../lib/page';
+import { loadSalesPage, salesFormData, startingPack, startingVariant } from '../../../lib/sales';
+import { loadSectionData, pageStyle, visibleSections } from '../../../lib/sections';
+import { metaDescription } from '../../../lib/seo';
+import { salesPath, salesSlug } from '../../../lib/urls';
+import Sections from '../../../sections/Sections.astro';
+import type { SalesContext } from '../../../sections/context';
+
+/**
+ * A sales page (roadmap phase 16): an ad landing page for one product, cacheable like any page.
+ * Its own header, footer, width, colours and font; hidden from search engines unless the merchant
+ * says otherwise; the order form posts to `/s/<slug>/order/`.
+ */
+const { lang, s, format } = pageContext(Astro);
+const slug = salesSlug(Astro.params.slug ?? '');
+const loaded = await loadSalesPage(Astro, slug);
+if (loaded) {
+    const redirect = canonicalRedirect(Astro, salesPath(loaded.page.slug));
+    if (redirect) return redirect;
+} else {
+    Astro.response.status = 404;
+}
+
+let sales: SalesContext | null = null;
+let shown: SectionData[] = [];
+let data = null;
+let css = '';
+if (loaded) {
+    const { page, settings, layout } = loaded;
+    shown = visibleSections(layout.document);
+    const [sectionData, form] = await Promise.all([loadSectionData(Astro, shown), salesFormData(lang)]);
+    data = sectionData;
+    sales = { page, settings, checkout: form.checkout, districts: form.districts };
+    css = pageStyle(Astro, layout.document, salesColoursCss(Astro.locals.theme, settings));
+    if (!Astro.locals.preview) {
+        Astro.response.headers.set(
+            'xkey',
+            [`layout:${layout.layoutId}`, `sales-page:${page.id}`, `product:${page.product.id}`, 'theme', ...data.tags]
+                .slice(0, 100)
+                .join(' '),
+        );
+    }
+}
+
+const page = loaded?.page;
+const settings = loaded?.settings;
+const hero = shown[0]?.type === 'sales-hero' ? shown[0] : undefined;
+const heroImage = hero && (hero.settings as { media?: string }).media === 'product' ? page?.product.featuredAsset : undefined;
+const seoImage = settings?.seo.image?.preview ?? (page?.product.featuredAsset ? largestImageUrl(page.product.featuredAsset) : undefined);
+const title = (settings && pick(settings.seo.title, lang)) || page?.title || '';
+const heroText = hero ? pick((hero.settings as { text: { bn: string; en: string } }).text, lang) : '';
+const description = settings ? metaDescription(pick(settings.seo.description, lang), heroText || page?.product.name || '') : '';
+// FAQ sections as FAQPage structured data.
+const questions = shown
+    .filter(section => section.type === 'faq')
+    .flatMap(section => section.blocks)
+    .map(block => block.settings as { question: { bn: string; en: string }; answer: { bn: string; en: string } })
+    .filter(item => pick(item.question, lang) && pick(item.answer, lang));
+const structuredData = questions.length
+    ? [
+          {
+              '@context': 'https://schema.org',
+              '@type': 'FAQPage',
+              mainEntity: questions.map(item => ({
+                  '@type': 'Question',
+                  name: pick(item.question, lang),
+                  acceptedAnswer: { '@type': 'Answer', text: pick(item.answer, lang) },
+              })),
+          },
+      ]
+    : [];
+const startPrice = page
+    ? (startingPack(page.packs)?.price ?? startingVariant(page.product.variants)?.priceWithTax ?? null)
+    : null;
+const sticky =
+    settings?.stickyBar && page?.available && startPrice != null && shown.some(section => section.type === 'order-form')
+        ? format.price(startPrice)
+        : null;
+---
+
+{
+    loaded && sales && data && page && settings ? (
+        <Layout
+            title={title}
+            description={description}
+            canonicalPath={salesPath(page.slug)}
+            alternates={alternates(Astro, { bn: salesPath(page.slug), en: salesPath(page.slug) })}
+            noindex={settings.hideFromGoogle}
+            ogType="product"
+            image={seoImage}
+            structuredData={structuredData}
+            preload={heroImage ? { ...imageAttributes(heroImage, 960), sizes: '(min-width: 990px) 560px, 100vw' } : undefined}
+            fullWidth
+            css={css}
+            sales={{
+                pageId: page.id,
+                header: settings.header,
+                footer: settings.footer,
+                width: settings.width,
+                font: settings.font,
+                sticky,
+            }}
+        >
+            <Sections layout={loaded.layout} data={data} sales={sales} firstIsH1 />
+        </Layout>
+    ) : (
+        <Layout title={s.notFoundTitle} noindex>
+            <Missing kind="not-found" />
+        </Layout>
+    )
+}

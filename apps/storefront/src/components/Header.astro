@@ -2,6 +2,7 @@
 import { pageContext } from '../lib/page';
 import { getMenus, getTopCollections, storeName } from '../lib/store';
 import { categoryPath } from '../lib/urls';
+import { pick as pickText } from '@ecommbd/sections';
 import { otherLang } from '../lib/i18n';
 import Icon from './Icon.astro';
 import Image from './Image.astro';
@@ -12,6 +13,11 @@ interface Props {
 }
 
 const { lang, settings, s, href } = pageContext(Astro);
+// The announcement bar is a theme setting (phase 15). When it's off it's still sent, hidden, so the
+// theme screen's preview can show it as soon as the merchant switches it on.
+const announcement = Astro.locals.theme.announcement;
+const announcementText = pickText(announcement.text, lang);
+const showAnnouncement = announcement.enabled && !!announcementText;
 const menus = await getMenus(lang);
 // No header menu set up yet: the top categories.
 const links = menus.header.length
@@ -26,8 +32,8 @@ const linkHref = (url: string) => (url.startsWith('/') ? href(url) : url);
 const query = Astro.url.pathname.endsWith('/search/') ? (Astro.url.searchParams.get('q') ?? '') : '';
 ---
 
-<div class="announcement">
-    <p class="container">{s.announcement}</p>
+<div class="announcement" data-announcement hidden={!showAnnouncement}>
+    <p class="container">{announcementText}</p>
 </div>
 <header class="site-header">
     <div class="header-row container">

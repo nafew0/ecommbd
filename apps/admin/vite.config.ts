@@ -19,6 +19,8 @@ export default defineConfig({
             // Browser-safe helpers straight from the source (phone, text, money, time, store-settings).
             // Never import the package root here: it includes Node-only code (HTTP client, crypto).
             '@ecommbd/shared': path.resolve(__dirname, '../../packages/shared/src'),
+            // Sections and themes (phase 15): the whole package is browser-safe.
+            '@ecommbd/sections': path.resolve(__dirname, '../../packages/sections/src/index.ts'),
         },
     },
     build: {

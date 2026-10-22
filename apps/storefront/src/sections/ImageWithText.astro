@@ -1,0 +1,36 @@
+---
+import type { DataOf, imageWithText } from '@ecommbd/sections';
+import Image from '../components/Image.astro';
+import RichText from '../components/RichText.astro';
+import { assetOf, hrefOf, type SectionContext, tr } from './context';
+import Buttons from './parts/Buttons.astro';
+
+/** Image with text: the image on one side, a heading, text and a button on the other. */
+interface Props {
+    section: DataOf<typeof imageWithText>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const image = assetOf(settings.image, context);
+const Heading = context.heading;
+---
+
+<div class:list={['section-inner split', { 'split-reverse': settings.imagePosition === 'right' }]}>
+    <div class="split-media">
+        <Image
+            asset={image}
+            alt=""
+            lang={context.lang}
+            sizes="(min-width: 750px) 50vw, 100vw"
+            preferredWidth={800}
+            priority={context.first}
+        />
+    </div>
+    <div class="split-text">
+        {tr(settings.heading, context) && <Heading class="section-title">{tr(settings.heading, context)}</Heading>}
+        <RichText content={tr(settings.text, context)} />
+        <Buttons buttons={[{ label: tr(settings.button, context), href: hrefOf(settings.link, context) }]} />
+    </div>
+</div>

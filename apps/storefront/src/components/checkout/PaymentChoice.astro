@@ -1,0 +1,99 @@
+---
+import { formatBdPhone } from '@ecommbd/shared/phone';
+import type { CartOrder } from '../../lib/cart';
+import type { CheckoutErrors, CheckoutValues } from '../../lib/checkout';
+import { pageContext } from '../../lib/page';
+import type { PaymentOptions } from '../../lib/checkout';
+
+/** Cash on delivery (with the advance when the store asks for one) and mobile banking. */
+interface Props {
+    values: CheckoutValues;
+    errors: CheckoutErrors;
+    options: PaymentOptions | null;
+    /** Null on a sales page's cached form, before there's an order (cash on delivery only then). */
+    order: CartOrder | null;
+    cod: boolean;
+}
+
+const { values, errors, options, order, cod } = Astro.props;
+const { s, format } = pageContext(Astro);
+const mfs = options?.mfs ?? [];
+const providerName = (provider: string) => s.mfsNames[provider] ?? provider;
+const how = (accountType: string) => s.accountTypes[accountType] ?? s.accountTypes.personal!;
+const errorFor = (field: keyof CheckoutErrors) => errors[field];
+const describedBy = (field: keyof CheckoutErrors) => (errors[field] ? `${field}-error` : undefined);
+---
+
+<fieldset class="checkout-section" data-part="payment">
+    <legend>{s.paymentMethod}</legend>
+    {errorFor('payment') && <p class="field-error" id="payment-error">{errorFor('payment')}</p>}
+    <div class="choice-list">
+        <div class="choice-block">
+            <label class="choice">
+                <input type="radio" name="payment" value="cod" checked={cod} data-payment />
+                <span class="choice-label">{s.cashOnDeliveryLong}</span>
+            </label>
+            <div class="choice-panel">
+                {options && options.codFee > 0 && <p class="field-hint">{s.codFeeNote(format.price(options.codFee))}</p>}
+                {options && !options.codAvailable && options.codUnavailableMessage && <p class="field-error">{options.codUnavailableMessage}</p>}
+                {
+                    options && options.advanceAmount > 0 && (
+                        <div class="mfs-box">
+                            <p>{s.advanceNeeded(format.price(options.advanceAmount))}</p>
+                            <div class="field">
+                                <span class="field-label" id="advance-provider-label">{s.advanceProvider}</span>
+                                <div class="choice-list compact" role="radiogroup" aria-labelledby="advance-provider-label">
+                                    {mfs.map(account => (
+                                        <label class="choice">
+                                            <input type="radio" name="advanceProvider" value={account.provider} checked={values.advanceProvider === account.provider} />
+                                            <span class="choice-label">{providerName(account.provider)}</span>
+                                            <span class="muted">{s.sendMoneyTo(format.price(options.advanceAmount), providerName(account.provider), formatBdPhone(account.number), how(account.accountType))}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                                {errorFor('advanceProvider') && <p class="field-error">{errorFor('advanceProvider')}</p>}
+                            </div>
+                            <div class="field-row">
+                                <div class="field">
+                                    <label for="advanceSender">{s.senderNumberLabel}</label>
+                                    <input id="advanceSender" name="advanceSender" type="tel" inputmode="tel" value={values.advanceSender} maxlength="20" aria-invalid={errorFor('advanceSender') ? 'true' : undefined} aria-describedby={describedBy('advanceSender')} />
+                                    {errorFor('advanceSender') && <p class="field-error" id="advanceSender-error">{errorFor('advanceSender')}</p>}
+                                </div>
+                                <div class="field">
+                                    <label for="advanceTransactionId">{s.transactionIdLabel}</label>
+                                    <input id="advanceTransactionId" name="advanceTransactionId" value={values.advanceTransactionId} maxlength="20" autocapitalize="characters" autocomplete="off" aria-invalid={errorFor('advanceTransactionId') ? 'true' : undefined} aria-describedby={describedBy('advanceTransactionId')} />
+                                    {errorFor('advanceTransactionId') && <p class="field-error" id="advanceTransactionId-error">{errorFor('advanceTransactionId')}</p>}
+                                </div>
+                            </div>
+                        </div>
+                    )
+                }
+            </div>
+        </div>
+        {
+            mfs.map(account => (
+                <div class="choice-block">
+                    <label class="choice">
+                        <input type="radio" name="payment" value={account.provider} checked={values.payment === account.provider} data-payment />
+                        <span class="choice-label">{s.payWith(providerName(account.provider))}</span>
+                    </label>
+                    <div class="choice-panel mfs-box">
+                        <p>{s.sendMoneyTo(format.price(order?.totalWithTax ?? 0), providerName(account.provider), formatBdPhone(account.number), how(account.accountType))}</p>
+                        <div class="field-row">
+                            <div class="field">
+                                <label for={`sender-${account.provider}`}>{s.senderNumberLabel}</label>
+                                <input id={`sender-${account.provider}`} name={`senderNumber.${account.provider}`} type="tel" inputmode="tel" value={values.payment === account.provider ? values.senderNumber : ''} maxlength="20" aria-invalid={values.payment === account.provider && errorFor('senderNumber') ? 'true' : undefined} />
+                                {values.payment === account.provider && errorFor('senderNumber') && <p class="field-error">{errorFor('senderNumber')}</p>}
+                            </div>
+                            <div class="field">
+                                <label for={`trx-${account.provider}`}>{s.transactionIdLabel}</label>
+                                <input id={`trx-${account.provider}`} name={`transactionId.${account.provider}`} value={values.payment === account.provider ? values.transactionId : ''} maxlength="20" autocapitalize="characters" autocomplete="off" aria-invalid={values.payment === account.provider && errorFor('transactionId') ? 'true' : undefined} />
+                                {values.payment === account.provider && errorFor('transactionId') && <p class="field-error">{errorFor('transactionId')}</p>}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ))
+        }
+    </div>
+</fieldset>

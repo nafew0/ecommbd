@@ -1,9 +1,10 @@
+import { type Attribution, ATTRIBUTION_COOKIE, readAttribution } from '@ecommbd/shared/attribution';
 import { banglaToAsciiDigits } from '@ecommbd/shared/text';
 import type { AstroGlobal } from 'astro';
 import { ACTIVE_ORDER, ADD_TO_CART, ADJUST_LINE, REMOVE_LINE } from './checkout-queries';
 import { clientIpOf, type ResultOf, shopQuery } from './core';
 import type { Lang, Strings } from './i18n';
-import { cartCountCookie, ShopSession } from './session';
+import { cartCountCookie, parseCookies, SALES_SESSION_COOKIE, ShopSession } from './session';
 
 /**
  * The cart (roadmap phase 14), shared by the cart page (`/cart/`, plain forms) and the cart drawer
@@ -16,13 +17,29 @@ export interface ShopperContext {
     session: ShopSession;
     lang: Lang;
     clientIp?: string;
+    /** Where the shopper came from (phase 16's cookie), copied onto the order when it's placed. */
+    attribution?: Attribution | null;
 }
 
-export function shopperContext(Astro: AstroGlobal): ShopperContext {
+/** The attribution cookie (written by src/scripts/attribution.ts), read and checked. */
+export function attributionOf(cookieHeader: string | null): Attribution | null {
+    const raw = parseCookies(cookieHeader).get(ATTRIBUTION_COOKIE);
+    if (!raw || raw.length > 3000) return null;
+    try {
+        return readAttribution(JSON.parse(decodeURIComponent(raw)));
+    } catch {
+        return null;
+    }
+}
+
+/** The shopper's own session; a sales page's order form (phase 16) has one of its own. */
+export function shopperContext(Astro: AstroGlobal, kind: 'cart' | 'sales' = 'cart'): ShopperContext {
+    const cookies = Astro.request.headers.get('cookie');
     return {
-        session: new ShopSession(Astro.request.headers.get('cookie')),
+        session: new ShopSession(cookies, kind === 'sales' ? SALES_SESSION_COOKIE : undefined),
         lang: Astro.locals.lang,
         clientIp: clientIpOf(Astro.request, () => Astro.clientAddress),
+        attribution: attributionOf(cookies),
     };
 }
 

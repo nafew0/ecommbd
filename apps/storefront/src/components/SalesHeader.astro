@@ -1,0 +1,45 @@
+---
+import { formatBdPhone } from '@ecommbd/shared/phone';
+import { otherLang } from '../lib/i18n';
+import { pageContext } from '../lib/page';
+import { storeName } from '../lib/store';
+import Icon from './Icon.astro';
+import Image from './Image.astro';
+
+/**
+ * A sales page's slim header (phase 16): the logo and a call button, nothing to wander off to. The
+ * language switch stays, small.
+ */
+interface Props {
+    switchHref: string;
+}
+
+const { lang, settings, s, href } = pageContext(Astro);
+const name = storeName(settings, lang);
+const phone = settings.profile.phones[0];
+---
+
+<header class="site-header sales-header">
+    <div class="header-row container">
+        <a class="logo" href={href('/')}>
+            {
+                settings.profile.logo ? (
+                    <Image asset={settings.profile.logo} alt={name} lang={lang} sizes="140px" preferredWidth={160} />
+                ) : (
+                    <span class="logo-text">{name}</span>
+                )
+            }
+        </a>
+        <a class="lang-switch" href={Astro.props.switchHref} hreflang={otherLang(lang)} lang={otherLang(lang)} title={s.switchToLabel}
+            >{s.switchTo}</a
+        >
+        {
+            phone && (
+                <a class="sales-call" href={`tel:${phone}`}>
+                    <Icon name="phone" size={18} />
+                    <span>{formatBdPhone(phone)}</span>
+                </a>
+            )
+        }
+    </div>
+</header>

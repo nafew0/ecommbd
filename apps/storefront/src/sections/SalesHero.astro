@@ -1,0 +1,101 @@
+---
+import type { DataOf, salesHero } from '@ecommbd/sections';
+import Icon from '../components/Icon.astro';
+import Image from '../components/Image.astro';
+import { percentOff, startingPack, startingVariant } from '../lib/sales';
+import { assetOf, type SectionContext, tr } from './context';
+import LiteVideo from './parts/LiteVideo.astro';
+
+/**
+ * Sales hero (phase 16): the product's photo (or another image, or a lite video), a badge, the
+ * headline with a second line in the brand colour, the offer and the order button. On phones the
+ * photo comes first and the button is full width; on computers they sit side by side.
+ */
+interface Props {
+    section: DataOf<typeof salesHero>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const { s, format, sales } = context;
+const product = sales?.page.product;
+const variant = product ? startingVariant(product.variants) : undefined;
+const pack = sales ? startingPack(sales.page.packs) : undefined;
+// The offer: the starting pack, else the product's price against its old price.
+const price = pack?.price ?? variant?.priceWithTax ?? null;
+const normal = pack ? pack.normalPrice : (variant?.customFields?.oldPrice ?? null);
+const off = price != null && normal != null ? percentOff(price, normal) : 0;
+const video = settings.media === 'video' && settings.video ? settings.video : null;
+const image =
+    settings.media === 'image' ? assetOf(settings.image, context) : (product?.featuredAsset ?? undefined);
+const points = tr(settings.points, context)
+    .split('\n')
+    .map(point => point.trim())
+    .filter(Boolean);
+const Heading = context.first ? 'h1' : 'h2';
+const headline = tr(settings.headline, context);
+const highlight = tr(settings.highlight, context);
+---
+
+<div class="section-inner sales-hero">
+    <div class="sales-hero-media">
+        {
+            video ? (
+                <LiteVideo context={context} url={video} title={headline} />
+            ) : (
+                <Image
+                    asset={image}
+                    alt={product?.name ?? ''}
+                    lang={context.lang}
+                    sizes="(min-width: 990px) 560px, 100vw"
+                    preferredWidth={960}
+                    priority={context.first}
+                />
+            )
+        }
+        {off > 0 && <span class="sales-off-tag">{s.percentOff(format.number(off))}</span>}
+    </div>
+    <div class="sales-hero-text">
+        {tr(settings.badge, context) && <p class="sales-badge">{tr(settings.badge, context)}</p>}
+        {
+            (headline || highlight) && (
+                <Heading class="sales-headline">
+                    {headline}
+                    {highlight && <span class="sales-highlight">{highlight}</span>}
+                </Heading>
+            )
+        }
+        {tr(settings.text, context) && <p class="sales-hero-intro">{tr(settings.text, context)}</p>}
+        {
+            settings.offerBox && price != null && (
+                <div class="sales-offer">
+                    <span class="sales-price">{format.price(price)}</span>
+                    {normal != null && normal > price && <s class="price-old">{format.price(normal)}</s>}
+                    {normal != null && normal > price && (
+                        <span class="sales-saving">{s.youSave(format.price(normal - price))}</span>
+                    )}
+                </div>
+            )
+        }
+        {
+            tr(settings.button, context) && (
+                <a class="button sales-button" href="#order" data-order-link>
+                    {tr(settings.button, context)}
+                </a>
+            )
+        }
+        {
+            points.length > 0 && (
+                <ul class="sales-points">
+                    {points.map(point => (
+                        <li>
+                            <Icon name="check" size={18} />
+                            {point}
+                        </li>
+                    ))}
+                </ul>
+            )
+        }
+    </div>
+</div>
