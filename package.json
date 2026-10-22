@@ -8,7 +8,7 @@
   "scripts": {
     "services:up": "docker compose up -d",
     "services:down": "docker compose stop",
-    "build:packages": "npm run build -w @ecommbd/shared && npm run build -w @ecommbd/bd-geo",
+    "build:packages": "npm run build -w @ecommbd/shared && npm run build -w @ecommbd/bd-geo && npm run build -w @ecommbd/sections",
     "dev": "npm run build:packages && npm run build -w @ecommbd/admin && npm run dev -w @ecommbd/core",
     "dev:admin": "npm run dev -w @ecommbd/admin",
     "dev:storefront": "npm run build:packages && npm run dev -w @ecommbd/storefront",

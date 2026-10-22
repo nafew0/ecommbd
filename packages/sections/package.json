@@ -1,0 +1,16 @@
+{
+  "name": "@ecommbd/sections",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Storefront sections for Ecomm BD: section schemas with data migrations, style options, themes with contrast checks and starter layouts, shared by the core, the storefront and the page editor",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --coverage"
+  }
+}
