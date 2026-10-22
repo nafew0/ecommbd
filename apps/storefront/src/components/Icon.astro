@@ -16,7 +16,26 @@ export type IconName =
     | 'image'
     | 'phone'
     | 'whatsapp'
-    | 'messenger';
+    | 'messenger'
+    // Sections (phase 15): trust badges, columns, contact, slideshow and video controls.
+    | 'cash'
+    | 'truck'
+    | 'return'
+    | 'shield'
+    | 'check'
+    | 'chat'
+    | 'star'
+    | 'star-filled'
+    | 'leaf'
+    | 'gift'
+    | 'clock'
+    | 'tag'
+    | 'box'
+    | 'lock'
+    | 'play'
+    | 'pause'
+    | 'mail'
+    | 'map-pin';
 
 interface Props {
     name: IconName;
@@ -25,7 +44,7 @@ interface Props {
 }
 
 const { name, size = 20, class: className } = Astro.props;
-const filled = name === 'whatsapp' || name === 'messenger';
+const filled = name === 'whatsapp' || name === 'messenger' || name === 'play' || name === 'star-filled';
 ---
 
 <svg
@@ -63,6 +82,43 @@ const filled = name === 'whatsapp' || name === 'messenger';
     {
         name === 'messenger' && (
             <path d="M12 2C6.4 2 2 6.1 2 11.7a9.4 9.4 0 0 0 3.1 7.1V22l2.9-1.6a10.7 10.7 0 0 0 4 .7c5.6 0 10-4.1 10-9.7S17.6 2 12 2Zm1 12.9-2.5-2.7-5 2.7 5.5-5.8 2.6 2.7 4.9-2.7-5.5 5.8Z" />
+        )
+    }
+    {name === 'cash' && <path d="M3.5 6.5h17v11h-17v-11ZM12 14.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM6.5 9.5v5M17.5 9.5v5" />}
+    {
+        name === 'truck' && (
+            <path d="M2.5 6.5h11v9h-11v-9ZM13.5 9.5h4l3 3v3h-7M7 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM17 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
+        )
+    }
+    {name === 'return' && <path d="M8.5 4.5 5.5 7.5l3 3M5.5 7.5H15a4.5 4.5 0 0 1 0 9H7" />}
+    {
+        name === 'shield' && (
+            <path d="M12 3.5 19.5 6v5.5c0 4.5-3.2 7.8-7.5 9-4.3-1.2-7.5-4.5-7.5-9V6L12 3.5ZM8.5 12l2.5 2.5 4.5-5" />
+        )
+    }
+    {name === 'check' && <path d="m5 12.5 4.5 4.5L19 7.5" />}
+    {name === 'chat' && <path d="M4 5.5h16v10H10l-4 3.5v-3.5H4v-10ZM8 9.5h8M8 12.5h5" />}
+    {
+        (name === 'star' || name === 'star-filled') && (
+            <path d="m12 3.8 2.5 5.2 5.7.8-4.1 4 1 5.6-5.1-2.7-5.1 2.7 1-5.6-4.1-4 5.7-.8L12 3.8Z" />
+        )
+    }
+    {name === 'leaf' && <path d="M19.5 4.5c-9 0-14 4.5-14 10.5a4 4 0 0 0 4 4c6 0 10-5 10-14.5ZM5 19.5c3-4 6-6.5 9.5-8.5" />}
+    {
+        name === 'gift' && (
+            <path d="M4 9.5h16v3H4v-3ZM5.5 12.5h13v7.5h-13v-7.5ZM12 9.5V20M12 9.5c-1-3-4.5-4.5-5.5-2.5S9 9.5 12 9.5Zm0 0c1-3 4.5-4.5 5.5-2.5S15 9.5 12 9.5Z" />
+        )
+    }
+    {name === 'clock' && <path d="M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17ZM12 7.5V12l3 2" />}
+    {name === 'tag' && <path d="M3.5 12.2V4.5h7.7l9 9-7.7 7.7-9-9ZM8 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" />}
+    {name === 'box' && <path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4v-9ZM3.5 7.5 12 11.5l8.5-4M12 11.5v9" />}
+    {name === 'lock' && <path d="M5.5 10.5h13v10h-13v-10ZM8.5 10.5v-3a3.5 3.5 0 0 1 7 0v3" />}
+    {name === 'play' && <path d="M8 5.5v13l11-6.5-11-6.5Z" />}
+    {name === 'pause' && <path d="M8.5 5.5v13M15.5 5.5v13" />}
+    {name === 'mail' && <path d="M3.5 5.5h17v13h-17v-13ZM3.5 6.5l8.5 6.5 8.5-6.5" />}
+    {
+        name === 'map-pin' && (
+            <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11ZM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
         )
     }
 </svg>

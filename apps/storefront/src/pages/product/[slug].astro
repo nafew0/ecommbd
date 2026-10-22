@@ -12,7 +12,9 @@ import { imageAttributes, largestImageUrl } from '../../lib/images';
 import { alternates, canonicalRedirect, pageContext } from '../../lib/page';
 import { NEW_PRODUCTS, PRODUCT, SLUG_LOOKUP } from '../../lib/queries';
 import { breadcrumbList, metaDescription, product as productLd } from '../../lib/seo';
+import { loadLayout, loadSectionData, setCacheTags, visibleSections } from '../../lib/sections';
 import { storeName } from '../../lib/store';
+import Sections from '../../sections/Sections.astro';
 import { categoryPath, lookupSlug, productPath } from '../../lib/urls';
 
 const { lang, settings, s, href, absolute, format } = pageContext(Astro);
@@ -78,6 +80,12 @@ const orderLink =
     product && whatsapp && !soldOut
         ? `https://wa.me/${whatsapp}?text=${encodeURIComponent(s.whatsappMessage(product.name, url))}`
         : null;
+
+// The product page template (phase 15): sections every product page shows below the product.
+const template = product ? await loadLayout(Astro, 'product') : null;
+const templateSections = template ? visibleSections(template.document) : [];
+const templateData = template && templateSections.length ? await loadSectionData(Astro, templateSections) : null;
+if (template && templateData && !Astro.locals.preview) setCacheTags(Astro, template, templateData);
 ---
 
 {
@@ -101,7 +109,9 @@ const orderLink =
                 }),
                 breadcrumbList(crumbs.map(crumb => ({ name: crumb.name, url: absolute(crumb.href) }))),
             ]}
+            fullWidth={!!templateData}
         >
+            <div class:list={{ container: !!templateData }}>
             <Breadcrumbs crumbs={crumbs} label={s.breadcrumb} />
             <article class="product">
                 <div class="product-gallery">
@@ -192,6 +202,8 @@ const orderLink =
                     )}
                 </div>
             </article>
+            </div>
+            {template && templateData && <Sections layout={template} data={templateData} />}
         </Layout>
     ) : (
         <Layout title={missing === 'gone' ? s.goneTitle : s.notFoundTitle} noindex>

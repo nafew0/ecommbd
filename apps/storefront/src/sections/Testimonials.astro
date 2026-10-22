@@ -1,0 +1,82 @@
+---
+import type { DataOf, testimonials } from '@ecommbd/sections';
+import Icon from '../components/Icon.astro';
+import Image from '../components/Image.astro';
+import { assetOf, type SectionContext, tr } from './context';
+import SectionHeader from './parts/SectionHeader.astro';
+
+/** Customer reviews: cards with stars, or the screenshots customers sent. */
+interface Props {
+    section: DataOf<typeof testimonials>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const { s } = context;
+const screenshots = settings.look === 'screenshots';
+const reviews = section.blocks.filter(block =>
+    screenshots ? assetOf(block.settings.photo, context) : tr(block.settings.text, context),
+);
+---
+
+{
+    reviews.length > 0 && (
+        <div class="section-inner">
+            <SectionHeader context={context} heading={tr(settings.heading, context)} />
+            <ul class:list={['reviews', `cols-${settings.columns}`, { 'reviews-screenshots': screenshots }]}>
+                {reviews.map(block => {
+                    const photo = assetOf(block.settings.photo, context);
+                    const name = tr(block.settings.name, context);
+                    const place = tr(block.settings.place, context);
+                    const rating = block.settings.rating;
+                    return (
+                        <li class="review">
+                            {screenshots ? (
+                                <figure>
+                                    <Image
+                                        asset={photo}
+                                        alt={name}
+                                        lang={context.lang}
+                                        sizes={`(min-width: 990px) ${Math.round(1200 / settings.columns)}px, 100vw`}
+                                        preferredWidth={600}
+                                    />
+                                    {name && <figcaption>{name}</figcaption>}
+                                </figure>
+                            ) : (
+                                <figure>
+                                    {rating > 0 && (
+                                        <p class="stars" role="img" aria-label={s.stars(rating)}>
+                                            {[1, 2, 3, 4, 5].map(star => (
+                                                <Icon name={star <= rating ? 'star-filled' : 'star'} size={16} />
+                                            ))}
+                                        </p>
+                                    )}
+                                    <blockquote class="review-text">{tr(block.settings.text, context)}</blockquote>
+                                    {(name || photo) && (
+                                        <figcaption class="review-author">
+                                            {photo && (
+                                                <Image
+                                                    asset={photo}
+                                                    alt=""
+                                                    lang={context.lang}
+                                                    sizes="48px"
+                                                    preferredWidth={96}
+                                                    class="review-photo"
+                                                />
+                                            )}
+                                            <span>
+                                                <strong>{name}</strong>
+                                                {place && <span class="muted">{place}</span>}
+                                            </span>
+                                        </figcaption>
+                                    )}
+                                </figure>
+                            )}
+                        </li>
+                    );
+                })}
+            </ul>
+        </div>
+    )
+}

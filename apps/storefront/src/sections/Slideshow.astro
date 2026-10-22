@@ -1,0 +1,130 @@
+---
+import type { DataOf, slideshow } from '@ecommbd/sections';
+import Icon from '../components/Icon.astro';
+import { imageAttributes } from '../lib/images';
+import { assetOf, hrefOf, type SectionContext, tr } from './context';
+import Buttons from './parts/Buttons.astro';
+
+/**
+ * Slideshow: slides side by side in a scroll-snap track, so shoppers swipe them without
+ * JavaScript. The small script adds the arrows, the counter and (if chosen) changing slides
+ * every 5 seconds, which stops on touch, hover, focus and for reduced motion.
+ */
+interface Props {
+    section: DataOf<typeof slideshow>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const { s } = context;
+const slides = section.blocks;
+---
+
+<div
+    class:list={['slideshow', `hero-${settings.height}`, `shade-${settings.overlay}`]}
+    role="region"
+    aria-roledescription="carousel"
+    aria-label={s.slideshow}
+    data-slideshow
+    data-autoplay={settings.autoplay ? 'true' : undefined}
+>
+    <ul class="slides" data-slides>
+        {
+            slides.map((slide, index) => {
+                const image = assetOf(slide.settings.image, context);
+                const phoneImage = assetOf(slide.settings.phoneImage, context);
+                const main = image ? imageAttributes(image, 1600) : null;
+                const phone = phoneImage ? imageAttributes(phoneImage, 800) : null;
+                const eager = context.first && index === 0;
+                const Heading = index === 0 ? context.heading : 'h2';
+                const heading = tr(slide.settings.heading, context);
+                return (
+                    <li
+                        class:list={['slide', { 'slide-plain': !main }]}
+                        role="group"
+                        aria-roledescription="slide"
+                        aria-label={s.slideOf(index + 1, slides.length)}
+                    >
+                        {main && (
+                            <div class="hero-media">
+                                <picture>
+                                    {phone && (
+                                        <source
+                                            media="(max-width: 749px)"
+                                            srcset={phone.srcset ?? phone.src}
+                                            sizes={phone.srcset ? '100vw' : undefined}
+                                            width={phone.width}
+                                            height={phone.height}
+                                        />
+                                    )}
+                                    <img
+                                        src={main.src}
+                                        srcset={main.srcset}
+                                        sizes={main.srcset ? '100vw' : undefined}
+                                        width={main.width}
+                                        height={main.height}
+                                        alt=""
+                                        loading={eager ? 'eager' : 'lazy'}
+                                        fetchpriority={eager ? 'high' : undefined}
+                                        decoding={eager ? 'sync' : 'async'}
+                                    />
+                                </picture>
+                            </div>
+                        )}
+                        <div class="hero-content section-inner">
+                            <div class="hero-text">
+                                {heading && <Heading class="hero-heading">{heading}</Heading>}
+                                {tr(slide.settings.text, context) && (
+                                    <p class="hero-subheading">{tr(slide.settings.text, context)}</p>
+                                )}
+                                <Buttons
+                                    buttons={[
+                                        {
+                                            label: tr(slide.settings.button, context),
+                                            href: hrefOf(slide.settings.link, context),
+                                        },
+                                    ]}
+                                />
+                            </div>
+                        </div>
+                    </li>
+                );
+            })
+        }
+    </ul>
+    {
+        slides.length > 1 && (
+            <div class="slideshow-controls section-inner" data-controls hidden>
+                <button class="icon-button" type="button" data-previous aria-label={s.previousSlide}>
+                    <Icon name="chevron-left" />
+                </button>
+                <span class="slideshow-count" aria-live="polite" data-count>
+                    {context.format.number(1)} / {context.format.number(slides.length)}
+                </span>
+                <button class="icon-button" type="button" data-next aria-label={s.nextSlide}>
+                    <Icon name="chevron-right" />
+                </button>
+                {settings.autoplay && (
+                    <button
+                        class="icon-button slideshow-pause"
+                        type="button"
+                        data-pause
+                        data-pause-label={s.pauseSlides}
+                        data-play-label={s.playSlides}
+                        aria-label={s.pauseSlides}
+                    >
+                        <Icon name="pause" size={18} class="icon-pause" />
+                        <Icon name="play" size={18} class="icon-play" />
+                    </button>
+                )}
+            </div>
+        )
+    }
+</div>
+
+<script>
+    import { attachSlideshows } from '../scripts/slideshow';
+
+    attachSlideshows();
+</script>

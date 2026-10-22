@@ -1,0 +1,132 @@
+---
+import { pick, sectionDefinition, type SectionData } from '@ecommbd/sections';
+import Image from '../components/Image.astro';
+import { pageContext } from '../lib/page';
+import { type LoadedLayout, type SectionPageData, visibleSections } from '../lib/sections';
+import Banner from './Banner.astro';
+import CollectionList from './CollectionList.astro';
+import Contact from './Contact.astro';
+import { assetOf, type SectionContext } from './context';
+import DeliveryInfo from './DeliveryInfo.astro';
+import Divider from './Divider.astro';
+import Faq from './Faq.astro';
+import FeaturedProduct from './FeaturedProduct.astro';
+import Hero from './Hero.astro';
+import ImageGrid from './ImageGrid.astro';
+import ImageWithText from './ImageWithText.astro';
+import Multicolumn from './Multicolumn.astro';
+import ProductGrid from './ProductGrid.astro';
+import RichTextSection from './RichTextSection.astro';
+import Slideshow from './Slideshow.astro';
+import Testimonials from './Testimonials.astro';
+import TrustBadges from './TrustBadges.astro';
+import Video from './Video.astro';
+import WhatsappCta from './WhatsappCta.astro';
+
+/**
+ * A page's sections (roadmap phase 15), each in a <section> carrying its style options as classes:
+ * background, text colour, spacing, width, alignment, hiding per screen, an anchor and the
+ * entrance animation. In the editor's frame each also carries its uid and name for selecting.
+ */
+interface Props {
+    layout: LoadedLayout;
+    data: SectionPageData;
+    /** The home page: the first section's heading is the page's h1. */
+    firstIsH1?: boolean;
+}
+
+const { layout, data, firstIsH1 = false } = Astro.props;
+const { lang, defaultLang, settings, s, format, href, absolute } = pageContext(Astro);
+const editor = Astro.locals.preview?.mode === 'editor';
+const sections = visibleSections(layout.document);
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const COMPONENTS: Record<string, any> = {
+    hero: Hero,
+    slideshow: Slideshow,
+    banner: Banner,
+    'product-grid': ProductGrid,
+    'collection-list': CollectionList,
+    'featured-product': FeaturedProduct,
+    'image-with-text': ImageWithText,
+    'rich-text': RichTextSection,
+    multicolumn: Multicolumn,
+    faq: Faq,
+    'image-grid': ImageGrid,
+    video: Video,
+    testimonials: Testimonials,
+    'trust-badges': TrustBadges,
+    'delivery-info': DeliveryInfo,
+    contact: Contact,
+    'whatsapp-cta': WhatsappCta,
+    divider: Divider,
+};
+
+/** Light text on dark backgrounds (the brand colour's own text colour, white on dark and images). */
+function inverse(section: SectionData) {
+    const { text, background } = section.style;
+    return text === 'light' || (text === 'auto' && ['accent', 'dark', 'image'].includes(background));
+}
+
+/** Full-bleed images sit edge to edge: no space above and below. */
+function flush(section: SectionData) {
+    const settings = section.settings as { layout?: string; image?: unknown };
+    return (
+        section.style.background === 'none' &&
+        (section.type === 'slideshow' || (section.type === 'hero' && settings.layout === 'overlay' && !!settings.image))
+    );
+}
+---
+
+{
+    sections.map((section, index) => {
+        const Component = COMPONENTS[section.type];
+        if (!Component) return null;
+        const context: SectionContext = {
+            lang,
+            defaultLang,
+            s,
+            format,
+            settings,
+            href,
+            absolute,
+            assets: layout.assets,
+            data,
+            first: index === 0,
+            heading: firstIsH1 && index === 0 ? 'h1' : 'h2',
+            editor,
+        };
+        const { style } = section;
+        const background = style.background === 'image' ? assetOf(style.backgroundImage, context) : undefined;
+        return (
+            <section
+                id={style.anchor || undefined}
+                class:list={[
+                    'section',
+                    `section-${section.type}`,
+                    `bg-${style.background}`,
+                    `space-${style.spacing}`,
+                    `width-${style.width}`,
+                    `align-${style.align}`,
+                    {
+                        inverse: inverse(section),
+                        'text-dark': style.text === 'dark',
+                        'hide-phone': style.hideOn === 'phone',
+                        'hide-desktop': style.hideOn === 'desktop',
+                        reveal: style.animate && index > 0,
+                        flush: flush(section),
+                    },
+                ]}
+                data-section={editor ? section.uid : undefined}
+                data-section-name={editor ? pick(sectionDefinition(section.type)!.name, lang) : undefined}
+            >
+                {background && (
+                    <div class="section-bg" aria-hidden="true">
+                        <Image asset={background} alt="" lang={lang} sizes="100vw" preferredWidth={1600} priority={index === 0} />
+                    </div>
+                )}
+                <Component section={section} context={context} />
+            </section>
+        );
+    })
+}

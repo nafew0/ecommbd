@@ -6,7 +6,8 @@
     "jsx": "react-jsx",
     "jsxImportSource": "preact",
     "paths": {
-      "@ecommbd/shared/*": ["../../packages/shared/src/*"]
+      "@ecommbd/shared/*": ["../../packages/shared/src/*"],
+      "@ecommbd/sections": ["../../packages/sections/src/index.ts"]
     },
     "plugins": [
       {

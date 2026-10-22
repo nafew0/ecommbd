@@ -1,14 +1,20 @@
 ---
 import '../styles/global.css';
+import '../styles/themes.css';
+import '../styles/sections.css';
+import { hasDefaultColours, themeAttributes, themeVersion } from '@ecommbd/sections';
 import FloatingContact from '../components/FloatingContact.astro';
 import Footer from '../components/Footer.astro';
 import Header from '../components/Header.astro';
+import PreviewBar from '../components/PreviewBar.astro';
+import PreviewTools from '../components/PreviewTools.astro';
 import { otherLang } from '../lib/i18n';
 import type { ImageAttributes } from '../lib/images';
 import { pageContext } from '../lib/page';
 import { jsonLd } from '../lib/seo';
 import { storeName } from '../lib/store';
 import { sameOriginAssetUrl } from '../lib/urls';
+import { env } from '../env';
 
 interface Props {
     /** The page's own title; the store name is added after it. */
@@ -24,6 +30,8 @@ interface Props {
     structuredData?: unknown[];
     /** The main (LCP) image, preloaded in the head. */
     preload?: ImageAttributes & { sizes: string };
+    /** Pages made of sections (phase 15) lay out their own width. */
+    fullWidth?: boolean;
 }
 
 const {
@@ -36,6 +44,7 @@ const {
     image,
     structuredData = [],
     preload,
+    fullWidth = false,
 } = Astro.props;
 const { lang, settings, s, href, absolute } = pageContext(Astro);
 const name = storeName(settings, lang);
@@ -45,16 +54,21 @@ const other = otherLang(lang);
 const switchHref = alternates.find(link => link.hreflang === other)?.href ?? href('/', other);
 const favicon = settings.profile.favicon?.preview;
 const phone = settings.profile.phones[0];
+// The theme (phase 15): data attributes switch its look; custom colours come in a small stylesheet.
+const theme = Astro.locals.theme;
+const preview = Astro.locals.preview;
+const editorOrigin = preview?.mode === 'editor' ? (env().EDITOR_ORIGIN ?? undefined) : undefined;
 ---
 
 <!doctype html>
-<html lang={lang}>
+<html lang={lang} {...themeAttributes(theme)}>
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>{fullTitle}</title>
+        {!hasDefaultColours(theme) && <link rel="stylesheet" href={`/theme.css?v=${themeVersion(theme)}`} />}
         {description && <meta name="description" content={description} />}
-        {noindex && <meta name="robots" content="noindex, follow" />}
+        {(noindex || preview) && <meta name="robots" content="noindex, follow" />}
         {canonical && <link rel="canonical" href={canonical} />}
         {alternates.map(link => <link rel="alternate" hreflang={link.hreflang} href={link.href} />)}
         {
@@ -89,10 +103,10 @@ const phone = settings.profile.phones[0];
         {image && <meta name="twitter:image" content={absolute(image)} />}
         {structuredData.map(data => <script type="application/ld+json" set:html={jsonLd(data)} />)}
     </head>
-    <body>
+    <body data-preview={preview?.mode} data-editor-origin={editorOrigin}>
         <a class="skip-link" href="#main">{s.skipToContent}</a>
         <Header switchHref={switchHref} />
-        <main id="main" class="container">
+        <main id="main" class={fullWidth ? 'main-sections' : 'container'}>
             <slot />
         </main>
         <Footer />
@@ -102,5 +116,7 @@ const phone = settings.profile.phones[0];
             messengerUrl={settings.profile.messengerUrl}
             phone={phone}
         />
+        <PreviewBar />
+        {preview?.mode === 'editor' && <PreviewTools />}
     </body>
 </html>

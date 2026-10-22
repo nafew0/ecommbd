@@ -1,0 +1,36 @@
+---
+import { formatDhaka } from '@ecommbd/shared/time';
+import { pageContext } from '../lib/page';
+
+/**
+ * On preview pages opened from a shared link (phase 15): a bar saying the page isn't live, until
+ * when the link works, and that links lead to the live store. Also shown, as a notice, when a
+ * preview link has expired and the live page shows instead.
+ */
+const { s, lang, settings } = pageContext(Astro);
+const preview = Astro.locals.preview;
+const expired = Astro.locals.previewExpired;
+const until = preview
+    ? formatDhaka(new Date(preview.expiresAt), { withTime: true, banglaDigits: lang === 'bn' && settings.locale.banglaDigits })
+          .split(' ')
+          .pop()
+    : '';
+---
+
+{
+    preview?.mode === 'share' && (
+        <aside class="preview-bar" role="status">
+            <strong>{s.previewBar}</strong>
+            <span>
+                {s.previewExpires(until ?? '')} {s.previewLinksLive}
+            </span>
+        </aside>
+    )
+}
+{
+    expired && (
+        <aside class="preview-bar preview-bar-expired" role="status">
+            <strong>{s.previewExpired}</strong>
+        </aside>
+    )
+}

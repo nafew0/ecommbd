@@ -392,3 +392,87 @@ export const SITEMAP_PAGES = graphql(`
         }
     }
 `);
+
+/** Page sections (phase 15): a published layout with its images. */
+const LayoutFields = graphql(
+    `
+        fragment LayoutFields on BdLayout @_unmask {
+            id
+            type
+            pageId
+            version
+            document
+            assets {
+                ...AssetFields
+            }
+        }
+    `,
+    [AssetFields],
+);
+
+export const LAYOUT = graphql(
+    `
+        query Layout($type: String!, $pageId: ID) {
+            bdLayout(type: $type, pageId: $pageId) {
+                ...LayoutFields
+            }
+        }
+    `,
+    [LayoutFields],
+);
+
+export const LAYOUT_PREVIEW = graphql(
+    `
+        query LayoutPreview($token: String!) {
+            bdLayoutPreview(token: $token) {
+                mode
+                expiresAt
+                layout {
+                    ...LayoutFields
+                }
+            }
+        }
+    `,
+    [LayoutFields],
+);
+
+export const THEME = graphql(`
+    query Theme {
+        bdTheme
+    }
+`);
+
+export const COLLECTIONS_BY_ID = graphql(
+    `
+        query CollectionsById($ids: [String!]!) {
+            collections(options: { filter: { id: { in: $ids } }, take: 50 }) {
+                items {
+                    id
+                    name
+                    breadcrumbs {
+                        slug
+                    }
+                    featuredAsset {
+                        ...AssetFields
+                    }
+                }
+            }
+        }
+    `,
+    [AssetFields],
+);
+
+/** Featured products: the card's fields plus the description. */
+export const FEATURED_PRODUCTS = graphql(
+    `
+        query FeaturedProducts($ids: [String!]!, $take: Int!) {
+            products(options: { filter: { id: { in: $ids } }, take: $take }) {
+                items {
+                    ...ProductCardFields
+                    description
+                }
+            }
+        }
+    `,
+    [ProductCardFields],
+);

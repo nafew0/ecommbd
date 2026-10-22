@@ -272,12 +272,15 @@ export function hasDefaultColours(settings: ThemeSettings): boolean {
     return (Object.keys(own) as Array<keyof ThemeColours>).every(key => own[key] === settings.colours[key]);
 }
 
-/** The stylesheet for a theme's palette and font (served as `/theme.css`). */
+/**
+ * The stylesheet for a theme's colours (served as `/theme.css`). The doubled attribute outranks the
+ * storefront's `:root` and `html[data-theme='bazaar']` defaults, whatever order the stylesheets load in.
+ */
 export function themeCss(settings: ThemeSettings): string {
     const declarations = Object.entries(themeVariables(settings))
         .map(([name, value]) => `${name}:${value}`)
         .join(';');
-    return `:root{${declarations}}`;
+    return `html[data-theme][data-theme]{${declarations}}`;
 }
 
 /** A short hash of the settings, for the stylesheet's URL (`/theme.css?v=…`). FNV-1a. */

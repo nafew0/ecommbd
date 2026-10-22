@@ -1,0 +1,33 @@
+---
+import type { DataOf, faq } from '@ecommbd/sections';
+import Icon from '../components/Icon.astro';
+import { type SectionContext, tr } from './context';
+import SectionHeader from './parts/SectionHeader.astro';
+
+/** FAQ: questions that open on tap (<details>, no JavaScript). */
+interface Props {
+    section: DataOf<typeof faq>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const items = section.blocks.filter(block => tr(block.settings.question, context));
+---
+
+<div class="section-inner">
+    <SectionHeader context={context} heading={tr(settings.heading, context)} text={tr(settings.text, context)} />
+    <div class="faq-list">
+        {
+            items.map(block => (
+                <details class="faq-item">
+                    <summary>
+                        <span>{tr(block.settings.question, context)}</span>
+                        <Icon name="chevron-down" class="faq-chevron" />
+                    </summary>
+                    <p class="faq-answer">{tr(block.settings.answer, context)}</p>
+                </details>
+            ))
+        }
+    </div>
+</div>

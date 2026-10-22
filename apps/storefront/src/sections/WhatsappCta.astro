@@ -1,0 +1,63 @@
+---
+import type { DataOf, whatsappCta } from '@ecommbd/sections';
+import Icon from '../components/Icon.astro';
+import Image from '../components/Image.astro';
+import { assetOf, type SectionContext, tr } from './context';
+
+/** Order on WhatsApp: a heading and buttons to WhatsApp (with a ready message), a call and Messenger. */
+interface Props {
+    section: DataOf<typeof whatsappCta>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const { s } = context;
+const profile = context.settings.profile;
+const whatsapp = profile.whatsapp.replace(/\D/g, '');
+const message = tr(settings.message, context);
+const phone = profile.phones[0];
+const image = assetOf(settings.image, context);
+const Heading = context.heading;
+const buttons = [
+    settings.showWhatsapp && whatsapp
+        ? {
+              kind: 'whatsapp' as const,
+              label: s.orderOnWhatsapp,
+              href: `https://wa.me/${whatsapp}${message ? `?text=${encodeURIComponent(message)}` : ''}`,
+          }
+        : null,
+    settings.showCall && phone ? { kind: 'phone' as const, label: s.callUs, href: `tel:${phone}` } : null,
+    settings.showMessenger && profile.messengerUrl
+        ? { kind: 'messenger' as const, label: s.messenger, href: profile.messengerUrl }
+        : null,
+].filter(button => button !== null);
+---
+
+{
+    buttons.length > 0 && (
+        <div class:list={['section-inner cta', { 'cta-with-image': image }]}>
+            {image && (
+                <div class="cta-media">
+                    <Image asset={image} alt="" lang={context.lang} sizes="(min-width: 750px) 40vw, 100vw" preferredWidth={800} />
+                </div>
+            )}
+            <div class="cta-text">
+                {tr(settings.heading, context) && <Heading class="section-title">{tr(settings.heading, context)}</Heading>}
+                {tr(settings.text, context) && <p class="section-text">{tr(settings.text, context)}</p>}
+                <div class="section-buttons">
+                    {buttons.map(button => (
+                        <a
+                            class:list={['button', `button-${button.kind}`]}
+                            href={button.href}
+                            rel={button.href.startsWith('http') ? 'noopener' : undefined}
+                        >
+                            <Icon name={button.kind} size={20} />
+                            {button.label}
+                        </a>
+                    ))}
+                </div>
+            </div>
+        </div>
+    )
+}

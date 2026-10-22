@@ -2,6 +2,7 @@ import { defineMiddleware } from 'astro:middleware';
 import { env } from './env';
 import { CoreUnavailableError, RateLimitedError } from './lib/core';
 import { parseLocalePath } from './lib/urls';
+import { getTheme } from './lib/sections';
 import { getSettings } from './lib/store';
 import { systemPage } from './lib/system-pages';
 
@@ -14,33 +15,42 @@ import { systemPage } from './lib/system-pages';
  * - security headers on every response.
  */
 
-function securityHeaders(): Record<string, string> {
+/** Video sections (phase 15) play YouTube and Facebook in a frame once the shopper presses play. */
+const VIDEO_FRAMES = 'https://www.youtube-nocookie.com https://www.facebook.com';
+
+function securityHeaders(options: { editorFrame?: boolean } = {}): Record<string, string> {
     const extra = env().CSP_ALLOWED_ORIGINS.join(' ');
+    const editor = options.editorFrame ? env().EDITOR_ORIGIN : undefined;
     const csp = [
         "default-src 'self'",
         `script-src 'self' ${extra}`.trim(),
         // `astro dev` adds the CSS as inline <style> tags (for live reload); the build serves files.
         import.meta.env.DEV ? "style-src 'self' 'unsafe-inline'" : "style-src 'self'",
-        `img-src 'self' data: ${extra}`.trim(),
+        // YouTube's own thumbnails for video sections.
+        `img-src 'self' data: https://i.ytimg.com ${extra}`.trim(),
         "font-src 'self'",
         `connect-src 'self' ${extra}`.trim(),
+        `frame-src ${VIDEO_FRAMES}`,
         "object-src 'none'",
         "base-uri 'self'",
         "form-action 'self'",
-        // The page editor (phase 15) previews the store in a frame on the same site.
-        "frame-ancestors 'self'",
+        // The page editor (phase 15) previews the store in a frame on the same site; in development
+        // the admin runs elsewhere (EDITOR_ORIGIN), allowed only on preview pages.
+        `frame-ancestors 'self'${editor ? ` ${editor}` : ''}`,
     ].join('; ');
     return {
         'content-security-policy': csp,
         'x-content-type-options': 'nosniff',
         'referrer-policy': 'strict-origin-when-cross-origin',
         'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
-        'x-frame-options': 'SAMEORIGIN',
+        // Superseded by frame-ancestors where browsers support it; kept for old ones, except on
+        // preview pages, which another origin's editor may frame.
+        ...(editor ? {} : { 'x-frame-options': 'SAMEORIGIN' }),
     };
 }
 
-function withHeaders(response: Response): Response {
-    for (const [name, value] of Object.entries(securityHeaders())) response.headers.set(name, value);
+function withHeaders(response: Response, options: { editorFrame?: boolean } = {}): Response {
+    for (const [name, value] of Object.entries(securityHeaders(options))) response.headers.set(name, value);
     if (!response.headers.has('cache-control')) {
         // Catalogue pages: cacheable for a minute (Varnish takes over in phase 17).
         response.headers.set('cache-control', 'public, max-age=60');
@@ -54,7 +64,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     if (context.url.pathname.startsWith('/_astro/')) return next();
 
     try {
-        const settings = await getSettings();
+        const [settings, theme] = await Promise.all([getSettings(), getTheme()]);
         const defaultLang = settings.locale.defaultLanguage === 'en' ? 'en' : 'bn';
         // The path as sent: Astro's `context.url` has its percent-encoding already redone.
         const requestPath = new URL(context.request.url).pathname;
@@ -62,10 +72,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
         context.locals.lang = lang;
         context.locals.defaultLang = defaultLang;
         context.locals.settings = settings;
+        context.locals.theme = theme;
         context.locals.requestPath = requestPath;
         const response =
             path === context.url.pathname ? await next() : await next(`${path}${context.url.search}`);
-        return withHeaders(response);
+        return withHeaders(response, { editorFrame: context.locals.preview?.mode === 'editor' });
     } catch (error) {
         if (error instanceof CoreUnavailableError) return withHeaders(systemPage('unavailable'));
         if (error instanceof RateLimitedError) return withHeaders(systemPage('busy'));

@@ -1,0 +1,40 @@
+---
+import type { banner, DataOf } from '@ecommbd/sections';
+import Image from '../components/Image.astro';
+import { assetOf, hrefOf, type SectionContext, tr } from './context';
+import Buttons from './parts/Buttons.astro';
+
+/** Offer banner: a band for an offer or announcement, with an optional image beside it. */
+interface Props {
+    section: DataOf<typeof banner>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const image = assetOf(settings.image, context);
+const Heading = context.heading;
+---
+
+<div class:list={['section-inner banner', { 'banner-with-image': image }]}>
+    <div class="banner-text">
+        {tr(settings.eyebrow, context) && <p class="eyebrow">{tr(settings.eyebrow, context)}</p>}
+        {tr(settings.heading, context) && <Heading class="banner-heading">{tr(settings.heading, context)}</Heading>}
+        {tr(settings.text, context) && <p class="section-text">{tr(settings.text, context)}</p>}
+        <Buttons buttons={[{ label: tr(settings.button, context), href: hrefOf(settings.link, context) }]} />
+    </div>
+    {
+        image && (
+            <div class="banner-media">
+                <Image
+                    asset={image}
+                    alt=""
+                    lang={context.lang}
+                    sizes="(min-width: 750px) 40vw, 100vw"
+                    preferredWidth={800}
+                    priority={context.first}
+                />
+            </div>
+        )
+    }
+</div>

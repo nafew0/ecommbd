@@ -1,0 +1,64 @@
+---
+import type { contact, DataOf } from '@ecommbd/sections';
+import { isPlaceholderEmail } from '@ecommbd/shared/placeholder-email';
+import Icon, { type IconName } from '../components/Icon.astro';
+import { bilingual } from '../lib/store';
+import { type SectionContext, tr } from './context';
+import SectionHeader from './parts/SectionHeader.astro';
+
+/** Contact: the store's phone, WhatsApp, Messenger, email, address and hours from store settings. */
+interface Props {
+    section: DataOf<typeof contact>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const { s, lang } = context;
+const profile = context.settings.profile;
+const whatsapp = profile.whatsapp.replace(/\D/g, '');
+const address = [profile.address.line, profile.address.area].filter(Boolean).join(', ');
+const hours = bilingual(profile.businessHours, lang);
+const items: Array<{ icon: IconName; label: string; value: string; href?: string }> = [];
+if (settings.showPhone) {
+    for (const phone of profile.phones) items.push({ icon: 'phone', label: s.contactPhone, value: phone, href: `tel:${phone}` });
+}
+if (settings.showWhatsapp && whatsapp) {
+    items.push({ icon: 'whatsapp', label: 'WhatsApp', value: profile.whatsapp, href: `https://wa.me/${whatsapp}` });
+}
+if (settings.showMessenger && profile.messengerUrl) {
+    items.push({ icon: 'messenger', label: s.messenger, value: s.chatMessenger, href: profile.messengerUrl });
+}
+if (settings.showEmail && profile.email && !isPlaceholderEmail(profile.email)) {
+    items.push({ icon: 'mail', label: s.emailUs, value: profile.email, href: `mailto:${profile.email}` });
+}
+if (settings.showAddress && address) items.push({ icon: 'map-pin', label: s.addressLabel, value: address });
+if (settings.showHours && hours) items.push({ icon: 'clock', label: s.hoursLabel, value: hours });
+---
+
+{
+    (items.length > 0 || tr(settings.heading, context)) && (
+        <div class="section-inner contact">
+            <SectionHeader context={context} heading={tr(settings.heading, context)} text={tr(settings.text, context)} />
+            <ul class="contact-list">
+                {items.map(item => (
+                    <li>
+                        <span class="contact-icon">
+                            <Icon name={item.icon} size={22} />
+                        </span>
+                        <span class="contact-detail">
+                            <span class="contact-label">{item.label}</span>
+                            {item.href ? (
+                                <a href={item.href} rel={item.href.startsWith('http') ? 'noopener' : undefined}>
+                                    {item.value}
+                                </a>
+                            ) : (
+                                <span>{item.value}</span>
+                            )}
+                        </span>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    )
+}

@@ -1,0 +1,38 @@
+---
+import type { DataOf, IconName, trustBadges } from '@ecommbd/sections';
+import Icon from '../components/Icon.astro';
+import { type SectionContext, tr } from './context';
+import SectionHeader from './parts/SectionHeader.astro';
+
+/** Trust badges: short promises with our icons (cash on delivery, returns, genuine products). */
+interface Props {
+    section: DataOf<typeof trustBadges>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const badges = section.blocks.filter(block => tr(block.settings.title, context));
+---
+
+{
+    badges.length > 0 && (
+        <div class="section-inner">
+            <SectionHeader context={context} heading={tr(section.settings.heading, context)} />
+            <ul class:list={['trust', `count-${Math.min(badges.length, 6)}`]}>
+                {badges.map(block => (
+                    <li class="trust-item">
+                        <span class="trust-icon">
+                            <Icon name={block.settings.icon as IconName} size={28} />
+                        </span>
+                        <span>
+                            <strong class="trust-title">{tr(block.settings.title, context)}</strong>
+                            {tr(block.settings.text, context) && (
+                                <span class="trust-text">{tr(block.settings.text, context)}</span>
+                            )}
+                        </span>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    )
+}

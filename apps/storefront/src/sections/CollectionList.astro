@@ -1,0 +1,47 @@
+---
+import type { collectionList, DataOf } from '@ecommbd/sections';
+import Image from '../components/Image.astro';
+import { type CollectionCard, collectionPath } from '../lib/sections';
+import { type SectionContext, tr } from './context';
+import SectionHeader from './parts/SectionHeader.astro';
+
+/** Category list: the picked categories (or the main ones) as image tiles. */
+interface Props {
+    section: DataOf<typeof collectionList>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const picked = settings.collections
+    .map(id => context.data.collections.get(id))
+    .filter((collection): collection is CollectionCard => !!collection);
+const collections = settings.collections.length ? picked : context.data.topCollections.slice(0, 12);
+---
+
+{
+    collections.length > 0 && (
+        <div class="section-inner">
+            <SectionHeader context={context} heading={tr(settings.heading, context)} />
+            <ul class:list={['collection-tiles', `cols-${settings.columns}`, `look-${settings.look}`]}>
+                {collections.map((collection, index) => (
+                    <li>
+                        <a href={context.href(collectionPath(collection))}>
+                            <div class="tile-media">
+                                <Image
+                                    asset={collection.featuredAsset}
+                                    alt=""
+                                    lang={context.lang}
+                                    sizes={`(min-width: 990px) ${Math.round(1200 / settings.columns)}px, 50vw`}
+                                    preferredWidth={480}
+                                    priority={context.first && index < 2}
+                                />
+                            </div>
+                            <span class="tile-name">{collection.name}</span>
+                        </a>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    )
+}

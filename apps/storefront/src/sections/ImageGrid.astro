@@ -1,0 +1,61 @@
+---
+import type { DataOf, imageGrid } from '@ecommbd/sections';
+import Image from '../components/Image.astro';
+import { assetOf, hrefOf, relOf, type SectionContext, tr } from './context';
+import EditorHint from './parts/EditorHint.astro';
+import SectionHeader from './parts/SectionHeader.astro';
+
+/** Image gallery: images in a grid, each with an optional caption and link. */
+interface Props {
+    section: DataOf<typeof imageGrid>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const items = section.blocks
+    .map(block => ({ block, image: assetOf(block.settings.image, context) }))
+    .filter(item => item.image || context.editor);
+---
+
+{
+    items.length > 0 && (
+        <div class="section-inner">
+            <SectionHeader context={context} heading={tr(settings.heading, context)} />
+            <ul class:list={['gallery', `cols-${settings.columns}`, `shape-${settings.shape}`]}>
+                {items.map(({ block, image }, index) => {
+                    const href = hrefOf(block.settings.link, context);
+                    const caption = tr(block.settings.caption, context);
+                    const figure = (
+                        <figure>
+                            {image ? (
+                                <Image
+                                    asset={image}
+                                    alt={caption}
+                                    lang={context.lang}
+                                    sizes={`(min-width: 990px) ${Math.round(1200 / settings.columns)}px, 50vw`}
+                                    preferredWidth={600}
+                                    priority={context.first && index < 2}
+                                />
+                            ) : (
+                                <EditorHint text={context.s.editorAddImage} />
+                            )}
+                            {caption && <figcaption>{caption}</figcaption>}
+                        </figure>
+                    );
+                    return (
+                        <li>
+                            {href ? (
+                                <a href={href} rel={relOf(href)}>
+                                    {figure}
+                                </a>
+                            ) : (
+                                figure
+                            )}
+                        </li>
+                    );
+                })}
+            </ul>
+        </div>
+    )
+}

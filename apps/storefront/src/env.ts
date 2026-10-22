@@ -38,6 +38,11 @@ export const envSchema = z
         CACHE_TTL_SECONDS: z.coerce.number().int().min(0).max(3600).default(60),
         /** Signs the checkout form's CSRF token and timestamp (phase 14). At least 32 characters. */
         CSRF_SECRET: z.string().min(32, 'must be at least 32 characters').optional(),
+        /**
+         * The merchant admin's origin when it isn't this site's (development: the core on :3000), so
+         * the page editor (phase 15) may show previews in a frame. Live stores serve both on one site.
+         */
+        EDITOR_ORIGIN: z.url().optional(),
     })
     .superRefine((value, context) => {
         if (live(value.APP_ENV) && !value.CSRF_SECRET) {
@@ -61,6 +66,11 @@ export const envSchema = z
         CORE_URL: value.CORE_URL.replace(/\/$/, ''),
         // Development and tests only: a fixed secret (live environments must set their own).
         CSRF_SECRET: value.CSRF_SECRET ?? 'development-only-csrf-secret-not-for-production',
+        EDITOR_ORIGIN: value.EDITOR_ORIGIN
+            ? new URL(value.EDITOR_ORIGIN).origin
+            : live(value.APP_ENV)
+              ? undefined
+              : 'http://localhost:3000',
         /** Session cookies get `Secure` outside development. */
         SECURE_COOKIES: live(value.APP_ENV),
     }));

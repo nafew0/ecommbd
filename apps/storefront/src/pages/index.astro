@@ -1,27 +1,40 @@
 ---
-import Image from '../components/Image.astro';
-import ProductCard from '../components/ProductCard.astro';
+import { type Bilingual, pick } from '@ecommbd/sections';
 import Layout from '../layouts/Layout.astro';
-import { shopQuery } from '../lib/core';
 import { largestImageUrl } from '../lib/images';
 import { alternates, canonicalRedirect, pageContext } from '../lib/page';
-import { NEW_PRODUCTS } from '../lib/queries';
+import { defaultHome, loadLayout, loadSectionData, setCacheTags, visibleSections } from '../lib/sections';
 import { organization, website } from '../lib/seo';
-import { bilingual, getTopCollections, storeName } from '../lib/store';
-import { categoryPath } from '../lib/urls';
+import { bilingual, storeName } from '../lib/store';
+import Sections from '../sections/Sections.astro';
 
+/**
+ * The home page: the merchant's sections (phase 15), or until they publish some, the default
+ * layout (the store's name, the main categories, the newest products and the trust badges).
+ */
 const redirect = canonicalRedirect(Astro, '/');
 if (redirect) return redirect;
 
-const { lang, defaultLang, settings, s, href, absolute, format } = pageContext(Astro);
-const [collections, newProducts] = await Promise.all([
-    getTopCollections(lang),
-    shopQuery(NEW_PRODUCTS, { take: 8 }, lang).then(result => result.products.items),
-]);
+const { lang, settings, s, href, absolute } = pageContext(Astro);
+const layout = (await loadLayout(Astro, 'home')) ?? defaultHome(settings);
+const sections = visibleSections(layout.document);
+const data = await loadSectionData(Astro, sections);
+if (!Astro.locals.preview) setCacheTags(Astro, layout, data);
 const name = storeName(settings, lang);
 const description = bilingual(settings.profile.shortDescription, lang);
 const logo = settings.profile.logo ? largestImageUrl(settings.profile.logo) : undefined;
 const profile = settings.profile;
+// The first section's heading is the page's h1 when it opens the page (a hero, slideshow, banner or
+// text with a heading); otherwise the store's name is, hidden.
+const first = sections[0];
+const firstHeading =
+    first?.type === 'slideshow'
+        ? (first.blocks[0]?.settings.heading as Bilingual | undefined)
+        : (first?.settings.heading as Bilingual | undefined);
+const headingFirst =
+    ['hero', 'slideshow', 'banner', 'image-with-text', 'rich-text'].includes(first?.type ?? '') &&
+    !!firstHeading &&
+    !!pick(firstHeading, lang);
 ---
 
 <Layout
@@ -30,6 +43,7 @@ const profile = settings.profile;
     canonicalPath="/"
     alternates={alternates(Astro, { bn: '/', en: '/' })}
     image={logo}
+    fullWidth
     structuredData={[
         organization({
             name,
@@ -42,51 +56,6 @@ const profile = settings.profile;
         website({ name, url: absolute(href('/')), searchUrl: absolute(href('/search/')), language: lang }),
     ]}
 >
-    <section class="home-intro">
-        <h1>{name}</h1>
-        {description && <p>{description}</p>}
-        <a class="button" href={href('/search/')}>{s.allProducts}</a>
-    </section>
-
-    {
-        collections.length > 0 && (
-            <section>
-                <h2>{s.shopByCategory}</h2>
-                <ul class="category-grid">
-                    {collections.map(collection => (
-                        <li>
-                            <a href={href(categoryPath([collection.slug]))}>
-                                <Image
-                                    asset={collection.featuredAsset}
-                                    alt=""
-                                    lang={lang}
-                                    sizes="(min-width: 990px) 180px, 33vw"
-                                    preferredWidth={320}
-                                />
-                                <span>{collection.name}</span>
-                            </a>
-                        </li>
-                    ))}
-                </ul>
-            </section>
-        )
-    }
-
-    <section>
-        <div class="section-header">
-            <h2>{s.newArrivals}</h2>
-            {newProducts.length > 0 && <a href={href('/search/')}>{s.seeAll}</a>}
-        </div>
-        {
-            newProducts.length ? (
-                <ul class="product-grid">
-                    {newProducts.map(product => (
-                        <ProductCard product={product} lang={lang} defaultLang={defaultLang} format={format} />
-                    ))}
-                </ul>
-            ) : (
-                <p class="muted">{s.noProducts}</p>
-            )
-        }
-    </section>
+    {!headingFirst && <h1 class="visually-hidden">{name}</h1>}
+    <Sections layout={layout} data={data} firstIsH1={headingFirst} />
 </Layout>

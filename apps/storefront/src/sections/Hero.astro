@@ -1,0 +1,70 @@
+---
+import type { DataOf, hero } from '@ecommbd/sections';
+import { imageAttributes } from '../lib/images';
+import { assetOf, hrefOf, type SectionContext, tr } from './context';
+import Buttons from './parts/Buttons.astro';
+
+/**
+ * Hero: a large image with the heading on it (overlay) or beside it (split). A phone image, when
+ * given, replaces the main one on narrow screens through <picture>, so only one is downloaded.
+ */
+interface Props {
+    section: DataOf<typeof hero>;
+    context: SectionContext;
+}
+
+const { section, context } = Astro.props;
+const { settings } = section;
+const image = assetOf(settings.image, context);
+const phoneImage = assetOf(settings.phoneImage, context);
+const layout = !image ? 'plain' : settings.layout;
+const main = image ? imageAttributes(image, 1600) : null;
+const phone = phoneImage ? imageAttributes(phoneImage, 800) : null;
+const heading = tr(settings.heading, context);
+const Heading = context.heading;
+const sizes = layout === 'split' ? '(min-width: 750px) 50vw, 100vw' : '100vw';
+---
+
+<div class:list={['hero', `hero-${layout}`, `hero-${settings.height}`, `shade-${settings.overlay}`]}>
+    {
+        main && (
+            <div class="hero-media">
+                <picture>
+                    {phone && (
+                        <source
+                            media="(max-width: 749px)"
+                            srcset={phone.srcset ?? phone.src}
+                            sizes={phone.srcset ? '100vw' : undefined}
+                            width={phone.width}
+                            height={phone.height}
+                        />
+                    )}
+                    <img
+                        src={main.src}
+                        srcset={main.srcset}
+                        sizes={main.srcset ? sizes : undefined}
+                        width={main.width}
+                        height={main.height}
+                        alt=""
+                        loading={context.first ? 'eager' : 'lazy'}
+                        fetchpriority={context.first ? 'high' : undefined}
+                        decoding={context.first ? 'sync' : 'async'}
+                    />
+                </picture>
+            </div>
+        )
+    }
+    <div class="hero-content section-inner">
+        <div class="hero-text">
+            {tr(settings.badge, context) && <p class="hero-badge">{tr(settings.badge, context)}</p>}
+            {heading && <Heading class="hero-heading">{heading}</Heading>}
+            {tr(settings.text, context) && <p class="hero-subheading">{tr(settings.text, context)}</p>}
+            <Buttons
+                buttons={[
+                    { label: tr(settings.button, context), href: hrefOf(settings.link, context) },
+                    { label: tr(settings.secondButton, context), href: hrefOf(settings.secondLink, context) },
+                ]}
+            />
+        </div>
+    </div>
+</div>

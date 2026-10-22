@@ -4,6 +4,8 @@ import type { PolicyKey } from '@ecommbd/shared/store-settings';
 import Missing from '../components/Missing.astro';
 import RichText from '../components/RichText.astro';
 import Layout from '../layouts/Layout.astro';
+import { loadLayout, loadSectionData, type LoadedLayout, setCacheTags, visibleSections } from '../lib/sections';
+import Sections from '../sections/Sections.astro';
 import { shopQuery } from '../lib/core';
 import type { Lang } from '../lib/i18n';
 import { alternates, canonicalRedirect, pageContext } from '../lib/page';
@@ -26,6 +28,7 @@ interface Shown {
 }
 
 let shown: Shown | null = null;
+let pageId: string | null = null;
 let missing: 'not-found' | 'gone' = 'not-found';
 const policy = (Object.keys(POLICY_SLUGS) as PolicyKey[]).find(key => POLICY_SLUGS[key] === slug);
 
@@ -43,6 +46,7 @@ if (policy) {
             paths[language] = pagePath((pick(language) ?? translation).slug);
         }
         shown = { ...translation, path: pagePath(translation.slug), paths };
+        pageId = bdPage.id;
     } else {
         const { bdSlugLookup } = await shopQuery(SLUG_LOOKUP, { type: 'page', slug }, lang);
         if (bdSlugLookup?.status === 'moved' && bdSlugLookup.slug) {
@@ -58,6 +62,15 @@ if (shown) {
 } else {
     Astro.response.status = missing === 'gone' ? 410 : 404;
 }
+
+// The page's sections (phase 15), below its text. A page that opens with a hero and has no text of its
+// own keeps its title only for screen readers and search engines.
+const layout: LoadedLayout | null = pageId ? await loadLayout(Astro, 'page', pageId) : null;
+const sections = layout ? visibleSections(layout.document) : [];
+const data = layout && sections.length ? await loadSectionData(Astro, sections) : null;
+if (layout && data && !Astro.locals.preview) setCacheTags(Astro, layout, data);
+const titleHidden =
+    !!shown && !shown.body.trim() && ['hero', 'slideshow', 'banner'].includes(sections[0]?.type ?? '');
 ---
 
 {
@@ -67,11 +80,13 @@ if (shown) {
             description={metaDescription(shown.seoDescription, shown.body)}
             canonicalPath={shown.path}
             alternates={alternates(Astro, shown.paths)}
+            fullWidth={!!data}
         >
-            <article class="content-page">
-                <h1>{shown.title}</h1>
+            <article class:list={['content-page', { container: !!data, 'content-page-empty': titleHidden }]}>
+                <h1 class:list={{ 'visually-hidden': titleHidden }}>{shown.title}</h1>
                 <RichText content={shown.body} />
             </article>
+            {layout && data && <Sections layout={layout} data={data} />}
         </Layout>
     ) : (
         <Layout title={s.notFoundTitle} noindex>
