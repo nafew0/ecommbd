@@ -106,7 +106,8 @@ html[data-cards='card'] .card .price-now {
 /* Header: logo on the left (the base) or in the middle with the menu below it. */
 html[data-header='center'] .header-row {
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    /* The sides take what they need; the logo is centred in the rest. */
+    grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas:
         'menu logo actions'
         'search search search';
@@ -119,8 +120,13 @@ html[data-header='center'] .menu-drawer {
 
 html[data-header='center'] .logo {
     grid-area: logo;
+    justify-self: center;
     margin: 0;
     text-align: center;
+}
+
+html[data-header='center'] .lang-switch {
+    white-space: nowrap;
 }
 
 html[data-header='center'] .header-actions {
@@ -134,6 +140,7 @@ html[data-header='center'] .search-form {
 
 @media (min-width: 990px) {
     html[data-header='center'] .header-row {
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
         grid-template-areas:
             'search logo actions'
             'nav nav nav';

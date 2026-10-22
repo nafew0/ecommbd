@@ -39,13 +39,25 @@ export function newId(): string {
     return Array.from(bytes, byte => (byte % 36).toString(36)).join('');
 }
 
-function readSettings(fields: Fields, raw: Record<string, unknown>, sanitize?: (html: string) => string) {
+/** An `href` the core resolved: a path on the store, an anchor or a web address. */
+const SAFE_HREF = /^(\/(?!\/)|#|https?:\/\/)\S{0,500}$/;
+
+function readSettings(fields: Fields, raw: Record<string, unknown>, options: ReadOptions) {
     const settings: Record<string, unknown> = {};
     for (const [name, definition] of Object.entries(fields)) {
         let value = readValue(definition, raw[name]);
-        if (definition.kind === 'richText' && sanitize) {
+        if (definition.kind === 'richText' && options.sanitize) {
             const text = value as { bn: string; en: string };
-            value = { bn: text.bn && sanitize(text.bn), en: text.en && sanitize(text.en) };
+            value = { bn: text.bn && options.sanitize(text.bn), en: text.en && options.sanitize(text.en) };
+        }
+        const href = isRecord(raw[name]) ? (raw[name] as { href?: unknown }).href : undefined;
+        if (
+            definition.kind === 'link' &&
+            options.keepHrefs &&
+            typeof href === 'string' &&
+            SAFE_HREF.test(href)
+        ) {
+            value = { ...(value as LinkValue), href };
         }
         settings[name] = value;
     }
@@ -81,6 +93,11 @@ export function migrateSection(
 export interface ReadOptions {
     /** Rich text is sanitized with this (the core and storefront pass `sanitizeRichText`). */
     sanitize?: (html: string) => string;
+    /**
+     * Keep the `href` the core added to links (the storefront, reading what the Shop API served).
+     * Stored layouts never keep one: a link's address is always worked out again from its target.
+     */
+    keepHrefs?: boolean;
 }
 
 /** One stored section, read for the current version; null for a type this release doesn't know. */
@@ -96,7 +113,7 @@ export function readSection(raw: unknown, options: ReadOptions = {}): SectionDat
               settings: readSettings(
                   definition.blocks!.fields,
                   block.settings,
-                  options.sanitize,
+                  options,
               ) as BlockData['settings'],
           }))
         : [];
@@ -105,7 +122,7 @@ export function readSection(raw: unknown, options: ReadOptions = {}): SectionDat
         type: definition.type,
         v: Math.max(stored, definition.version),
         hidden: raw.hidden === true,
-        settings: readSettings(definition.fields, data.settings, options.sanitize) as SectionData['settings'],
+        settings: readSettings(definition.fields, data.settings, options) as SectionData['settings'],
         blocks,
         style: readStyle(raw.style, definition.style),
     };

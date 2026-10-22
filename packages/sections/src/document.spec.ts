@@ -151,6 +151,30 @@ describe('reading stored layouts', () => {
         expect(section.settings.text).toEqual({ bn: '<p>ক</p>', en: '' });
     });
 
+    it('drops link addresses from stored data, and keeps the core’s safe ones for the storefront', () => {
+        const raw = {
+            type: 'banner',
+            settings: { link: { type: 'search', href: '/search/' } },
+        };
+        expect(readSection(raw)!.settings.link).toEqual({ type: 'search' });
+        expect(readSection(raw, { keepHrefs: true })!.settings.link).toEqual({
+            type: 'search',
+            href: '/search/',
+        });
+        for (const href of ['javascript:alert(1)', '//evil.example', 'data:text/html,x', 42]) {
+            const unsafe = { type: 'banner', settings: { link: { type: 'none', href } } };
+            expect(readSection(unsafe, { keepHrefs: true })!.settings.link).toEqual({ type: 'none' });
+        }
+        const block = readSection(
+            {
+                type: 'image-grid',
+                blocks: [{ settings: { link: { type: 'anchor', anchor: 'faq', href: '#faq' } } }],
+            },
+            { keepHrefs: true },
+        )!;
+        expect(block.blocks[0]!.settings.link).toEqual({ type: 'anchor', anchor: 'faq', href: '#faq' });
+    });
+
     it('reads styles leniently', () => {
         expect(readStyle({ background: 'image', backgroundImage: null })).toMatchObject({
             background: 'none',

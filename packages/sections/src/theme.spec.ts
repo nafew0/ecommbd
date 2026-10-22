@@ -131,7 +131,9 @@ describe('stylesheet', () => {
 
     it('writes the stylesheet, attributes and a version that changes with the settings', () => {
         const settings = defaultThemeSettings('minimal');
-        expect(themeCss(settings)).toMatch(/^html\[data-theme\]\[data-theme\]\{--background:#ffffff;--text:#121212;.*\}$/);
+        expect(themeCss(settings)).toMatch(
+            /^html\[data-theme\]\[data-theme\]\{--background:#ffffff;--text:#121212;.*\}$/,
+        );
         expect(themeAttributes(settings)).toEqual({
             'data-theme': 'minimal',
             'data-font': 'system',

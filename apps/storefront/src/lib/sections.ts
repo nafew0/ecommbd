@@ -62,7 +62,8 @@ type LayoutResult = NonNullable<ResultOf<typeof LAYOUT>['bdLayout']>;
 
 function loaded(layout: LayoutResult): LoadedLayout {
     return {
-        document: readDocument(layout.document),
+        // The core resolved each link's address in this language; rich text is sanitized when shown.
+        document: readDocument(layout.document, { keepHrefs: true }),
         assets: new Map(layout.assets.map(asset => [asset.id, asset])),
         layoutId: layout.id,
     };
