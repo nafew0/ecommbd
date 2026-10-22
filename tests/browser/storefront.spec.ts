@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { gzipSync } from 'node:zlib';
+import { resetHome } from './support/sections';
 import { adminSession, type ApiSession } from './support/store-api';
 import { ensureStorefrontFixtures, type StorefrontFixtures } from './support/storefront-seed';
 
@@ -31,6 +32,8 @@ test.beforeAll(async () => {
         );
         expect(updateBdStoreSettings.errors).toEqual([]);
     }
+    // The home page a new store has (phase 15 sections), whatever another test published.
+    await resetHome(admin);
     // New products reach the search index and categories through the worker.
     await expect
         .poll(async () => (await fetch(`${SITE}/product-category/${enc(fixtures.men.bn)}/`)).status, {
@@ -102,7 +105,8 @@ test.describe('storefront', () => {
         expect(bn.inlineScripts).toBe(0);
         // Only the small loader for search suggestions (phase 13), from our own origin.
         expect(bn.scriptSources.every(src => src?.startsWith('/_astro/'))).toBe(true);
-        await expect(page.getByRole('heading', { name: 'নতুন পণ্য' })).toBeVisible();
+        // The default home page's sections (phase 15): the store's name, categories, new products.
+        await expect(page.getByRole('heading', { name: 'নতুন এসেছে' })).toBeVisible();
         await expect(page.locator('.product-grid .card').first()).toBeVisible();
 
         await page.getByRole('link', { name: 'English' }).click();

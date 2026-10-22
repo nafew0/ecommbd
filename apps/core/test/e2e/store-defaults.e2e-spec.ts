@@ -233,6 +233,7 @@ describe('running the initializer again', () => {
             'print-permissions',
             'fraud-permissions',
             'search-synonyms',
+            'storefront-permissions',
         ]);
         expect(await storeState()).toEqual(before);
     });

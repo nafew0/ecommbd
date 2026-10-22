@@ -23,6 +23,7 @@
     "test": "npm run build:packages && npm run test --workspaces --if-present",
     "test:e2e": "npm run build:packages && npm run test:e2e -w @ecommbd/core",
     "test:browser": "playwright test",
+    "test:visual": "playwright test -c playwright.visual.config.ts",
     "migrate:generate": "npm exec -w @ecommbd/core -- vendure migrate -g",
     "migrate:run": "npm exec -w @ecommbd/core -- vendure migrate -r",
     "doctor": "npm exec -w @ecommbd/core -- vendure doctor"
