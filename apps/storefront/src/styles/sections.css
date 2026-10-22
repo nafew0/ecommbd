@@ -232,9 +232,10 @@
     min-width: 160px;
 }
 
+/* On phones buttons take the full width, one under the other: long Bangla labels stay on one line. */
 @media (max-width: 749px) {
     .section-buttons .button {
-        flex: 1 1 160px;
+        flex: 1 1 100%;
     }
 }
 
@@ -295,15 +296,18 @@
     color: #ffffff;
 }
 
-.hero-overlay > *,
-.slide > * {
-    grid-area: 1 / 1;
-}
-
+/* The image fills the hero behind the text; the chosen height, not the image's, sets the size. */
 .hero-overlay .hero-media,
 .slide .hero-media {
+    position: absolute;
+    inset: 0;
     z-index: -1;
     background: #121212;
+}
+
+.hero-media picture {
+    display: block;
+    height: 100%;
 }
 
 .hero-media img {

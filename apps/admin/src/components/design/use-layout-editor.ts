@@ -42,7 +42,14 @@ export function useLayoutEditor(initial: AdminLayout) {
     /** Bumped after every successful save: the preview reloads its sections then. */
     const [savedCount, setSavedCount] = useState(0);
 
-    const latest = useRef({ document, revision: initial.draftRevision, layoutId: initial.id });
+    // `baseVersion`: the published version this editor started from. Saves don't move it (they may
+    // learn of someone else's publish), so publishing over that publish asks first.
+    const latest = useRef({
+        document,
+        revision: initial.draftRevision,
+        layoutId: initial.id,
+        baseVersion: initial.publishedVersion,
+    });
     latest.current.document = document;
     const coalesce = useRef<{ key: string; at: number } | null>(null);
     const saving = useRef<Promise<void> | null>(null);
@@ -54,7 +61,12 @@ export function useLayoutEditor(initial: AdminLayout) {
     const reset = useCallback((next: AdminLayout) => {
         window.clearTimeout(timer.current);
         dirty.current = false;
-        latest.current = { document: next.draft, revision: next.draftRevision, layoutId: next.id };
+        latest.current = {
+            document: next.draft,
+            revision: next.draftRevision,
+            layoutId: next.id,
+            baseVersion: next.publishedVersion,
+        };
         setLayout(next);
         setDocument(next.draft);
         setWarnings(next.warnings);
@@ -172,7 +184,7 @@ export function useLayoutEditor(initial: AdminLayout) {
         async (force = false) => {
             await flush();
             if (dirty.current) return { ok: false as const, errors: [] as LayoutWarning[] };
-            const result = await publishLayout(latest.current.layoutId, layout.publishedVersion, force);
+            const result = await publishLayout(latest.current.layoutId, latest.current.baseVersion, force);
             if (result.conflict) {
                 setConflict({ ...result.conflict, kind: 'publish' });
                 return { ok: false as const, errors: [] };
@@ -188,11 +200,12 @@ export function useLayoutEditor(initial: AdminLayout) {
             }
             setConflict(null);
             latest.current.revision = result.layout.draftRevision;
+            latest.current.baseVersion = result.layout.publishedVersion;
             setLayout(current => ({ ...result.layout!, draft: current.draft }));
             setWarnings(result.layout.warnings);
             return { ok: true as const, errors: [] };
         },
-        [flush, layout.publishedVersion],
+        [flush],
     );
 
     const restore = useCallback(
