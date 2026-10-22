@@ -13,3 +13,6 @@ bench/vendure/.vendure
 coverage
 playwright-report
 test-results
+
+# Local demo stores (client data, never committed)
+/demo-data/
