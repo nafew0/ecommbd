@@ -1,4 +1,5 @@
 import { CATALOG_LIMITS, parseBdMobile, sanitizeRichText, stripShortcodes } from '@ecommbd/shared';
+import { normalizeString } from '@vendure/common/lib/normalize-string';
 import { createHash } from 'node:crypto';
 
 // WooCommerce payloads vary across plugins/versions. Validate outer records and normalize each
@@ -22,6 +23,27 @@ export const digest = (value: unknown) =>
         .digest('hex');
 export const text = (value: unknown, max = 500) =>
     typeof value === 'string' ? value.slice(0, max).trim() : '';
+
+/**
+ * A WooCommerce slug as Vendure will store it, so the product keeps its address.
+ *
+ * WordPress keeps non-ASCII slugs percent-encoded (`লাল-শার্ট` is saved as
+ * `%e0%a6%b2%e0%a6%be%e0%a6%b2-…`), and both the REST API and the helper plugin pass them on
+ * like that. Vendure's slug normalization drops the `%` signs, which would turn a Bangla address
+ * into `e0a6b2e0a6be…`. So the slug is decoded first, then normalized exactly as Vendure does
+ * (decomposed, NFD, and lowercase): what we compare for conflicts is what Vendure saves.
+ */
+export function wooSlug(value: unknown): string {
+    const raw = text(value, 1000);
+    let decoded = raw;
+    try {
+        decoded = decodeURIComponent(raw);
+    } catch {
+        // A `%` that isn't part of an escape: keep the text as it came.
+    }
+    return normalizeString(decoded.normalize('NFC'), '-').slice(0, 255);
+}
+
 export function sourceRecord(value: unknown): WooRecord {
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('INVALID_RECORD');
     const row = value as WooRecord;
@@ -126,6 +148,9 @@ export function sourceSettings(row: WooRecord) {
                 path: text(rule.path, 1000),
                 target: text(rule.target, 1000),
                 status: rule.status === 410 ? 410 : 301,
+                // A WordPress page (rows with an `id`; Redirection-plugin rules have none) also
+                // sends its slug, so the import can point it at our page with the same address.
+                ...(rule.id ? { page: { slug: text(rule.slug, 255) } } : {}),
             })),
         warnings: Array.isArray(row.warnings)
             ? row.warnings.filter(
