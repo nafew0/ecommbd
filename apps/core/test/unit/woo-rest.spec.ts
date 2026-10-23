@@ -33,6 +33,25 @@ describe('Woo REST traversal', () => {
         expect(urls[0].searchParams.get('dates_are_gmt')).toBe('true');
         await connector.close();
     });
+    it('reads order notes in one request, even when an order has more than 100', async () => {
+        // WooCommerce's notes endpoint ignores per_page and offset: it always answers every note.
+        const notes = Array.from({ length: 140 }, (_, i) => ({ id: i + 1 }));
+        mocks.request.mockReset();
+        mocks.request.mockResolvedValue({ status: 200, headers: new Headers(), json: () => notes });
+        const connector = new WooRestConnector('https://source.example', { key: 'ck_a', secret: 'cs_b' });
+        expect(await connector.children('orders/7/notes')).toHaveLength(140);
+        expect(mocks.request).toHaveBeenCalledTimes(1);
+        // Any other endpoint that ignores offset stops at the first page made only of repeats.
+        mocks.request.mockReset();
+        mocks.request.mockResolvedValue({
+            status: 200,
+            headers: new Headers(),
+            json: () => notes.slice(0, 100),
+        });
+        expect(await connector.children('products/7/variations')).toHaveLength(100);
+        expect(mocks.request).toHaveBeenCalledTimes(2);
+        await connector.close();
+    });
     it('stops on blocked authentication and does not follow redirects with credentials', async () => {
         mocks.request.mockResolvedValue({ status: 403 });
         const connector = new WooRestConnector('https://source.example', {

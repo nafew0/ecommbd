@@ -37,6 +37,8 @@ export class WooRun extends VendureEntity {
     @Column({ type: 'timestamp', nullable: true }) leaseUntil: Date | null;
     @Column({ type: 'varchar', nullable: true }) leaseOwner: string | null;
     @Column({ type: 'varchar', nullable: true }) error: string | null;
+    /** The staff member (administrator user ID) who started the run: every run is recorded. */
+    @Column({ type: 'varchar', nullable: true }) startedBy: string | null;
 }
 
 @Entity('woo_mapping')

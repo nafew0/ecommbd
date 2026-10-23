@@ -7,19 +7,20 @@ import {
     JobQueueService,
     RequestContext,
     SearchService,
+    SubscribableJob,
     TransactionalConnection,
     UserInputError,
 } from '@vendure/core';
 import { randomUUID } from 'node:crypto';
+import { lastValueFrom } from 'rxjs';
 import { In, IsNull } from 'typeorm';
 import { z } from 'zod';
 import { LegacyOrder, WooIssue, WooMapping, WooRun, WooSource } from './entities';
 import { arrays, digest, gmt, minor, text, WooRecord } from './helpers';
 import { ImportMapperService } from './import-mapper.service';
-import { REST_STAGES, WooRestConnector, SourceConnector } from './rest-connector';
+import { nextPageSize, REST_STAGES, Resource, WooRestConnector, SourceConnector } from './rest-connector';
 import { WooHelperService } from './helper.service';
 import { WooExtrasService } from './extras.service';
-import { WooChunk, WooPairing } from './helper-entities';
 import { markWooImportContext, WooImportCompletedEvent } from './context';
 
 import { WOO_OPTIONS, WooImportOptions } from './options';
@@ -49,6 +50,30 @@ const safeError = (error: unknown) =>
     error instanceof Error && /^[A-Z][A-Z0-9_]{2,80}$/.test(error.message)
         ? error.message
         : 'IMPORT_RECORD_FAILED';
+
+/** A product's images: its gallery plus each variation's own picture. */
+function productImageCount(record: WooRecord) {
+    return arrays(record.images).length + arrays(record._variations).filter(v => v.image?.src).length;
+}
+
+/**
+ * A rough import time from a finished dry run, in seconds, for the migration screen.
+ *
+ * The dry run read the whole store, so its own duration stands for the import's reading. On top
+ * come the writes, from the local benchmark with a margin (docs/runbooks/migration-test-results.md):
+ * a product with its variants and stock about 0.3 s, a customer 0.02 s, an order or anything else
+ * 0.01 s; and about 2 s per image (download, then four WebP sizes). Network speed to the old
+ * host changes everything, so the screen calls it an estimate; the rehearsal gives the real time.
+ */
+export function estimateImportSeconds(run: Pick<WooRun, 'counts' | 'verification'>): number {
+    const started = Date.parse(String(run.verification.startedAt ?? ''));
+    const reading = Number.isFinite(started) ? Math.max(0, (Date.now() - started) / 1000) : 0;
+    const count = (kind: string) => run.counts[kind] ?? 0;
+    const others = count('categories') + count('tags') + count('coupons') + count('reviews');
+    const writes = count('products') * 0.3 + count('customers') * 0.02 + (count('orders') + others) * 0.01;
+    const images = Number(run.verification.imageCount ?? 0) * 2;
+    return Math.ceil(reading + writes + images);
+}
 
 /** Upstream/SQL errors can contain personal data. Keep a safe cause code in worker failures. */
 class MigrationFailure extends Error {
@@ -210,6 +235,7 @@ export class WooImportService implements OnModuleInit {
                     sourceId,
                     mode: mode as WooRun['mode'],
                     status: 'queued',
+                    startedBy: ctx.activeUserId == null ? null : String(ctx.activeUserId),
                     watermark: new Date(),
                     modifiedAfter:
                         mode === 'catchUp' && source.lastSyncedAt
@@ -303,15 +329,15 @@ export class WooImportService implements OnModuleInit {
             await this.connection
                 .getRepository(txCtx, WooSource)
                 .update(sourceId, { credentials: null, completed: true });
+            // Clears the helper's upload token and deletes everything it uploaded.
             await this.helper.revoke(txCtx, sourceId);
-            const pairings = await this.connection.getRepository(txCtx, WooPairing).findBy({ sourceId });
-            for (const pairing of pairings)
-                await this.connection
-                    .getRepository(txCtx, WooChunk)
-                    .delete({ pairingId: Number(pairing.id) });
             return true;
         });
     }
+    /**
+     * Reads the parts of a record that come from their own REST endpoints: a variable product's
+     * variations, an order's notes and refunds. (The helper plugin sends them inside the record.)
+     */
     private async augment(connector: SourceConnector, kind: string, record: WooRecord) {
         if (connector.stages) return record;
         if (kind === 'products' && record.type === 'variable')
@@ -327,6 +353,73 @@ export class WooImportService implements OnModuleInit {
             record._refunds = refunds;
         }
         return record;
+    }
+
+    /**
+     * {@link augment}, or null when this one record can't be read while the source itself is fine.
+     *
+     * One product's variations or one order's notes can fail on their own (a 404, a plugin error
+     * on that order). Failing the run for that would stop every resume at the same record, so the
+     * record is skipped with an issue instead (a catch-up reads everything again). But a failure
+     * can also mean the old host just went down, and then skipping would lose records: so before
+     * skipping, a one-record listing checks the source still answers. If it doesn't, the error is
+     * thrown, the run stops here, and a resume starts again at this record.
+     */
+    private async readRecord(
+        connector: SourceConnector,
+        kind: Resource,
+        record: WooRecord,
+        run: WooRun,
+    ): Promise<WooRecord | null> {
+        try {
+            return await this.augment(connector, kind, record);
+        } catch (error) {
+            try {
+                await connector.page(kind, run.cursor.offset, 1, null, run.watermark);
+            } catch {
+                throw error;
+            }
+            return null;
+        }
+    }
+
+    /**
+     * Moves past one record that won't import, visibly: an error issue with its code, counted as
+     * failed, and the cursor saved after it, so a resume doesn't stop on it again. Verification
+     * never calls a run with failed records clean.
+     */
+    private async skipRecord(
+        ctx: RequestContext,
+        run: WooRun,
+        owner: string,
+        kind: string,
+        sourceKey: string,
+        code: string,
+    ) {
+        await this.mapper.issue(ctx, run, kind, sourceKey, code, 'error');
+        run.counts.failed = (run.counts.failed ?? 0) + 1;
+        run.counts[kind] = (run.counts[kind] ?? 0) + 1;
+        run.cursor.offset++;
+        const saved = await this.connection
+            .getRepository(ctx, WooRun)
+            .update(
+                { id: run.id, leaseOwner: owner },
+                { cursor: run.cursor, counts: run.counts, leaseUntil: new Date(Date.now() + 300_000) },
+            );
+        if (!saved.affected) throw new Error('IMPORT_LEASE_LOST');
+    }
+
+    /**
+     * Waits (up to 10 minutes) for the search index rebuild after an import, so listings are
+     * complete before anything announces the import as finished. Cache purges and the warm-up
+     * react to that announcement; done earlier, they would cache half-built category pages.
+     */
+    private async reindexAndWait(ctx: RequestContext) {
+        const job = await this.search.reindex(ctx);
+        if (job instanceof SubscribableJob)
+            await lastValueFrom(job.updates({ pollInterval: 500, timeoutMs: 600_000 }), {
+                defaultValue: undefined,
+            }).catch(() => undefined); // A failed rebuild is visible in the job list; the import stands.
     }
     private totals(record: WooRecord, prior: Record<string, unknown>) {
         const date = gmt(record.date_created_gmt);
@@ -353,6 +446,9 @@ export class WooImportService implements OnModuleInit {
         let connector: SourceConnector | undefined;
         try {
             const run = await repo.findOneByOrFail({ id: runId });
+            // When reading began (kept across resumes): a dry run reads the whole store, so its
+            // duration is the best guide to how long the import's reading will take.
+            run.verification.startedAt ??= new Date().toISOString();
             const source = await this.source(ctx, run.sourceId, true);
             connector = await this.connector(ctx, source);
             const stages = connector.stages ?? REST_STAGES;
@@ -367,7 +463,10 @@ export class WooImportService implements OnModuleInit {
                     null,
                     run.watermark,
                 );
-                run.cursor.size = page.size;
+                // A page that came back at the size asked for lets the next one grow a step again
+                // (10 → 20 → 50 → 100): one slow moment on the old host shouldn't make the rest of
+                // the import crawl along ten records at a time.
+                run.cursor.size = page.size === run.cursor.size ? nextPageSize(page.size) : page.size;
                 if (page.total !== null)
                     run.verification.sourceCounts = {
                         ...((run.verification.sourceCounts as Record<string, number>) ?? {}),
@@ -391,7 +490,18 @@ export class WooImportService implements OnModuleInit {
                     continue;
                 }
                 for (const raw of page.records) {
-                    const record = await this.augment(connector, kind, raw);
+                    const record = await this.readRecord(connector, kind, raw, run);
+                    if (!record) {
+                        await this.skipRecord(
+                            ctx,
+                            run,
+                            owner,
+                            kind,
+                            String(raw.id),
+                            'SOURCE_RECORD_UNREADABLE',
+                        );
+                        continue;
+                    }
                     const checkpoint = {
                         cursor: { ...run.cursor },
                         counts: { ...run.counts },
@@ -409,6 +519,10 @@ export class WooImportService implements OnModuleInit {
                                 .getOneOrFail();
                             if (locked.leaseOwner !== owner) throw new Error('IMPORT_LEASE_LOST');
                             await this.mapper.inspectRecord(txCtx, source, run, kind, record);
+                            // Images are most of an import's time; count them for the estimate.
+                            if (kind === 'products')
+                                run.verification.imageCount =
+                                    Number(run.verification.imageCount ?? 0) + productImageCount(record);
                             if (run.mode !== 'dryRun')
                                 result = await this.mapper.apply(txCtx, source, run, kind, record);
                             if (run.mode !== 'dryRun')
@@ -452,19 +566,7 @@ export class WooImportService implements OnModuleInit {
                         run.verification = checkpoint.verification;
                         // A refused record rolls back its entire mapping/write. Record the refusal
                         // and advance visibly; verification will never call this a clean import.
-                        await this.mapper.issue(ctx, run, kind, String(record.id), safeError(error), 'error');
-                        run.counts.failed = (run.counts.failed ?? 0) + 1;
-                        run.counts[kind] = (run.counts[kind] ?? 0) + 1;
-                        run.cursor.offset++;
-                        const saved = await repo.update(
-                            { id: run.id, leaseOwner: owner },
-                            {
-                                cursor: run.cursor,
-                                counts: run.counts,
-                                leaseUntil: new Date(Date.now() + 300_000),
-                            },
-                        );
-                        if (!saved.affected) throw new MigrationFailure(error, 'IMPORT_LEASE_LOST');
+                        await this.skipRecord(ctx, run, owner, kind, String(record.id), safeError(error));
                     }
                 }
             }
@@ -478,16 +580,23 @@ export class WooImportService implements OnModuleInit {
                         .where('r.id = :id', { id: run.id })
                         .getOneOrFail();
                     if (locked.leaseOwner !== owner) throw new Error('IMPORT_LEASE_LOST');
-                    await this.mapper.finalize(txCtx, source);
+                    await this.mapper.finalize(txCtx, source, run);
                     await this.extras.finalize(txCtx, source, run);
-                    await this.events.publish(
-                        new WooImportCompletedEvent(txCtx, Number(source.id), Number(run.id)),
-                    );
                     await this.connection
                         .getRepository(txCtx, WooRun)
                         .update(run.id, { leaseUntil: new Date(Date.now() + 300_000) });
                 });
-                await this.search.reindex(ctx);
+                // Announce the finished import only once the search index has been rebuilt: the
+                // cache purges everything and warms the top pages on this event, and listings come
+                // from the index. (The event used to fire before the rebuild started.)
+                await this.reindexAndWait(ctx);
+                await this.events.publish(
+                    new WooImportCompletedEvent(ctx, Number(source.id), Number(run.id)),
+                );
+                // The uploaded customer records carried WordPress password hashes. They're now
+                // stored encrypted on each customer, so the copies in the upload are dropped.
+                if (source.settings.transport === 'helper' && source.settings.helperPairingId)
+                    await this.helper.dropPasswordHashes(Number(source.settings.helperPairingId));
             }
             run.verification = await this.verify(ctx, source, run);
             const errors = await this.connection
@@ -534,8 +643,7 @@ export class WooImportService implements OnModuleInit {
                 ...run.verification,
                 dryRun: true,
                 estimatedRecords: REST_STAGES.reduce((sum, kind) => sum + (run.counts[kind] ?? 0), 0),
-                durationEstimate:
-                    'Measure source latency and image processing on the rehearsal; counts alone are not a time guarantee.',
+                estimatedSeconds: estimateImportSeconds(run),
             };
         const rows = (await this.connection
             .getRepository(ctx, LegacyOrder)

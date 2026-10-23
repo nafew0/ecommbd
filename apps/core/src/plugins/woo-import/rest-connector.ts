@@ -8,6 +8,15 @@ const ROUTES: Record<string, string> = {
     tags: 'products/tags',
     reviews: 'products/reviews',
 };
+/**
+ * Page sizes, largest first. A timeout or 5xx from a weak host steps the size down; a page that
+ * comes back fine steps it up again (see the import loop), so one slow moment doesn't slow the
+ * whole import.
+ */
+const PAGE_SIZES = [100, 50, 20, 10];
+export const smallerPageSize = (size: number) => PAGE_SIZES.find(s => s < size) ?? 10;
+export const nextPageSize = (size: number) => [...PAGE_SIZES].reverse().find(s => s > size) ?? 100;
+
 export interface SourcePage {
     records: WooRecord[];
     size: number;
@@ -121,7 +130,7 @@ export class WooRestConnector implements SourceConnector {
                 if (response.status === 401 || response.status === 403)
                     throw new Error('SOURCE_AUTH_OR_FIREWALL');
                 if ((response.status >= 500 || response.status === 429) && size > 10) {
-                    size = size > 50 ? 50 : size > 20 ? 20 : 10;
+                    size = smallerPageSize(size);
                     continue;
                 }
                 if (response.status !== 200) throw new Error(`SOURCE_HTTP_${response.status}`);
@@ -139,21 +148,34 @@ export class WooRestConnector implements SourceConnector {
                     ['timeout', 'network', 'too_large'].includes(error.kind) &&
                     size > 10
                 ) {
-                    size = size > 50 ? 50 : size > 20 ? 20 : 10;
+                    size = smallerPageSize(size);
                     continue;
                 }
                 throw error instanceof HttpError ? new Error(`SOURCE_${error.kind.toUpperCase()}`) : error;
             }
         }
     }
+    /**
+     * A record's children: a product's variations, an order's notes or refunds.
+     *
+     * Order notes have no paging in WooCommerce's API: it ignores `per_page` and `offset` and
+     * returns every note at once. Paging them like the others asked for "the next 100" forever
+     * on an order with 100 or more notes, so notes are read in one request. As a safety net for
+     * any endpoint that ignores `offset`, a page made only of records already seen ends the read.
+     */
     async children(path: string): Promise<WooRecord[]> {
         if (!/^(products\/\d+\/variations|orders\/\d+\/(notes|refunds))$/.test(path))
             throw new Error('INVALID_SOURCE_ENDPOINT');
+        if (path.endsWith('/notes')) return (await this.readPage(path, 0, 100)).records;
         const records: WooRecord[] = [];
+        const seen = new Set<number>();
         let offset = 0;
         for (;;) {
             const page = await this.readPage(path, offset, 100);
-            records.push(...page.records);
+            const fresh = page.records.filter(record => !seen.has(record.id));
+            if (page.records.length && !fresh.length) return records;
+            for (const record of fresh) seen.add(record.id);
+            records.push(...fresh);
             offset += page.records.length;
             if (page.records.length < page.size) return records;
             if (offset > 10_000) throw new Error('SOURCE_CHILD_LIMIT');

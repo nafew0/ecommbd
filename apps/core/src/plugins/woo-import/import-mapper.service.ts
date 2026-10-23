@@ -1,5 +1,11 @@
 import { getDistricts, getThanas } from '@ecommbd/bd-geo';
-import { createHttpClient, isPlaceholderEmail, placeholderEmailFor, stripShortcodes } from '@ecommbd/shared';
+import {
+    createHttpClient,
+    isPlaceholderEmail,
+    placeholderEmailFor,
+    stripShortcodes,
+    wooDistrictName,
+} from '@ecommbd/shared';
 import { Injectable } from '@nestjs/common';
 import {
     Address,
@@ -43,76 +49,9 @@ import {
     safeDescription,
     text,
     WooRecord,
+    wooSlug,
 } from './helpers';
 
-// ISO subdivision codes used by WooCommerce are NOT the BBS district codes in bd-geo.
-// Names from WooCommerce i18n/states.php, matched against our maintained aliases.
-const WC_DISTRICTS = [
-    'Bandarban',
-    'Barguna',
-    'Bogura',
-    'Brahmanbaria',
-    'Bagerhat',
-    'Barishal',
-    'Bhola',
-    'Cumilla',
-    'Chandpur',
-    'Chattogram',
-    "Cox's Bazar",
-    'Chuadanga',
-    'Dhaka',
-    'Dinajpur',
-    'Faridpur',
-    'Feni',
-    'Gopalganj',
-    'Gazipur',
-    'Gaibandha',
-    'Habiganj',
-    'Jamalpur',
-    'Jashore',
-    'Jhenaidah',
-    'Joypurhat',
-    'Jhalokati',
-    'Kishoreganj',
-    'Khulna',
-    'Kurigram',
-    'Khagrachhari',
-    'Kushtia',
-    'Lakshmipur',
-    'Lalmonirhat',
-    'Manikganj',
-    'Mymensingh',
-    'Munshiganj',
-    'Madaripur',
-    'Magura',
-    'Moulvibazar',
-    'Meherpur',
-    'Narayanganj',
-    'Netrakona',
-    'Narsingdi',
-    'Narail',
-    'Natore',
-    'Nawabganj',
-    'Nilphamari',
-    'Noakhali',
-    'Naogaon',
-    'Pabna',
-    'Pirojpur',
-    'Patuakhali',
-    'Panchagarh',
-    'Rajbari',
-    'Rajshahi',
-    'Rangpur',
-    'Rangamati',
-    'Sherpur',
-    'Satkhira',
-    'Sirajganj',
-    'Sylhet',
-    'Sunamganj',
-    'Shariatpur',
-    'Tangail',
-    'Thakurgaon',
-];
 const nameKey = (value: string) =>
     value
         .normalize('NFC')
@@ -120,7 +59,8 @@ const nameKey = (value: string) =>
         .replace(/[^\p{L}\p{N}]/gu, '');
 export function mapWooAddress(row: WooRecord) {
     const state = text(row.state);
-    const stateName = /^BD-\d\d$/.test(state) ? WC_DISTRICTS[Number(state.slice(3)) - 1] : state;
+    // WooCommerce's `BD-13` codes are not bd-geo's BBS codes: go through the district's name.
+    const stateName = wooDistrictName(state) ?? state;
     const district = getDistricts().find(d =>
         [d.en, d.bn, ...d.aliases].some(n => nameKey(n) === nameKey(stateName ?? '')),
     );
@@ -148,6 +88,15 @@ export function mapWooAddress(row: WooRecord) {
             : {},
         resolved: !!district && candidates.length === 1,
     };
+}
+
+/**
+ * A variable product's variations that have a price. WooCommerce doesn't sell a variation with an
+ * empty price either, so such a variation is left out (reported as a warning) rather than
+ * refusing the whole product; one that later loses its price is disabled with the others.
+ */
+function pricedVariations(row: WooRecord) {
+    return arrays(row._variations).filter(variant => String(variant.price ?? '').trim() !== '');
 }
 
 @Injectable()
@@ -242,7 +191,9 @@ export class ImportMapperService {
                 }
             }
             if (row.type === 'simple') catalogPrice(row.price);
-            for (const variant of arrays(row._variations)) catalogPrice(variant.price);
+            for (const variant of pricedVariations(row)) catalogPrice(variant.price);
+            if (pricedVariations(row).length < arrays(row._variations).length)
+                await this.issue(ctx, run, kind, key, 'VARIATION_WITHOUT_PRICE_SKIPPED');
             if (arrays(row.images).length > 100 || text(row.description, 500_001).length > 500_000)
                 await this.issue(ctx, run, kind, key, 'SOURCE_CONTENT_LIMIT_REQUIRES_REVIEW', 'error');
             if (row.dimensions && Object.values(row.dimensions).some(Boolean))
@@ -299,15 +250,17 @@ export class ImportMapperService {
     }
     private async category(ctx: RequestContext, source: WooSource, row: WooRecord) {
         const old = await this.mapping(ctx, source, 'categories', String(row.id));
+        // Decoded and normalized as Vendure stores it (Bangla slugs arrive percent-encoded).
+        const slug = wooSlug(row.slug);
         const conflict = await this.connection.getRepository(ctx, CollectionTranslation).findOne({
-            where: { slug: text(row.slug, 255).normalize('NFD'), languageCode: LanguageCode.bn },
+            where: { slug, languageCode: LanguageCode.bn },
             relations: { base: true },
         });
         if (conflict && String(conflict.base.id) !== old?.targetId) throw new Error('CATEGORY_SLUG_CONFLICT');
         const input = {
             isPrivate: false,
             translations: this.translations(row.name, {
-                slug: text(row.slug, 255),
+                slug,
                 description: safeDescription(row.description),
             }),
             customFields: { bdCategory: true },
@@ -317,7 +270,8 @@ export class ImportMapperService {
             : await this.collections.create(ctx, { ...input, filters: [] });
         await this.remember(ctx, source, 'categories', String(row.id), category.id, row, {
             parent: Number(row.parent) || 0,
-            slug: text(row.slug, 255),
+            // The slug as stored here (redirect targets are built from it).
+            slug,
             sourcePath: pathOf(row.link, source.url),
         });
     }
@@ -454,8 +408,10 @@ export class ImportMapperService {
             return;
         }
         const old = await this.mapping(ctx, source, 'products', String(row.id));
+        // Decoded and normalized as Vendure stores it, so a Bangla address stays the same.
+        const slug = wooSlug(row.slug);
         const conflict = await this.connection.getRepository(ctx, ProductTranslation).findOne({
-            where: { slug: text(row.slug, 255).normalize('NFD'), languageCode: LanguageCode.bn },
+            where: { slug, languageCode: LanguageCode.bn },
             relations: { base: true },
         });
         if (conflict && String(conflict.base.id) !== old?.targetId) throw new Error('PRODUCT_SLUG_CONFLICT');
@@ -488,7 +444,7 @@ export class ImportMapperService {
             featuredAssetId: assetIds[0],
             assetIds,
             translations: this.translations(row.name, {
-                slug: text(row.slug, 255),
+                slug,
                 description: await this.description(ctx, source, run, row.description),
                 customFields: { shortDescription: safeDescription(row.short_description) },
             }),
@@ -497,7 +453,7 @@ export class ImportMapperService {
         const product = old?.targetId
             ? await this.products.update(ctx, { id: Number(old.targetId), ...input })
             : await this.products.create(ctx, input);
-        const variations = row.type === 'variable' ? arrays(row._variations) : [row];
+        const variations = row.type === 'variable' ? pricedVariations(row) : [row];
         if (!variations.length) throw new Error('VARIABLE_PRODUCT_HAS_NO_VARIATIONS');
         const groups = new Map<string, { id: ID; options: Map<string, ID> }>();
         for (const attribute of arrays(row.attributes).filter(a => a.variation)) {
@@ -656,7 +612,9 @@ export class ImportMapperService {
         await this.remember(ctx, source, 'products', String(row.id), product.id, row, {
             categoryIds,
             sourcePath: pathOf(row.permalink, source.url),
-            slug: text(row.slug, 255),
+            // As stored here (for redirect targets), and as WordPress had it (for `?product=` links).
+            slug,
+            sourceSlug: text(row.slug, 255),
             dimensions: row.dimensions ?? {},
             retryMedia: Number(run.verification.imageFailures ?? 0) > priorImageFailures,
         });
@@ -859,7 +817,11 @@ export class ImportMapperService {
         await this.remember(ctx, source, 'orders', String(row.id), saved.id, row);
     }
 
-    async finalize(ctx: RequestContext, source: WooSource) {
+    /**
+     * After the last record: our order numbers continue after the highest WooCommerce number, and
+     * each category gets its products and its place in the tree.
+     */
+    async finalize(ctx: RequestContext, source: WooSource, run: WooRun) {
         // Advance, never reset: a concurrent checkout can safely consume additional numbers.
         const [maxRow] = (await this.connection
             .getRepository(ctx, LegacyOrder)
@@ -869,10 +831,16 @@ export class ImportMapperService {
             )) as Array<{ maximum: string }>;
         const [sequence] = (await this.connection
             .getRepository(ctx, LegacyOrder)
-            .query('SELECT last_value::text AS current FROM bd_order_number_seq')) as Array<{
-            current: string;
-        }>;
-        const advance = BigInt(maxRow.maximum) - BigInt(sequence.current);
+            .query(
+                'SELECT last_value::text AS current, is_called AS called FROM bd_order_number_seq',
+            )) as Array<{ current: string; called: boolean }>;
+        // The number the next `nextval` will hand out. A sequence nothing has drawn from yet (a
+        // fresh store: START WITH 1001, `is_called` false) hands out `last_value` itself; after
+        // that, `last_value + 1`. Getting this wrong made the first real order of a freshly
+        // migrated store repeat the last WooCommerce number.
+        const next = BigInt(sequence.current) + (sequence.called ? BigInt(1) : BigInt(0));
+        // Draws needed so the next number is the highest legacy number + 1 (none if already past).
+        const advance = BigInt(maxRow.maximum) - next + BigInt(1);
         if (advance > BigInt(1_000_000)) throw new Error('ORDER_NUMBER_RANGE_REQUIRES_REVIEW');
         if (advance > BigInt(0))
             await this.connection
@@ -892,7 +860,11 @@ export class ImportMapperService {
         for (const category of mappings) {
             if (!category.targetId) continue;
             const parent = mappings.find(c => c.sourceKey === String(category.metadata.parent));
-            if (category.metadata.parent && !parent?.targetId) throw new Error('CATEGORY_PARENT_MISSING');
+            // A parent that wasn't imported (refused for a slug conflict, say) leaves this category
+            // at the top level, with an issue to review. Throwing here used to fail the whole
+            // import, and every resume after it, because finalize runs again each time.
+            if (category.metadata.parent && !parent?.targetId)
+                await this.issue(ctx, run, 'categories', category.sourceKey, 'CATEGORY_PARENT_MISSING');
             const ids = products
                 .filter(
                     p =>

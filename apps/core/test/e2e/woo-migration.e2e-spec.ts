@@ -20,7 +20,7 @@ import {
 } from '@vendure/core';
 import { execFileSync } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
-import { encryptSecret, parseKeyring } from '@ecommbd/shared';
+import { decryptSecret, encryptSecret, parseKeyring } from '@ecommbd/shared';
 import fs from 'node:fs';
 import path from 'node:path';
 import gql from 'graphql-tag';
@@ -282,6 +282,23 @@ describe('M5 WooCommerce phases 21 and 22', () => {
         expect(await raw().getRepository(Customer).count()).toBe(1);
         expect(await raw().getRepository(Product).count()).toBe(2);
         expect(await raw().getRepository(WooLegacyAuth).count()).toBe(1);
+        // Once stored (encrypted) on the customer, the hashes are dropped from the uploaded chunks.
+        const customerChunks = await raw()
+            .getRepository(WooChunk)
+            .createQueryBuilder('c')
+            .addSelect('c.payload')
+            .where('c.pairingId = :id AND c.kind = :kind', { id: session.id, kind: 'customers' })
+            .getMany();
+        expect(customerChunks.length).toBeGreaterThan(0);
+        for (const chunk of customerChunks) {
+            const body = decryptSecret(
+                chunk.payload,
+                parseKeyring(KEY),
+                `woo-chunk:${session.id}:${chunk.sequence}`,
+            );
+            expect(body).not.toContain('_password_hash');
+            expect(JSON.parse(body).records.length).toBe(fixture.customers.length);
+        }
         expect(await raw().getRepository(Promotion).countBy({ couponCode: 'synthetic10' })).toBe(1);
         expect(await raw().getRepository(WooExtra).countBy({ kind: 'reviews' })).toBe(1);
         expect(JSON.stringify(await migration.sources(ctx))).not.toContain('DO_NOT_RETURN_THIS_FIELD');
@@ -379,8 +396,12 @@ describe('M5 WooCommerce phases 21 and 22', () => {
         expect(JSON.stringify(exported)).not.toContain('passwordHash');
     });
     it('revokes helper tokens and removes uploaded credential-bearing chunks on completion', async () => {
+        expect(await raw().getRepository(WooChunk).count()).toBeGreaterThan(0);
         await helper.revoke(ctx, sourceId);
         expect((await upload('settings', [])).status).toBe(400);
+        // Revoking deletes the upload at once (it used to wait for completion or token expiry).
+        expect(await raw().getRepository(WooChunk).count()).toBe(0);
+        await expect(migration.start(ctx, sourceId, 'dryRun')).rejects.toThrow();
         await migration.complete(ctx, sourceId);
         expect(await raw().getRepository(WooChunk).count()).toBe(0);
         expect((await raw().getRepository(WooSource).findOneByOrFail({ id: sourceId })).completed).toBe(true);
@@ -519,5 +540,40 @@ describe('M5 WooCommerce phases 21 and 22', () => {
         expect(
             await raw().getRepository(Promotion).findOneByOrFail({ couponCode: 'synthetic10' }),
         ).toMatchObject({ enabled: false });
+    });
+    it('imports a used coupon with the uses it has left, and a used-up one disabled', async () => {
+        const source = await migration.source(ctx, sourceId);
+        const latestRun = await raw()
+            .getRepository(WooRun)
+            .findOneOrFail({ where: { sourceId }, order: { id: 'DESC' } });
+        const extras = server.app.get(WooExtrasService);
+        await extras.apply(ctx, source, latestRun, 'coupons', {
+            ...fixture.coupons[0],
+            id: 1001,
+            code: 'used3of10',
+            usage_limit: 10,
+            usage_count: 3,
+        });
+        expect(
+            await raw().getRepository(Promotion).findOneByOrFail({ couponCode: 'used3of10' }),
+        ).toMatchObject({
+            enabled: true,
+            usageLimit: 7,
+        });
+        await extras.apply(ctx, source, latestRun, 'coupons', {
+            ...fixture.coupons[0],
+            id: 1002,
+            code: 'usedup',
+            usage_limit: 5,
+            usage_count: 5,
+        });
+        expect(await raw().getRepository(Promotion).findOneByOrFail({ couponCode: 'usedup' })).toMatchObject({
+            enabled: false,
+        });
+        expect(
+            await raw()
+                .getRepository(WooIssue)
+                .exists({ where: { runId: Number(latestRun.id), code: 'COUPON_USED_UP_IMPORTED_DISABLED' } }),
+        ).toBe(true);
     });
 });
