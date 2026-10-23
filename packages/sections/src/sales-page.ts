@@ -227,6 +227,7 @@ export function packSaving(pack: SalesPack, unitPrice: number): number {
 
 /** A sales page's address segment, from its title or as typed. */
 export function toSalesSlug(input: string): string {
+    // The last step: cutting a long title can leave a hyphen at the end, not a valid address.
     return cleanText(input)
         .normalize('NFC')
         .toLowerCase()
@@ -234,7 +235,8 @@ export function toSalesSlug(input: string): string {
         .replace(/[\s_]+/g, '-')
         .replace(/-{2,}/g, '-')
         .replace(/^-|-$/g, '')
-        .slice(0, SALES_LIMITS.slug);
+        .slice(0, SALES_LIMITS.slug)
+        .replace(/-+$/, '');
 }
 
 /**
