@@ -32,10 +32,13 @@ export interface CustomPluginOptions {
     /** WOO_IMPORT_KEYS: versioned encryption keys for source credentials. */
     wooImportKeys?: string;
     wooPublicUrl?: string;
+    /** Storefront cache (phase 17): CACHE_STORE_ID, CACHE_PURGE_URL, CACHE_PURGE_SECRET, CACHE_WARM_UP. */
     cacheStoreId?: string;
     cachePurgeUrl?: string;
     cachePurgeSecret?: string;
-    cacheWarmUrl?: string;
+    cacheWarmUp?: boolean;
+    /** CACHE_LISTING_SETTLE_MS: when listings are refreshed again after a catalog change. */
+    cacheListingSettleMs?: number;
     cacheBatchMs?: number;
     cachePollMs?: number;
     /** STORE_DEFAULT_LANGUAGE: the storefront's default language for a new store. */
@@ -133,9 +136,11 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
             redisKeyPrefix: options.redisKeyPrefix,
             purgeUrl: options.cachePurgeUrl,
             purgeSecret: options.cachePurgeSecret,
-            warmUrl: options.cacheWarmUrl,
+            warmUp: options.cacheWarmUp,
             storefrontUrl: options.previewStorefrontUrl ?? options.storefrontUrl,
             batchMs: options.cacheBatchMs,
+            listingSettleMs: options.cacheListingSettleMs,
+            listingCacheMs: options.searchCatalogCacheMs,
             pollMs: options.cachePollMs,
         }),
     ];
