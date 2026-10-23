@@ -1,6 +1,7 @@
 import { cleanText, STOCK_REASONS, type StockReason } from '@ecommbd/shared';
 import { Injectable } from '@nestjs/common';
 import {
+    ConfigService,
     type ID,
     ProductVariant,
     ProductVariantService,
@@ -9,6 +10,7 @@ import {
     TransactionalConnection,
     UserInputError,
 } from '@vendure/core';
+import { assetUrl } from './asset-url';
 import { channelPrice } from './product-form.service';
 import { BdStockAdjustment } from './stock-adjustment.entity';
 
@@ -22,6 +24,7 @@ export class StockService {
         private connection: TransactionalConnection,
         private variants: ProductVariantService,
         private stockLevels: StockLevelService,
+        private config: ConfigService,
     ) {}
 
     /** Adds or removes units, recording why. Stock never goes below zero this way. */
@@ -103,7 +106,7 @@ export class StockService {
                     productId: variant.productId,
                     name,
                     sku: variant.sku,
-                    preview: variant.product.featuredAsset?.preview ?? null,
+                    preview: assetUrl(this.config, ctx, variant.product.featuredAsset?.preview),
                     stockOnHand,
                     allocated: stockAllocated,
                     available: stockOnHand - stockAllocated,

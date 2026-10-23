@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import {
     Collection,
     CollectionService,
+    ConfigService,
     type ID,
     LanguageCode,
     Product,
@@ -14,6 +15,7 @@ import {
 } from '@vendure/core';
 import { In, IsNull } from 'typeorm';
 import { ShippingSettingsService } from '../shipping-bd';
+import { assetUrl } from './asset-url';
 import { CATEGORY_FILTER_CODE } from './category-filter';
 import { channelPrice } from './product-form.service';
 
@@ -36,6 +38,7 @@ export class CatalogService {
         private collections: CollectionService,
         private stockLevels: StockLevelService,
         private shippingSettings: ShippingSettingsService,
+        private config: ConfigService,
     ) {}
 
     /** Products for the list: image, name, category, price (and old price), stock, badges. */
@@ -82,7 +85,7 @@ export class CatalogService {
                     id: product.id,
                     name: name(ctx.languageCode) ?? name('bn') ?? name('en') ?? '',
                     banglaMissing: !name('bn'),
-                    preview: product.featuredAsset?.preview ?? null,
+                    preview: assetUrl(this.config, ctx, product.featuredAsset?.preview),
                     categoryName:
                         category?.translations.find(t => t.languageCode === ctx.languageCode)?.name ??
                         category?.translations[0]?.name ??
@@ -118,7 +121,7 @@ export class CatalogService {
         return rows.map(row => ({
             id: row.id,
             name: { bn: name(row, 'bn'), en: name(row, 'en') },
-            preview: row.featuredAsset?.preview ?? null,
+            preview: assetUrl(this.config, ctx, row.featuredAsset?.preview),
             assetId: row.featuredAsset?.id ?? null,
             parentId: row.parent && row.parent.customFields.bdCategory ? row.parent.id : null,
             position: row.position,
