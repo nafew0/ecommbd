@@ -3,7 +3,7 @@ import { ModuleRef } from '@nestjs/core';
 import { PluginCommonModule, VendurePlugin } from '@vendure/core';
 import { registerStoreDefaults } from '../bd-core';
 import { registerLayoutOwner } from '../bd-sections';
-import { orderAttributionCustomFields } from './custom-fields';
+import { orderAttributionCustomFields, orderOfferCustomFields } from './custom-fields';
 import { BdSalesPage } from './entities';
 import { salesPageOfferAction, salesPageOfferCondition } from './offer-promotion';
 import {
@@ -24,8 +24,9 @@ registerStoreDefaults(salesPageOfferStep);
 /**
  * Sales pages (roadmap phase 16): ad landing pages at `/s/<slug>/`, made from twelve Bangla
  * templates and a product, edited in phase 15's page editor, with packs and an add-on priced by the
- * automatic "Sales page offer" promotion, and an order form of their own. Every order records the
- * sales page and the ad or link it came from (Order custom fields). Edited with EditStorefront.
+ * automatic "Sales page offer" promotion, and an order form of their own (the only way to get those
+ * prices). Every order records the sales page and the ad or link it came from (Order custom
+ * fields). Edited with EditStorefront.
  */
 @VendurePlugin({
     imports: [PluginCommonModule],
@@ -40,7 +41,11 @@ registerStoreDefaults(salesPageOfferStep);
         resolvers: [SalesPagesAdminResolver, OrderAttributionResolver],
     },
     configuration: config => {
-        config.customFields.Order = [...(config.customFields.Order ?? []), ...orderAttributionCustomFields];
+        config.customFields.Order = [
+            ...(config.customFields.Order ?? []),
+            ...orderAttributionCustomFields,
+            ...orderOfferCustomFields,
+        ];
         config.promotionOptions.promotionConditions = [
             ...(config.promotionOptions.promotionConditions ?? []),
             salesPageOfferCondition,

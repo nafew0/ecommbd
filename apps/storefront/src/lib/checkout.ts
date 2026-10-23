@@ -1,12 +1,13 @@
-import { isValidIdempotencyKey } from '@ecommbd/shared/idempotency';
+import { fingerprint, isValidIdempotencyKey } from '@ecommbd/shared/idempotency';
 import type { TadaDocumentNode } from 'gql.tada';
 import { activeOrder, type CartOrder, type ShopperContext } from './cart';
 import {
     ADD_PAYMENT,
+    ADJUST_LINE,
     type CHECKOUT_SETTINGS,
     type DISTRICTS,
+    ORDER_BY_CODE,
     PAYMENT_OPTIONS,
-    REMOVE_LINE,
     SAVE_PROGRESS,
     SEND_OTP,
     SET_ADDRESS,
@@ -71,7 +72,8 @@ export type District = ResultOf<typeof DISTRICTS>['bdDistricts'][number];
 export type Thana = ResultOf<typeof THANAS>['bdThanas'][number];
 
 export type PlaceOutcome =
-    | { kind: 'placed'; code: string }
+    /** `again`: placed before this attempt (another tab, or a retry after an answer was lost). */
+    | { kind: 'placed'; code: string; again?: boolean }
     | { kind: 'invalid'; errors: CheckoutErrors }
     /** The total isn't what the shopper saw (a price changed, or the delivery charge is new): show it again. */
     | { kind: 'review'; message: string }
@@ -204,7 +206,13 @@ class NotPlaced extends Error {
     }
 }
 
-/** At most one order per idempotency key: a retry (double tap, a timeout on 2G) gets the same order. */
+/**
+ * At most one order per idempotency key: a retry (double tap, a timeout on 2G) gets the same order.
+ * The key is our own claim in the idempotency store (not `runIdempotent`: a refusal must free the
+ * key at once, and a second tap must wait for the first one's answer, not fail). A failed attempt
+ * frees it, so the shopper can try again; if that attempt placed the order after all, the retry
+ * finds it (`placedSessionOrder`).
+ */
 export async function placeOnce(shopper: ShopperContext, form: FormData, s: Strings): Promise<PlaceOutcome> {
     const key = form.get('idempotencyKey');
     if (!isValidIdempotencyKey(key)) return placeOrder(shopper, form, s);
@@ -252,7 +260,10 @@ async function placeOrder(shopper: ShopperContext, form: FormData, s: Strings): 
     const v = readValues(form);
     const ask: Ask = (document, variables) => shopQuery(document, variables, shopper.lang, shopper);
     let order = await activeOrder(shopper);
-    if (!order || !order.lines.length || !order.active) return { kind: 'empty' };
+    if (!order || !order.lines.length || !order.active) return nothingToPlace(shopper);
+    // An earlier attempt that couldn't move the order back (the core was down then): the steps
+    // below need the cart state.
+    if (order.state === 'ArrangingPayment') await backToCart(shopper);
 
     // Where the shopper came from (phase 16). Never stops the order.
     if (shopper.attribution) {
@@ -306,7 +317,7 @@ async function placeOrder(shopper: ShopperContext, form: FormData, s: Strings): 
     await ask(SET_PAYMENT_CHOICE, { choice: payment === 'cod' ? 'cod' : 'prepaid' });
     const { bdPaymentOptions: options } = await ask(PAYMENT_OPTIONS, {});
     order = await activeOrder(shopper);
-    if (!order || !options) return { kind: 'empty' };
+    if (!order || !options) return nothingToPlace(shopper);
     // The shopper must have seen this exact total.
     if (expectedTotal(form) !== order.totalWithTax) return { kind: 'review', message: s.checkTotal };
 
@@ -344,45 +355,146 @@ async function placeOrder(shopper: ShopperContext, form: FormData, s: Strings): 
 
     const moved = (await ask(TO_STATE, { state: 'ArrangingPayment' })).transitionOrderToState;
     if (moved?.__typename === 'OrderStateTransitionError') {
-        // Vendure refuses to take payment while an item is short of stock: take it out and say so.
-        const removed = await removeSoldOut(shopper);
+        // Vendure refuses to take payment while a line wants more than is in stock: lower it to
+        // what's left (or take it out) and say so.
+        const changes = await fitToStock(shopper);
         return {
             kind: 'invalid',
-            errors: { form: removed.length ? s.soldOutRemoved(removed.join(', ')) : s.checkoutFailed },
+            errors: { form: changes.length ? s.stockChanged(changes) : s.checkoutFailed },
         };
     }
 
+    // From here the order is in ArrangingPayment, where Vendure refuses any change to the cart.
+    // Every way out except "placed" moves it back to AddingItems, or the shopper's next try fails
+    // and their cart can't be changed. Remember the order first: if the core places it but its
+    // answer never arrives (a timeout), the retry finds it instead of an empty cart.
+    const store = idempotencyStore();
+    const noteKey = placingKey(shopper);
+    if (noteKey) {
+        await store.set(
+            noteKey,
+            { fingerprint: 'placing', status: 'in_progress', result: { code: order.code } },
+            PLACING_TTL_MS,
+        );
+    }
     const pay = async (
         method: string,
         metadata: Record<string, unknown>,
         fields: [CheckoutField, CheckoutField],
     ) => {
         const result = (await ask(ADD_PAYMENT, { input: { method, metadata } })).addPaymentToOrder;
+        // Still in ArrangingPayment: not paid in full yet (normal after an advance).
         if (result.__typename === 'Order')
             return { placed: result.state !== 'ArrangingPayment' ? result : null };
+        // refused() moves the order back itself, before it changes the cart.
         return { refused: await refused(shopper, result, fields, s) };
     };
-    let outcome: Awaited<ReturnType<typeof pay>>;
-    if (payment === 'cod') {
-        if (options.advanceAmount > 0 && !advanceDone) {
+    let outcome: Awaited<ReturnType<typeof pay>> = { placed: null };
+    try {
+        if (payment === 'cod') {
+            if (options.advanceAmount > 0 && !advanceDone) {
+                outcome = await pay(
+                    account(v.advanceProvider)!.methodCode,
+                    {
+                        purpose: 'advance',
+                        senderNumber: v.advanceSender,
+                        transactionId: v.advanceTransactionId,
+                    },
+                    ['advanceSender', 'advanceTransactionId'],
+                );
+            }
+            // The rest on delivery, unless the advance was refused (or already paid it all).
+            if (!outcome.refused && !outcome.placed)
+                outcome = await pay('bd-cod', {}, ['payment', 'payment']);
+        } else {
             outcome = await pay(
-                account(v.advanceProvider)!.methodCode,
-                { purpose: 'advance', senderNumber: v.advanceSender, transactionId: v.advanceTransactionId },
-                ['advanceSender', 'advanceTransactionId'],
+                account(payment)!.methodCode,
+                { purpose: 'full', senderNumber: v.senderNumber, transactionId: v.transactionId },
+                ['senderNumber', 'transactionId'],
             );
-            if (outcome.refused) return outcome.refused;
         }
-        outcome = await pay('bd-cod', {}, ['payment', 'payment']);
-    } else {
-        outcome = await pay(
-            account(payment)!.methodCode,
-            { purpose: 'full', senderNumber: v.senderNumber, transactionId: v.transactionId },
-            ['senderNumber', 'transactionId'],
-        );
+    } catch (error) {
+        // A timeout or an error from the core: the order may or may not be placed. Moving back is
+        // refused for a placed order, so this is safe either way. The note stays for the retry.
+        await backToCart(shopper);
+        throw error;
     }
+    // An answer came (placed or not): nothing to find later. A second order from this session
+    // must not be taken for this one.
+    if (noteKey) await store.delete(noteKey);
     if (outcome.refused) return outcome.refused;
-    if (!outcome.placed) return { kind: 'invalid', errors: { form: s.checkoutFailed } };
+    if (!outcome.placed) {
+        // Paid, but not in full: nothing more to try now, so the cart opens again.
+        await backToCart(shopper);
+        return { kind: 'invalid', errors: { form: s.checkoutFailed } };
+    }
     return { kind: 'placed', code: outcome.placed.code };
+}
+
+/**
+ * Moves the order back from ArrangingPayment to AddingItems, so the cart can change again. Best
+ * effort: Vendure refuses it for an order that is placed (rightly), and a failure here must not
+ * hide what the shopper is told.
+ */
+async function backToCart(shopper: ShopperContext): Promise<void> {
+    await shopQuery(TO_STATE, { state: 'AddingItems' }, shopper.lang, shopper).catch(() => undefined);
+}
+
+/**
+ * How long a payment attempt is remembered: as long as Vendure lets a guest read the order by its
+ * code once placed (its default `anonymousAccessDuration`, 2 hours), the same as `last_order`.
+ */
+const PLACING_TTL_MS = 2 * 60 * 60_000;
+
+/**
+ * The store key for this session's unanswered payment attempt: the session token, hashed (it's a
+ * secret). A sales page's form has a session of its own, so a key of its own too.
+ */
+function placingKey(shopper: ShopperContext): string | null {
+    const session = shopper.session.id;
+    return session ? `placing:${fingerprint(session)}` : null;
+}
+
+/**
+ * The order of this session's last payment attempt whose answer never came (a timeout), now that
+ * the core has placed it after all. Without it the retry finds an empty cart (or, on a sales page,
+ * a new order) and the shopper, given no order number, orders again. Null when there's none. Found
+ * once: then the thank-you page and the `last_order` cookie take over.
+ */
+export async function placedSessionOrder(shopper: ShopperContext): Promise<string | null> {
+    const key = placingKey(shopper);
+    if (!key) return null;
+    const store = idempotencyStore();
+    const code = ((await store.get(key))?.result as { code?: unknown } | undefined)?.code;
+    if (typeof code !== 'string') return null;
+    const placed = await placedOrderByCode(shopper, code);
+    // Not placed (yet): kept, in case the core is still finishing; the next attempt replaces it.
+    if (!placed) return null;
+    await store.delete(key);
+    return placed.code;
+}
+
+/** Nothing to place: unless this session's order is placed already (see placedSessionOrder). */
+async function nothingToPlace(shopper: ShopperContext): Promise<PlaceOutcome> {
+    const code = await placedSessionOrder(shopper);
+    return code ? { kind: 'placed', code, again: true } : { kind: 'empty' };
+}
+
+/**
+ * A placed order this session may see (the thank-you pages), or null. Vendure answers FORBIDDEN,
+ * not null, for any order it won't show here: a mistyped code, another browser's order, or this
+ * browser's own once its 2 hours of guest access are over. Those get the page's "track your
+ * order" answer, not the error page.
+ */
+export async function placedOrderByCode(shopper: ShopperContext, code: string) {
+    if (!/^[A-Za-z0-9]{6,40}$/.test(code)) return null;
+    try {
+        const { orderByCode } = await shopQuery(ORDER_BY_CODE, { code }, shopper.lang, shopper);
+        return orderByCode?.orderPlacedAt ? orderByCode : null;
+    } catch (error) {
+        if (error instanceof CoreQueryError && error.code === 'FORBIDDEN') return null;
+        throw error;
+    }
 }
 
 /** COD with an SMS code: checks a typed code, skips when asked (and allowed), else sends one. */
@@ -412,7 +524,8 @@ async function checkOtp(
 
 /**
  * A refused payment: the order goes back to the cart state so the shopper can fix it. The reason
- * comes from the declined payment's public code (phase 08); a sold-out item leaves the cart.
+ * comes from the declined payment's public code (phase 08); a line short of stock is lowered to
+ * what's left, or leaves the cart.
  */
 async function refused(
     shopper: ShopperContext,
@@ -420,17 +533,17 @@ async function refused(
     [sender, transaction]: [CheckoutField, CheckoutField],
     s: Strings,
 ): Promise<PlaceOutcome> {
-    await shopQuery(TO_STATE, { state: 'AddingItems' }, shopper.lang, shopper).catch(() => undefined);
+    await backToCart(shopper);
     const order = await activeOrder(shopper);
     const declined = [...(order?.payments ?? [])].reverse().find(item => item.state === 'Declined');
     const code = (declined?.metadata as { errorCode?: string } | null)?.errorCode;
     const message = result.paymentErrorMessage || result.message || s.checkoutFailed;
     switch (code) {
         case 'SOLD_OUT': {
-            const removed = await removeSoldOut(shopper);
+            const changes = await fitToStock(shopper);
             return {
                 kind: 'invalid',
-                errors: { form: removed.length ? s.soldOutRemoved(removed.join(', ')) : message },
+                errors: { form: changes.length ? s.stockChanged(changes) : message },
             };
         }
         case 'CODE_REQUIRED':
@@ -447,14 +560,28 @@ async function refused(
     }
 }
 
-/** Takes sold-out lines out of the cart; returns their product names. */
-async function removeSoldOut(shopper: ShopperContext): Promise<string[]> {
+/** A cart line lowered to the stock that's left; quantity 0: taken out of the cart. */
+export interface StockChange {
+    name: string;
+    quantity: number;
+}
+
+/**
+ * Lowers every line to the stock that's left (taking out those with none) and returns what changed.
+ * Only a line that sold out completely shows as OUT_OF_STOCK, so 3 in the cart with 2 left looked
+ * fine and failed every attempt. Setting a line to its own quantity makes Vendure cut it to what
+ * can be sold (removing it at 0) and answer InsufficientStockError with the quantity it kept.
+ */
+async function fitToStock(shopper: ShopperContext): Promise<StockChange[]> {
     const order = await activeOrder(shopper);
-    const names: string[] = [];
+    const changes: StockChange[] = [];
     for (const line of order?.lines ?? []) {
-        if (line.productVariant.stockLevel !== 'OUT_OF_STOCK') continue;
-        await shopQuery(REMOVE_LINE, { lineId: line.id }, shopper.lang, shopper);
-        names.push(line.productVariant.product.name);
+        const result = (
+            await shopQuery(ADJUST_LINE, { lineId: line.id, quantity: line.quantity }, shopper.lang, shopper)
+        ).adjustOrderLine;
+        if (result.__typename !== 'InsufficientStockError') continue;
+        const quantity = 'quantityAvailable' in result ? Number(result.quantityAvailable) : 0;
+        changes.push({ name: line.productVariant.product.name, quantity });
     }
-    return names;
+    return changes;
 }

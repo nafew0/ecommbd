@@ -25,7 +25,7 @@ import {
     type SalesPageProblem,
     updateSalesPage,
 } from './design-api';
-import { FieldControl, type Language, Segmented } from './field-controls';
+import { FieldControl, type Language, PriceInput, Segmented } from './field-controls';
 import { IconButton } from './icon-button';
 import { ProductPickerDialog, ProductThumb, useProducts } from './pickers';
 
@@ -87,11 +87,6 @@ export function SalesSettingsPanel({
     const errorFor = (path: string) => {
         const error = errors.find(item => item.field === path || item.field.startsWith(`${path}.`));
         return error ? (t.problems[error.code] ?? error.code) : undefined;
-    };
-    const taka = (poisha: number | null) => (poisha == null ? '' : String(poisha / 100));
-    const toPoisha = (value: string) => {
-        const digits = value.replace(/[০-৯]/g, d => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(/\D/g, '');
-        return digits ? Math.min(Number(digits), SALES_LIMITS.maxPrice / 100) * 100 : 0;
     };
 
     const save = async () => {
@@ -241,19 +236,13 @@ export function SalesSettingsPanel({
                                         </label>
                                         <label className="text-xs font-medium text-slate-700">
                                             {t.packPrice}
-                                            <div className="flex min-h-11 items-center rounded-md border border-slate-300 bg-white focus-within:outline-2 focus-within:outline-teal-600">
-                                                <span className="pl-3 text-slate-500" aria-hidden>
-                                                    ৳
-                                                </span>
-                                                <input
-                                                    inputMode="numeric"
-                                                    className="min-w-0 flex-1 bg-transparent py-2 pr-3 pl-1 text-base outline-none"
-                                                    value={taka(pack.price)}
-                                                    onChange={event =>
-                                                        update({ price: toPoisha(event.target.value) })
-                                                    }
-                                                />
-                                            </div>
+                                            {/* Empty is 0, which the server refuses with its own message. */}
+                                            <PriceInput
+                                                value={pack.price}
+                                                max={SALES_LIMITS.maxPrice}
+                                                invalid={!!errorFor(`settings.packs.${index}.price`)}
+                                                onChange={price => update({ price: price ?? 0 })}
+                                            />
                                         </label>
                                         <IconButton
                                             tone="danger"
@@ -373,21 +362,12 @@ export function SalesSettingsPanel({
                                     ({t.normalPrice(format.money(bumpVariant.data.priceWithTax))})
                                 </span>
                             )}
-                            <div className="mt-1.5 flex min-h-11 items-center rounded-md border border-slate-300 bg-white focus-within:outline-2 focus-within:outline-teal-600">
-                                <span className="pl-3 text-slate-500" aria-hidden>
-                                    ৳
-                                </span>
-                                <input
-                                    inputMode="numeric"
-                                    className="min-w-0 flex-1 bg-transparent py-2 pr-3 pl-1 text-base outline-none"
-                                    value={taka(settings.bump.price)}
-                                    onChange={event =>
-                                        set({
-                                            bump: {
-                                                ...settings.bump,
-                                                price: toPoisha(event.target.value) || null,
-                                            },
-                                        })
+                            <div className="mt-1.5">
+                                <PriceInput
+                                    value={settings.bump.price}
+                                    max={SALES_LIMITS.maxPrice}
+                                    onChange={price =>
+                                        set({ bump: { ...settings.bump, price: price || null } })
                                     }
                                 />
                             </div>

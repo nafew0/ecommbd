@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatTakaInput, fromDhakaInputValue, parseTakaInput, toDhakaInputValue } from './values';
+import {
+    formatTakaInput,
+    fromDhakaInputValue,
+    parseTakaInput,
+    takaInputText,
+    toDhakaInputValue,
+} from './values';
 
 describe('parseTakaInput', () => {
     it('accepts Bangla and English digits, commas and the taka sign', () => {
@@ -12,6 +18,25 @@ describe('parseTakaInput', () => {
     it('rejects poisha and anything that is not a number', () => {
         expect(parseTakaInput('99.50')).toEqual({ ok: false, reason: 'fraction' });
         expect(parseTakaInput('abc')).toEqual({ ok: false, reason: 'invalid' });
+    });
+
+    it('reads a price with the point the same as without: ৳990, never ৳99,000', () => {
+        for (const typed of ['990', '990.00', '990.0', '990.', '৯৯০', '৯৯০.০০'])
+            expect(parseTakaInput(typed), typed).toEqual({ ok: true, minor: 99_000 });
+        expect(parseTakaInput('990.50')).toEqual({ ok: false, reason: 'fraction' });
+        expect(parseTakaInput('৯৯০.৫০')).toEqual({ ok: false, reason: 'fraction' });
+        expect(parseTakaInput('990..0')).toEqual({ ok: false, reason: 'invalid' });
+    });
+
+    it('keeps what the merchant is typing while it means the same price', () => {
+        // Typing "990.00" one key at a time: the point and zeros stay on screen.
+        expect(takaInputText('990.', 99_000)).toBe('990.');
+        expect(takaInputText('990.0', 99_000)).toBe('990.0');
+        expect(takaInputText('৯৯০', 99_000)).toBe('৯৯০');
+        // A new price from outside (saved settings, undo) replaces the text.
+        expect(takaInputText('990.', 120_000)).toBe('1200');
+        expect(takaInputText('990', null)).toBe('');
+        expect(takaInputText('', 99_000)).toBe('990');
     });
 
     it('formats with lakh grouping, in either digits', () => {

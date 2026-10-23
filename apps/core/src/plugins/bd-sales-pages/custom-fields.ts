@@ -19,7 +19,8 @@ const field = (name: string, length: number, en: string, bn: string): CustomFiel
 /**
  * Where an order came from (roadmap phase 16): the sales page it was placed on (or that the ad led
  * to), and the ad or link of the shopper's last visit that wasn't direct. Written only by our code;
- * plain text that anyone can put in a link, so the admin shows it escaped.
+ * plain text that anyone can put in a link, so the admin shows it escaped. For reports only, never
+ * for prices: `salesPageId` can come from the shopper's attribution cookie (see below).
  */
 export const orderAttributionCustomFields: CustomFieldConfig[] = [
     field('salesPageId', ATTRIBUTION_LIMITS.salesPage, 'Sales page', 'সেলস পেজ'),
@@ -39,5 +40,21 @@ export const orderAttributionCustomFields: CustomFieldConfig[] = [
         public: false,
         readonly: true,
         label: text('Visit from the ad or link', 'বিজ্ঞাপন বা লিংক থেকে আসার সময়'),
+    },
+];
+
+/**
+ * The sales page whose packs and add-on price this order (offer-promotion.ts). Only the page's own
+ * order form sets it (`setBdSalesPageOrder`, sales-page.service.ts), and it isn't in the GraphQL
+ * API at all (`internal`), so no cookie, link or API call can switch a page's offer on for any
+ * other order, such as the shopper's normal cart.
+ */
+export const orderOfferCustomFields: CustomFieldConfig[] = [
+    {
+        name: 'salesPageOffer',
+        type: 'string',
+        length: ATTRIBUTION_LIMITS.salesPage,
+        nullable: true,
+        internal: true,
     },
 ];

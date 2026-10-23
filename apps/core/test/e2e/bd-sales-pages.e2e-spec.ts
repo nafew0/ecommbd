@@ -1,7 +1,7 @@
 import { createTestEnvironment, PostgresInitializer, registerInitializer } from '@vendure/testing';
 import gql from 'graphql-tag';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { chooseDelivery, payAndPlace, SET_ADDRESS, SET_CUSTOMER } from '../support/checkout';
+import { ADD_ITEM, chooseDelivery, payAndPlace, SET_ADDRESS, SET_CUSTOMER } from '../support/checkout';
 import {
     addMigrationOnlyObjects,
     createTestConfig,
@@ -143,11 +143,34 @@ const SET_ORDER = gql`
                     amountWithTax
                 }
                 lines {
+                    id
                     quantity
                     productVariant {
                         id
                     }
                 }
+            }
+        }
+    }
+`;
+const ACTIVE_ORDER = gql`
+    query {
+        activeOrder {
+            id
+            subTotalWithTax
+            totalWithTax
+            discounts {
+                description
+                amountWithTax
+            }
+        }
+    }
+`;
+const REMOVE_LINE = gql`
+    mutation ($lineId: ID!) {
+        removeOrderLine(orderLineId: $lineId) {
+            ... on Order {
+                id
             }
         }
     }
@@ -161,7 +184,11 @@ const ORDER_ATTRIBUTION = gql`
     query ($id: ID!) {
         order(id: $id) {
             id
+            subTotalWithTax
             totalWithTax
+            discounts {
+                amountWithTax
+            }
             bdAttribution {
                 salesPage {
                     id
@@ -326,6 +353,33 @@ describe('sales pages', () => {
         ).toEqual(['productId', 'slug', 'template', 'title']);
     });
 
+    it('finds a taken address at the full 80 characters (a long Bangla title) and suggests a free one', async () => {
+        const title =
+            'খাঁটি সুন্দরবনের চাকের মধু আর কালোজিরা তেলের ঈদ অফার: দুই বোতল নিলে সারা বাংলাদেশে ডেলিভারি ফ্রি';
+        const input = { title, template: 'ghee-honey', productId: 'T_1' };
+        const first = (await adminClient.query(CREATE, { input })).createBdSalesPage;
+        expect(first.errors).toEqual([]);
+        const slug: string = first.page.slug;
+        expect(slug).toHaveLength(80);
+        // The numbered address is cut to leave room for its number, and still fits.
+        const free = `${slug.slice(0, 76).replace(/-+$/, '')}-2`;
+        // The same title again: refused with a free address (it was saved again and crashed).
+        const again = (await adminClient.query(CREATE, { input })).createBdSalesPage;
+        expect(again).toEqual({ page: null, errors: [{ field: 'slug', code: 'taken', suggestion: free }] });
+        const second = (await adminClient.query(CREATE, { input: { ...input, slug: free } }))
+            .createBdSalesPage;
+        expect(second.errors).toEqual([]);
+        expect(second.page.slug).toBe(free);
+        // Renaming a page to the long address is refused the same way.
+        const renamed = await adminClient.query(UPDATE, { id: second.page.id, input: { slug } });
+        expect(renamed.updateBdSalesPage.errors).toEqual([
+            { field: 'slug', code: 'taken', suggestion: free },
+        ]);
+        // Tidy up: the tests below read the newest page in the list.
+        await adminClient.query(DELETE, { id: first.page.id });
+        await adminClient.query(DELETE, { id: second.page.id });
+    });
+
     it('stays off the storefront until published, but shows its draft with a preview link', async () => {
         expect((await shopClient.query(SHOP_PAGE, { slug: 'panjabi-eid-offer' })).bdSalesPage).toBeNull();
         const { createBdPreviewLink } = await adminClient.query(PREVIEW_LINK, { layoutId });
@@ -438,7 +492,7 @@ describe('sales pages', () => {
             input: { slug: 'panjabi-eid-offer', variantId: 'T_1', quantity: 2, bump: false },
         });
         expect(again.setBdSalesPageOrder.order.lines).toEqual([
-            { quantity: 2, productVariant: { id: 'T_1' } },
+            { id: expect.any(String), quantity: 2, productVariant: { id: 'T_1' } },
         ]);
         expect(again.setBdSalesPageOrder.order.subTotalWithTax).toBe(237_000);
         orderId = again.setBdSalesPageOrder.order.id;
@@ -494,6 +548,69 @@ describe('sales pages', () => {
         ]);
         const { bdSalesPages } = await adminClient.query(LIST);
         expect(bdSalesPages.items.find((item: { id: string }) => item.id === pageId).orderCount).toBe(1);
+    });
+
+    it('never gives the offer to a normal cart, whatever attribution it carries', async () => {
+        // The add-on alone in a normal cart, with an attribution naming the page (anyone can write
+        // that cookie): the full price, placed and all.
+        await shopClient.asAnonymousUser();
+        await shopClient.query(ADD_ITEM, { variantId: 'T_2', quantity: 1 });
+        const forged = await shopClient.query(ATTRIBUTION, { input: { salesPage: pageId } });
+        expect(forged.setBdOrderAttribution).toBe(true);
+        const { activeOrder } = await shopClient.query(ACTIVE_ORDER);
+        expect(activeOrder).toMatchObject({ subTotalWithTax: 450_000, discounts: [] });
+        await shopClient.query(SET_CUSTOMER, { input: { name: 'করিম মিয়া', phone: '01812345678' } });
+        await shopClient.query(SET_ADDRESS, {
+            input: { districtId: 'BD3026', thanaId: 'BD3026M26', streetLine1: 'বাসা ৭, রোড ২, মিরপুর ১১' },
+        });
+        await chooseDelivery(shopClient);
+        // Attribution is copied again on every "Place order" (the storefront does this).
+        await shopClient.query(ATTRIBUTION, { input: { salesPage: pageId } });
+        const placed = await payAndPlace(shopClient);
+        expect(placed.state).not.toBe('AddingItems');
+        const { order } = await adminClient.query(ORDER_ATTRIBUTION, { id: activeOrder.id });
+        expect(order).toMatchObject({ subTotalWithTax: 450_000, discounts: [] });
+        // Reports still count it for the page.
+        expect(order.bdAttribution.salesPage).toMatchObject({ id: pageId });
+    });
+
+    it('keeps the normal price of a pack quantity in the normal cart, so placing is never refused', async () => {
+        // An ad shopper (with the real cookie) who later buys two in the normal cart: the total the
+        // checkout shows them, with delivery.
+        await shopClient.asAnonymousUser();
+        await shopClient.query(ADD_ITEM, { variantId: 'T_1', quantity: 2 });
+        await shopClient.query(SET_CUSTOMER, { input: { name: 'সালমা বেগম', phone: '01912345678' } });
+        await shopClient.query(SET_ADDRESS, {
+            input: { districtId: 'BD3026', thanaId: 'BD3026M26', streetLine1: 'বাসা ৩, রোড ৮, মিরপুর ২' },
+        });
+        await chooseDelivery(shopClient);
+        const seen = (await shopClient.query(ACTIVE_ORDER)).activeOrder;
+        expect(seen).toMatchObject({ subTotalWithTax: 250_000, discounts: [] });
+        // "Place order": the storefront copies the cookie, then sets the delivery again (prices are
+        // worked out again) and compares the total with the one the shopper saw. A pack price
+        // here made it refuse the first tap with "the total has changed".
+        await shopClient.query(ATTRIBUTION, {
+            input: { source: 'facebook', campaign: 'eid-2026', salesPage: pageId, at: Date.now() },
+        });
+        await chooseDelivery(shopClient);
+        const placing = (await shopClient.query(ACTIVE_ORDER)).activeOrder;
+        expect(placing).toMatchObject({ totalWithTax: seen.totalWithTax, discounts: [] });
+    });
+
+    it("gives the add-on its price only with the page's product, even from the page's own form", async () => {
+        await shopClient.asAnonymousUser();
+        const { setBdSalesPageOrder } = await shopClient.query(SET_ORDER, {
+            input: { slug: 'panjabi-eid-offer', variantId: 'T_1', quantity: 1, bump: true },
+        });
+        // One at the normal price, the saree at ৳3,000 instead of ৳4,500.
+        expect(setBdSalesPageOrder.order.subTotalWithTax).toBe(125_000 + 300_000);
+        const main = setBdSalesPageOrder.order.lines.find(
+            (line: { productVariant: { id: string } }) => line.productVariant.id === 'T_1',
+        );
+        // The page's product taken out (the Shop API allows it): the saree alone is at its price.
+        await shopClient.query(REMOVE_LINE, { lineId: main.id });
+        const { activeOrder } = await shopClient.query(ACTIVE_ORDER);
+        expect(activeOrder).toMatchObject({ subTotalWithTax: 450_000, discounts: [] });
     });
 
     it('hides packs and the add-on that stock no longer covers', async () => {

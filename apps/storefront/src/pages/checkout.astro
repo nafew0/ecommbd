@@ -12,6 +12,7 @@ import {
     type CheckoutValues,
     initialValues,
     MFS_PROVIDERS,
+    placedSessionOrder,
     placeOnce,
     quote,
     readValues,
@@ -35,12 +36,26 @@ privatePage(Astro);
 const { lang, s, href, format } = pageContext(Astro);
 const shopper = shopperContext(Astro);
 const lastOrder = parseCookies(Astro.request.headers.get('cookie')).get(LAST_ORDER_COOKIE);
-const thankYou = (code: string) => href(`/checkout/thank-you/?order=${encodeURIComponent(code)}`);
+/** `again`: the thank-you page says "Your order is already placed" (it wasn't this tap). */
+const thankYou = (code: string, again = false) =>
+    href(`/checkout/thank-you/?order=${encodeURIComponent(code)}${again ? '&again=1' : ''}`);
 const go = (location: string, extra: string[] = []) => {
     const headers = new Headers({ location, 'cache-control': 'no-store' });
     shopper.session.apply(headers);
     for (const cookie of extra) headers.append('set-cookie', cookie);
     return new Response(null, { status: 303, headers });
+};
+const placedCookies = (code: string) => [lastOrderCookie(code), 'cart_count=0; Path=/; Max-Age=0; SameSite=Lax'];
+/**
+ * An empty cart at checkout: the back button after ordering, a second tab, or a retry after the
+ * core placed the order but its answer was lost (no `last_order` cookie then). The order, marked
+ * as already placed, instead of an empty cart that invites a second order.
+ */
+const placedAlready = async () => {
+    // The session's own order first: it's the latest, and its `last_order` cookie may be missing.
+    const recovered = await placedSessionOrder(shopper);
+    if (recovered) return go(thankYou(recovered, true), placedCookies(recovered));
+    return go(lastOrder ? thankYou(lastOrder, true) : href('/cart/'));
 };
 
 let values: CheckoutValues;
@@ -67,10 +82,9 @@ if (Astro.request.method === 'POST') {
         return new Response(null, { status: 204, headers });
     } else if (action === 'place') {
         const outcome = await placeOnce(shopper, form, s);
-        if (outcome.kind === 'placed') {
-            return go(thankYou(outcome.code), [lastOrderCookie(outcome.code), 'cart_count=0; Path=/; Max-Age=0; SameSite=Lax']);
-        }
-        if (outcome.kind === 'empty') return go(lastOrder ? thankYou(lastOrder) : href('/cart/'));
+        if (outcome.kind === 'placed') return go(thankYou(outcome.code, outcome.again), placedCookies(outcome.code));
+        // placeOnce has already looked for this session's own placed order.
+        if (outcome.kind === 'empty') return go(lastOrder ? thankYou(lastOrder, true) : href('/cart/'));
         if (outcome.kind === 'invalid') errors = outcome.errors;
         if (outcome.kind === 'review') notice = outcome.message;
         if (outcome.kind === 'busy') notice = s.busy;
@@ -80,7 +94,7 @@ if (Astro.request.method === 'POST') {
 } else {
     const order = await activeOrder(shopper);
     // The back button after ordering, or a second tab: the order, not an empty checkout.
-    if (!order?.lines.length) return go(lastOrder ? thankYou(lastOrder) : href('/cart/'));
+    if (!order?.lines.length) return placedAlready();
     values = initialValues(order);
 }
 
@@ -90,9 +104,9 @@ const [{ order, shipping, options }, { bdCheckoutSettings: settings }, { bdDistr
     shopQuery(DISTRICTS, { lang }, lang),
 ]);
 // Everything sold out while checking out: say so instead of sending the shopper to an empty cart.
-if (!order) return go(lastOrder ? thankYou(lastOrder) : href('/cart/'));
+if (!order) return placedAlready();
 const soldOutNotice = !order.lines.length && errors.form ? errors.form : null;
-if (!order.lines.length && !soldOutNotice) return go(lastOrder ? thankYou(lastOrder) : href('/cart/'));
+if (!order.lines.length && !soldOutNotice) return placedAlready();
 const thanas = values.districtId ? (await shopQuery(THANAS, { districtId: values.districtId, lang }, lang)).bdThanas : [];
 applyCartCookies(Astro.response.headers, shopper, order);
 
@@ -158,7 +172,7 @@ const free = order.bdDelivery.freeDeliveryRemaining;
                 <button class="button place-button" type="submit" name="action" value="place" data-place data-placing={s.placing}>
                     {s.placeOrder(format.price(order.totalWithTax))}
                 </button>
-                <p class="form-status" role="status" aria-live="polite" data-status data-offline={s.noConnection}></p>
+                <p class="form-status" role="status" aria-live="polite" data-status data-offline={s.noConnection} data-server={s.serverTrouble}></p>
             </div>
         </form>
     </div>
