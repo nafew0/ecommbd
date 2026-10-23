@@ -33,6 +33,8 @@ export const schema = gql`
         createWooPairing(input: JSON!): JSON!
         revokeWooHelper(sourceId: ID!): Boolean!
         saveWooRedirect(sourceId: ID!, path: String!, target: String, status: Int): JSON!
+        "Removes one old-address rule; true when it existed."
+        wooDeleteRedirect(id: ID!): Boolean!
         saveWooCutover(sourceId: ID!, checked: [String!]!): Boolean!
         crawlWooSitemap(sourceId: ID!, sitemap: String!, destination: String!): JSON!
     }
@@ -144,6 +146,24 @@ export class WooImportResolver {
     }
     @Mutation()
     @Allow(runMigrationPermission.Permission)
+    wooDeleteRedirect(@Ctx() ctx: RequestContext, @Args('id') id: ID) {
+        return this.redirects.remove(ctx, Number(id));
+    }
+    /**
+     * Merges keys into a source's settings in one statement. Reading the settings, changing them
+     * and writing them all back would undo anything an import saved in between (its reference
+     * settings, the helper pairing).
+     */
+    private async mergeSettings(ctx: RequestContext, sourceId: ID, patch: Record<string, unknown>) {
+        await this.connection
+            .getRepository(ctx, WooSource)
+            .query('UPDATE woo_source SET settings = settings || $1::jsonb WHERE id = $2', [
+                JSON.stringify(patch),
+                Number(sourceId),
+            ]);
+    }
+    @Mutation()
+    @Allow(runMigrationPermission.Permission)
     async saveWooCutover(@Ctx() ctx: RequestContext, @Args() input: { sourceId: ID; checked: string[] }) {
         const source = await this.migration.source(ctx, Number(input.sourceId));
         const allowed = [
@@ -162,14 +182,11 @@ export class WooImportResolver {
         ];
         if (!Array.isArray(input.checked) || input.checked.some(key => !allowed.includes(key)))
             throw new UserInputError('error.woo-import.input');
-        await this.connection.getRepository(ctx, WooSource).update(source.id, {
-            settings: {
-                ...source.settings,
-                cutover: {
-                    checked: [...new Set(input.checked)],
-                    at: new Date().toISOString(),
-                    by: String(ctx.activeUserId),
-                },
+        await this.mergeSettings(ctx, source.id, {
+            cutover: {
+                checked: [...new Set(input.checked)],
+                at: new Date().toISOString(),
+                by: String(ctx.activeUserId),
             },
         });
         return true;
@@ -182,9 +199,7 @@ export class WooImportResolver {
     ) {
         const source = await this.migration.source(ctx, Number(input.sourceId));
         const crawl = await this.redirects.crawl(ctx, source, input.destination, input.sitemap);
-        await this.connection
-            .getRepository(ctx, WooSource)
-            .update(source.id, { settings: { ...source.settings, crawl } });
+        await this.mergeSettings(ctx, source.id, { crawl });
         return crawl;
     }
     @Query()

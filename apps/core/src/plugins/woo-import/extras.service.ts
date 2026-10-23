@@ -12,8 +12,9 @@ import {
     User,
     UserService,
 } from '@vendure/core';
-import { encryptSecret, isPlaceholderEmail } from '@ecommbd/shared';
+import { encodeSlug, encryptSecret, isPlaceholderEmail, POLICY_SLUGS } from '@ecommbd/shared';
 import { randomBytes } from 'node:crypto';
+import { BdPageTranslation } from '../bd-content';
 import { WooExtra, WooLegacyAuth } from './helper-entities';
 import { WooMapping, WooRun, WooSource } from './entities';
 import {
@@ -26,6 +27,7 @@ import {
     sourceSettings,
     text,
     WooRecord,
+    wooSlug,
 } from './helpers';
 import { ImportMapperService } from './import-mapper.service';
 import { WooHelperService } from './helper.service';
@@ -49,12 +51,16 @@ export class WooExtrasService {
         if (kind === 'customers' && row._password_hash) await this.login(ctx, source, run, row);
         if (['products', 'categories'].includes(kind)) {
             const mapping = await this.mapper.mapping(ctx, source, kind, String(row.id));
-            if (mapping?.targetId && row._seo) {
+            const seoTitle = text(row._seo?.title, 255);
+            const seoDescription = text(row._seo?.description, 2000);
+            // Only what Yoast or RankMath actually had: an empty source field must not wipe an SEO
+            // title the merchant has since written here.
+            if (mapping?.targetId && (seoTitle || seoDescription)) {
                 const translations = [LanguageCode.bn, LanguageCode.en].map(languageCode => ({
                     languageCode,
                     customFields: {
-                        seoTitle: text(row._seo.title, 255),
-                        seoDescription: text(row._seo.description, 2000),
+                        ...(seoTitle ? { seoTitle } : {}),
+                        ...(seoDescription ? { seoDescription } : {}),
                     },
                 }));
                 if (kind === 'products')
@@ -255,8 +261,25 @@ export class WooExtrasService {
                 'email_restrictions',
             ].some(k => row[k]?.length) ||
             Number(row.maximum_amount) > 0 ||
-            row.limit_usage_to_x_items ||
-            row.usage_count > 0;
+            row.limit_usage_to_x_items;
+        // A coupon that has been used keeps working with the uses it has left: WooCommerce's
+        // `usage_count` is subtracted from its limit, because Vendure counts only orders placed
+        // here. (Refusing every used coupon left out most real ones.) One that is used up comes
+        // over disabled, for the merchant to see.
+        const used = Number.isSafeInteger(row.usage_count) && row.usage_count > 0 ? row.usage_count : 0;
+        const limit = Number.isSafeInteger(row.usage_limit) && row.usage_limit > 0 ? row.usage_limit : null;
+        const remaining = limit === null ? null : Math.max(0, limit - used);
+        if (remaining === 0)
+            await this.mapper.issue(ctx, run, 'coupons', String(row.id), 'COUPON_USED_UP_IMPORTED_DISABLED');
+        // Each customer's earlier uses can't be carried over (WooCommerce keeps them per email).
+        if (used && row.usage_limit_per_user)
+            await this.mapper.issue(
+                ctx,
+                run,
+                'coupons',
+                String(row.id),
+                'COUPON_PER_CUSTOMER_HISTORY_NOT_KEPT',
+            );
         if (unsupported) {
             const mapped = await this.mapper.mapping(ctx, source, 'coupons', String(row.id));
             if (mapped?.targetId) {
@@ -275,11 +298,11 @@ export class WooExtrasService {
         if (!Number.isFinite(amount) || amount <= 0 || (row.discount_type === 'percent' && amount > 100))
             throw new Error('INVALID_COUPON_AMOUNT');
         const input = {
-            enabled: true,
+            enabled: remaining !== 0,
             couponCode: text(row.code, 100),
             name: text(row.code, 100),
             perCustomerUsageLimit: row.usage_limit_per_user || undefined,
-            usageLimit: row.usage_limit || undefined,
+            usageLimit: remaining || undefined,
             endsAt: gmt(row.date_expires_gmt),
             conditions:
                 Number(row.minimum_amount) > 0
@@ -321,64 +344,126 @@ export class WooExtrasService {
         if (isGraphQlErrorResult(result)) throw new Error('COUPON_IMPORT_FAILED');
         await this.mapper.remember(ctx, source, 'coupons', key, result.id, row);
     }
+    /**
+     * After the last record: a redirect for every old product and category address (both
+     * transports), plus, from the helper plugin, attachment pages, WordPress pages and the rules
+     * of the Redirection plugin.
+     *
+     * Targets are built from the slugs as stored here, written the way the storefront writes
+     * links (`encodeSlug`). A rule that can't be saved (one of our own addresses, a loop) is an
+     * issue to review; it never fails the import. Rules staff saved by hand are left alone.
+     */
     async finalize(ctx: RequestContext, source: WooSource, run: WooRun) {
-        if (source.settings.transport !== 'helper') return;
-        const categories = await this.connection
-            .getRepository(ctx, WooMapping)
-            .findBy({ sourceId: Number(source.id), kind: 'categories' });
-        const encode = (value: unknown) => encodeURIComponent(String(value).normalize('NFC').toLowerCase());
-        const urls = await this.connection
+        const sourceId = Number(source.id);
+        const mappings = this.connection.getRepository(ctx, WooMapping);
+        const categories = await mappings.findBy({ sourceId, kind: 'categories' });
+        const products = await mappings.findBy({ sourceId, kind: 'products' });
+        // Attachment pages (image pages) only come from the helper plugin.
+        const attachments = new Map<string, string[]>();
+        for (const extra of await this.connection
             .getRepository(ctx, WooExtra)
-            .findBy({ sourceId: Number(source.id), kind: 'urls' });
-        for (const extra of urls) {
+            .findBy({ sourceId, kind: 'urls' })) {
             const row = extra.data as WooRecord;
-            const mapping = await this.mapper.mapping(ctx, source, row.kind, String(row.id));
-            if (!mapping?.targetId) continue;
-            let target = `/product/${encode(mapping.metadata.slug)}/`;
-            if (row.kind === 'categories') {
-                const parts: string[] = [];
-                let current: WooMapping | undefined = mapping;
-                const seen = new Set<string>();
-                while (current) {
-                    if (seen.has(current.sourceKey)) throw new Error('CATEGORY_CYCLE');
-                    seen.add(current.sourceKey);
-                    parts.unshift(encode(current.metadata.slug));
-                    current = categories.find(c => c.sourceKey === String(current!.metadata.parent));
-                }
-                target = `/product-category/${parts.join('/')}/`;
+            const urls = Array.isArray(row.attachments) ? row.attachments : [];
+            attachments.set(
+                `${row.kind}:${row.id}`,
+                urls.filter((url: unknown): url is string => typeof url === 'string'),
+            );
+        }
+        for (const mapping of [...categories, ...products]) {
+            if (!mapping.targetId || mapping.metadata.skipped) continue;
+            const kind = categories.includes(mapping) ? 'categories' : 'products';
+            const target =
+                kind === 'products'
+                    ? `/product/${encodeSlug(String(mapping.metadata.slug))}/`
+                    : this.categoryPath(mapping, categories);
+            if (!target) {
+                await this.mapper.issue(ctx, run, kind, mapping.sourceKey, 'CATEGORY_CYCLE');
+                continue;
             }
-            for (const url of [row.url, ...(row.attachments ?? [])]) {
-                const path = pathOf(url, source.url);
-                if (path && path !== target) await this.redirects.save(ctx, Number(source.id), path, target);
+            const old = [
+                mapping.metadata.sourcePath,
+                ...(attachments.get(`${kind}:${mapping.sourceKey}`) ?? []),
+            ];
+            for (const url of old) {
+                const path = typeof url === 'string' ? pathOf(url, source.url) : null;
+                if (path) await this.importRule(ctx, run, sourceId, kind, mapping.sourceKey, path, target);
             }
-            if (row.kind === 'products') {
-                await this.redirects.save(ctx, Number(source.id), `/?p=${row.id}`, target);
-                await this.redirects.save(
-                    ctx,
-                    Number(source.id),
-                    `/?product=${mapping.metadata.slug}`,
-                    target,
-                );
+            if (kind === 'products') {
+                const id = mapping.sourceKey;
+                await this.importRule(ctx, run, sourceId, kind, id, `/?p=${id}`, target);
+                const slug = String(mapping.metadata.sourceSlug ?? '');
+                if (slug) await this.importRule(ctx, run, sourceId, kind, id, `/?product=${slug}`, target);
             }
         }
         const settings = await this.connection
             .getRepository(ctx, WooExtra)
-            .findBy({ sourceId: Number(source.id), kind: 'settings' });
+            .findBy({ sourceId, kind: 'settings' });
         for (const setting of settings) {
-            const row = setting.data as WooRecord;
-            for (const rule of arrays(row.redirects)) {
-                try {
-                    await this.redirects.save(
-                        ctx,
-                        Number(source.id),
-                        rule.path,
-                        rule.target,
-                        rule.status ?? 301,
-                    );
-                } catch {
-                    await this.mapper.issue(ctx, run, 'settings', '1', 'REDIRECT_RULE_REQUIRES_REVIEW');
-                }
+            for (const rule of arrays((setting.data as WooRecord).redirects)) {
+                // A WordPress page goes to our page with the same address when there is one (or a
+                // policy page), else to the home page. Rules from the Redirection plugin keep
+                // their own target.
+                const target = rule.page ? await this.pageTarget(ctx, rule.page.slug) : rule.target;
+                await this.importRule(
+                    ctx,
+                    run,
+                    sourceId,
+                    'settings',
+                    '1',
+                    rule.path,
+                    target,
+                    rule.status ?? 301,
+                );
             }
         }
+    }
+
+    /** Saves one imported rule, or records an issue when it's refused. */
+    private async importRule(
+        ctx: RequestContext,
+        run: WooRun,
+        sourceId: number,
+        kind: string,
+        sourceKey: string,
+        path: string,
+        target: string | null,
+        status = 301,
+    ) {
+        try {
+            await this.redirects.importRule(ctx, sourceId, path, target, status);
+        } catch {
+            await this.mapper.issue(ctx, run, kind, sourceKey, 'REDIRECT_RULE_REQUIRES_REVIEW');
+        }
+    }
+
+    /** `/product-category/<parent>/<child>/`, as the storefront nests it; null for a cycle. */
+    private categoryPath(mapping: WooMapping, categories: WooMapping[]): string | null {
+        const parts: string[] = [];
+        const seen = new Set<string>();
+        let current: WooMapping | undefined = mapping;
+        while (current) {
+            if (seen.has(current.sourceKey)) return null;
+            seen.add(current.sourceKey);
+            // A parent that wasn't imported ends the path (finalize put the category at the top).
+            if (current !== mapping && !current.targetId) break;
+            parts.unshift(encodeSlug(String(current.metadata.slug)));
+            const parent: string = String(current.metadata.parent);
+            current = categories.find(c => c.sourceKey === parent);
+        }
+        return `/product-category/${parts.join('/')}/`;
+    }
+
+    /** Our page for an old WordPress page slug: a page or policy with the same slug, or home. */
+    private async pageTarget(ctx: RequestContext, rawSlug: unknown): Promise<string> {
+        const slug = wooSlug(rawSlug);
+        if (!slug) return '/';
+        const composed = slug.normalize('NFC');
+        if (Object.values(POLICY_SLUGS).includes(composed)) return `/${composed}/`;
+        const page = await this.connection.getRepository(ctx, BdPageTranslation).findOne({
+            where: { slug },
+            relations: { page: true },
+        });
+        return page?.page.enabled ? `/${encodeSlug(page.slug)}/` : '/';
     }
 }

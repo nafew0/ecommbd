@@ -13,14 +13,24 @@ const alphabet = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwx
 const md5 = (input: Buffer | string) => createHash('md5').update(input).digest();
 const same = (a: string, b: string) =>
     a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+
+/**
+ * Work factors we accept from an imported hash. WordPress itself writes phpass hashes with 2^13
+ * rounds (`$P$B…`) and bcrypt at cost 10 (WordPress 6.8+); plugins sometimes raise them a little. Every login attempt on a legacy
+ * account pays this cost on our server, so a hostile source can't hand us hashes that take
+ * seconds each (phpass allows 2^30 rounds, bcrypt cost 31). Others need a password reset.
+ */
+const PHPASS_MAX_POWER = 16;
+const BCRYPT = /^\$2[aby]\$(0[4-9]|1[0-3])\$[./A-Za-z0-9]{53}$/;
+
 export function isSupportedWordPressHash(hash: unknown): hash is string {
     if (typeof hash !== 'string') return false;
     if (/^[a-f0-9]{32}$/i.test(hash)) return true;
     if (/^\$[PH]\$[./A-Za-z0-9]{31}$/.test(hash)) {
         const power = alphabet.indexOf(hash[3]);
-        return power >= 7 && power <= 20;
+        return power >= 7 && power <= PHPASS_MAX_POWER;
     }
-    return /^(?:\$wp)?\$2[aby]\$(0[4-9]|1[0-6])\$[./A-Za-z0-9]{53}$/.test(hash);
+    return BCRYPT.test(hash.startsWith('$wp') ? hash.slice(3) : hash);
 }
 /** WordPress portable phpass uses MD5 bytes, not hexadecimal strings, between rounds. */
 export async function verifyWordPressPassword(password: string, hash: string): Promise<boolean> {
@@ -30,7 +40,8 @@ export async function verifyWordPressPassword(password: string, hash: string): P
         if (hash.length !== 34) return false;
         const power = alphabet.indexOf(hash[3]);
         // WordPress defaults are 8/13. Refuse pathological imported work factors.
-        if (power < 7 || power > 20 || !/^[./A-Za-z0-9]{8}$/.test(hash.slice(4, 12))) return false;
+        if (power < 7 || power > PHPASS_MAX_POWER || !/^[./A-Za-z0-9]{8}$/.test(hash.slice(4, 12)))
+            return false;
         let result = md5(Buffer.concat([Buffer.from(hash.slice(4, 12)), Buffer.from(password)]));
         for (let i = 0; i < 2 ** power; i++) result = md5(Buffer.concat([result, Buffer.from(password)]));
         let encoded = '';
@@ -47,7 +58,7 @@ export async function verifyWordPressPassword(password: string, hash: string): P
         candidate = createHmac('sha384', 'wp-sha384').update(password).digest('base64');
         hash = hash.slice(3);
     }
-    if (!/^\$2[aby]\$(0[4-9]|1[0-6])\$[./A-Za-z0-9]{53}$/.test(hash)) return false;
+    if (!BCRYPT.test(hash)) return false;
     // Vendure already depends on bcrypt. Its strategy accepts the standard 2b form.
     return new BcryptPasswordHashingStrategy().check(candidate, hash.replace(/^\$2y\$/, '$2b$'));
 }

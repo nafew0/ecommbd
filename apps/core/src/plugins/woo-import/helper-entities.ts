@@ -43,6 +43,7 @@ export class WooLegacyAuth extends VendureEntity {
     @Column({ type: 'text', select: false }) secret: string;
     @Column() expiresAt: Date;
 }
+/** An old store address and where it goes now (a 301 to one of our pages, or 410 Gone). */
 @Entity('woo_redirect')
 @Index(['channelId', 'path'], { unique: true })
 export class WooRedirect extends VendureEntity {
@@ -55,7 +56,13 @@ export class WooRedirect extends VendureEntity {
     @Column({ type: 'varchar', length: 1000, nullable: true }) target: string | null;
     @Column({ default: 301 }) status: number;
     @Column({ default: 0 }) hits: number;
+    /**
+     * Saved by staff on the cutover screen. Imports and catch-up syncs never overwrite these, so a
+     * page mapped during the rehearsal survives the final sync.
+     */
+    @Column({ default: false }) manual: boolean;
 }
+/** A path shoppers asked for that answered 404 after cutover, for the merchant's "missing pages" list. */
 @Entity('woo_miss')
 @Index(['channelId', 'path'], { unique: true })
 export class WooMiss extends VendureEntity {

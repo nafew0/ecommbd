@@ -7,7 +7,7 @@ import { WooSource } from './entities';
 import { WooRecord, sourceRecord, sourceSettings } from './helpers';
 import { Resource, SourceConnector, SourcePage } from './rest-connector';
 import { WOO_OPTIONS, WooImportOptions } from './options';
-import { LessThan } from 'typeorm';
+import { In, IsNull, LessThan, Not } from 'typeorm';
 import { WooLegacyAuth } from './helper-entities';
 
 export const HELPER_STAGES: Resource[] = [
@@ -145,6 +145,16 @@ export class WooHelperService {
             Buffer.byteLength(encoded) > 2 * 1024 * 1024
         )
             throw new UserInputError('error.woo-import.chunk');
+        // Check the signature before taking any lock. This endpoint is public: an unsigned request
+        // now costs one read, and can never hold the pairing row that the real upload needs.
+        const unlocked = await this.connection.rawConnection
+            .getRepository(WooPairing)
+            .createQueryBuilder('p')
+            .addSelect('p.token')
+            .where('p.id = :id', { id })
+            .getOne();
+        if (!unlocked?.token || !this.signedWith(unlocked, id, time, nonce, body, signature))
+            throw new UserInputError('error.woo-import.chunk');
         return this.connection.rawConnection.transaction(async manager => {
             const repo = manager.getRepository(WooPairing);
             const pairing = await repo
@@ -155,8 +165,8 @@ export class WooHelperService {
                 .getOne();
             if (!pairing?.token || !pairing.tokenExpiresAt || pairing.tokenExpiresAt <= new Date())
                 throw new UserInputError('error.woo-import.pairing');
-            const token = decryptSecret(pairing.token, this.keyring(), `woo-upload:${id}`);
-            if (!equal(signature, chunkSignature(token, time, nonce, body)))
+            // Checked again under the lock: the token may have been revoked or replaced meanwhile.
+            if (!this.signedWith(pairing, id, time, nonce, body, signature))
                 throw new UserInputError('error.woo-import.chunk');
             if (typeof body.payload !== 'string') throw new UserInputError('error.woo-import.chunk');
             let decoded;
@@ -237,6 +247,19 @@ export class WooHelperService {
             return { accepted: true, nextSequence: pairing.nextSequence };
         });
     }
+    /** Whether the chunk was signed with this pairing's upload token (constant-time compare). */
+    private signedWith(
+        pairing: WooPairing,
+        id: number,
+        time: string,
+        nonce: string,
+        body: WooRecord,
+        signature: string,
+    ): boolean {
+        if (!pairing.token) return false;
+        const token = decryptSecret(pairing.token, this.keyring(), `woo-upload:${id}`);
+        return equal(signature, chunkSignature(token, time, nonce, body));
+    }
     async connector(source: WooSource): Promise<SourceConnector> {
         const pairing = await this.connection.rawConnection.getRepository(WooPairing).findOneBy({
             id: Number(source.settings.helperPairingId),
@@ -246,19 +269,74 @@ export class WooHelperService {
         if (!pairing) throw new UserInputError('error.woo-import.helperNotReady');
         return new WooPushConnector(this.connection, pairing, this.keyring());
     }
+    /**
+     * Stops a source's helper uploads: tokens are cleared, and the uploaded chunks are deleted
+     * with them. The chunks hold every customer's WordPress password hash, so they must not
+     * outlive the pairing that brought them (they used to stay until the migration was completed).
+     * Re-pairing and the final "complete" both call this; a new pairing uploads afresh.
+     */
     async revoke(ctx: RequestContext, sourceId: number) {
+        const pairings = this.connection.getRepository(ctx, WooPairing);
+        const ids = (await pairings.findBy({ sourceId })).map(pairing => Number(pairing.id));
+        if (ids.length) await this.connection.getRepository(ctx, WooChunk).delete({ pairingId: In(ids) });
+        await pairings.update({ sourceId }, { token: null, tokenExpiresAt: null });
+        // With its upload gone, the source has no helper data to import until it pairs again.
         await this.connection
-            .getRepository(ctx, WooPairing)
-            .update({ sourceId }, { token: null, tokenExpiresAt: null });
+            .getRepository(ctx, WooSource)
+            .query(
+                `UPDATE woo_source SET settings = settings || '{"helperPairingId": null}'::jsonb WHERE id = $1`,
+                [sourceId],
+            );
     }
+
+    /**
+     * Removes the WordPress password hashes from a pairing's uploaded customer records once an
+     * import has stored them (encrypted, one per customer, in `woo_legacy_auth`). The rest of
+     * the upload stays for review and re-runs. The chunk's digest is left as it was uploaded, so
+     * a re-sent copy of the same chunk is still recognized.
+     */
+    async dropPasswordHashes(pairingId: number) {
+        const repo = this.connection.rawConnection.getRepository(WooChunk);
+        const chunks = await repo
+            .createQueryBuilder('c')
+            .addSelect('c.payload')
+            .where('c.pairingId = :pairingId AND c.kind = :kind', { pairingId, kind: 'customers' })
+            .getMany();
+        for (const chunk of chunks) {
+            const context = `woo-chunk:${pairingId}:${chunk.sequence}`;
+            const body = JSON.parse(decryptSecret(chunk.payload, this.keyring(), context)) as WooRecord;
+            const records = Array.isArray(body.records) ? (body.records as WooRecord[]) : [];
+            if (!records.some(record => '_password_hash' in record)) continue;
+            for (const record of records) delete record._password_hash;
+            // The signed `payload` string is the original upload, hashes included: drop it too.
+            delete body.payload;
+            await repo.update(chunk.id, {
+                payload: encryptSecret(JSON.stringify(body), this.keyring(), context),
+            });
+        }
+    }
+
+    /**
+     * Daily: expired legacy passwords (12 months, docs/decisions.md), legacy records whose login
+     * has since been upgraded or reset, and pairings that are over, with their uploads. A pairing
+     * is over when its upload token has expired, when it was revoked (token cleared), or when its
+     * one-hour pairing code was never used.
+     */
     async cleanup() {
         const db = this.connection.rawConnection;
         await db.getRepository(WooLegacyAuth).delete({ expiresAt: LessThan(new Date()) });
         await db.query(
             `DELETE FROM woo_legacy_auth a WHERE NOT EXISTS (SELECT 1 FROM authentication_method n WHERE n."passwordHash" = 'woo:' || a.reference)`,
         );
-        const expired = await db.getRepository(WooPairing).findBy({ tokenExpiresAt: LessThan(new Date()) });
-        for (const pairing of expired) {
+        const now = new Date();
+        const over = await db.getRepository(WooPairing).find({
+            where: [
+                { tokenExpiresAt: LessThan(now) },
+                { usedAt: Not(IsNull()), tokenExpiresAt: IsNull() },
+                { usedAt: IsNull(), expiresAt: LessThan(now) },
+            ],
+        });
+        for (const pairing of over) {
             await db.getRepository(WooChunk).delete({ pairingId: Number(pairing.id) });
             await db.getRepository(WooPairing).delete(pairing.id);
         }
