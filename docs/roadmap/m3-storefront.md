@@ -594,12 +594,12 @@ A/B testing (later), one-click post-purchase upsell (44), full campaign reports 
 
 ### Done when
 
-- [x] A product edit appears on cached product and category pages within 3 seconds.
-- [x] A crawl test shows a Varnish hit ratio above 90%.
-- [x] Lighthouse CI budgets block pull requests that exceed them (local positive and deliberate negative assertions; workflow wired, remote CI not run here).
-- [x] No personal content is served from cache in the tested private/session routes (including the two-session browser test).
+- [x] A product edit appears on cached product and category pages within 3 seconds. (Speed suite against real Varnish, 2026-10-23: both showed the new name after 2.4 s. A content page stayed the same cached copy.)
+- [x] A crawl test shows a Varnish hit ratio above 90%. (125 distinct pages from the sitemaps, home and a sales page: 106 products, 6 categories, content pages, both languages. Second pass: 125 hits, 100%. Local, with no other traffic.)
+- [ ] Lighthouse CI budgets block pull requests that exceed them. (The gates work locally: the budgets pass, and a deliberately oversized script and an impossible LCP budget both fail. The CI step is in place, but it hasn't run on a pull request on GitHub yet.)
+- [x] No personal content is ever served from cache (proved by the two-session test). (Two shoppers without JavaScript: each sees only their own cart, checkout and account, every one passed to the storefront and `no-store`. Every personal route, a session cookie and an `Authorization` header are fetched twice and never stored.)
 
-Built and tested 2026-10-23. See the [implementation plan](phase-17-implementation.md), [test evidence](../runbooks/phase-17-test-results.md) and [operations runbook](../runbooks/storefront-cache.md). Local lab results do not establish production Bangladesh ISP latency or real-user p75.
+Built 2026-10-22, fixed after review 2026-10-23. [Implementation notes](phase-17-implementation.md), [test results](../runbooks/phase-17-test-results.md), [cache runbook](../runbooks/storefront-cache.md). These are local lab results: Bangladesh ISP latency and real-user p75 need production traffic.
 
 ### Not in this phase
 
