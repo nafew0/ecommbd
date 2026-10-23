@@ -19,7 +19,8 @@ const { lang, settings, s, href, absolute } = pageContext(Astro);
 const layout = (await loadLayout(Astro, 'home')) ?? defaultHome(settings);
 const sections = visibleSections(layout.document);
 const data = await loadSectionData(Astro, sections);
-if (!Astro.locals.preview) setCacheTags(Astro, layout, data);
+// Cache tags (phase 17): the home page is a listing, refreshed by every catalog change.
+if (!Astro.locals.preview) setCacheTags(Astro, layout, data, ['listing']);
 const css = pageStyle(Astro, layout.document);
 const name = storeName(settings, lang);
 const description = bilingual(settings.profile.shortDescription, lang);

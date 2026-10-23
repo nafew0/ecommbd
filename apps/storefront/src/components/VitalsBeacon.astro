@@ -1,0 +1,18 @@
+---
+/**
+ * The speed beacon's marker and loader (phase 17). Rendered only when the beacon is on (see
+ * Vitals.astro), so a page without it ships no script at all.
+ */
+interface Props {
+    /** Fraction of visits that report (0 to 1). */
+    rate: number;
+    /** The kind of page (`routeKind`), the only thing reported about it. */
+    route: string;
+}
+const { rate, route } = Astro.props;
+---
+
+<span hidden data-speed-sample={rate} data-speed-route={route}></span>
+<script>
+    import '../scripts/vitals';
+</script>

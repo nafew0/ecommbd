@@ -71,6 +71,8 @@ if (result?.productIds.length) {
         .products.items;
     products = result.productIds.map(id => found.find(product => product.id === id)).filter(product => !!product);
 }
+// Cache tags (phase 17): a listing (any catalog change can change it) and this category.
+Astro.response.headers.set('xkey', ['listing', ...(collection ? [`collection:${collection.id}`] : [])].join(' '));
 const pages = Math.max(1, Math.ceil((result?.totalItems ?? 0) / PER_PAGE));
 if (collection && state.page > pages) {
     missing = 'not-found';

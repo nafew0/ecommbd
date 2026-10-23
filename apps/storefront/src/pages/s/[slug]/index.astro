@@ -5,7 +5,7 @@ import Layout from '../../../layouts/Layout.astro';
 import { imageAttributes, largestImageUrl } from '../../../lib/images';
 import { alternates, canonicalRedirect, pageContext } from '../../../lib/page';
 import { loadSalesPage, salesFormData, startingPack, startingVariant } from '../../../lib/sales';
-import { loadSectionData, pageStyle, visibleSections } from '../../../lib/sections';
+import { loadSectionData, pageStyle, setCacheTags, visibleSections } from '../../../lib/sections';
 import { metaDescription } from '../../../lib/seo';
 import { salesPath, salesSlug } from '../../../lib/urls';
 import Sections from '../../../sections/Sections.astro';
@@ -37,14 +37,12 @@ if (loaded) {
     data = sectionData;
     sales = { page, settings, checkout: form.checkout, districts: form.districts };
     css = pageStyle(Astro, layout.document, salesColoursCss(Astro.locals.theme, settings));
-    if (!Astro.locals.preview) {
-        Astro.response.headers.set(
-            'xkey',
-            [`layout:${layout.layoutId}`, `sales-page:${page.id}`, `product:${page.product.id}`, 'theme', ...data.tags]
-                .slice(0, 100)
-                .join(' '),
-        );
-    }
+    // Cache tags (phase 17): this sales page, the product it sells, its layout and sections.
+    if (!Astro.locals.preview)
+        setCacheTags(Astro, layout, data, ['sales-pages', `sales-page:${page.id}`, `product:${page.product.id}`]);
+} else {
+    // A page published at this address later purges `sales-pages`.
+    Astro.response.headers.set('xkey', 'sales-pages');
 }
 
 const page = loaded?.page;

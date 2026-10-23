@@ -5,9 +5,10 @@ import { LRUCache } from 'lru-cache';
  * The storefront's data cache (roadmap phase 12): store settings, menus and categories, kept in
  * this process (LRU) and in the cache Redis, shared by every storefront process of the store.
  *
- * Entries carry tags (`settings`, `menus`, `collections`). `invalidate(tags)` deletes them in Redis
- * and publishes the tags, so every process drops its own copies; the core sends these purges from
- * phase 17. Until then entries simply expire (`CACHE_TTL_SECONDS`, 60 by default).
+ * Entries carry tags (`settings`, `menus`, `collections`, `product:<id>`…). The core's purges
+ * (phase 17, apps/core/src/plugins/cache-purge) delete tagged entries in Redis and publish the tags,
+ * so every process drops its own copies; `invalidate(tags)` does the same from here. Entries also
+ * expire on their own (`CACHE_TTL_SECONDS`, 60 by default).
  *
  * Redis is optional and never required: if it's missing or down, the cache works per process.
  */
@@ -16,6 +17,9 @@ interface Entry {
     value: unknown;
     tags: string[];
 }
+
+/** An entry's tags, given or worked out from the loaded value. */
+export type Tags<T> = string[] | ((value: T) => string[]);
 
 export interface DataCacheOptions {
     ttlSeconds: number;
@@ -75,8 +79,11 @@ export class DataCache {
         return `${this.options.prefix}:sf:tag:${tag}`;
     }
 
-    /** The cached value, or `load()`'s, stored under `name` with `tags`. One load per key at a time. */
-    async get<T>(name: string, tags: string[], load: () => Promise<T>): Promise<T> {
+    /**
+     * The cached value, or `load()`'s, stored under `name` with `tags`. One load per key at a time.
+     * `tags` may be worked out from the value, for tags only the data knows (a sales page's product).
+     */
+    async get<T>(name: string, tags: Tags<T>, load: () => Promise<T>): Promise<T> {
         if (this.options.ttlSeconds === 0) return load();
         const local = this.local.get(name);
         if (local) return local.value as T;
@@ -89,20 +96,30 @@ export class DataCache {
         return promise;
     }
 
-    private async fetch<T>(name: string, tags: string[], load: () => Promise<T>): Promise<T> {
+    /**
+     * Redis, else `load()`. Two generation counters stop an old value from coming back after a
+     * purge: this process's (a purge heard while loading means the loaded value isn't kept here)
+     * and the shared one in Redis (a purge anywhere since the load began means it isn't stored).
+     */
+    private async fetch<T>(name: string, tags: Tags<T>, load: () => Promise<T>): Promise<T> {
+        const tagsOf = (value: T) => (typeof tags === 'function' ? tags(value) : tags);
         const localGeneration = this.generation;
         const generationKey = `${this.options.prefix}:sf:generation`;
         const sharedGeneration = (await this.redis?.get(generationKey).catch(() => null)) ?? '0';
         const shared = await this.redis?.get(this.key(name)).catch(() => null);
         if (shared) {
             const value = JSON.parse(shared) as T;
-            if (localGeneration === this.generation) this.local.set(name, { value, tags });
+            if (localGeneration === this.generation) this.local.set(name, { value, tags: tagsOf(value) });
             return value;
         }
         const value = await load();
-        if (localGeneration === this.generation) this.local.set(name, { value, tags });
+        const entryTags = tagsOf(value);
+        if (localGeneration === this.generation) this.local.set(name, { value, tags: entryTags });
         if (this.redis) {
             const ttl = this.options.ttlSeconds;
+            // Stores the value only if the shared generation is still the one read before loading,
+            // then adds its name to each tag's set (kept twice as long as the value, so a tag never
+            // forgets a live entry). Everything also goes under `*`, the core's "purge all".
             const inserted = await this.redis
                 .eval(
                     `
@@ -118,7 +135,7 @@ export class DataCache {
                     JSON.stringify(value),
                     ttl,
                     name,
-                    ...[...new Set([...tags, '*'])].map(t => this.tagKey(t)),
+                    ...[...new Set([...entryTags, '*'])].map(t => this.tagKey(t)),
                 )
                 .catch(() => undefined);
             if (inserted === 0) this.local.delete(name);

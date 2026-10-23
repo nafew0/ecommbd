@@ -23,10 +23,18 @@ export const envSchema = z
         REDIS_CACHE_USERNAME: z.string().optional(),
         REDIS_CACHE_PASSWORD: z.string().optional(),
         REDIS_KEY_PREFIX: z.string().default('ecommbd-dev'),
+        /**
+         * The cache tags' prefix (phase 17): the same as the core's CACHE_STORE_ID and unique per
+         * store. Defaults to REDIS_KEY_PREFIX.
+         */
         CACHE_STORE_ID: z
             .string()
             .regex(/^[a-zA-Z0-9_-]{1,48}$/)
             .optional(),
+        /**
+         * Fraction of visits whose browser reports LCP, INP and CLS (phase 17). 0 turns the beacon
+         * off: pages then carry no beacon script at all.
+         */
         VITALS_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.1),
         /** Extra origins for the Content Security Policy, e.g. a store's analytics (comma-separated). */
         CSP_ALLOWED_ORIGINS: z
