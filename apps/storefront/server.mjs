@@ -1,7 +1,8 @@
 // The storefront's Node server (roadmap phase 12): `npm run start -w @ecommbd/storefront` after
 // `npm run build`. Astro renders the pages (built in middleware mode); this file adds what a
 // production process needs around it:
-// - `/health` for the deploy agent and load checks (reports whether the core answers),
+// - `/health` for the deploy agent and load checks (503 when the core doesn't answer), and
+//   `/health/live` for Varnish's probe (200 whenever this process runs, see below),
 // - the built static files (`/_astro/…` cached for a year as immutable),
 // - in development (`PROXY_CORE`, on unless APP_ENV is staging or production), `/img`, `/assets` and
 //   `/shop-api` passed through to the core, as Nginx does in production,
@@ -82,6 +83,7 @@ function proxy(req, res) {
     req.pipe(upstream);
 }
 
+/** Whether the store can serve pages: this process and the core. 503 while the core is down. */
 async function health(res) {
     const core = await fetch(new URL('/health', coreUrl), { signal: AbortSignal.timeout(2000) }).then(
         response => (response.ok ? 'ok' : 'down'),
@@ -91,7 +93,18 @@ async function health(res) {
         'content-type': 'application/json',
         'cache-control': 'no-store',
     });
-    res.end(JSON.stringify({ status: 'ok', core }));
+    res.end(JSON.stringify({ status: core === 'ok' ? 'ok' : 'unavailable', core }));
+}
+
+/**
+ * Whether this process answers at all: Varnish's health probe (infra/varnish). It must not depend
+ * on the core: with the core down this process still serves its own bilingual "unavailable" page
+ * (and cart and checkout say so properly), which a "sick" backend in Varnish would replace with
+ * Varnish's error page.
+ */
+function liveness(res) {
+    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+    res.end(JSON.stringify({ status: 'ok' }));
 }
 
 /** The path for the log: no query string, and tracking tokens (`/t/<token>/`) masked. */
@@ -114,6 +127,7 @@ const server = http.createServer((req, res) => {
         });
     });
     if (pathname === '/health') return void health(res);
+    if (pathname === '/health/live') return liveness(res);
     if (proxyCore && PROXIED.some(prefix => pathname.startsWith(prefix))) return proxy(req, res);
     if (
         (req.method === 'GET' || req.method === 'HEAD') &&
