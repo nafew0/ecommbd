@@ -3,9 +3,9 @@ import { env } from './env';
 import { CoreUnavailableError, RateLimitedError } from './lib/core';
 import { parseLocalePath } from './lib/urls';
 import { getTheme } from './lib/sections';
-import { getSettings } from './lib/store';
+import { getMenus, getSettings } from './lib/store';
 import { systemPage } from './lib/system-pages';
-import { legacyUrl } from './lib/migration';
+import { isLegacyQueryLink, legacyRedirect, legacyUrl } from './lib/migration';
 import { tagResponse } from './lib/cache-policy';
 
 /**
@@ -90,18 +90,34 @@ export const onRequest = defineMiddleware(async (context, next) => {
         context.locals.settings = settings;
         context.locals.theme = theme;
         context.locals.requestPath = requestPath;
+        // Old WooCommerce links (phases 21–22). The store's own pages always win: a saved redirect is
+        // used only when nothing here answers the path (a 404), so an old WordPress page can never
+        // take over a live page such as /privacy-policy/. WordPress's query links (`/?p=123`,
+        // `/?product=slug`) are the exception: they arrive at the home page, which would answer
+        // them with a 200, so they are looked up first.
+        const legacyPath = requestPath + context.url.search;
         const canResolve =
-            context.request.method === 'GET' &&
+            (context.request.method === 'GET' || context.request.method === 'HEAD') &&
             !/^\/(?:_astro|assets|img|health|cart|checkout|track|t|api)(?:\/|$)/.test(path);
-        if (canResolve) {
-            const legacy = await legacyUrl(requestPath + context.url.search);
-            if (legacy?.status === 410) return withHeaders(new Response(null, { status: 410 }));
-            if (legacy?.status === 301 && legacy.target && legacy.target !== requestPath + context.url.search)
-                return withHeaders(context.redirect(legacy.target, 301));
+        const queryLink = canResolve && isLegacyQueryLink(context.url.searchParams);
+        if (queryLink) {
+            const redirect = legacyRedirect(await legacyUrl(legacyPath), legacyPath);
+            if (redirect) return withHeaders(redirect);
         }
         const response =
             path === context.url.pathname ? await next() : await next(`${path}${context.url.search}`);
-        if (canResolve && response.status === 404) await legacyUrl(requestPath + context.url.search, true);
+        if (canResolve && !queryLink && response.status === 404) {
+            // One call looks the path up and, when there's no rule, counts it for the 404 list.
+            const redirect = legacyRedirect(await legacyUrl(legacyPath, true), legacyPath);
+            if (redirect) return withHeaders(redirect);
+        }
+        // Cache tags (phase 17): without a header menu, every page's header lists the top
+        // categories, so a category change must refresh every page. The menus are in the data
+        // cache already (the header just read them).
+        const headerMenu = await getMenus(lang).then(
+            menus => menus.header.length > 0,
+            () => false,
+        );
         return tagResponse(
             withHeaders(response, {
                 editorFrame: context.locals.preview?.mode === 'editor',
@@ -111,6 +127,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
             context.request,
             env().CACHE_STORE_ID ?? env().REDIS_KEY_PREFIX,
             !!context.locals.preview,
+            headerMenu ? [] : ['collections'],
         );
     } catch (error) {
         if (error instanceof CoreUnavailableError) return withHeaders(systemPage('unavailable'));
