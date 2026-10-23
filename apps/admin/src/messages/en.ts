@@ -226,6 +226,7 @@ export const en = {
         phonePlaceholder: '01XXX-XXXXXX',
         takaPlaceholder: '0',
         wholeTakaOnly: 'Enter whole taka, without poisha.',
+        takaNumbersOnly: 'Enter the amount in numbers, like 990.',
         upload: {
             choose: 'Choose image',
             change: 'Change',

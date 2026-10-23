@@ -229,6 +229,7 @@ export const bn: Messages = {
         phonePlaceholder: '০১XXX-XXXXXX',
         takaPlaceholder: '০',
         wholeTakaOnly: 'পয়সা ছাড়া পুরো টাকা লিখুন।',
+        takaNumbersOnly: 'টাকার পরিমাণ সংখ্যায় লিখুন, যেমন ৯৯০।',
         upload: {
             choose: 'ছবি বেছে নিন',
             change: 'বদলান',
