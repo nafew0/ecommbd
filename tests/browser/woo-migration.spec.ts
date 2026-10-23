@@ -94,13 +94,26 @@ test('migrates a signed helper upload, reviews reports/history and manages redir
     await page.getByLabel('Old local path', { exact: true }).fill(old);
     await page.getByLabel('Final local path', { exact: true }).fill('/product/fixture-panjabi/');
     await page.getByRole('button', { name: 'Save redirect', exact: true }).click();
-    await expect(page.getByText(`${old} → /product/fixture-panjabi/ · 0`, { exact: true })).toBeVisible();
+    await expect(page.getByText(`${old} → /product/fixture-panjabi/`, { exact: true })).toBeVisible();
+    const rule = page.getByRole('listitem').filter({ hasText: old });
+    await expect(rule.getByText('Edited by staff', { exact: true })).toBeVisible();
     const moved = await request.get(SITE + old, { maxRedirects: 0 });
     expect(moved.status()).toBe(301);
     expect(moved.headers().location).toBe('/product/fixture-panjabi/');
     expect((await request.get(SITE + old)).status()).toBe(200);
     const query = await request.get(SITE + '/?p=' + fixture.products[0].id, { maxRedirects: 0 });
     expect(query.status()).toBe(301);
+    // The store's own pages always win: a rule saved for a live category page is never used.
+    await page.getByLabel('Old local path', { exact: true }).fill('/product-category/poshak/');
+    await page.getByLabel('Final local path', { exact: true }).fill('/');
+    await page.getByRole('button', { name: 'Save redirect', exact: true }).click();
+    await expect(page.getByText('/product-category/poshak/ → /', { exact: true })).toBeVisible();
+    const live = await request.get(SITE + '/product-category/poshak/', { maxRedirects: 0 });
+    expect(live.status()).toBe(200);
+    // Staff can remove a rule again, after confirming.
+    await rule.getByRole('button', { name: `Delete redirect ${old}`, exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect(rule).toHaveCount(0);
     await page.getByLabel('Backups and permission recorded', { exact: true }).check();
     await page.getByRole('button', { name: 'Save checklist', exact: true }).click();
     await page.reload();

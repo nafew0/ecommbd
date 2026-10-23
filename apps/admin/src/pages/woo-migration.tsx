@@ -3,11 +3,24 @@ import { FormEvent, useEffect, useState } from 'react';
 import { Button } from '../components/ui/button';
 import { Input, Select } from '../components/ui/input';
 import { Alert, Card, CardBody, CardHeader, PageHeader } from '../components/ui/misc';
-import { adminApi, ApiError } from '../lib/api';
+import { adminApi } from '../lib/api';
 import { useConfirm } from '../lib/confirm';
 import { useI18n } from '../lib/i18n';
 import { LegacyOrders } from '../components/legacy-orders';
 import { WooCutover } from '../components/woo-cutover';
+import {
+    apiErrorMessage,
+    type CrawlResult,
+    type SourceReference,
+    type WooRun,
+} from '../components/woo-migration-format';
+import {
+    RunCounts,
+    RunError,
+    RunIssues,
+    RunProgress,
+    VerificationReport,
+} from '../components/woo-run-report';
 
 interface Source {
     id: string;
@@ -17,18 +30,10 @@ interface Source {
         currency?: string;
         weightUnit?: string;
         cutover?: { checked: string[] };
-        reference?: { pixelId?: string; shippingZones?: unknown; permalinks?: unknown };
+        reference?: SourceReference;
+        /** The last sitemap check, so its result is still there after a reload. */
+        crawl?: CrawlResult;
     };
-}
-interface Run {
-    id: string;
-    status: string;
-    mode: string;
-    cursor: { stage: number; offset: number };
-    counts: Record<string, number>;
-    verification: Record<string, unknown>;
-    error?: string;
-    issues?: Array<{ id: string; code: string; kind: string; sourceKey: string; severity: string }>;
 }
 const RUNS = 'query($sourceId: ID!) { wooRuns(sourceId: $sourceId) }';
 const escape = (value: unknown) =>
@@ -44,6 +49,12 @@ function download(content: string, name: string, type: string) {
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/**
+ * WooCommerce migration (roadmap phases 21–22): connect the old store (or pair the WordPress
+ * helper), dry-run, import, then review the result and the old order history. The run's report
+ * is in components/woo-run-report.tsx; the helper, redirects and cutover in woo-cutover.tsx.
+ */
 export function WooMigrationPage() {
     const { messages } = useI18n();
     const m = messages.migration;
@@ -52,7 +63,6 @@ export function WooMigrationPage() {
     const [sourceId, setSourceId] = useState('');
     const [runId, setRunId] = useState('');
     const [busy, setBusy] = useState(false);
-    const [error, setError] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const [notice, setNotice] = useState('');
     const [ack, setAck] = useState(false);
@@ -64,7 +74,7 @@ export function WooMigrationPage() {
         queryKey: ['woo', 'runs', sourceId],
         enabled: !!sourceId,
         refetchInterval: 3000,
-        queryFn: () => adminApi<{ wooRuns: Run[] }>(RUNS, { sourceId }).then(r => r.wooRuns),
+        queryFn: () => adminApi<{ wooRuns: WooRun[] }>(RUNS, { sourceId }).then(r => r.wooRuns),
     });
     const activeId = runId || runs.data?.[0]?.id;
     const selectedSource = sources.data?.find(s => String(s.id) === String(sourceId));
@@ -73,7 +83,9 @@ export function WooMigrationPage() {
         enabled: !!activeId,
         refetchInterval: 3000,
         queryFn: () =>
-            adminApi<{ wooRun: Run }>('query($id:ID!){wooRun(id:$id)}', { id: activeId }).then(r => r.wooRun),
+            adminApi<{ wooRun: WooRun }>('query($id:ID!){wooRun(id:$id)}', { id: activeId }).then(
+                r => r.wooRun,
+            ),
     });
     useEffect(() => {
         if (run.data && ['completed', 'needsReview'].includes(run.data.status)) {
@@ -83,15 +95,12 @@ export function WooMigrationPage() {
     }, [run.data?.id, run.data?.status, client]);
     async function action(fn: () => Promise<unknown>) {
         setBusy(true);
-        setError(false);
         setErrorMessage('');
         try {
             await fn();
             await client.invalidateQueries({ queryKey: ['woo'] });
         } catch (cause) {
-            setError(true);
-            if (cause instanceof ApiError && cause.code === 'USER_INPUT_ERROR')
-                setErrorMessage(cause.message);
+            setErrorMessage(apiErrorMessage(m, cause));
         } finally {
             setBusy(false);
         }
@@ -125,7 +134,7 @@ export function WooMigrationPage() {
     }
     async function start(mode: string) {
         await action(async () => {
-            const result = await adminApi<{ startWooImport: Run }>(
+            const result = await adminApi<{ startWooImport: WooRun }>(
                 'mutation($sourceId:ID!,$mode:String!,$acknowledge:Boolean){startWooImport(sourceId:$sourceId,mode:$mode,acknowledge:$acknowledge)}',
                 { sourceId, mode, acknowledge: ack },
             );
@@ -172,7 +181,7 @@ export function WooMigrationPage() {
     return (
         <>
             <PageHeader title={m.title} description={m.intro} />
-            {(error || sources.isError || runs.isError || run.isError) && (
+            {(errorMessage || sources.isError || runs.isError || run.isError) && (
                 <Alert tone="warning">{errorMessage || m.failed}</Alert>
             )}
             {notice && <Alert>{notice}</Alert>}
@@ -182,6 +191,7 @@ export function WooMigrationPage() {
                     sourceId={sourceId}
                     checked={selectedSource?.settings.cutover?.checked}
                     reference={selectedSource?.settings.reference}
+                    lastCrawl={selectedSource?.settings.crawl}
                 />
                 <Card>
                     <CardHeader title={m.source} />
@@ -303,52 +313,13 @@ export function WooMigrationPage() {
                                 </Select>
                                 {run.data && (
                                     <>
-                                        {run.data.status === 'running' &&
-                                            run.data.cursor.stage < 8 &&
-                                            (() => {
-                                                const kind = [
-                                                    'categories',
-                                                    'tags',
-                                                    'products',
-                                                    'customers',
-                                                    'orders',
-                                                    'coupons',
-                                                    'reviews',
-                                                    'settings',
-                                                ][run.data.cursor.stage] as keyof typeof m.stages;
-                                                const total = (
-                                                    run.data.verification.sourceCounts as
-                                                        Record<string, number> | undefined
-                                                )?.[kind];
-                                                return (
-                                                    <div>
-                                                        <p>
-                                                            {m.stages[kind]} · {run.data.cursor.offset}
-                                                            {total != null ? ` / ${total}` : ''}
-                                                        </p>
-                                                        <progress
-                                                            className="w-full"
-                                                            aria-label={m.counts}
-                                                            value={
-                                                                total == null
-                                                                    ? undefined
-                                                                    : run.data.cursor.offset
-                                                            }
-                                                            max={total || 1}
-                                                        />
-                                                    </div>
-                                                );
-                                            })()}
+                                        <RunProgress run={run.data} />
                                         <p>
                                             {m.status}:{' '}
                                             {m.states[run.data.status as keyof typeof m.states] ??
                                                 run.data.status}
                                         </p>
-                                        {run.data.error && (
-                                            <Alert tone="warning">
-                                                {m.failed} ({run.data.error})
-                                            </Alert>
-                                        )}
+                                        {run.data.error && <RunError code={run.data.error} />}
                                         {['failed', 'queued', 'running'].includes(run.data.status) && (
                                             <Button
                                                 variant="secondary"
@@ -365,21 +336,9 @@ export function WooMigrationPage() {
                                                 {m.resume}
                                             </Button>
                                         )}
-                                        <dl>
-                                            {Object.entries(run.data.counts).map(([key, value]) => (
-                                                <div className="flex justify-between gap-3" key={key}>
-                                                    <dt>{m.stages[key as keyof typeof m.stages] ?? key}</dt>
-                                                    <dd>{value}</dd>
-                                                </div>
-                                            ))}
-                                        </dl>
-                                        <details>
-                                            <summary>{m.verification}</summary>
-                                            <pre className="overflow-auto whitespace-pre-wrap break-all text-xs">
-                                                {JSON.stringify(run.data.verification, null, 2)}
-                                            </pre>
-                                        </details>
-                                        <div className="flex gap-2">
+                                        <RunCounts counts={run.data.counts} />
+                                        <VerificationReport run={run.data} />
+                                        <div className="flex flex-wrap gap-2">
                                             <Button variant="secondary" onClick={() => void report('csv')}>
                                                 {m.csv}
                                             </Button>
@@ -387,14 +346,7 @@ export function WooMigrationPage() {
                                                 {m.html}
                                             </Button>
                                         </div>
-                                        <h3>{m.issues}</h3>
-                                        <ul className="text-sm">
-                                            {run.data.issues?.map(i => (
-                                                <li key={i.id}>
-                                                    {i.kind} #{i.sourceKey} · {i.code} ({i.severity})
-                                                </li>
-                                            ))}
-                                        </ul>
+                                        <RunIssues issues={run.data.issues ?? []} />
                                     </>
                                 )}
                             </CardBody>
