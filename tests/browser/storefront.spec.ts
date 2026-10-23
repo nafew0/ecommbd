@@ -23,9 +23,15 @@ test.beforeAll(async () => {
     // The store's default language is Bangla in these tests.
     const { bdStoreSettings } = await admin.query('{ bdStoreSettings { settings } }');
     const settings = bdStoreSettings.settings;
-    if (settings.locale.defaultLanguage !== 'bn' || !settings.profile.whatsapp) {
+    if (
+        settings.locale.defaultLanguage !== 'bn' ||
+        !settings.profile.whatsapp ||
+        (!settings.profile.storeName.bn && !settings.profile.storeName.en)
+    ) {
         settings.locale.defaultLanguage = 'bn';
         settings.profile.whatsapp ||= '+8801712345678';
+        if (!settings.profile.storeName.bn && !settings.profile.storeName.en)
+            settings.profile.storeName = { en: 'Synthetic storefront', bn: 'সিন্থেটিক স্টোর' };
         const { updateBdStoreSettings } = await admin.query(
             'mutation ($input: JSON!) { updateBdStoreSettings(input: $input) { errors { path code } } }',
             { input: settings },
