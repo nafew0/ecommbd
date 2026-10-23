@@ -1,0 +1,16 @@
+# Redis for all stores on the server: ecommbd-redis@queue (jobs, never evicts) and
+# ecommbd-redis@cache (evicts). Separate from any Redis the server's other sites use.
+[Unit]
+Description=Redis for Ecomm BD (%i)
+After=network.target
+
+[Service]
+User=redis
+Group=redis
+ExecStart=/usr/bin/redis-server /etc/redis/ecommbd-%i.conf
+StateDirectory=ecommbd-redis-%i
+LimitNOFILE=10032
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

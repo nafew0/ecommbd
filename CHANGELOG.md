@@ -6,11 +6,15 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Fixed
 
+- The merchant admin's product, category and stock lists showed broken thumbnails (in development too): those lists returned an image's stored path (`preview/a3/photo.jpg`) instead of its address. They now get the full address the way Vendure gives its own images (`ASSET_URL_PREFIX` on live stores).
 - Phase 04 review: confirm, pack and cancel permissions now apply to Vendure's standard order mutations as well as the merchant admin. Native cancellation checks the reason, required note and settled payments before changing lines, under a transaction and order lock. Direct cancellation transitions cannot leave live quantities and reserved stock behind.
 - The home widget is labelled **Order value today** in English and Bangla, with its meaning explained. The Admin API exposes `todayOrderValue`; `todaySales` remains a deprecated alias with the same permission check.
 - Status-only returns now require confirmation and explain that returned quantities, stock and payments are unchanged. Returned/cancelled order pages no longer show a delivery collection instruction. The stock, partial-return, refund and courier-payment contract is recorded in `docs/decisions/order-states.md` for the next implementation work.
 
 ### Added
+
+- **Stores on CloudPanel without a shell** (`ops/cloudpanel/ecommbd-stores`, runbook `docs/runbooks/cloudpanel-stores.md`): support creates a Node.js site with an App Port from 4301 to 4399 in CloudPanel, and within a minute the server sets it up (PostgreSQL database, settings, core, worker and storefront services, a login file in the site's File Manager). Admins install it once per server and update every store with `ecommbd-stores deploy` (database dump, restart, health check) or go back with `rollback`. Set up on host2 and tested with store1.ecomm.bd.
+- `ASSETS_DIR` setting for the uploads folder, so stores can share one build. The built storefront, with `PROXY_CORE=true`, also passes the merchant admin, the Dashboard, their APIs and `/bd-geo` to the core.
 
 - **Phase 16, sales pages, the Design tab and attribution** (plugin `bd-sales-pages`):
   - **Sales pages** (a menu of its own): pages for Facebook ads at `/s/<address>/`, one product with its offer and an order form on the same page. A new page starts from a name, a product and one of twelve Bangla templates (ghee and honey, oil and spices, dates, herbal, skin care, perfume, a single garment, garments with a size chart, gadget, baby product, seasonal combo, general) and fills itself with the product's name, photo, price, video and review screenshots. The list shows each page's address, template, product, price, status (live, off, not published, product deleted) and the orders it brought, with preview, open, edit, duplicate and delete.

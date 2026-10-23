@@ -1,0 +1,23 @@
+# The core (Vendure, merchant admin, Dashboard) of one store. %i is the store's CloudPanel site user.
+# Set up by ecommbd-stores (docs/runbooks/cloudpanel-stores.md).
+[Unit]
+Description=Ecomm BD core (%i)
+After=network-online.target postgresql.service ecommbd-redis@queue.service ecommbd-redis@cache.service
+Wants=ecommbd-redis@queue.service ecommbd-redis@cache.service
+
+[Service]
+User=%i
+Group=%i
+EnvironmentFile=/etc/ecommbd/stores/%i/core.env
+WorkingDirectory=/home/%i/ecommbd
+ExecStart=/opt/ecommbd/node/bin/node /opt/ecommbd/current/apps/core/dist/index.js
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+MemoryMax=1G
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

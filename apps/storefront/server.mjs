@@ -3,8 +3,10 @@
 // production process needs around it:
 // - `/health` for the deploy agent and load checks (reports whether the core answers),
 // - the built static files (`/_astro/…` cached for a year as immutable),
-// - in development (`PROXY_CORE`, on unless APP_ENV is staging or production), `/img`, `/assets` and
-//   `/shop-api` passed through to the core, as Nginx does in production,
+// - with `PROXY_CORE` (on unless APP_ENV is staging or production), the core's paths passed through to
+//   it: `/img`, `/assets` and `/shop-api` for the pages, plus the merchant admin, the Dashboard, their
+//   APIs and `/bd-geo`, so a whole store answers on this one port. Development uses it, and so do the
+//   CloudPanel stores (docs/runbooks/cloudpanel-stores.md) until Nginx routes them (roadmap 24),
 // - one JSON log line per request (no query strings, no tracking tokens),
 // - graceful shutdown: on SIGTERM it stops accepting connections and finishes open requests.
 import fs from 'node:fs';
@@ -20,7 +22,9 @@ const host = process.env.HOST ?? '0.0.0.0';
 const coreUrl = new URL(process.env.CORE_URL ?? 'http://localhost:3000');
 const live = ['staging', 'production'].includes(process.env.APP_ENV ?? '');
 const proxyCore = (process.env.PROXY_CORE ?? (live ? 'false' : 'true')) === 'true';
-const PROXIED = ['/img/', '/assets/', '/shop-api'];
+const CORE_PATHS = ['/img', '/assets', '/shop-api', '/admin', '/admin-api', '/dashboard', '/bd-geo'];
+const isCorePath = pathname =>
+    CORE_PATHS.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
 
 const TYPES = {
     '.css': 'text/css; charset=utf-8',
@@ -111,7 +115,7 @@ const server = http.createServer((req, res) => {
         });
     });
     if (pathname === '/health') return void health(res);
-    if (proxyCore && PROXIED.some(prefix => pathname.startsWith(prefix))) return proxy(req, res);
+    if (proxyCore && isCorePath(pathname)) return proxy(req, res);
     if (
         (req.method === 'GET' || req.method === 'HEAD') &&
         pathname !== '/' &&

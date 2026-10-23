@@ -16,3 +16,6 @@ test-results
 
 # Local demo stores (client data, never committed)
 /demo-data/
+
+# Internal guides with screenshots of our servers and client stores (this repo is public)
+/docs/internal/

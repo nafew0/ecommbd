@@ -1,0 +1,9 @@
+# Sets up stores created in CloudPanel and stops those deleted there. Run every minute by the timer.
+[Unit]
+Description=Ecomm BD: set up new CloudPanel stores
+After=network-online.target postgresql.service ecommbd-redis@queue.service ecommbd-redis@cache.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ecommbd-stores sync
+TimeoutStartSec=15min

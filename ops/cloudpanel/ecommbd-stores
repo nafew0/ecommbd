@@ -1,0 +1,554 @@
+#!/usr/bin/env bash
+# Ecomm BD stores on a CloudPanel server (docs/runbooks/cloudpanel-stores.md).
+#
+# A store is a CloudPanel Node.js site whose App Port is between PORT_FIRST and PORT_LAST (4301–4399).
+# `sync`, run every minute by a systemd timer, sets up each new one: its PostgreSQL database, its
+# settings in /etc/ecommbd/stores/<site user>/, the core, worker and storefront services (running as
+# the site user) and ADMIN-LOGIN.txt in the site's home folder. Every store runs the same build,
+# /opt/ecommbd/current. Run as root.
+#
+#   ecommbd-stores setup          once per server: Node, Redis, services, the first build, the timer
+#   ecommbd-stores deploy [ref]   build a branch, tag or commit (default REF), back up and restart every store
+#   ecommbd-stores rollback       go back to the previous build and restart every store
+#   ecommbd-stores sync           set up new stores, stop deleted ones (the timer runs this)
+#   ecommbd-stores scan           show what sync would do, without changing anything
+#   ecommbd-stores status         every store with its domain, ports, state and health
+#   ecommbd-stores retry <user>   set up a failed store again (keeps its database)
+set -euo pipefail
+shopt -s nullglob
+umask 022
+cd /
+
+CONFIG=/etc/ecommbd/ecommbd.conf
+STORES=/etc/ecommbd/stores
+BASE=/opt/ecommbd
+BACKUPS=/var/backups/ecommbd
+LOCK=/run/ecommbd-stores.lock
+
+# Defaults. /etc/ecommbd/ecommbd.conf overrides any of them.
+REF=main
+APP_ENV=production
+NODE_VERSION=v24.22.1
+PORT_FIRST=4301
+PORT_LAST=4399
+CORE_PORT_OFFSET=1000 # a store's core listens on its App Port minus this
+MIN_FREE_MB=1500      # memory that must be available before a new store starts
+KEEP_RELEASES=3
+KEEP_BACKUPS=10
+VHOSTS=/etc/nginx/sites-enabled
+# shellcheck source=/dev/null
+if [[ -f $CONFIG ]]; then source "$CONFIG"; fi
+
+# The Dashboard build loads vendure-config.ts, which checks every setting: placeholders that never run
+# a store. NODE_ENV=production makes the Dashboard call the API on the address it's served from.
+BUILD_ENV=(
+    NODE_ENV=production
+    APP_ENV=production
+    COOKIE_SECRET=build-only-placeholder-not-a-real-secret
+    SUPERADMIN_USERNAME=superadmin
+    SUPERADMIN_PASSWORD=build-only-placeholder
+    ASSET_URL_PREFIX=https://build.invalid/assets/
+    DB_HOST=127.0.0.1 DB_PORT=5432 DB_NAME=build DB_USERNAME=build DB_PASSWORD=build
+    REDIS_KEY_PREFIX=build
+    REDIS_QUEUE_HOST=127.0.0.1 REDIS_QUEUE_PORT=63790
+    REDIS_CACHE_HOST=127.0.0.1 REDIS_CACHE_PORT=63791
+)
+
+log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*"; }
+die() {
+    log "error: $*" >&2
+    exit 1
+}
+lock() {
+    exec 9>"$LOCK"
+    flock "$@" 9
+}
+
+# "ecommbd-core@<user> ecommbd-worker@<user> ecommbd-storefront@<user>", to be word-split.
+units() { printf 'ecommbd-core@%s ecommbd-worker@%s ecommbd-storefront@%s' "$1" "$1" "$1"; }
+as_builder() { runuser -u ecommbd -- env -i HOME="$BASE" PATH="$BASE/node/bin:/usr/bin:/bin" LANG=C.UTF-8 "$@"; }
+# SQL goes in on stdin, so passwords never show in the process list.
+psql_value() { runuser -u postgres -- psql -XAtq -v ON_ERROR_STOP=1 <<<"$1"; }
+psql_run() { runuser -u postgres -- psql -Xq -v ON_ERROR_STOP=1 >/dev/null <<<"$1"; }
+redis_password() { sed -nE 's/^requirepass (.+)$/\1/p' "/etc/redis/ecommbd-$1.conf"; }
+healthy() { curl -fsS --max-time 2 -o /dev/null "http://127.0.0.1:$1/health" 2>/dev/null; }
+wait_healthy() { # port, seconds
+    local i
+    for ((i = 0; i < $2; i += 2)); do
+        if healthy "$1"; then return 0; fi
+        sleep 2
+    done
+    return 1
+}
+port_free() { [[ -z $(ss -Hltn "sport = :$1") ]]; }
+mem_available_mb() { awk '/^MemAvailable:/ {print int($2 / 1024)}' /proc/meminfo; }
+
+# A store's state: /etc/ecommbd/stores/<user>/store.conf, KEY=value lines.
+# STATE is provisioning, active, failed or removed.
+value_in() { # file key
+    if [[ -f $1 ]]; then sed -n "s/^$2=//p" "$1" | tail -n 1; fi
+}
+get() { value_in "$STORES/$1/store.conf" "$2"; }
+set_state() { # user key=value...
+    local file=$STORES/$1/store.conf kv
+    shift
+    install -d -m 700 "$(dirname "$file")"
+    if [[ ! -f $file ]]; then install -m 600 /dev/null "$file"; fi
+    for kv in "$@"; do
+        sed -i "/^${kv%%=*}=/d" "$file"
+        printf '%s\n' "$kv" >>"$file"
+    done
+}
+
+# Prints "user domain port" for every CloudPanel Node.js site whose App Port is in our range, read from
+# the vhosts CloudPanel writes. PHP sites never match: they don't proxy to a port in the range.
+scan_sites() {
+    local conf port domain root user
+    for conf in "$VHOSTS"/*.conf; do
+        port=$(sed -nE 's#^[[:space:]]*proxy_pass http://127\.0\.0\.1:([0-9]+)/;[[:space:]]*$#\1#p' "$conf")
+        port=${port%%$'\n'*}
+        if ! [[ $port =~ ^[0-9]+$ ]] || ((port < PORT_FIRST || port > PORT_LAST)); then continue; fi
+        domain=$(sed -nE 's/^[[:space:]]*server_name[[:space:]]+([^[:space:];]+).*$/\1/p' "$conf")
+        domain=${domain%%$'\n'*}
+        root=$(sed -nE 's/^[[:space:]]*root[[:space:]]+([^[:space:];]+);.*$/\1/p' "$conf")
+        root=${root%%$'\n'*}
+        if ! [[ $root =~ ^/home/([a-z][a-z0-9_-]{0,31})/htdocs/ ]]; then
+            log "skipped $conf: unexpected root '$root'" >&2
+            continue
+        fi
+        user=${BASH_REMATCH[1]}
+        if ! [[ $domain =~ ^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$ ]]; then
+            log "skipped $conf: unexpected server_name '$domain'" >&2
+            continue
+        fi
+        if ! id -u "$user" >/dev/null 2>&1 || (($(id -u "$user") < 1000)) || [[ $(stat -c %U "/home/$user") != "$user" ]]; then
+            log "skipped $conf: $user is not a CloudPanel site user" >&2
+            continue
+        fi
+        printf '%s %s %s\n' "$user" "$domain" "$port"
+    done
+}
+
+# Sets up one store, or sets it up again (retry, changed App Port). Secrets and data are kept.
+provision() { # user domain port
+    local user=$1 domain=$2 port=$3
+    local core_port=$((port - CORE_PORT_OFFSET)) db="ecommbd_${1//-/_}" home=/home/$1 dir=$STORES/$1
+    local previous free p
+    previous=$(get "$user" STATE)
+    log "$user: setting up https://$domain (storefront :$port, core :$core_port)"
+    # Recorded first, so a failure below isn't taken for a change in CloudPanel on the next sync.
+    set_state "$user" DOMAIN="$domain" PORT="$port" CORE_PORT="$core_port" DB="$db"
+
+    # Our own services may hold the ports (retry, changed App Port).
+    if [[ -n $previous ]]; then systemctl stop $(units "$user") 2>/dev/null || true; fi
+    if [[ ! -L $BASE/current ]]; then fail "$user" "no build yet: run ecommbd-stores setup" && return 0; fi
+    free=$(mem_available_mb)
+    if ((free < MIN_FREE_MB)); then fail "$user" "only $free MB of memory available, $MIN_FREE_MB MB needed" && return 0; fi
+    for p in "$port" "$core_port"; do
+        if ! port_free "$p"; then fail "$user" "port $p is in use by another program" && return 0; fi
+    done
+    set_state "$user" STATE=provisioning REASON=
+
+    # Database and role. One left behind by a deleted store is only reused through `retry`.
+    local db_password
+    db_password=$(openssl rand -hex 32)
+    if [[ $(psql_value "select count(*) from pg_roles where rolname = '$db'") == 0 ]]; then
+        psql_run "create role $db login password '$db_password' connection limit 30"
+    elif [[ $previous == provisioning || $previous == failed || $previous == active ]]; then
+        psql_run "alter role $db password '$db_password'"
+    else
+        fail "$user" "database $db already exists (a deleted store's?): drop it, or 'ecommbd-stores retry $user' to reuse it" && return 0
+    fi
+    if [[ $(psql_value "select count(*) from pg_database where datname = '$db'") == 0 ]]; then
+        psql_run "create database $db owner $db"
+    fi
+    psql_run "revoke all on database $db from public"
+
+    # Settings, readable by root only (systemd hands them to the services).
+    local core_env=$dir/core.env storefront_env=$dir/storefront.env cookie superadmin csrf
+    cookie=$(value_in "$core_env" COOKIE_SECRET)
+    superadmin=$(value_in "$core_env" SUPERADMIN_PASSWORD)
+    csrf=$(value_in "$storefront_env" CSRF_SECRET)
+    install -m 600 /dev/null "$core_env.new"
+    cat >"$core_env.new" <<EOF
+APP_ENV=$APP_ENV
+VENDURE_SERVER_PORT=$core_port
+COOKIE_SECRET=${cookie:-$(openssl rand -hex 32)}
+SUPERADMIN_USERNAME=superadmin
+SUPERADMIN_PASSWORD=${superadmin:-$(openssl rand -hex 12)}
+CORS_ORIGINS=https://$domain
+ASSET_URL_PREFIX=https://$domain/assets/
+ASSETS_DIR=$home/ecommbd/assets
+IMAGES_DIR=$home/ecommbd/images
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_NAME=$db
+DB_USERNAME=$db
+DB_PASSWORD=$db_password
+REDIS_KEY_PREFIX=s-$user
+REDIS_QUEUE_HOST=127.0.0.1
+REDIS_QUEUE_PORT=63790
+REDIS_QUEUE_PASSWORD=$(redis_password queue)
+REDIS_CACHE_HOST=127.0.0.1
+REDIS_CACHE_PORT=63791
+REDIS_CACHE_PASSWORD=$(redis_password cache)
+STORE_DEFAULT_LANGUAGE=bn
+STOREFRONT_URL=https://$domain
+LOG_LEVEL=info
+LOG_FORMAT=json
+STORE_ID=$user
+EOF
+    mv -f "$core_env.new" "$core_env"
+    install -m 600 /dev/null "$storefront_env.new"
+    cat >"$storefront_env.new" <<EOF
+APP_ENV=$APP_ENV
+CORE_URL=http://127.0.0.1:$core_port
+SITE_URL=https://$domain
+REDIS_CACHE_HOST=127.0.0.1
+REDIS_CACHE_PORT=63791
+REDIS_CACHE_PASSWORD=$(redis_password cache)
+REDIS_KEY_PREFIX=s-$user
+CSRF_SECRET=${csrf:-$(openssl rand -hex 32)}
+PORT=$port
+HOST=127.0.0.1
+PROXY_CORE=true
+EOF
+    mv -f "$storefront_env.new" "$storefront_env"
+
+    # Uploads and image sizes live in the site's home folder, owned by the site user.
+    install -d -m 750 -o "$user" -g "$user" "$home/ecommbd" "$home/ecommbd/assets" "$home/ecommbd/images"
+
+    systemctl enable --quiet $(units "$user")
+    systemctl restart $(units "$user")
+    # The first start creates the tables and the store's defaults.
+    if ! wait_healthy "$core_port" 300 || ! wait_healthy "$port" 60; then
+        systemctl disable --now --quiet $(units "$user") || true
+        fail "$user" "no answer from its health check, services stopped: journalctl -u ecommbd-core@$user" && return 0
+    fi
+    set_state "$user" STATE=active REASON=
+    if [[ $previous != active ]]; then write_login "$user" "$domain" "$(value_in "$core_env" SUPERADMIN_PASSWORD)"; fi
+    log "$user: ready at https://$domain"
+}
+
+fail() { # user reason
+    set_state "$1" STATE=failed REASON="$2"
+    log "$1: FAILED: $2"
+}
+
+# For the support team, in the site's home folder (CloudPanel's File Manager opens there).
+write_login() { # user domain password
+    local file=/home/$1/ecommbd/ADMIN-LOGIN.txt
+    install -m 600 -o "$1" -g "$1" /dev/null "$file"
+    cat >"$file" <<EOF
+Ecomm BD store: https://$2/
+Merchant admin: https://$2/admin
+Vendure Dashboard (support team only): https://$2/dashboard
+
+Username: superadmin
+Password: $3
+
+This is the support team's sign-in for this store. Give the merchant their own staff account in the
+merchant admin, keep this password in the team's password manager, then delete this file.
+EOF
+}
+
+remove() { # user
+    systemctl disable --now --quiet $(units "$1") 2>/dev/null || true
+    set_state "$1" STATE=removed REASON="site deleted in CloudPanel on $(date -u +%F); database $(get "$1" DB) and settings kept"
+    log "$1: site deleted in CloudPanel: services stopped, database kept"
+}
+
+cmd_sync() {
+    lock -n || exit 0
+    if [[ ! -L $BASE/current ]]; then exit 0; fi
+    local user domain port state seen=" " dir
+    while read -r user domain port <&3; do
+        if [[ $seen == *" $user "* ]]; then continue; fi
+        seen+="$user "
+        state=$(get "$user" STATE)
+        case $state in
+            active)
+                if [[ $(get "$user" PORT) != "$port" || $(get "$user" DOMAIN) != "$domain" ]]; then
+                    log "$user: App Port or domain changed in CloudPanel"
+                    provision "$user" "$domain" "$port"
+                fi
+                ;;
+            failed)
+                # Waits for `retry`, unless support fixed it in CloudPanel (a free App Port, say).
+                if [[ $(get "$user" PORT) != "$port" || $(get "$user" DOMAIN) != "$domain" ]]; then
+                    log "$user: App Port or domain changed in CloudPanel since it failed: trying again"
+                    provision "$user" "$domain" "$port"
+                fi
+                ;;
+            *) provision "$user" "$domain" "$port" ;; # new, interrupted, or a deleted store's user again
+        esac
+    done 3< <(scan_sites)
+    # CloudPanel deletes the site user with the site. A vhost alone can be missing while it's rewritten.
+    for dir in "$STORES"/*/; do
+        user=$(basename "$dir")
+        state=$(get "$user" STATE)
+        if [[ $state == removed || $seen == *" $user "* ]] || id -u "$user" >/dev/null 2>&1; then continue; fi
+        remove "$user"
+    done
+}
+
+cmd_scan() {
+    local user domain port state
+    while read -r user domain port <&3; do
+        state=$(get "$user" STATE)
+        case $state in
+            active)
+                if [[ $(get "$user" PORT) == "$port" ]]; then
+                    echo "$user  https://$domain  :$port  active"
+                else
+                    echo "$user  https://$domain  :$port  App Port changed: sync sets it up again"
+                fi
+                ;;
+            failed)
+                if [[ $(get "$user" PORT) != "$port" || $(get "$user" DOMAIN) != "$domain" ]]; then
+                    echo "$user  https://$domain  :$port  failed before, changed since: sync tries again"
+                else
+                    echo "$user  https://$domain  :$port  failed, waits for retry: $(get "$user" REASON)"
+                fi
+                ;;
+            *) echo "$user  https://$domain  :$port  new: sync sets it up (core :$((port - CORE_PORT_OFFSET)))" ;;
+        esac
+    done 3< <(scan_sites)
+}
+
+cmd_status() {
+    local dir user core state health
+    printf '%-18s %-32s %-6s %-6s %-12s %s\n' USER DOMAIN SHOP CORE STATE HEALTH
+    for dir in "$STORES"/*/; do
+        user=$(basename "$dir")
+        core=$(get "$user" CORE_PORT)
+        state=$(get "$user" STATE)
+        health=-
+        if [[ $state == active ]]; then
+            if healthy "$core"; then health=ok; else health=DOWN; fi
+        fi
+        printf '%-18s %-32s %-6s %-6s %-12s %s\n' "$user" "$(get "$user" DOMAIN)" "$(get "$user" PORT)" "$core" "$state" "$health"
+        if [[ $state == failed || $state == removed ]]; then printf '    %s\n' "$(get "$user" REASON)"; fi
+    done
+    if [[ -L $BASE/current ]]; then
+        printf '\nbuild: %s (%s)\n' "$(readlink "$BASE/current")" "$(value_in "$BASE/current/RELEASE" ref)"
+    fi
+}
+
+cmd_retry() { # user
+    local user=$1 u domain port
+    [[ -n $user ]] || die "usage: ecommbd-stores retry <site user>"
+    lock
+    while read -r u domain port <&3; do
+        if [[ $u != "$user" ]]; then continue; fi
+        set_state "$user" STATE=failed
+        provision "$user" "$domain" "$port"
+        return 0
+    done 3< <(scan_sites)
+    die "no CloudPanel Node.js site with an App Port from $PORT_FIRST to $PORT_LAST belongs to $user"
+}
+
+# The script and the systemd units, from a build (or the clone, on the first setup).
+install_files() { # folder
+    local src=$1/ops/cloudpanel tmp
+    tmp=$(mktemp /usr/local/sbin/.ecommbd-stores.XXXXXX)
+    install -m 755 "$src/ecommbd-stores" "$tmp"
+    mv -f "$tmp" /usr/local/sbin/ecommbd-stores
+    install -m 644 "$src"/systemd/*.service "$src"/systemd/*.timer /etc/systemd/system/
+    systemctl daemon-reload
+}
+
+switch_to() { # release id
+    as_builder ln -sfn "releases/$1" "$BASE/current.new"
+    as_builder mv -fT "$BASE/current.new" "$BASE/current"
+}
+
+backup() { # user label
+    local dir=$BACKUPS/$1 file
+    install -d -m 700 "$dir"
+    file="$dir/$(date -u +%Y%m%d-%H%M%S)-$2.dump"
+    if ! runuser -u postgres -- pg_dump -Fc "$(get "$1" DB)" >"$file"; then
+        rm -f "$file"
+        return 1
+    fi
+    ls -1t "$dir"/*.dump | tail -n +$((KEEP_BACKUPS + 1)) | xargs -r rm -f
+}
+
+restart_stores() { # label for the backups
+    local dir user ok=0 problems=0
+    for dir in "$STORES"/*/; do
+        user=$(basename "$dir")
+        if [[ $(get "$user" STATE) != active ]]; then continue; fi
+        if ! backup "$user" "$1"; then
+            log "$user: database backup failed, not restarted"
+            problems=$((problems + 1))
+            continue
+        fi
+        systemctl restart $(units "$user")
+        if wait_healthy "$(get "$user" CORE_PORT)" 300; then
+            ok=$((ok + 1))
+            log "$user: restarted"
+        else
+            problems=$((problems + 1))
+            log "$user: NOT answering after the restart: journalctl -u ecommbd-core@$user"
+        fi
+    done
+    log "stores restarted: $ok, problems: $problems"
+}
+
+prune_releases() {
+    local current r
+    current=$(readlink "$BASE/current")
+    for r in $(ls -1 "$BASE/releases" | sort -r | tail -n +$((KEEP_RELEASES + 1))); do
+        if [[ releases/$r != "$current" ]]; then rm -rf "${BASE:?}/releases/$r"; fi
+    done
+}
+
+deploy() { # ref
+    local ref=$1 sha id rel
+    [[ $ref =~ ^[A-Za-z0-9._/-]+$ ]] || die "not a branch, tag or commit: $ref"
+    as_builder git -C "$BASE/repo" fetch --quiet --prune --tags origin
+    sha=$(as_builder git -C "$BASE/repo" rev-parse --verify --quiet "refs/remotes/origin/$ref^{commit}") ||
+        sha=$(as_builder git -C "$BASE/repo" rev-parse --verify --quiet "$ref^{commit}") ||
+        die "no branch, tag or commit named $ref"
+    id="$(date -u +%Y%m%d-%H%M%S)-${sha:0:7}"
+    rel=$BASE/releases/$id
+    log "building $ref (${sha:0:7}) in $rel"
+    as_builder mkdir -p "$rel"
+    as_builder bash -c 'git -C "$1" archive "$2" | tar -x -C "$3"' _ "$BASE/repo" "$sha" "$rel"
+    printf 'ref=%s\ncommit=%s\nbuilt=%s\n' "$ref" "$sha" "$(date -u +%FT%TZ)" | as_builder tee "$rel/RELEASE" >/dev/null
+    # Low priority, so the server's other sites stay quick while it builds.
+    if ! as_builder nice -n 10 bash -c 'cd "$1" && npm ci --no-audit --no-fund --loglevel=error && env "${@:2}" npm run build' \
+        _ "$rel" "${BUILD_ENV[@]}"; then
+        rm -rf "$rel"
+        die "build failed; the stores still run $(readlink "$BASE/current" 2>/dev/null || echo 'no build')"
+    fi
+    install_files "$rel"
+    switch_to "$id"
+    log "now running $id"
+    restart_stores "${sha:0:7}"
+    prune_releases
+}
+
+cmd_deploy() {
+    lock
+    deploy "$1"
+}
+
+cmd_rollback() {
+    lock
+    local current previous='' r
+    current=$(readlink "$BASE/current")
+    for r in $(ls -1 "$BASE/releases" | sort); do
+        if [[ releases/$r == "$current" ]]; then break; fi
+        previous=$r
+    done
+    [[ -n $previous ]] || die "no build older than $current"
+    install_files "$BASE/releases/$previous"
+    switch_to "$previous"
+    log "back on $previous (database changes from the newer build are not undone)"
+    restart_stores "rollback"
+}
+
+install_node() {
+    local arch dir name tmp
+    case $(uname -m) in
+        x86_64) arch=x64 ;;
+        aarch64) arch=arm64 ;;
+        *) die "unsupported processor: $(uname -m)" ;;
+    esac
+    name="node-$NODE_VERSION-linux-$arch"
+    dir=$BASE/node-$NODE_VERSION
+    if [[ ! -x $dir/bin/node ]]; then
+        log "installing Node $NODE_VERSION in $dir"
+        tmp=$(mktemp -d)
+        curl -fsSL "https://nodejs.org/dist/$NODE_VERSION/$name.tar.xz" -o "$tmp/$name.tar.xz"
+        curl -fsSL "https://nodejs.org/dist/$NODE_VERSION/SHASUMS256.txt" -o "$tmp/SHASUMS256.txt"
+        (cd "$tmp" && grep " $name.tar.xz\$" SHASUMS256.txt | sha256sum -c --quiet -) || die "Node download doesn't match its checksum"
+        install -d -m 755 "$dir"
+        tar -xJf "$tmp/$name.tar.xz" -C "$dir" --strip-components=1 --no-same-owner
+        rm -rf "$tmp"
+    fi
+    ln -sfn "node-$NODE_VERSION" "$BASE/node"
+}
+
+setup_postgres() {
+    systemctl is-active --quiet postgresql || die "PostgreSQL isn't running: install it first (runbook, step 1)"
+    if (($(psql_value "show max_connections") < 200)); then
+        # About 20 connections per store (the core's and the worker's pools).
+        psql_run "alter system set max_connections = 200"
+        if [[ $(psql_value "select count(*) from pg_database where datname like 'ecommbd\_%'") == 0 ]]; then
+            systemctl restart postgresql
+            log "PostgreSQL: max_connections is now 200"
+        else
+            log "PostgreSQL: max_connections becomes 200 at its next restart (stores are running)"
+        fi
+    fi
+}
+
+# Two instances only for the stores: the queue never evicts, the cache does. Any Redis the server's
+# other sites use is left alone.
+setup_redis() {
+    command -v redis-server >/dev/null || die "Redis isn't installed: apt install redis-server"
+    local name port conf
+    for name in queue cache; do
+        conf=/etc/redis/ecommbd-$name.conf
+        if [[ $name == queue ]]; then port=63790; else port=63791; fi
+        if [[ ! -f $conf ]]; then
+            port_free "$port" || die "port $port is in use: ecommbd-redis@$name needs it"
+            install -m 640 -o root -g redis /dev/null "$conf"
+            {
+                printf 'port %s\nbind 127.0.0.1 -::1\nprotected-mode yes\ndaemonize no\n' "$port"
+                printf 'dir /var/lib/ecommbd-redis-%s\n' "$name"
+                if [[ $name == queue ]]; then
+                    printf 'appendonly yes\nmaxmemory-policy noeviction\n'
+                else
+                    printf 'save ""\nappendonly no\nmaxmemory 256mb\nmaxmemory-policy allkeys-lru\n'
+                fi
+                printf 'requirepass %s\n' "$(openssl rand -hex 32)"
+            } >"$conf"
+        fi
+        systemctl enable --now --quiet "ecommbd-redis@$name"
+    done
+    sleep 1
+    for name in queue cache; do
+        port=$(sed -nE 's/^port ([0-9]+)$/\1/p' "/etc/redis/ecommbd-$name.conf")
+        [[ $(REDISCLI_AUTH=$(redis_password "$name") redis-cli -p "$port" ping) == PONG ]] ||
+            die "ecommbd-redis@$name doesn't answer"
+    done
+    log "Redis: ecommbd-redis@queue (63790) and ecommbd-redis@cache (63791) running"
+}
+
+cmd_setup() {
+    lock
+    id -u ecommbd >/dev/null 2>&1 || die "create the ecommbd user first (runbook)"
+    [[ -d $BASE/repo/.git ]] || die "clone the code into $BASE/repo first (runbook)"
+    chmod 755 "$BASE"
+    install -d -m 700 /etc/ecommbd "$STORES" "$BACKUPS"
+    install -d -m 755 -o ecommbd -g ecommbd "$BASE/releases"
+    if [[ ! -f $CONFIG ]]; then
+        printf '# ecommbd-stores settings (docs/runbooks/cloudpanel-stores.md)\nREF=%s\nAPP_ENV=%s\nNODE_VERSION=%s\nPORT_FIRST=%s\nPORT_LAST=%s\n' \
+            "$REF" "$APP_ENV" "$NODE_VERSION" "$PORT_FIRST" "$PORT_LAST" >"$CONFIG"
+    fi
+    install_node
+    setup_postgres
+    deploy "$REF" # also installs this script and the services
+    setup_redis
+    systemctl enable --now --quiet ecommbd-stores-sync.timer
+    log "setup done: a CloudPanel Node.js site with an App Port from $PORT_FIRST to $PORT_LAST becomes a store within a minute"
+}
+
+[[ $EUID -eq 0 ]] || die "run as root: sudo ecommbd-stores ${*:-}"
+case ${1:-} in
+    setup) cmd_setup ;;
+    deploy) cmd_deploy "${2:-$REF}" ;;
+    rollback) cmd_rollback ;;
+    sync) cmd_sync ;;
+    scan) cmd_scan ;;
+    status) cmd_status ;;
+    retry) cmd_retry "${2:-}" ;;
+    *)
+        sed -nE 's/^#   (ecommbd-stores.*)$/\1/p' "$0"
+        exit 1
+        ;;
+esac

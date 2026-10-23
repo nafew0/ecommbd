@@ -97,7 +97,7 @@ export const config: VendureConfig = {
         ...(IS_DEV ? [GraphiqlPlugin.init()] : []),
         AssetServerPlugin.init({
             route: 'assets',
-            assetUploadDir: path.join(__dirname, '../static/assets'),
+            assetUploadDir: env.ASSETS_DIR ?? path.join(__dirname, '../static/assets'),
             // In dev the URL is guessed from the request; staging and production must set it.
             assetUrlPrefix: IS_DEV ? undefined : env.ASSET_URL_PREFIX,
         }),

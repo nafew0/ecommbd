@@ -1,0 +1,22 @@
+# The job worker (images, emails, search index) of one store. %i is the store's CloudPanel site user.
+[Unit]
+Description=Ecomm BD worker (%i)
+After=network-online.target postgresql.service ecommbd-redis@queue.service ecommbd-redis@cache.service
+Wants=ecommbd-redis@queue.service ecommbd-redis@cache.service
+
+[Service]
+User=%i
+Group=%i
+EnvironmentFile=/etc/ecommbd/stores/%i/core.env
+WorkingDirectory=/home/%i/ecommbd
+ExecStart=/opt/ecommbd/node/bin/node /opt/ecommbd/current/apps/core/dist/index-worker.js
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+MemoryMax=768M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

@@ -23,6 +23,8 @@ export const envSchema = z
             .pipe(z.array(z.url('must be a list of URLs, e.g. https://shop.example.com')))
             .optional(),
         ASSET_URL_PREFIX: z.url().optional(),
+        // Where uploaded originals are kept (default apps/core/static/assets). Each store needs its own.
+        ASSETS_DIR: z.string().optional(),
         // Where the WebP image sizes are written (default apps/core/static/images) and served from (default /img).
         IMAGES_DIR: z.string().optional(),
         IMAGE_URL_PREFIX: z.string().optional(),

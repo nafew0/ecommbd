@@ -1,0 +1,22 @@
+# The storefront of one store, on the site's App Port. It also passes the core's paths (/admin,
+# /shop-api, /dashboard…) to the core, so CloudPanel's own vhost needs no change. %i is the site user.
+[Unit]
+Description=Ecomm BD storefront (%i)
+After=network-online.target ecommbd-core@%i.service
+
+[Service]
+User=%i
+Group=%i
+EnvironmentFile=/etc/ecommbd/stores/%i/storefront.env
+WorkingDirectory=/home/%i/ecommbd
+ExecStart=/opt/ecommbd/node/bin/node /opt/ecommbd/current/apps/storefront/server.mjs
+Restart=always
+RestartSec=5
+TimeoutStopSec=15
+MemoryMax=512M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
