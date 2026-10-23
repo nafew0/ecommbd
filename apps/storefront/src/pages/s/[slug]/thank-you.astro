@@ -6,8 +6,7 @@ import Icon from '../../../components/Icon.astro';
 import Missing from '../../../components/Missing.astro';
 import Layout from '../../../layouts/Layout.astro';
 import { shopperContext } from '../../../lib/cart';
-import { ORDER_BY_CODE } from '../../../lib/checkout-queries';
-import { shopQuery } from '../../../lib/core';
+import { placedOrderByCode } from '../../../lib/checkout';
 import { pageContext, privatePage } from '../../../lib/page';
 import { loadSalesPage } from '../../../lib/sales';
 import { pageStyle } from '../../../lib/sections';
@@ -16,19 +15,16 @@ import { salesSlug } from '../../../lib/urls';
 /**
  * A sales page's thank-you page (roadmap phase 16): the merchant's message, the order, a WhatsApp
  * follow-up and the store's phone, and, when set, a move on to another page of this site after a
- * few seconds. Only the session that placed the order can read it (Vendure's order-by-code rules).
+ * few seconds. Only the session that placed the order can read it, for 2 hours (Vendure's
+ * order-by-code rules); anything else gets "track your order".
  */
 privatePage(Astro);
 const { lang, settings: store, s, href, format } = pageContext(Astro);
 const loaded = await loadSalesPage(Astro, salesSlug(Astro.params.slug ?? ''));
 const shopper = shopperContext(Astro, 'sales');
 const code = Astro.url.searchParams.get('order') ?? '';
-const order =
-    loaded && /^[A-Za-z0-9]{6,40}$/.test(code)
-        ? (await shopQuery(ORDER_BY_CODE, { code }, lang, shopper)).orderByCode
-        : null;
+const placed = loaded ? await placedOrderByCode(shopper, code) : null;
 shopper.session.apply(Astro.response.headers);
-const placed = order?.orderPlacedAt ? order : null;
 const number = placed?.customFields?.orderNumber ?? placed?.code ?? '';
 const cod = placed?.payments?.some(payment => payment.method === 'bd-cod') ?? false;
 const whatsapp = store.profile.whatsapp.replace(/\D/g, '');

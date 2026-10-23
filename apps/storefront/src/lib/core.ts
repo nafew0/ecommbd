@@ -29,9 +29,15 @@ export class RateLimitedError extends Error {
     }
 }
 
-/** The core answered with a GraphQL error: a bug on our side, pages answer 500. */
+/**
+ * The core answered with a GraphQL error: usually a bug on our side, pages answer 500. `code` is
+ * the error's own code (Vendure's `FORBIDDEN`…), for the few answers a page expects and handles.
+ */
 export class CoreQueryError extends Error {
-    constructor(message: string) {
+    constructor(
+        message: string,
+        readonly code?: string,
+    ) {
         super(message);
         this.name = 'CoreQueryError';
     }
@@ -84,7 +90,10 @@ export async function shopQuery<Result, Variables extends Record<string, unknown
     } | null;
     if (json?.errors?.[0]?.extensions?.code === 'RATE_LIMITED') throw new RateLimitedError();
     if (!json || json.errors?.length || !json.data) {
-        throw new CoreQueryError(json?.errors?.[0]?.message ?? `HTTP ${response.status}`);
+        throw new CoreQueryError(
+            json?.errors?.[0]?.message ?? `HTTP ${response.status}`,
+            json?.errors?.[0]?.extensions?.code,
+        );
     }
     return json.data;
 }

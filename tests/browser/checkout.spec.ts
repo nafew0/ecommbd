@@ -13,8 +13,9 @@ import {
 /**
  * Cart, checkout, thank-you and tracking on the storefront (roadmap phase 14): COD with and without
  * JavaScript, manual mobile banking, an advance, the SMS code, one order per tap, price and stock
- * changes, tracking and its limits, accessibility, the JS budget, and a timed checkout on a
- * throttled phone. Every order uses the "Playwright panjabi" (plenty in stock) and a random phone.
+ * changes, tracking (by number and phone, and the SMS link `/t/<token>/`) and its limits,
+ * accessibility, the JS budget, and a timed checkout on a throttled phone. Every order uses the
+ * "Playwright panjabi" (plenty in stock) and a random phone, unless a test makes its own product.
  */
 
 const SITE = process.env.STOREFRONT_URL ?? 'http://localhost:4321';
@@ -132,14 +133,44 @@ test.describe('checkout', () => {
         const number = await placeAndThankYou(page);
         expect(number).toMatch(/^[A-Z0-9-]*\d+$/);
         await expect(page.getByText('We’ll call you soon to confirm your order.')).toBeVisible();
-        await expect(page.getByRole('link', { name: 'Track this order' })).toHaveAttribute(
-            'href',
-            /^\/en\/t\/[\w-]{22}\/$/,
-        );
-        // Back to checkout: the order, not an empty form.
+        const track = page.getByRole('link', { name: 'Track this order' });
+        await expect(track).toHaveAttribute('href', /^\/en\/t\/[\w-]{22}\/$/);
+        // Back to checkout (or a second tab): the order, marked as placed already, not an empty form.
         await page.goto(`${SITE}/en/checkout/`);
-        await expect(page).toHaveURL(/\/checkout\/thank-you\//);
+        await expect(page).toHaveURL(/\/checkout\/thank-you\/\?order=\w+&again=1$/);
+        await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your order is already placed.');
+        await expect(page.locator('.thank-you-number')).toHaveText(`Order number: ${number}`);
+        // The SMS link: the same order by its token, first name and district only.
+        await track.click();
+        await expect(page).toHaveURL(/\/en\/t\/[\w-]{22}\/$/);
+        await expect(page.getByRole('heading', { name: `Order number: ${number}` })).toBeVisible();
+        await expect(page.locator('.timeline')).toContainText('Order received');
+        await expect(page.locator('.tracked-order')).toContainText('For PW, Dhaka');
+        await expect(page.locator('.tracked-order')).not.toContainText('House 12');
+        // A token that matches nothing reads like any miss.
+        const missing = await page.goto(`${SITE}/en/t/${'A'.repeat(22)}/`);
+        expect(missing?.status()).toBe(404);
+        await expect(page.getByRole('alert')).toHaveText(
+            'No order matches this number and phone. Please check both.',
+        );
         await context.close();
+    });
+
+    test('the thank-you page for an order this browser can’t see points to tracking', async ({
+        page,
+    }, testInfo) => {
+        test.skip(testInfo.project.name !== 'desktop', 'One run is enough');
+        // A mistyped code, another browser's order, or this browser's own after two hours: Vendure
+        // refuses to show it (FORBIDDEN), which was the error page.
+        const response = await page.goto(`${SITE}/en/checkout/thank-you/?order=NOSUCHORDER1`);
+        expect(response?.status()).toBe(200);
+        await expect(page.getByRole('heading', { level: 1 })).toHaveText('Track order');
+        await expect(
+            page.getByText(
+                'We couldn’t find this order in this browser. Track it with your order number and phone.',
+            ),
+        ).toBeVisible();
+        await expect(page.getByRole('link', { name: 'Track order' })).toHaveAttribute('href', '/en/track/');
     });
 
     test('a COD order in Bangla on a throttled phone takes under 60 seconds', async ({ page }, testInfo) => {
@@ -303,6 +334,37 @@ test.describe('checkout', () => {
         await context.close();
     });
 
+    test('an error page on "Place order" keeps the form, and the retry places the order', async ({
+        page,
+    }, testInfo) => {
+        test.skip(testInfo.project.name !== 'desktop', 'One run is enough');
+        await buyNow(page);
+        await fillCheckout(page, randomPhone());
+        const key = await page.locator('input[name="idempotencyKey"]').inputValue();
+        // The core timed out once: the storefront answers with its 503 page.
+        await page.route(
+            `${SITE}/en/checkout/`,
+            route =>
+                route.request().method() === 'POST'
+                    ? route.fulfill({
+                          status: 503,
+                          contentType: 'text/html',
+                          body: '<main>Unavailable</main>',
+                      })
+                    : route.continue(),
+            { times: 1 },
+        );
+        await placeButton(page).click();
+        await expect(page.locator('[data-status]')).toHaveText(
+            'Something went wrong on our side. Your details are still here: please try again.',
+        );
+        // The form is still there, filled in, with the same key, and the button works again.
+        await expect(page.getByLabel('Your name')).toHaveValue('PW Rahim Uddin');
+        await expect(page.locator('input[name="idempotencyKey"]')).toHaveValue(key);
+        await expect(placeButton(page)).toBeEnabled();
+        await placeAndThankYou(page);
+    });
+
     test('a price change shows the new total before placing', async ({ browser }, testInfo) => {
         test.skip(testInfo.project.name !== 'desktop', 'One run is enough');
         const { context, page } = await noScript(browser);
@@ -360,6 +422,50 @@ test.describe('checkout', () => {
             await placeButton(page).click();
             await expect(page.locator('[data-form-alert]')).toContainText('Playwright last one');
             await expect(page.locator('[data-part="summary"]')).not.toContainText('Playwright last one');
+            await placeAndThankYou(page);
+        } finally {
+            await context.close();
+            await admin.query('mutation ($id: ID!) { deleteProduct(id: $id) { result } }', {
+                id: createProduct.id,
+            });
+        }
+    });
+
+    test('3 in the cart and only 2 left: the cart is lowered to 2, with a message', async ({
+        browser,
+    }, testInfo) => {
+        test.skip(testInfo.project.name !== 'desktop', 'One run is enough');
+        const slug = `playwright-short-stock-${Date.now()}`;
+        const { createProduct } = await admin.query(
+            `mutation ($slug: String!) { createProduct(input: { translations: [{ languageCode: en, name: "Playwright short stock",
+                slug: $slug, description: "" }] }) { id } }`,
+            { slug },
+        );
+        const { createProductVariants } = await admin.query(
+            `mutation ($productId: ID!) { createProductVariants(input: [{ productId: $productId, sku: "${slug}",
+                price: 50000, stockOnHand: 3, translations: [{ languageCode: en, name: "Playwright short stock" }] }]) { id } }`,
+            { productId: createProduct.id },
+        );
+        const { context, page } = await noScript(browser);
+        try {
+            const product = `${SITE}/en/product/${slug}/`;
+            await expect.poll(async () => (await page.request.get(product)).status()).toBe(200);
+            await page.goto(product);
+            await page.locator('[data-buy-form] input[name="quantity"]').fill('3');
+            await page.locator('[data-buy-form] button[value="buy"]').click();
+            await expect(page).toHaveURL(/\/checkout\/$/);
+            await fillCheckout(page, randomPhone(), { script: false });
+            // Someone else buys one meanwhile.
+            await admin.query(
+                'mutation ($input: [UpdateProductVariantInput!]!) { updateProductVariants(input: $input) { id } }',
+                { input: [{ id: createProductVariants[0].id, stockOnHand: 2 }] },
+            );
+            await placeButton(page).click();
+            // It used to fail every time with "Couldn't place the order".
+            await expect(page.locator('[data-form-alert]')).toContainText(
+                'Only 2 of Playwright short stock left, so your cart now has 2.',
+            );
+            await expect(page.locator('[data-part="summary"]')).toContainText('৳1,000');
             await placeAndThankYou(page);
         } finally {
             await context.close();

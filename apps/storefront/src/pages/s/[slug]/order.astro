@@ -5,7 +5,14 @@ import Missing from '../../../components/Missing.astro';
 import SalesOrderForm, { type SalesFormState } from '../../../components/SalesOrderForm.astro';
 import Layout from '../../../layouts/Layout.astro';
 import { shopperContext } from '../../../lib/cart';
-import { type CheckoutErrors, placeOnce, quote, readValues, saveProgress } from '../../../lib/checkout';
+import {
+    type CheckoutErrors,
+    placedSessionOrder,
+    placeOnce,
+    quote,
+    readValues,
+    saveProgress,
+} from '../../../lib/checkout';
 import { SET_SALES_ORDER, THANAS } from '../../../lib/checkout-queries';
 import { shopQuery } from '../../../lib/core';
 import { csrfToken, formStamp, isSameSite, verifyCsrf } from '../../../lib/csrf';
@@ -58,6 +65,21 @@ if (loaded && formSection) {
         return new Response(null, { status: 204, headers });
     }
 
+    const thankYou = (code: string) => {
+        const headers = new Headers({
+            location: `${href(salesPath(page.slug, 'thank-you/'))}?order=${encodeURIComponent(code)}`,
+            'cache-control': 'no-store',
+        });
+        shopper.session.apply(headers);
+        return new Response(null, { status: 303, headers });
+    };
+    // A retry after the core placed the order but its answer was lost: that order, before the
+    // step below starts a new one with the same pack (a second order).
+    if (action === 'place') {
+        const recovered = await placedSessionOrder(shopper);
+        if (recovered) return thankYou(recovered);
+    }
+
     // The pack, variant and add-on as chosen now: the order always matches the form.
     const set = (
         await shopQuery(
@@ -75,14 +97,7 @@ if (loaded && formSection) {
             notice = s.sessionExpired;
         } else {
             const outcome = await placeOnce(shopper, form, s);
-            if (outcome.kind === 'placed') {
-                const headers = new Headers({
-                    location: `${href(salesPath(page.slug, 'thank-you/'))}?order=${encodeURIComponent(outcome.code)}`,
-                    'cache-control': 'no-store',
-                });
-                shopper.session.apply(headers);
-                return new Response(null, { status: 303, headers });
-            }
+            if (outcome.kind === 'placed') return thankYou(outcome.code);
             if (outcome.kind === 'invalid') errors = outcome.errors;
             if (outcome.kind === 'review') notice = outcome.message;
             if (outcome.kind === 'busy') notice = s.busy;

@@ -271,7 +271,7 @@ const phone = Astro.locals.settings.profile.phones[0];
                     {`${button} · ${format.price(total)}`}
                 </button>
                 {cod && <p class="pay-note">{s.payOnReceive}</p>}
-                <p class="form-status" role="status" aria-live="polite" data-status data-offline={s.noConnection}></p>
+                <p class="form-status" role="status" aria-live="polite" data-status data-offline={s.noConnection} data-server={s.serverTrouble}></p>
             </div>
         </form>
     )
