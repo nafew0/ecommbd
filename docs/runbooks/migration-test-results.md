@@ -1,57 +1,63 @@
-# Phases 21–22 verification
+# Phases 21–22: what was tested
 
-2026-10-22 · branch `solcodex` · local disposable environments, synthetic data only
+First run 2026-10-22; updated 2026-10-23 after the review fixes · branch `solcodex` · local test machines, made-up data only
 
-Phase 22 was planned in [phase-22-implementation.md](../roadmap/phase-22-implementation.md), then implemented over Phase 21 and current `main` (through Phase 14). Both import paths have been exercised. This report distinguishes local evidence from the real-store milestone acceptance, which still needs an authorized merchant rehearsal.
+This page says what the WooCommerce migration (phases 21 and 22) was tested with, and what still has to be tested on a real merchant's store. Passing here is not permission to move a merchant's domain: that needs the rehearsal at the end of this page.
 
 ## Automated checks
 
-| Check | Result | Scope |
+Run on 2026-10-23, after the review fixes.
+
+| Check | Result | What it covers |
 | --- | --- | --- |
-| Core unit tests | 130 passed, 9 files | Includes independent PHP-generated WordPress password vectors, money/address rules, adaptive REST paging, signed payloads and sitemap crawler bounds |
-| Core integration tests | 216 passed, 19 files | Actual Vendure/PostgreSQL; 10 migration scenarios plus existing commerce regressions |
-| Shared package tests | 396 passed, 28 files | Existing shared helpers, money, identity, encryption and HTTP guard regression suite |
-| Storefront unit tests | 47 passed, 6 files | Existing storefront helpers and checkout logic |
-| Full Playwright suite | 129 passed, 35 intentionally skipped; 4.7 minutes | All 16 browser files on desktop/phone: admin, checkout, payment, stock, customers, images, search, pages, storefront and migration; existing device-specific cases skip their other project |
-| Migration Playwright (included above) | All 4 passed | Desktop/phone, English/Bangla; real local API, worker and storefront |
-| Storefront Playwright (included above) | 21 passed, 1 intentionally skipped | Routing, SEO, pages, sitemaps, private paths, security headers and phone overflow; overflow-only check skips desktop |
-| Synthetic throughput | 1 passed; 96.31 seconds for the complete test | 500 products, including one product with 201 variations (700 total variants), 20,000 historical orders; signed upload, dry run, import and matching verification |
-| Static/build checks | Passed | Repository lint, workspace type checks, admin/core/dashboard/storefront builds; PHP syntax checks |
-| Database migrations | Passed | Generated additive six-table Phase 22 migration; applied after main and Phase 21 migrations; fresh server also starts with all pending migrations applied |
+| Lint, type checks, formatting | Pass | The whole repository |
+| Unit tests | All pass (shared 402, core 149, storefront 67, admin 53, sections 79, bd-geo 51) | Money and address rules, slugs, page sizes, reserved addresses, hash limits, the import-time estimate, the "importing" mark, notes paging, signed uploads, WordPress password formats, the migration screens' formatting and that every importer code has a message |
+| Core end-to-end tests | All pass: 269 tests in 23 files (102 s, four files at a time) | A real Vendure and PostgreSQL. The two migration files: `woo-migration.e2e-spec.ts` (11 tests: both import methods, repeat imports, pairing, passwords, coupons, cleanup) and `woo-migration-urls.e2e-spec.ts` (8 tests: the review fixes below) |
+| Browser tests (Playwright) | All pass: 161 passed, 63 skipped by design (device-specific cases run on one of the two projects), 5.8 minutes | Desktop and phone, English and Bangla. The migration screens, real storefront redirects and the rest of the store |
+| WordPress plugin (`apps/wp-migrator/tests/run.sh`) | Pass on all three sites | See the next section |
+| Speed suite (`npm run test:speed`) | Pass | Phase 17's cache, including the purge-all and warm-up after an import |
 
-The throughput result is a local synthetic measurement with no remote images or source-host requests. It does **not** prove the real-host one-hour migration target or cheap-host execution limits. Existing `pg` concurrency deprecation warnings originate in the Vendure test runtime; the integration assertions pass.
+### What the review-fix tests prove
 
-## WordPress compatibility evidence
+`apps/core/test/e2e/woo-migration-urls.e2e-spec.ts`, against a small store with a Bangla product and category:
 
-| WordPress | WooCommerce | PHP | Storage and result |
+- A Bangla product keeps its address: `/product/লাল-শার্ট/`, not `/product/e0a6b2…/`. Its old `?p=` and `?product=` links and its category's old address point at the new ones.
+- A product link without a trailing slash (WordPress `/%postname%`) imports, and needs no rule.
+- The old host "goes down" during the products: the run stops at that product, skipping nothing, and a resume finishes the import with no duplicates.
+- One product whose variations can't be read is skipped with an issue while the rest imports; a variation with no price is left out with a warning; a category whose parent is missing goes to the top level with an issue.
+- On a fresh store whose highest WooCommerce order number is 5000, our next order number is 5001.
+- WordPress pages go to our page with the same address (or need no rule when the address is the same); a rule can't claim the home page or the sitemap.
+- A rule saved by staff survives a re-import and can be deleted; a rule saved for one of our live pages doesn't re-point other old links.
+- The missing-pages list ignores `/wp-login.php`, records `/t-shirts/`, and makes room when it holds 5,000 paths.
+
+`woo-migration.e2e-spec.ts` also checks that revoking the helper deletes its upload at once, that the customers' password hashes are gone from the uploaded data after an import, and that a used coupon comes over with the uses it has left.
+
+### Not covered by automated tests
+
+- **Image downloads.** The test stores have no images: the download checks (approved hosts, no private addresses, size and type) are tested in `packages/shared` and phase 09, not through a whole import.
+- **A real WooCommerce REST API.** The REST tests answer from fixtures. The WordPress plugin, below, runs against real WordPress and WooCommerce.
+- **The one-hour target** for 500 products and 20,000 orders on a real host. The local benchmark (`apps/core/vitest.migration-bench.config.mts`) took 96 seconds through the helper path with no images and no network: it says the importer itself isn't the slow part, nothing more.
+
+## WordPress plugin
+
+`apps/wp-migrator/tests/run.sh` starts WordPress and WooCommerce in Docker, installs the plugin and runs its checks. It passed on:
+
+| PHP | WordPress | WooCommerce | Order storage |
 | --- | --- | --- | --- |
-| 7.1.3 | 11.2.1 | 8.3.36 | Classic export fixture passed; HPOS order/notes/refund export passed |
-| 5.8.3 | 4.9.4 | 7.4 | Classic export fixture passed |
+| 7.4.32 | 5.8.3 | 4.9.5 | Classic |
+| 8.5.12 | 7.1.3 | 11.2.1 | Classic |
+| 8.5.12 | 7.1.3 | 11.2.1 | HPOS |
 
-Both environments passed runtime assertions for capability checks, missing admin nonce, exclusion of admin/customer mixed-role users, encrypted pending chunks, TLS verification, no outbound redirect following, PHP/JavaScript signature compatibility, unchanged payload after a lost acknowledgement, visible cron errors and cleanup. Metadata checks cover the actual Yoast taxonomy-option layout, RankMath term fields and PixelYourSite's separate Pixel ID option; CAPI tokens are excluded. The helper page also renders its progress labels in Bangla.
+On each: every plugin file passes `php -l` on PHP 7.4; all 62 texts have Bangla; capability and nonce checks; no administrator's hash, courier key or secret-looking order data is exported; nothing is sent before the merchant confirms the destination; a resend after a timeout is byte-for-byte the same; the lock holds; time and memory budgets stop a run; one run sends many chunks and the size grows back (300 tags went in chunks of 2, 4, 8, 16, 32, 64, 100 and 74). These are scripts run with WP-CLI, not a PHPUnit suite, and they are not in CI. Other versions between the oldest and the latest, multisite networks and real security plugins were not tried.
 
-These are runtime assertions through WP CLI in real WordPress/WooCommerce containers, rather than a PHPUnit suite. They do not cover every intermediate version, WooCommerce 4.0 specifically, a real multisite network, every SEO plugin version or real security-plugin/firewall installations. Product/order data uses WooCommerce CRUD/controllers rather than raw order tables.
+## Fixed after the first run
 
-## Migration behavior exercised
-
-- REST: adaptive paging/retries and safe offset changes; catalog, options, categories, customers and historical orders; exact decimal history, notes/refunds and repeat imports. Network fixtures provide source responses; no merchant REST service was contacted.
-- Helper: one-use pairing; source/channel scope; timestamp/signature/nonce checks; sequence gaps, altered duplicates, lost acknowledgements, token expiry/revocation; encrypted uploaded chunks; fresh pairing required for catch-up; completion/expiry cleanup.
-- Verification: exact counts, currency/month totals and canonical JSON sample fingerprints; saved cursor resume; changed child data included by a full frozen-source reconciliation. Repeated unchanged imports create no duplicate catalog or historical orders.
-- Identity: matching conflicts cannot take over an existing account. Supported MD5, phpass `$P$`/`$H$`, plain bcrypt and WordPress `$wp` bcrypt hashes verify; wrong/expired/unsupported hashes fail. First login upgrades to native hashing; password reset invalidates the old route. A new source password can refresh only a still-pending, owned legacy reference.
-- Extras: SEO, private approved-review archive and allowlisted source settings; supported coupons actually reduce a cart total. Unsupported eligibility/usage rules are reported; a previously imported coupon is disabled if its source gains unsupported restrictions.
-- Open orders: recent simple unpaid COD conversion, reviewed stock choice, original number, idempotent retry, quote checks and refusal of complex/paid/conflicting orders. Historical imports create no native payment or placement notification.
-- URLs: custom source bases, nested paths, attachment and query URLs, Unicode/case/slash normalization; no loops or external targets; bounded missing-URL counters; crawler accepts a final 200 or one same-origin 301 and reports failures/truncation.
-- Browser operations: pairing, upload, dry run, acknowledged import, progress/report/history, redirect editing and actual storefront redirects, source settings, persisted checklist and private rollback-order download. No client script errors or phone overflow in the exercised migration screens.
-
-## Defects found and repaired
-
-The tests exposed Vendure updates being passed string IDs (which can insert partial rows), category-tree updates needing the collection move API, object-key reordering by PostgreSQL JSONB breaking sample fingerprints, and stale history after an import finished. Those are repaired. Further review tightened stock reconciliation, changed legacy-order protection after conversion, supported password formats, fresh helper catch-up, retryable image failures, exact refund exports, Yoast category SEO, Pixel ID extraction and unsupported coupon updates.
-
-The existing storefront browser setup also needed a synthetic store name on a fresh database so SEO assertions had a valid fixture. It sets the name only when both language fields are blank.
+- 2026-10-22, found by the first tests: Vendure updates given string IDs, moving categories in the tree, JSON key order breaking sample comparisons, and stale history after an import.
+- 2026-10-23, found by the review: Bangla slugs, trailing slashes, old pages taking over store pages, one bad record stopping resumes, the order-number hand-over, the "importing" mark, password hashes outliving a revoked pairing, used coupons, and the WordPress plugin's speed, secrets and readability. See the CHANGELOG.
 
 ## Reproduce
 
-Use disposable databases and the standard local PostgreSQL/Redis services. Do not run fixture seeding against a merchant database.
+Use a throwaway database and the usual local PostgreSQL and Redis. Never run the fixture scripts against a merchant's database.
 
 ```sh
 npm run lint
@@ -60,34 +66,18 @@ npm test
 npm run test:e2e
 npm run build
 npm run test:browser
+apps/wp-migrator/tests/run.sh
 ```
 
-For just migration browsers, start built core/worker/storefront with a configured `WOO_IMPORT_KEYS` and public HTTPS `WOO_PUBLIC_URL`, then run:
+For the browser tests, set `DB_NAME` to the same throwaway database as the running core (the checkout test reads its SMS codes from it), and use spare ports (see README). Build the installable plugin with `python3 apps/wp-migrator/package.py`; it leaves out the tests.
 
-```sh
-BROWSER_BASE_URL=http://localhost:3096 STOREFRONT_URL=http://localhost:4396 npx playwright test -c playwright.migration.config.ts
-```
+## Still to do with a real store
 
-The isolated configuration expects already-running services. Set `DB_NAME` (and other `DB_*` values) to the same disposable database as the running core when executing the full suite: the checkout test's OTP reader accesses it directly. The normal root Playwright configuration starts the services itself and includes the migration tests. CI uses dummy fixture keys and a synthetic public HTTPS origin; a real deployment must use its own secrets and reachable origin.
+1. **Rehearse on an authorized copy of the pilot store**: its real product types, custom fields, SEO and permalink plugins, order statuses, images and totals. The roadmap's 3–5 real BD stores are still needed.
+2. **Check the old host's limits and protected images.** The helper sends image addresses, not the images: images behind a login or a firewall show as issues and may need an allowed host.
+3. **Review what didn't come over**: unsupported coupons, plugin features, pages that went to the home page. Freeze the old store for the final sync: an export is not a database snapshot.
+4. **Phase 20 isn't built yet**, so the Pixel ID is kept for review, not put into Meta settings.
+5. **Crawl the old sitemap against staging** until it finds no missing pages and no chains. The crawler checks up to 20 sitemap files and 2,000 addresses per run and says when it stopped early.
+6. **Rehearse the [cutover and rollback](cutover.md)**: backups and a restore, payment callbacks, courier webhooks, DNS and TLS, one approved real order.
 
-The opt-in scale test creates its own disposable database through Vendure's test initializer:
-
-```sh
-cd apps/core
-npx vitest run -c vitest.migration-bench.config.mts
-```
-
-WordPress runtime checks live in `apps/wp-migrator/tests/`. `compose.yml` isolates both version fixtures under project `ecommbd-m5-wp`. Install WordPress/WooCommerce and activate the helper in those disposable containers, run `fixture.php` once, then `security.php` and `metadata.php` using `wp eval-file`. The fixture writes a private temporary export **inside the container**; do not copy raw password-bearing exports into the repository. Repository JSON fixtures use an explicit synthetic-data allowlist and contain no hashes or tokens.
-
-Build the installable ZIP with `python3 apps/wp-migrator/package.py`; it excludes tests and exports.
-
-## Remaining merchant acceptance
-
-1. Rehearse on an authorized copy of the pilot store, including its real product types, custom fields, SEO/permalink plugins, order statuses, images and accounting totals. The original 3–5 real BD store sample requirement remains outstanding.
-2. Confirm source-host limits and protected media access. The helper sends media URLs, not protected image bytes; blocked downloads remain visible issues and may need an approved host/IP allowlist or manual repair. The local benchmark is not this acceptance test.
-3. Review unsupported coupons, plugin features and page mappings. Source pages currently fall back to home until mapped deliberately. Physical dimensions remain source metadata; they are not active destination shipping dimensions. The source must be frozen for a complete reconciliation; exports are not transactional database snapshots.
-4. Phase 20 is not implemented on current main. Pixel ID is saved and shown for review; live Meta settings prefill/activation and event verification await that integration. Shipping/permalink settings are references, not silently applied store configuration.
-5. Run the old sitemap against staging with zero unresolved URLs/chains. The crawler is bounded at 20 sitemap documents and 2,000 URLs per run and explicitly reports truncation; split a larger sitemap.
-6. Rehearse [cutover and rollback](cutover.md), including actual backups/restore, gateway callbacks, courier webhooks, DNS/TLS, one approved real order and Meta checks when available. Rollback export is a private re-entry aid for up to 5,000 orders within 31 days; it does not restore gateway or courier state automatically.
-
-Phases 21–22 remain in review until this real-store acceptance is completed. No merchant data, live domain, payment account or production infrastructure was changed by these tests.
+Phases 21–22 stay in Review until this is done. No merchant data, live domain, payment account or server was touched by these tests.

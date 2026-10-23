@@ -36,6 +36,7 @@ Status: automated Phase 21/22 checks are recorded in [test results](migration-te
 - [ ] Break an image, import, repair the source image/host approval and run again. The failed media must retry even when the source product text is unchanged.
 - [ ] Change product price/stock, an imported customer's name/address and an order note/refund. Reconcile: updates appear without duplicates. A changed customer identity requires review; a merged native profile is preserved and reported.
 - [ ] Interrupt the worker mid-orders. After its 5-minute lease expires, resume. Counts and totals equal an uninterrupted run. Try two resumes and a second import at once: only one run may write for that source.
+- [ ] Break one product's variations (or one order's notes) on the source. The record is skipped with `SOURCE_RECORD_UNREADABLE` and the import finishes. Then stop the source host mid-import: the run stops at the record it was on (nothing skipped), and a resume finishes it.
 - [ ] Simulate source 429/5xx/timeouts and large pages. Confirm the page size falls 100 → 50 → 20 → 10 using the same absolute offset, and a continuing outage leaves a resumable failure.
 - [ ] Freeze all source writes for the final rehearsal pass. Reconciliation rereads the full source, including notes/refunds. Confirm source-count and monthly-total matches. A deletion produces a mismatch for review; records are not automatically deleted from the destination.
 
@@ -59,6 +60,6 @@ For each store, record versions/storage mode, counts before/after, expected/actu
 
 ## Integration contract for M3/M4
 
-Historical imports never call the native order/payment flow. Catalog event listeners performing external work should skip `isWooImportContext(event.ctx)` and use `WooImportCompletedEvent` for one final invalidation; image jobs and slug history still run. Reviewed live conversion emits placement events with `order.customFields.imported=true`; external placement listeners must check that event snapshot before rereading the order. Activation clears that flag afterward so future fulfillment works normally.
+Historical imports never call the native order/payment flow. Catalog event listeners performing external work should skip `isWooImportContext(event.ctx)` and use `WooImportCompletedEvent` for one final invalidation; image jobs and slug history still run. The mark travels with the request context, including the copies Vendure gives event subscribers and transactions (it used to be lost there). `WooImportCompletedEvent` is published after the search index has been rebuilt, so a listener that refreshes listings sees the imported catalog. Reviewed live conversion emits placement events with `order.customFields.imported=true`; external placement listeners must check that event snapshot before rereading the order. Activation clears that flag afterward so future fulfillment works normally.
 
 Helper plugin, passwords, SEO redirects and production cutover are Phase 22 and are not part of this checklist.
