@@ -4,10 +4,11 @@
 
 ## Decision
 
-Merchants see eight statuses. Each maps to one or more Vendure order states:
+Merchants see nine statuses. Each maps to one or more Vendure order states:
 
 | Status (en / bn) | Vendure states | Notes |
 |---|---|---|
+| Awaiting payment / পেমেন্টের অপেক্ষায় | `AwaitingPayment` (ours, phase 18) | Placed with an online payment (SSLCommerz, bKash) still `Pending` at the gateway. Holds stock; not in the confirmation queue |
 | New / নতুন | `PaymentAuthorized`, `PaymentSettled` | COD and advance orders are `PaymentAuthorized`; fully prepaid ones `PaymentSettled` |
 | Confirmed / কনফার্মড | `Confirmed` (ours) | |
 | Packed / প্যাকড | `Packed` (ours) | |
@@ -19,7 +20,9 @@ Merchants see eight statuses. Each maps to one or more Vendure order states:
 
 Carts, drafts and Vendure's internal states (`AddingItems`, `ArrangingPayment`, `Draft`, `Modifying`, `ArrangingAdditionalPayment`) have no status and keep Vendure's own rules.
 
-**An order counts as placed** with Vendure's default order-placed strategy: when checkout completes (`ArrangingPayment` → `PaymentAuthorized` or `PaymentSettled`), cash on delivery included. That's when it gets its order number and enters the confirmation queue.
+**An order counts as placed** when checkout completes: `ArrangingPayment` → `PaymentAuthorized` or `PaymentSettled` (Vendure's default, cash on delivery included), or → `AwaitingPayment` (phase 18: our order-placed and stock-allocation strategies add it). That's when it gets its order number and its stock. It enters the confirmation queue when it becomes New: at once, or when the online payment arrives.
+
+`AwaitingPayment` is reached only when the order's payments cover the total counting a `Pending` online payment (a custom payment state that isn't money received). The gateway's confirmation settles that payment and Vendure moves the order on: to `PaymentSettled`, or to `PaymentAuthorized` when it was an online advance with COD for the rest. Not paid in time: the expiry task cancels it with reason `paymentNotReceived` and cancels its payments.
 
 ## Allowed transitions between placed states
 
@@ -27,6 +30,7 @@ Our order process adds the custom states and refuses every transition between pl
 
 | From | To |
 |---|---|
+| `AwaitingPayment` (Awaiting payment) | `PaymentSettled`, `PaymentAuthorized` (the gateway confirmed it), `Cancelled` (not paid in time, or staff) |
 | `PaymentAuthorized` (New) | `Confirmed`, `Cancelled`, `PaymentSettled` (payment received, still New), `Modifying`, `ArrangingAdditionalPayment` |
 | `PaymentSettled` (New) | `Confirmed`, `Cancelled`, `Modifying`, `ArrangingAdditionalPayment`, and `Packed` only when the store setting "skip confirmation for prepaid orders" is on |
 | `Confirmed` | `Packed`, `Cancelled`, `Modifying` (an edit, phase 05) |

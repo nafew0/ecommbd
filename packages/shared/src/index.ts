@@ -24,6 +24,7 @@ export * from './rich-text';
 export * from './search';
 export * from './shipping';
 export * from './sms';
+export * from './sslcommerz-sign';
 export * from './ssrf';
 export * from './store-settings';
 export * from './text';

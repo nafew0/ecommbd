@@ -548,6 +548,11 @@ enum Permission {
   ReadRisk
 
   """
+  Accept or refund online payments held for review (late, duplicate, risky)
+  """
+  ManagePayments
+
+  """
   Design the storefront: theme, home page, page sections and the product page template
   """
   EditStorefront
@@ -4232,6 +4237,11 @@ type BdPaymentOptions {
   """COD needs the code sent by SMS first (sendBdOtp, then verifyBdOtp)"""
   codOtpRequired: Boolean!
   mfs: [BdMfsAccount!]!
+
+  """
+  Gateways the order can be paid with now (on, set up, not paused after failures)
+  """
+  online: [BdOnlinePaymentOption!]!
 }
 
 input BdCheckoutProgressInput {
@@ -4266,6 +4276,33 @@ type BdOtpResult {
 
   """With WRONG_CODE"""
   attemptsLeft: Int
+}
+
+type BdOnlinePaymentOption {
+  """sslcommerz or bkash"""
+  gateway: String!
+
+  """
+  The payment method code for addPaymentToOrder (metadata: { purpose: full | advance })
+  """
+  methodCode: String!
+
+  """sandbox or live: in sandbox no real money moves"""
+  mode: String!
+}
+
+type BdTrackedOnlinePayment {
+  gateway: String!
+
+  """advance or full"""
+  purpose: String!
+  amount: Money!
+
+  """When the order is cancelled if still unpaid"""
+  expiresAt: DateTime!
+
+  """Why the last try failed, e.g. insufficientBalance, unavailable"""
+  lastFailure: String
 }
 
 enum BdSearchSort {
@@ -4375,7 +4412,7 @@ type BdTrackedOrderLine {
 
 type BdTrackedStatus {
   """
-  new, confirmed, packed, shipped, partiallyDelivered, delivered, returned or cancelled
+  awaitingPayment, new, confirmed, packed, shipped, partiallyDelivered, delivered, returned or cancelled
   """
   status: String!
   at: DateTime!
@@ -4401,6 +4438,11 @@ type BdTrackedOrder {
 
   """The courier's own tracking page, once the parcel is booked (phase 19)"""
   courierTrackingUrl: String
+
+  """
+  Set while the order waits for its online payment: show 'Pay now' (POST /bd-pay/again/<token>)
+  """
+  onlinePayment: BdTrackedOnlinePayment
 }
 
 type BdLayout {

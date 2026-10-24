@@ -165,8 +165,10 @@ provision() { # user domain port
     psql_run "revoke all on database $db from public"
 
     # Settings, readable by root only (systemd hands them to the services).
-    local core_env=$dir/core.env storefront_env=$dir/storefront.env cookie superadmin csrf
+    local core_env=$dir/core.env storefront_env=$dir/storefront.env cookie superadmin csrf keyring
     cookie=$(value_in "$core_env" COOKIE_SECRET)
+    # Kept forever once made: a new key would make the saved payment gateway credentials unreadable.
+    keyring=$(value_in "$core_env" SECRETS_KEYRING)
     superadmin=$(value_in "$core_env" SUPERADMIN_PASSWORD)
     csrf=$(value_in "$storefront_env" CSRF_SECRET)
     install -m 600 /dev/null "$core_env.new"
@@ -194,6 +196,7 @@ REDIS_CACHE_PORT=63791
 REDIS_CACHE_PASSWORD=$(redis_password cache)
 STORE_DEFAULT_LANGUAGE=bn
 STOREFRONT_URL=https://$domain
+SECRETS_KEYRING=${keyring:-v1:$(openssl rand -base64 32)}
 LOG_LEVEL=info
 LOG_FORMAT=json
 STORE_ID=$user

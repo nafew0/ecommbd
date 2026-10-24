@@ -8,6 +8,7 @@ One word per idea everywhere: storefront, Dashboard, SMS, help articles. Banglad
 |---|---|
 | Order | অর্ডার |
 | Order number | অর্ডার নম্বর |
+| Awaiting payment (order status) | পেমেন্টের অপেক্ষায় |
 | New (order status) | নতুন |
 | Confirmed | কনফার্মড |
 | Packed | প্যাকড |
@@ -18,6 +19,10 @@ One word per idea everywhere: storefront, Dashboard, SMS, help articles. Banglad
 | Cash on delivery (COD) | ক্যাশ অন ডেলিভারি |
 | Advance payment | অগ্রিম পেমেন্ট |
 | Transaction ID (TrxID) | ট্রানজেকশন আইডি |
+| Online payment | অনলাইন পেমেন্ট |
+| Payment gateway | পেমেন্ট গেটওয়ে |
+| Sandbox (test mode) | স্যান্ডবক্স (পরীক্ষা) |
+| Refund | রিফান্ড |
 | Delivery charge | ডেলিভারি চার্জ |
 | Inside Dhaka / Outside Dhaka | ঢাকার ভেতরে / ঢাকার বাইরে |
 | Division / District / Thana / Upazila | বিভাগ / জেলা / থানা / উপজেলা |

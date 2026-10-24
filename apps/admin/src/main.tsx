@@ -149,6 +149,20 @@ const router = createBrowserRouter(
                                 })),
                         },
                         {
+                            path: 'orders/payment-reviews',
+                            lazy: () =>
+                                import('./pages/payment-reviews').then(module => ({
+                                    Component: module.PaymentReviewsPage,
+                                })),
+                        },
+                        {
+                            path: 'settings/online-payments',
+                            lazy: () =>
+                                import('./pages/online-payment-settings').then(module => ({
+                                    Component: module.OnlinePaymentSettingsPage,
+                                })),
+                        },
+                        {
                             path: 'orders/:id',
                             lazy: () =>
                                 import('./pages/order-detail').then(module => ({

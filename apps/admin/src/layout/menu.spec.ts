@@ -21,6 +21,7 @@ describe('menu', () => {
             '/orders/incomplete',
             '/orders/campaigns',
             '/orders/payments',
+            '/orders/payment-reviews',
         ]);
         expect(menu[2]!.children!.map(child => child.to)).toEqual([
             '/products',
@@ -42,6 +43,7 @@ describe('menu', () => {
             '/settings/orders',
             '/settings/delivery',
             '/settings/payments',
+            '/settings/online-payments',
             '/settings/sms',
             '/settings/fraud',
             '/settings/invoice',
@@ -72,6 +74,7 @@ describe('menu', () => {
             '/orders',
             '/orders/incomplete',
             '/orders/campaigns',
+            '/orders/payment-reviews',
         ]);
     });
 

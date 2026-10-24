@@ -1,4 +1,5 @@
 ---
+import { BKASH_FAILURE_MESSAGES, type BkashFailure } from '@ecommbd/shared/online-payments';
 import { formatDhaka } from '@ecommbd/shared/time';
 import type { TrackedOrderFields } from '../lib/checkout-queries';
 import type { ResultOf } from '../lib/core';
@@ -7,13 +8,26 @@ import { pageContext } from '../lib/page';
 /** What a shopper may see of an order (roadmap phase 14): status timeline, items, money due. */
 interface Props {
     order: ResultOf<typeof TrackedOrderFields>;
+    /** The order's tracking token: with it, an order waiting for its online payment gets "Pay now". */
+    token?: string;
+    /** What the gateway said, when the shopper comes back from it (`?payment=…&reason=…`). */
+    payment?: string | null;
+    reason?: string | null;
 }
 
-const { order } = Astro.props;
+const { order, token, payment, reason } = Astro.props;
 const { lang, settings, s, format } = pageContext(Astro);
 const banglaDigits = lang === 'bn' && settings.locale.banglaDigits;
 const date = (iso: string, withTime = false) => formatDhaka(new Date(iso), { banglaDigits, withTime });
 const ended = order.status === 'cancelled' || order.status === 'returned';
+const online = order.onlinePayment;
+const result = payment ? s.paymentResults[payment] : null;
+// bKash's own reason when it said why (insufficient balance…), else the plain result.
+const failure = (reason ?? online?.lastFailure) as BkashFailure | null | undefined;
+const failureText =
+    failure && failure in BKASH_FAILURE_MESSAGES.en && failure !== 'failed'
+        ? BKASH_FAILURE_MESSAGES[lang === 'en' ? 'en' : 'bn'][failure]
+        : null;
 ---
 
 <article class="tracked-order">
@@ -21,6 +35,24 @@ const ended = order.status === 'cancelled' || order.status === 'returned';
         <h2>{s.orderNumberIs(order.orderNumber)}</h2>
         <p class="muted">{s.orderFor(order.firstName, order.district)} · {s.placedOn(date(order.placedAt))}</p>
     </header>
+    {result && (
+        <p class="form-alert" role="status">
+            {failureText ?? result}
+        </p>
+    )}
+    {
+        online && token && (
+            <div class="mfs-box">
+                <p>{s.payBy(date(online.expiresAt, true))}</p>
+                {!result && failureText && <p class="field-error">{failureText}</p>}
+                <form method="post" action={`/bd-pay/again/${encodeURIComponent(token)}`}>
+                    <button class="button" type="submit">
+                        {s.payOnlineNow} · {format.price(online.amount)}
+                    </button>
+                </form>
+            </div>
+        )
+    }
     <ol class:list={['timeline', { 'is-ended': ended }]}>
         {
             order.timeline.map((step, index) => (

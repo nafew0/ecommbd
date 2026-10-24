@@ -8,9 +8,9 @@ import {
     mergeCredentials,
     nextReconcileDelayMs,
     parseOnlinePaymentSettings,
-    sslcommerzSignatureValid,
     toGatewayAmount,
 } from './online-payments';
+import { sslcommerzSignatureValid } from './sslcommerz-sign';
 
 const md5 = (text: string) => createHash('md5').update(text).digest('hex');
 

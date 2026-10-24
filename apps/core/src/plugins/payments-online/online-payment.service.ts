@@ -7,6 +7,7 @@ import {
     sslcommerzSignatureValid,
 } from '@ecommbd/shared';
 import { Inject, Injectable } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import {
     AdministratorService,
     HistoryService,
@@ -23,6 +24,7 @@ import {
 } from '@vendure/core';
 import { randomBytes } from 'node:crypto';
 import { In, LessThanOrEqual } from 'typeorm';
+import { StoreSettingsService } from '../bd-core';
 import { OrderActionsService } from '../bd-orders';
 import { TrackingService } from '../bd-tracking';
 import { type AttemptEvent, BdPaymentAttempt } from './attempt.entity';
@@ -82,7 +84,27 @@ export class OnlinePaymentService {
         private administrators: AdministratorService,
         private tracking: TrackingService,
         private orderActions: OrderActionsService,
+        private moduleRef: ModuleRef,
     ) {}
+
+    /** From bd-core, found like Vendure's own injector does (any module). */
+    private get storeSettings() {
+        return this.moduleRef.get(StoreSettingsService, { strict: false });
+    }
+
+    /**
+     * The storefront's address in the shopper's language: the store's default language has no prefix,
+     * the other is under /en or /bn (phase 12's URLs).
+     */
+    private async storefrontBase(ctx: RequestContext, order: Order): Promise<string> {
+        const locale = (order.customFields as { locale?: string | null }).locale;
+        const { locale: store } = await this.storeSettings.get(ctx);
+        const prefix =
+            locale && (locale === 'en' || locale === 'bn') && locale !== store.defaultLanguage
+                ? `/${locale}`
+                : '';
+        return `${this.publicUrl ?? ''}${prefix}`;
+    }
 
     /** The store's public address (STOREFRONT_URL), without a trailing slash; null when not set. */
     get publicUrl(): string | null {
@@ -141,7 +163,10 @@ export class OnlinePaymentService {
         return this.startAtGateway(ctx, current, order);
     }
 
-    /** "Pay now" on the tracking page: a new attempt for an order still waiting for its payment. */
+    /**
+     * "Pay now" on the tracking page: a new attempt for an order still waiting for its payment.
+     * Returns the storefront's pay page for it.
+     */
     async payAgain(trackingToken: string): Promise<string> {
         const ctx = await this.background();
         if (!/^[A-Za-z0-9_-]{20,32}$/.test(trackingToken)) return this.homeUrl();
@@ -166,7 +191,9 @@ export class OnlinePaymentService {
         if (latest.reviewState === 'open') return this.resultUrl(ctx, order, 'review');
         const attempt = latest.status === 'created' ? latest : await this.newAttempt(ctx, latest, order);
         if (!attempt) return this.resultUrl(ctx, order, 'limit');
-        return this.startAtGateway(ctx, attempt, order);
+        // Through the storefront's pay page: a form may only redirect within the store (CSP
+        // form-action), so the gateway is reached by a plain link from there (/bd-pay/start).
+        return `${await this.storefrontBase(ctx, order)}/checkout/pay/?to=${attempt.token}`;
     }
 
     private async newAttempt(
@@ -732,7 +759,7 @@ export class OnlinePaymentService {
         const token = await this.tracking.tokenFor(ctx, order);
         const query = new URLSearchParams({ payment: result });
         if (reason && /^[A-Za-z]{1,40}$/.test(reason)) query.set('reason', reason);
-        return token ? `${this.publicUrl ?? ''}/t/${token}?${query}` : this.homeUrl();
+        return token ? `${await this.storefrontBase(ctx, order)}/t/${token}/?${query}` : this.homeUrl();
     }
 
     private async addEvent(

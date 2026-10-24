@@ -1,0 +1,46 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { canonicalRedirect, pageContext, privatePage } from '../../lib/page';
+
+/**
+ * On the way to the payment gateway (roadmap phase 18). A form may only redirect within the store
+ * (CSP form-action), so checkout and "Pay now" land here and a plain link takes the shopper on:
+ * `/bd-pay/start/<attempt>` starts the attempt at the gateway and redirects to its page. Works
+ * without JavaScript (meta refresh, and the button).
+ */
+const redirect = canonicalRedirect(Astro, '/checkout/pay/');
+if (redirect) return redirect;
+privatePage(Astro);
+const { s, href } = pageContext(Astro);
+const token = Astro.url.searchParams.get('to') ?? '';
+const valid = /^[a-f0-9]{32}$/.test(token);
+// Not under the language prefix: the core answers /bd-pay itself.
+const target = `/bd-pay/start/${token}`;
+if (!valid) Astro.response.status = 404;
+---
+
+<Layout title={s.payPageTitle} noindex>
+    {valid && <meta http-equiv="refresh" content={`0;url=${target}`} slot="head" />}
+    <section class="thank-you">
+        {
+            valid ? (
+                <>
+                    <h1>{s.payPageTitle}</h1>
+                    <p class="muted">{s.payPageHint}</p>
+                    <p>
+                        <a class="button" href={target} rel="nofollow">
+                            {s.payPageButton}
+                        </a>
+                    </p>
+                </>
+            ) : (
+                <>
+                    <h1>{s.trackNotFound}</h1>
+                    <a class="button" href={href('/track/')}>
+                        {s.trackButton}
+                    </a>
+                </>
+            )
+        }
+    </section>
+</Layout>

@@ -101,6 +101,7 @@ const ORDER = gql`
                 status
                 paidAmount
                 codDue
+                paymentType
             }
             payments {
                 id
@@ -300,6 +301,14 @@ const attemptsOf = async (orderId: string) =>
 /** The core's own address for a public link (the store's address is shop.example.com in tests). */
 const local = (url: string) => url.replace('https://shop.example.com', core);
 
+/** "Pay now" on the tracking page: our pay page, then the gateway's (as the browser would go). */
+async function payAgain(orderId: string): Promise<string> {
+    const payPage = await follow(`${core}/bd-pay/again/${await trackingToken(orderId)}`, { method: 'POST' });
+    const token = new URL(payPage).searchParams.get('to');
+    expect(payPage).toMatch(/^https:\/\/shop\.example\.com\/checkout\/pay\/\?to=[a-f0-9]{32}$/);
+    return follow(`${core}/bd-pay/start/${token}`);
+}
+
 /** Follows our redirect once; returns the Location header. */
 async function follow(url: string, init: RequestInit = {}): Promise<string> {
     const response = await fetch(local(url), { redirect: 'manual', ...init });
@@ -426,7 +435,13 @@ describe('SSLCommerz', () => {
         expect(placed.customFields.orderNumber).toMatch(/^\d+$/);
         expect(placed.payments).toMatchObject([{ method: 'bd-sslcommerz', amount: TOTAL, state: 'Pending' }]);
         let order = await orderById(placed.id);
-        expect(order.bd).toMatchObject({ status: 'awaitingPayment', paidAmount: 0 });
+        // Nothing to collect on delivery: it's paid online.
+        expect(order.bd).toMatchObject({
+            status: 'awaitingPayment',
+            paidAmount: 0,
+            codDue: 0,
+            paymentType: 'prepaid',
+        });
         expect(await queuedAt(placed.id)).toBeNull();
         // The "order placed" SMS waits for the payment.
         await wait(300);
@@ -451,7 +466,7 @@ describe('SSLCommerz', () => {
         const back = await postForm(`/bd-pay/sslcommerz/return/${tranId}/success`, ipn);
         expect(back.status).toBe(303);
         expect(back.headers.get('location')).toMatch(
-            /^https:\/\/shop\.example\.com\/t\/[\w-]+\?payment=paid$/,
+            /^https:\/\/shop\.example\.com\/t\/[\w-]+\/\?payment=paid$/,
         );
         const attempts = await attemptsOf(placed.id);
         expect(attempts).toHaveLength(1);
@@ -534,7 +549,10 @@ describe('SSLCommerz', () => {
             reviewState: 'refunded',
             refundReference: expect.stringMatching(/^REF/),
         });
-        expect(mock.refunds.at(-1)).toMatchObject({ gateway: 'sslcommerz', amount: '10.00' });
+        expect(mock.refunds[mock.refunds.length - 1]).toMatchObject({
+            gateway: 'sslcommerz',
+            amount: '10.00',
+        });
     });
 
     it('expires an unpaid order (stock back), then holds a late payment for a refund', async () => {
@@ -574,9 +592,7 @@ describe('SSLCommerz', () => {
     it('applies one of two payments made in two tabs and holds the other for a refund', async () => {
         const first = await placeSsl();
         // A second try ("Pay now" again) while the first is still open.
-        const secondPage = await follow(`${core}/bd-pay/again/${await trackingToken(first.placed.id)}`, {
-            method: 'POST',
-        });
+        const secondPage = await payAgain(first.placed.id);
         const secondTran = secondPage.split('/pay/')[1]!;
         await postForm('/bd-pay/sslcommerz/ipn', mock.sslPay(first.tranId));
         await postForm('/bd-pay/sslcommerz/ipn', mock.sslPay(secondTran));
@@ -648,9 +664,7 @@ describe('bKash', () => {
         ).toBe('https://shop.example.com/');
 
         bk.bkashExecute = 'complete';
-        const retryPage = await follow(`${core}/bd-pay/again/${await trackingToken(placed.id)}`, {
-            method: 'POST',
-        });
+        const retryPage = await payAgain(placed.id);
         const retry = bk.bkash.get(retryPage.split('/bkash/pay/')[1]!)!;
         bk.bkashApprove(retry.paymentId);
         expect(await callback(retry, 'success')).toContain('payment=paid');
@@ -710,8 +724,8 @@ describe('circuit breaker', () => {
             })();
             // A POST isn't retried: each try is one failure for the circuit breaker.
             for (let tries = 0; tries < 3; tries++) {
-                const token = await trackingToken(placed.id);
-                await fetch(`${core}/bd-pay/again/${token}`, { method: 'POST', redirect: 'manual' });
+                // Each "Pay now" opens a new try at the gateway, which refuses with a 503.
+                await payAgain(placed.id);
             }
         }
         await readyToPay();

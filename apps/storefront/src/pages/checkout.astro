@@ -70,6 +70,10 @@ if (Astro.request.method === 'POST') {
         if (outcome.kind === 'placed') {
             return go(thankYou(outcome.code), [lastOrderCookie(outcome.code), 'cart_count=0; Path=/; Max-Age=0; SameSite=Lax']);
         }
+        // Placed, waiting for an online payment (phase 18): on to the gateway through the pay page.
+        if (outcome.kind === 'pay') {
+            return go(href(`/checkout/pay/?to=${outcome.token}`), [lastOrderCookie(outcome.code), 'cart_count=0; Path=/; Max-Age=0; SameSite=Lax']);
+        }
         if (outcome.kind === 'empty') return go(lastOrder ? thankYou(lastOrder) : href('/cart/'));
         if (outcome.kind === 'invalid') errors = outcome.errors;
         if (outcome.kind === 'review') notice = outcome.message;

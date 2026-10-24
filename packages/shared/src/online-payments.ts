@@ -1,10 +1,10 @@
-import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { type SettingsFieldError, toSettingsFieldErrors } from './store-settings';
 
 /**
  * Online payments (roadmap phase 18): SSLCommerz (cards, mobile banking, internet banking) and
- * bKash tokenized checkout. An unpaid online order is placed and waits in `AwaitingPayment` with a
+ * bKash tokenized checkout (browser-safe; SSLCommerz's signature check is in `sslcommerz-sign.ts`).
+ * An unpaid online order is placed and waits in `AwaitingPayment` with a
  * `Pending` payment; only a server-side check with the gateway marks it paid.
  */
 
@@ -139,34 +139,6 @@ export function fromGatewayAmount(value: unknown): number | null {
     const match = /^(\d{1,12})(?:\.(\d{1,2}))?$/.exec(text);
     if (!match) return null;
     return Number(match[1]) * 100 + Number((match[2] ?? '').padEnd(2, '0'));
-}
-
-const md5 = (text: string) => createHash('md5').update(text, 'utf8').digest('hex');
-
-/**
- * SSLCommerz's `verify_sign` on an IPN or return post: the fields named in `verify_key`, plus
- * `store_passwd` as the MD5 of the store password, sorted by name, joined as `a=1&b=2`, then MD5.
- * A failed check is a forged or altered post. A pass still isn't proof of payment: only the
- * validation API (with `val_id`) is.
- */
-export function sslcommerzSignatureValid(fields: Record<string, unknown>, storePassword: string): boolean {
-    const sign = fields.verify_sign;
-    const key = fields.verify_key;
-    if (typeof sign !== 'string' || typeof key !== 'string' || !sign || !key) return false;
-    const names = key.split(',').filter(Boolean);
-    const pairs: Record<string, string> = {};
-    for (const name of names) {
-        const value = fields[name];
-        pairs[name] =
-            typeof value === 'string' ? value : value === undefined || value === null ? '' : String(value);
-    }
-    pairs.store_passwd = md5(storePassword);
-    const text = Object.keys(pairs)
-        .sort()
-        .map(name => `${name}=${pairs[name]}`)
-        .join('&');
-    const expected = md5(text);
-    return expected.length === sign.length && expected === sign.toLowerCase();
 }
 
 const MINUTE = 60_000;

@@ -5,8 +5,9 @@
 // - the built static files (`/_astro/…` cached for a year as immutable),
 // - with `PROXY_CORE` (on unless APP_ENV is staging or production), the core's paths passed through to
 //   it: `/img`, `/assets` and `/shop-api` for the pages, plus the merchant admin, the Dashboard, their
-//   APIs and `/bd-geo`, so a whole store answers on this one port. Development uses it, and so do the
-//   CloudPanel stores (docs/runbooks/cloudpanel-stores.md) until Nginx routes them (roadmap 24),
+//   APIs, `/bd-geo` and the payment gateways' `/bd-pay`, so a whole store answers on this one port.
+//   Development uses it, and so do the CloudPanel stores (docs/runbooks/cloudpanel-stores.md) until
+//   Nginx routes them (roadmap 24),
 // - one JSON log line per request (no query strings, no tracking tokens),
 // - graceful shutdown: on SIGTERM it stops accepting connections and finishes open requests.
 import fs from 'node:fs';
@@ -22,7 +23,8 @@ const host = process.env.HOST ?? '0.0.0.0';
 const coreUrl = new URL(process.env.CORE_URL ?? 'http://localhost:3000');
 const live = ['staging', 'production'].includes(process.env.APP_ENV ?? '');
 const proxyCore = (process.env.PROXY_CORE ?? (live ? 'false' : 'true')) === 'true';
-const CORE_PATHS = ['/img', '/assets', '/shop-api', '/admin', '/admin-api', '/dashboard', '/bd-geo'];
+// /bd-pay: payment gateways send shoppers back and notify the core there (phase 18).
+const CORE_PATHS = ['/img', '/assets', '/shop-api', '/admin', '/admin-api', '/dashboard', '/bd-geo', '/bd-pay'];
 const isCorePath = pathname =>
     CORE_PATHS.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
 

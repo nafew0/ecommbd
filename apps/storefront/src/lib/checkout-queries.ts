@@ -230,6 +230,11 @@ export const PAYMENT_OPTIONS = graphql(`
                 number
                 accountType
             }
+            online {
+                gateway
+                methodCode
+                mode
+            }
         }
         eligiblePaymentMethods {
             code
@@ -433,6 +438,13 @@ export const TrackedOrderFields = graphql(`
         total
         codDue
         courierTrackingUrl
+        onlinePayment {
+            gateway
+            purpose
+            amount
+            expiresAt
+            lastFailure
+        }
     }
 `);
 

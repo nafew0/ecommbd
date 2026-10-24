@@ -13,6 +13,14 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Added
 
+- **Phase 18, online payments: SSLCommerz and bKash** (plugin `payments-online`):
+  - Shoppers can pay online at checkout (card, mobile banking or net banking through SSLCommerz, or bKash), in full or just the advance with cash on delivery for the rest. The order is placed at once, waiting for payment ("Awaiting payment"): it has its number and holds its stock, but isn't in the confirmation queue until the gateway confirms the money.
+  - Only the gateway's own server-to-server answer marks an order paid (SSLCommerz validation API with `val_id`, bKash execute and query); every unfinished payment is checked again every 5 minutes for a day, then hourly for a week, so a payment without a notification is still found.
+  - Unpaid online orders are cancelled after 45 minutes (a setting), releasing stock. The tracking page shows "Pay now" until then, and says why a bKash payment failed.
+  - **Orders → Payment reviews**: money paid late, paid twice, flagged as risky, or with the wrong amount waits for a person to accept, refund through the gateway, or mark resolved. Each order shows its online payment tries with "Check status now".
+  - **Settings → Online payments**: on/off, sandbox or live, credentials (encrypted with the new `SECRETS_KEYRING`, never shown again), Test connection, the time to pay. A gateway that keeps failing is hidden at checkout for a few minutes; cash on delivery still works.
+  - The "order placed" SMS for an online order is sent once it's paid.
+
 - **Stores on CloudPanel without a shell** (`ops/cloudpanel/ecommbd-stores`, runbook `docs/runbooks/cloudpanel-stores.md`): support creates a Node.js site with an App Port from 4301 to 4399 in CloudPanel, and within a minute the server sets it up (PostgreSQL database, settings, core, worker and storefront services, a login file in the site's File Manager). Admins install it once per server and update every store with `ecommbd-stores deploy` (database dump, restart, health check) or go back with `rollback`. Set up on host2 and tested with store1.ecomm.bd.
 - `ASSETS_DIR` setting for the uploads folder, so stores can share one build. The built storefront, with `PROXY_CORE=true`, also passes the merchant admin, the Dashboard, their APIs and `/bd-geo` to the core.
 

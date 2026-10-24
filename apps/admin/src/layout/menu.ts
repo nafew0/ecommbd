@@ -57,6 +57,7 @@ export const MENU: MenuGroup[] = [
             link('incompleteOrders', '/orders/incomplete', '11', true, 'ReadOrder'),
             link('ordersByCampaign', '/orders/campaigns', '16', true, 'ReadOrder'),
             link('verifyPayments', '/orders/payments', '08', true, 'VerifyPayment'),
+            link('paymentReviews', '/orders/payment-reviews', '18', true, 'ReadOrder'),
         ],
     },
     {
@@ -111,6 +112,7 @@ export const MENU: MenuGroup[] = [
             link('orderSettings', '/settings/orders', '04', true, 'ReadSettings'),
             link('delivery', '/settings/delivery', '07', true, 'ReadSettings'),
             link('payments', '/settings/payments', '08', true, 'ReadSettings'),
+            link('onlinePayments', '/settings/online-payments', '18', true, 'ReadSettings'),
             link('sms', '/settings/sms', '10', true, 'ReadSettings'),
             link('fraud', '/settings/fraud', '11', true, 'ReadSettings'),
             link('couriers', '/settings/couriers', '19'),
