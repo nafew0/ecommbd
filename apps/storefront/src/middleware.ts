@@ -3,7 +3,7 @@ import { env } from './env';
 import { CoreUnavailableError, RateLimitedError } from './lib/core';
 import { parseLocalePath } from './lib/urls';
 import { getTheme } from './lib/sections';
-import { getSettings } from './lib/store';
+import { getMetaConfig, getSettings } from './lib/store';
 import { systemPage } from './lib/system-pages';
 
 /**
@@ -18,7 +18,13 @@ import { systemPage } from './lib/system-pages';
 /** Video sections (phase 15) play YouTube and Facebook in a frame once the shopper presses play. */
 const VIDEO_FRAMES = 'https://www.youtube-nocookie.com https://www.facebook.com';
 
+/** Meta's Pixel script and its beacon (phase 20), allowed only when the store turns the browser Pixel on. */
+const META_SCRIPT = 'https://connect.facebook.net';
+const META_BEACON = 'https://www.facebook.com';
+
 interface HeaderOptions {
+    /** The store loads Meta's own Pixel script. */
+    metaPixel?: boolean;
     editorFrame?: boolean;
     /** Previews redraw their sections, and their generated styles, without a reload. */
     preview?: boolean;
@@ -35,15 +41,17 @@ function styleSource(options: HeaderOptions): string {
 
 function securityHeaders(options: HeaderOptions = {}): Record<string, string> {
     const extra = env().CSP_ALLOWED_ORIGINS.join(' ');
+    const meta = options.metaPixel ? ` ${META_SCRIPT}` : '';
+    const metaBeacon = options.metaPixel ? ` ${META_BEACON}` : '';
     const editor = options.editorFrame ? env().EDITOR_ORIGIN : undefined;
     const csp = [
         "default-src 'self'",
-        `script-src 'self' ${extra}`.trim(),
+        `script-src 'self'${meta} ${extra}`.trim(),
         styleSource(options),
         // YouTube's own thumbnails for video sections.
-        `img-src 'self' data: https://i.ytimg.com ${extra}`.trim(),
+        `img-src 'self' data: https://i.ytimg.com${metaBeacon} ${extra}`.trim(),
         "font-src 'self'",
-        `connect-src 'self' ${extra}`.trim(),
+        `connect-src 'self'${meta}${metaBeacon} ${extra}`.trim(),
         `frame-src ${VIDEO_FRAMES}`,
         "object-src 'none'",
         "base-uri 'self'",
@@ -78,7 +86,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     if (context.url.pathname.startsWith('/_astro/')) return next();
 
     try {
-        const [settings, theme] = await Promise.all([getSettings(), getTheme()]);
+        const [settings, theme, meta] = await Promise.all([getSettings(), getTheme(), getMetaConfig()]);
         const defaultLang = settings.locale.defaultLanguage === 'en' ? 'en' : 'bn';
         // The path as sent: Astro's `context.url` has its percent-encoding already redone.
         const requestPath = new URL(context.request.url).pathname;
@@ -86,6 +94,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
         context.locals.lang = lang;
         context.locals.defaultLang = defaultLang;
         context.locals.settings = settings;
+        context.locals.meta = meta;
         context.locals.theme = theme;
         context.locals.requestPath = requestPath;
         const response =
@@ -94,6 +103,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
             editorFrame: context.locals.preview?.mode === 'editor',
             preview: !!context.locals.preview,
             styleHashes: context.locals.styleHashes,
+            metaPixel: meta.browserPixel && meta.pixelIds.length > 0,
         });
     } catch (error) {
         if (error instanceof CoreUnavailableError) return withHeaders(systemPage('unavailable'));

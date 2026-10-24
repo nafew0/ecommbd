@@ -469,3 +469,10 @@ export const TRACK_BY_TOKEN = graphql(
     `,
     [TrackedOrderFields],
 );
+
+/** Meta's cookies and the browser on the order (phase 20), for a Purchase sent on confirm or delivery. */
+export const SET_META_BROWSER = graphql(`
+    mutation SetMetaBrowser($input: BdMetaBrowserInput!) {
+        setBdMetaBrowser(input: $input)
+    }
+`);

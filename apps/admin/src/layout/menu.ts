@@ -102,7 +102,7 @@ export const MENU: MenuGroup[] = [
         icon: Megaphone,
         children: [
             link('coupons', '/marketing/coupons', '35', false, 'ReadPromotion'),
-            link('tracking', '/marketing/tracking', '20, 36'),
+            link('tracking', '/marketing/tracking', '20', true, 'ReadSettings'),
         ],
     },
     {

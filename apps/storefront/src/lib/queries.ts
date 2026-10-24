@@ -550,3 +550,15 @@ export const FEATURED_PRODUCTS = graphql(
     `,
     [ProductCardFields],
 );
+
+/** Meta tracking (phase 20): the Pixels, whether Meta's own script loads, and the Purchase trigger. */
+export const META_CONFIG = graphql(`
+    query MetaConfig {
+        bdMetaConfig {
+            pixelIds
+            browserPixel
+            purchaseTrigger
+            purchaseValue
+        }
+    }
+`);

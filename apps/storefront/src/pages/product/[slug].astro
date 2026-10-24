@@ -46,6 +46,18 @@ const oldPrice = cheapest?.customFields?.oldPrice ?? null;
 // The variation shown first: the one marked "shown first" (phase 05), else the first in stock.
 const inStock = product?.variants.filter(variant => variant.stockLevel !== 'OUT_OF_STOCK') ?? [];
 const chosenId = (inStock.find(variant => variant.customFields?.isDefault) ?? inStock[0])?.id;
+// Meta (phase 20): content IDs are variant IDs (the catalog feed of phase 36 uses the same); values in whole taka.
+const taka = (minor: number) => Math.round(minor / 100);
+const metaPrices = Object.fromEntries((product?.variants ?? []).map(variant => [variant.id, taka(variant.priceWithTax)]));
+const metaChosen = (product?.variants ?? []).find(variant => variant.id === chosenId) ?? product?.variants[0];
+const metaEvents = metaChosen
+    ? [
+          {
+              name: 'ViewContent',
+              data: { content_ids: [metaChosen.id], content_type: 'product', value: taka(metaChosen.priceWithTax), currency: 'BDT' },
+          },
+      ]
+    : [];
 const variantPricesDiffer = new Set(prices).size > 1;
 const optionLabel = (variant: NonNullable<typeof product>['variants'][number]) =>
     variant.options.map(option => option.name).join(' / ') || variant.name;
@@ -100,6 +112,7 @@ const css = template && templateData ? pageStyle(Astro, template.document) : '';
             image={images[0]}
             preload={main ? { ...imageAttributes(main, 768), sizes: MAIN_SIZES } : undefined}
             css={css}
+            metaEvents={metaEvents}
             structuredData={[
                 productLd({
                     name: product.name,
@@ -140,7 +153,7 @@ const css = template && templateData ? pageStyle(Astro, template.document) : '';
                         <p class="product-short">{product.customFields.shortDescription}</p>
                     )}
                     {product.variants.length > 0 && (
-                        <form method="post" action={href('/cart/')} class="buy-form" data-buy-form>
+                        <form method="post" action={href('/cart/')} class="buy-form" data-buy-form data-meta-prices={JSON.stringify(metaPrices)}>
                             {product.variants.length > 1 ? (
                                 <fieldset class="variant-picker">
                                     <legend>{product.optionGroups[0]?.name || s.options}</legend>
@@ -218,5 +231,24 @@ const css = template && templateData ? pageStyle(Astro, template.document) : '';
     import { enhanceBuyForm } from '../../scripts/cart';
 
     const form = document.querySelector<HTMLFormElement>('[data-buy-form]');
-    if (form) enhanceBuyForm(form);
+    if (form) {
+        enhanceBuyForm(form);
+        // Meta (phase 20): AddToCart for "Add to cart" and "Buy now" alike.
+        form.addEventListener('submit', () => {
+            const data = new FormData(form);
+            const id = String(data.get('variantId') ?? '');
+            const quantity = Math.max(1, Number(data.get('quantity')) || 1);
+            const price = (JSON.parse(form.dataset.metaPrices ?? '{}') as Record<string, number>)[id] ?? 0;
+            window.ecommMeta?.track({
+                name: 'AddToCart',
+                data: {
+                    content_ids: [id],
+                    contents: [{ id, quantity, item_price: price }],
+                    content_type: 'product',
+                    value: price * quantity,
+                    currency: 'BDT',
+                },
+            });
+        });
+    }
 </script>

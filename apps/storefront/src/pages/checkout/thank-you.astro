@@ -6,6 +6,7 @@ import { shopperContext } from '../../lib/cart';
 import { ORDER_BY_CODE } from '../../lib/checkout-queries';
 import { shopQuery } from '../../lib/core';
 import { canonicalRedirect, pageContext, privatePage } from '../../lib/page';
+import { purchaseEventId } from '@ecommbd/shared/meta';
 
 /**
  * After the order (roadmap phase 14). Only the session that placed it can read it (Vendure's
@@ -28,9 +29,30 @@ const mfsPending = placed?.payments?.some(
     payment => payment.method !== 'bd-cod' && payment.state === 'Authorized',
 );
 const whatsapp = settings.profile.whatsapp.replace(/\D/g, '');
+// Meta (phase 20): Purchase from the browser only when the store sends it on placing; its ID is the
+// server's too, so Meta keeps one. With "confirmed" or "delivered" this page sends no Purchase.
+const meta = Astro.locals.meta;
+const metaEvents =
+    placed && meta.browserPixel && meta.purchaseTrigger === 'placed' && placed.state !== 'AwaitingPayment'
+        ? [
+              {
+                  name: 'Purchase',
+                  eventId: purchaseEventId(placed.code),
+                  browserOnly: true,
+                  data: {
+                      content_ids: placed.lines.map(line => line.productVariant.id),
+                      content_type: 'product',
+                      value: Math.round(
+                          (placed.totalWithTax - (meta.purchaseValue === 'withDelivery' ? 0 : placed.shippingWithTax)) / 100,
+                      ),
+                      currency: 'BDT',
+                  },
+              },
+          ]
+        : [];
 ---
 
-<Layout title={s.thankYouTitle} noindex>
+<Layout title={s.thankYouTitle} noindex metaEvents={metaEvents}>
     <section class="thank-you">
         {
             placed ? (

@@ -13,6 +13,11 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Added
 
+- **Phase 20, Meta Pixel and Conversions API** (plugin `meta-capi`, **Marketing → Meta tracking**):
+  - Facebook and Instagram ads get PageView, ViewContent, AddToCart, InitiateCheckout and Purchase from the server (they arrive even with ad blockers) and, if the store wants, from Meta's Pixel in the browser too; each event has one ID, so Meta counts it once. Meta's script loads only after the page is ready, so it doesn't slow the store down.
+  - **When to send Purchase**: when the order is placed, confirmed by staff (the default) or delivered, so ads learn from real buyers rather than fake COD orders. Customer details are hashed; placeholder emails are never sent; imported orders never count, phone and Messenger orders only if the store says so.
+  - Up to two Pixels, each with its Conversions API token (encrypted, never shown again), "Send test event", a test event code for Meta's Test Events tool, and an event log with what was sent and Meta's answer. A token Meta refuses shows a warning; events wait up to 7 days for a new one.
+
 - **Phase 19, couriers: Steadfast and Pathao** (plugin `couriers`):
   - **Book courier** on the order page (with the store's courier for the delivery zone, or another), or for many selected orders at once from the order list. A confirmed order is packed first. Clicking twice never books twice.
   - The courier's updates move orders: picked up → Shipped, delivered → Delivered (the COD payment is marked received), returned → Returned. By webhook (Settings → Couriers shows the address and secret to paste into each courier's panel) and every 30 minutes by asking the courier.

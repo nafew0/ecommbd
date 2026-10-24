@@ -104,6 +104,27 @@ const deliveryKnown = !!values.districtId && !!values.thanaId && shipping.length
 const chosenShipping = order.shippingLines[0]?.shippingMethod.id;
 const cod = values.payment !== '' && !MFS_PROVIDERS.includes(values.payment as never);
 const free = order.bdDelivery.freeDeliveryRemaining;
+// Meta (phase 20): InitiateCheckout when the checkout opens (not on each re-render of the form).
+const metaEvents =
+    Astro.request.method === 'GET'
+        ? [
+              {
+                  name: 'InitiateCheckout',
+                  data: {
+                      content_ids: order.lines.map(line => line.productVariant.id),
+                      contents: order.lines.map(line => ({
+                          id: line.productVariant.id,
+                          quantity: line.quantity,
+                          item_price: Math.round(line.unitPriceWithTax / 100),
+                      })),
+                      content_type: 'product',
+                      num_items: order.lines.reduce((sum, line) => sum + line.quantity, 0),
+                      value: Math.round(order.subTotalWithTax / 100),
+                      currency: 'BDT',
+                  },
+              },
+          ]
+        : [];
 ---
 
 {
@@ -122,7 +143,7 @@ const free = order.bdDelivery.freeDeliveryRemaining;
             </section>
         </Layout>
     ) : (
-<Layout title={s.checkoutTitle} noindex>
+<Layout title={s.checkoutTitle} noindex metaEvents={metaEvents}>
     <div class="checkout" data-checkout>
         <h1>{s.checkoutTitle}</h1>
         <form method="post" action={href('/checkout/')} class="checkout-form" novalidate data-checkout-form>

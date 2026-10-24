@@ -2,13 +2,14 @@ import { env } from '../env';
 import { DataCache } from './cache';
 import { type ResultOf, shopQuery } from './core';
 import type { Lang } from './i18n';
-import { MENUS, SETTINGS, TOP_COLLECTIONS } from './queries';
+import { MENUS, META_CONFIG, SETTINGS, TOP_COLLECTIONS } from './queries';
 
 /** Store-wide data every page needs, through the data cache (see cache.ts). */
 
 export type StoreSettings = ResultOf<typeof SETTINGS>['bdStoreSettings'];
 export type Menus = ResultOf<typeof MENUS>['bdMenus'];
 export type TopCollections = ResultOf<typeof TOP_COLLECTIONS>['collections']['items'];
+export type MetaConfig = ResultOf<typeof META_CONFIG>['bdMetaConfig'];
 
 let instance: DataCache | undefined;
 
@@ -38,6 +39,18 @@ export function getSettings(): Promise<StoreSettings> {
         ['settings'],
         async () => (await shopQuery(SETTINGS, {}, 'bn')).bdStoreSettings,
     );
+}
+
+/** Meta tracking (phase 20). Off when the core can't say: tracking never stops a page. */
+export function getMetaConfig(): Promise<MetaConfig> {
+    return dataCache()
+        .get('meta', ['settings'], async () => (await shopQuery(META_CONFIG, {}, 'bn')).bdMetaConfig)
+        .catch(() => ({
+            pixelIds: [],
+            browserPixel: false,
+            purchaseTrigger: 'confirmed',
+            purchaseValue: 'withoutDelivery',
+        }));
 }
 
 export function getMenus(lang: Lang): Promise<Menus> {

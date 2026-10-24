@@ -12,6 +12,7 @@ import {
     SET_ADDRESS,
     SET_ATTRIBUTION,
     SET_CUSTOMER,
+    SET_META_BROWSER,
     SET_PARTIAL_ADDRESS,
     SET_PAYMENT_CHOICE,
     SET_SHIPPING,
@@ -264,6 +265,16 @@ async function placeOrder(shopper: ShopperContext, form: FormData, s: Strings): 
     // Where the shopper came from (phase 16). Never stops the order.
     if (shopper.attribution) {
         await ask(SET_ATTRIBUTION, { input: { ...shopper.attribution } }).catch(() => undefined);
+    }
+    // Meta (phase 20). Never stops the order either.
+    if (shopper.meta?.fbp || shopper.meta?.fbc) {
+        await ask(SET_META_BROWSER, {
+            input: {
+                fbp: shopper.meta.fbp,
+                fbc: shopper.meta.fbc,
+                userAgent: shopper.meta.userAgent?.slice(0, 400) ?? null,
+            },
+        }).catch(() => undefined);
     }
 
     const website = form.get('website');

@@ -149,6 +149,13 @@ const router = createBrowserRouter(
                                 })),
                         },
                         {
+                            path: 'marketing/tracking',
+                            lazy: () =>
+                                import('./pages/meta-tracking').then(module => ({
+                                    Component: module.MetaTrackingPage,
+                                })),
+                        },
+                        {
                             path: 'orders/unmapped-addresses',
                             lazy: () =>
                                 import('./pages/unmapped-addresses').then(module => ({

@@ -11,6 +11,8 @@ export * from './fraud';
 export * from './http';
 export * from './idempotency';
 export * from './manual-orders';
+export * from './meta';
+export * from './meta-hash';
 export * from './money';
 export * from './online-payments';
 export * from './order-settings';

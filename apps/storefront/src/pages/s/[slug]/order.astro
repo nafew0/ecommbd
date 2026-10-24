@@ -83,6 +83,15 @@ if (loaded && formSection) {
                 shopper.session.apply(headers);
                 return new Response(null, { status: 303, headers });
             }
+            // Placed, waiting for an online payment (phase 18): on to the gateway through the pay page.
+            if (outcome.kind === 'pay') {
+                const headers = new Headers({
+                    location: href(`/checkout/pay/?to=${outcome.token}`),
+                    'cache-control': 'no-store',
+                });
+                shopper.session.apply(headers);
+                return new Response(null, { status: 303, headers });
+            }
             if (outcome.kind === 'invalid') errors = outcome.errors;
             if (outcome.kind === 'review') notice = outcome.message;
             if (outcome.kind === 'busy') notice = s.busy;

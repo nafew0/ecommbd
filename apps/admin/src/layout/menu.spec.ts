@@ -12,6 +12,7 @@ describe('menu', () => {
             'customers',
             'salesPages',
             'onlineStore',
+            'marketing',
             'settings',
         ]);
         expect(menu[1]!.children!.map(child => child.to)).toEqual([
@@ -39,7 +40,8 @@ describe('menu', () => {
             '/store/pages',
             '/store/search',
         ]);
-        expect(menu[6]!.children!.map(child => child.to)).toEqual([
+        expect(menu[6]!.children!.map(child => child.to)).toEqual(['/marketing/tracking']);
+        expect(menu[7]!.children!.map(child => child.to)).toEqual([
             '/settings/store',
             '/settings/orders',
             '/settings/delivery',
