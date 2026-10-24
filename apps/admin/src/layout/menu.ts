@@ -58,6 +58,7 @@ export const MENU: MenuGroup[] = [
             link('ordersByCampaign', '/orders/campaigns', '16', true, 'ReadOrder'),
             link('verifyPayments', '/orders/payments', '08', true, 'VerifyPayment'),
             link('paymentReviews', '/orders/payment-reviews', '18', true, 'ReadOrder'),
+            link('unmappedAddresses', '/orders/unmapped-addresses', '19', true, 'BookCourier'),
         ],
     },
     {
@@ -115,7 +116,7 @@ export const MENU: MenuGroup[] = [
             link('onlinePayments', '/settings/online-payments', '18', true, 'ReadSettings'),
             link('sms', '/settings/sms', '10', true, 'ReadSettings'),
             link('fraud', '/settings/fraud', '11', true, 'ReadSettings'),
-            link('couriers', '/settings/couriers', '19'),
+            link('couriers', '/settings/couriers', '19', true, 'ReadSettings'),
             link('checkout', '/settings/checkout', '14'),
             link('invoice', '/settings/invoice', '06', true, 'ReadSettings'),
             link('staff', '/settings/staff', '32', false, 'ReadAdministrator'),

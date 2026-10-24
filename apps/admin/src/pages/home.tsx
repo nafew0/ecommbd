@@ -30,6 +30,7 @@ export function HomePage() {
         <>
             <PageHeader title={m.home.greeting(user?.name ?? '')} description={m.home.intro} />
             {can('ReadOrder') && <OrderWidgets />}
+            {can('ReadOrder') && <CourierWidgets />}
             <div className="grid gap-4 md:grid-cols-2">
                 {can('ReadSettings') && (
                     <Card>
@@ -102,6 +103,46 @@ function OrderWidgets() {
             {stats && (
                 <p className="mt-2 text-sm text-slate-500">{m.home.dhakaDay(format.date(stats.dayStart))}</p>
             )}
+        </section>
+    );
+}
+
+const COURIER_COUNTS = `{ bdCourierCounts { inTransit deliveredToday returnedThisWeek } }`;
+
+/** Parcels with couriers (roadmap phase 19): in transit, delivered today (Dhaka), returned this week. */
+function CourierWidgets() {
+    const { messages: m } = useI18n();
+    const h = m.couriers.home;
+    const query = useQuery({
+        queryKey: ['courierCounts'],
+        queryFn: () =>
+            adminApi<{
+                bdCourierCounts: { inTransit: number; deliveredToday: number; returnedThisWeek: number };
+            }>(COURIER_COUNTS).then(result => result.bdCourierCounts),
+        refetchInterval: 60_000,
+    });
+    const counts = query.data;
+    // Nothing to show until the store books with couriers.
+    if (counts && counts.inTransit + counts.deliveredToday + counts.returnedThisWeek === 0) return null;
+    const n = m.common.number;
+    return (
+        <section className="mb-6" aria-label={m.couriers.order.title}>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <Widget
+                    label={h.inTransit}
+                    loading={!counts}
+                    to="/orders?status=shipped"
+                    linkLabel={m.home.openOrders}
+                >
+                    {counts && n(counts.inTransit)}
+                </Widget>
+                <Widget label={h.deliveredToday} loading={!counts}>
+                    {counts && n(counts.deliveredToday)}
+                </Widget>
+                <Widget label={h.returnedThisWeek} loading={!counts}>
+                    {counts && n(counts.returnedThisWeek)}
+                </Widget>
+            </div>
         </section>
     );
 }

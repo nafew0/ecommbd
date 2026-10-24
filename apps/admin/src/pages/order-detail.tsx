@@ -15,6 +15,7 @@ import { CallLaterDialog, CancelDialog, StockDialog } from '../components/orders
 import { OrderSms } from '../components/orders/order-sms';
 import { RiskBadge } from '../components/orders/risk-badge';
 import { PaymentBadge, StatusBadge } from '../components/orders/status';
+import { OrderCourier } from '../components/couriers/order-courier';
 import { OnlineAttempts } from '../components/payments/online-attempts';
 import {
     ORDER_PAYMENT_FIELDS,
@@ -310,6 +311,7 @@ export function OrderDetailPage() {
                 </Card>
                 <OrderPayments payments={order.payments} onChanged={() => void query.refetch()} />
                 <OnlineAttempts orderId={order.id} onChanged={() => void query.refetch()} />
+                <OrderCourier orderId={order.id} status={order.bd.status} onChanged={() => void query.refetch()} />
                 <Card>
                     <CardHeader title={m.orders.customer} />
                     <CardBody>

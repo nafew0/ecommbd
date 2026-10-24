@@ -22,6 +22,7 @@ describe('menu', () => {
             '/orders/campaigns',
             '/orders/payments',
             '/orders/payment-reviews',
+            '/orders/unmapped-addresses',
         ]);
         expect(menu[2]!.children!.map(child => child.to)).toEqual([
             '/products',
@@ -46,6 +47,7 @@ describe('menu', () => {
             '/settings/online-payments',
             '/settings/sms',
             '/settings/fraud',
+            '/settings/couriers',
             '/settings/invoice',
         ]);
     });
@@ -65,6 +67,7 @@ describe('menu', () => {
                     'ReadProduct',
                     'ReadCatalog',
                     'EditStorefront',
+                    'BookCourier',
                 ].includes(permission),
         );
         expect(menu.map(group => group.label)).toEqual(['home']);

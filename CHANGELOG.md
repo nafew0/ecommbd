@@ -13,6 +13,13 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Added
 
+- **Phase 19, couriers: Steadfast and Pathao** (plugin `couriers`):
+  - **Book courier** on the order page (with the store's courier for the delivery zone, or another), or for many selected orders at once from the order list. A confirmed order is packed first. Clicking twice never books twice.
+  - The courier's updates move orders: picked up → Shipped, delivered → Delivered (the COD payment is marked received), returned → Returned. By webhook (Settings → Couriers shows the address and secret to paste into each courier's panel) and every 30 minutes by asking the courier.
+  - Stickers print the courier's consignment barcode; the customer's tracking page links to the courier's tracking page; the home page shows parcels with couriers, delivered today and returned this week.
+  - Pathao's cities and zones are matched to our districts and thanas by name; **Orders → Unmapped addresses** lists the thanas it couldn't match, to choose once.
+  - When a courier is down: "Booked by hand" with the courier's name and tracking code. A booking cancelled in the courier's panel can be marked cancelled here before pickup; a booked order can't be edited or cancelled until then.
+
 - **Phase 18, online payments: SSLCommerz and bKash** (plugin `payments-online`):
   - Shoppers can pay online at checkout (card, mobile banking or net banking through SSLCommerz, or bKash), in full or just the advance with cash on delivery for the rest. The order is placed at once, waiting for payment ("Awaiting payment"): it has its number and holds its stock, but isn't in the confirmation queue until the gateway confirms the money.
   - Only the gateway's own server-to-server answer marks an order paid (SSLCommerz validation API with `val_id`, bKash execute and query); every unfinished payment is checked again every 5 minutes for a day, then hourly for a week, so a payment without a notification is still found.

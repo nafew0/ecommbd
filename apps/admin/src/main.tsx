@@ -149,6 +149,20 @@ const router = createBrowserRouter(
                                 })),
                         },
                         {
+                            path: 'orders/unmapped-addresses',
+                            lazy: () =>
+                                import('./pages/unmapped-addresses').then(module => ({
+                                    Component: module.UnmappedAddressesPage,
+                                })),
+                        },
+                        {
+                            path: 'settings/couriers',
+                            lazy: () =>
+                                import('./pages/courier-settings').then(module => ({
+                                    Component: module.CourierSettingsPage,
+                                })),
+                        },
+                        {
                             path: 'orders/payment-reviews',
                             lazy: () =>
                                 import('./pages/payment-reviews').then(module => ({

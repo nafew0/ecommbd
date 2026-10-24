@@ -98,10 +98,16 @@ async function health(res) {
     res.end(JSON.stringify({ status: 'ok', core }));
 }
 
-/** The path for the log: no query string, and tracking tokens (`/t/<token>/`) masked. */
+/**
+ * The path for the log: no query string, and keys masked: tracking tokens (`/t/<token>/`), payment
+ * attempt keys and tracking tokens under `/bd-pay/` (phase 18), courier webhook secrets (phase 19).
+ */
 function logPath(url) {
     const pathname = url.split('?')[0];
-    return pathname.replace(/^((?:\/(?:en|bn))?\/t\/)[^/]+/, '$1…');
+    return pathname
+        .replace(/^((?:\/(?:en|bn))?\/t\/)[^/]+/, '$1…')
+        .replace(/^(\/bd-pay\/(?:start|again|sslcommerz\/return|bkash\/callback)\/)[^/]+/, '$1…')
+        .replace(/^(\/bd-courier\/webhook\/[a-z]+\/)[^/]+/, '$1…');
 }
 
 const server = http.createServer((req, res) => {

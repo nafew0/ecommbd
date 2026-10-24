@@ -134,6 +134,15 @@ describe('print templates', () => {
         expect(html).toContain('৳6,800');
     });
 
+    it('adds the courier’s consignment barcode once booked (phase 19)', () => {
+        const booked = props('en');
+        booked.orders = [{ ...order, courierConsignment: '123456789' }];
+        const html = renderToStaticMarkup(<StickerDocuments {...booked} />);
+        expect(html).toContain('data-barcode="123456789"');
+        expect(html).toContain('Consignment: 123456789');
+        expect(renderToStaticMarkup(<StickerDocuments {...props('en')} />)).not.toContain('Consignment');
+    });
+
     it('puts 8 stickers on one A4 sheet and starts a new sheet for the 9th', () => {
         const many = { ...props('en', settings => void (settings.sticker.size = 'a4-8')) };
         many.orders = Array.from({ length: 9 }, (_, index) => ({

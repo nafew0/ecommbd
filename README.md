@@ -192,6 +192,7 @@ npm start
 | Email: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` and `SMTP_FROM` (without them no email is sent). Dev mode and the `/mailbox` page exist only with `APP_ENV=dev` | `apps/core/.env` |
 | SMS: a provider driver once one is chosen (until then `SMS_DRIVER=none` records every SMS as not sent), the approved sender ID in Settings → SMS, and `STOREFRONT_URL` for tracking links | `apps/core/.env`, merchant admin |
 | Online payments (phase 18): `SECRETS_KEYRING` (its own key per store, kept forever; CloudPanel stores get one) and `STOREFRONT_URL`; then SSLCommerz/bKash credentials and **Live** mode in Settings → Online payments, and the IPN address shown there in the SSLCommerz panel | `apps/core/.env`, merchant admin |
+| Couriers (phase 19): Steadfast and Pathao credentials, Pathao's store, the default courier per zone, and each courier's webhook address pasted into its panel (Settings → Couriers). Uses `SECRETS_KEYRING` and `STOREFRONT_URL` | merchant admin |
 
 ## 6. Adding a feature: plugins
 
