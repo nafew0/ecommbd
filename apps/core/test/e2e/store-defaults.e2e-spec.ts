@@ -232,6 +232,8 @@ describe('running the initializer again', () => {
             'slug-history-backfill',
             'print-permissions',
             'fraud-permissions',
+            'online-payment-methods',
+            'online-payment-permissions',
             'search-synonyms',
             'storefront-permissions',
             'sales-page-offer-promotion',

@@ -1,10 +1,20 @@
-import { envList, envPort, parseEnv } from '@ecommbd/shared';
+import { envList, envPort, parseEnv, parseKeyring } from '@ecommbd/shared';
 import { z } from 'zod';
 
 /**
  * Every environment variable the core reads, validated at startup (see ./env.ts).
  * This file has no side effects, so tests can import it.
  */
+
+/** Why a keyring can't be used, or null. Never repeats the value (it holds keys). */
+function keyringError(value: string): string | null {
+    try {
+        parseKeyring(value);
+        return null;
+    } catch (error) {
+        return error instanceof Error ? error.message : 'invalid';
+    }
+}
 
 const live = (appEnv: string) => appEnv === 'staging' || appEnv === 'production';
 
@@ -52,6 +62,15 @@ export const envSchema = z
         // The storefront's address, for SMS tracking links (<url>/t/<token>). Without it SMS carry no link.
         STOREFRONT_URL: z.url().optional(),
         // Searches a minute from one address (category pages count too); suggestions may be twice as many.
+        // Encrypts payment gateway credentials: "v1:<base64 32-byte key>", more keys comma-separated, the
+        // last is current (see README). Without it gateway credentials can't be saved.
+        SECRETS_KEYRING: z
+            .string()
+            .optional()
+            .refine(value => !value || keyringError(value) === null, {
+                message:
+                    'must be "v1:<base64 32-byte key>" entries (generate one with: openssl rand -base64 32)',
+            }),
         SEARCH_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(10).max(1_000_000).default(600),
         // Order tracking lookups from one address per 10 minutes (each phone also gets 10 an hour).
         TRACKING_RATE_LIMIT_PER_IP: z.coerce.number().int().min(5).max(1_000_000).default(20),

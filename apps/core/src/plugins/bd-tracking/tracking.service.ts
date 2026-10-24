@@ -19,6 +19,8 @@ import {
 import { webcrypto } from 'node:crypto';
 
 export interface TrackedOrder {
+    /** Not in the API: for field resolvers of other plugins (online payments). */
+    orderId: ID;
     orderNumber: string;
     placedAt: Date;
     status: BdOrderStatus;
@@ -129,7 +131,13 @@ export class TrackingService {
             take: 100,
         });
         const transitions = [...history.items].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-        const timeline: TrackedOrder['timeline'] = [{ status: 'new', at: order.orderPlacedAt }];
+        // An online order is placed waiting for payment (phase 18); every other order is placed New.
+        const placedAs = transitions.find(
+            entry => (entry.data as { from?: string }).from === 'ArrangingPayment',
+        );
+        const firstStatus =
+            bdStatusOf(String((placedAs?.data as { to?: string } | undefined)?.to ?? '')) ?? 'new';
+        const timeline: TrackedOrder['timeline'] = [{ status: firstStatus, at: order.orderPlacedAt }];
         for (const entry of transitions) {
             const status = bdStatusOf(String((entry.data as { to?: string }).to ?? ''));
             if (!status || entry.createdAt < order.orderPlacedAt) continue;
@@ -144,6 +152,7 @@ export class TrackingService {
             .filter(payment => payment.method === COD_METHOD && payment.state === 'Authorized')
             .reduce((sum, payment) => sum + payment.amount, 0);
         return {
+            orderId: order.id,
             orderNumber: (order.customFields as { orderNumber?: string | null }).orderNumber ?? order.code,
             placedAt: order.orderPlacedAt,
             status: bdStatusOf(order.state) ?? timeline[timeline.length - 1]!.status,

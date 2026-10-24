@@ -10,7 +10,8 @@ import {
 import { In } from 'typeorm';
 
 /** The moments an order takes stock: payment completes it. */
-const PLACING = new Set(['PaymentAuthorized', 'PaymentSettled']);
+// AwaitingPayment: placed while an online payment is pending (phase 18).
+const PLACING = new Set(['PaymentAuthorized', 'PaymentSettled', 'AwaitingPayment']);
 
 /**
  * No overselling (roadmap phase 05). Vendure 3.8 checks stock when items are added to a cart, but

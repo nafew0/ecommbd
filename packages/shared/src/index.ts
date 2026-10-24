@@ -11,6 +11,7 @@ export * from './http';
 export * from './idempotency';
 export * from './manual-orders';
 export * from './money';
+export * from './online-payments';
 export * from './order-settings';
 export * from './order-status';
 export * from './payments';

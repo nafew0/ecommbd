@@ -181,6 +181,7 @@ export const config: VendureConfig = {
                     ? new LogSmsDriver()
                     : new NoSmsDriver(),
             storefrontUrl: env.STOREFRONT_URL,
+            secretsKeyring: env.SECRETS_KEYRING,
             searchRateLimits: {
                 search: { limit: env.SEARCH_RATE_LIMIT_PER_MINUTE, windowMs: 60_000 },
                 suggest: { limit: env.SEARCH_RATE_LIMIT_PER_MINUTE * 2, windowMs: 60_000 },

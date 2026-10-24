@@ -1,4 +1,10 @@
-import { formatBdPhone, formatTaka, newTrackingToken, type SmsEvent, type SmsLanguage } from '@ecommbd/shared';
+import {
+    formatBdPhone,
+    formatTaka,
+    newTrackingToken,
+    type SmsEvent,
+    type SmsLanguage,
+} from '@ecommbd/shared';
 import { Inject, Injectable, type OnApplicationBootstrap } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import {
@@ -47,21 +53,36 @@ export class OrderSmsService implements OnApplicationBootstrap {
             this.send(ctx, order.id, event, extraKey).catch(error =>
                 Logger.error(`Order SMS (${event}) failed: ${String(error)}`, loggerCtx),
             );
-        this.eventBus.ofType(OrderPlacedEvent).subscribe(e => on('placed')(e.ctx, e.order));
+        // An online order is placed unpaid (phase 18): its "order placed" SMS goes once it's paid.
+        this.eventBus.ofType(OrderPlacedEvent).subscribe(e => {
+            if (e.order.state !== 'AwaitingPayment') void on('placed')(e.ctx, e.order);
+        });
         this.eventBus.ofType(BdOrderConfirmedEvent).subscribe(e => on('confirmed')(e.ctx, e.order));
         this.eventBus.ofType(BdOrderCancelledWithReasonEvent).subscribe(e => on('cancelled')(e.ctx, e.order));
         this.eventBus.ofType(OrderStateTransitionEvent).subscribe(e => {
+            if (e.fromState === 'AwaitingPayment' && e.toState !== 'Cancelled')
+                void on('placed')(e.ctx, e.order);
             if (e.toState === 'Shipped') void on('shipped')(e.ctx, e.order);
             if (e.toState === 'Delivered') void on('delivered')(e.ctx, e.order);
         });
         // One SMS per payment checked (an order can have an advance and a full payment).
-        this.eventBus.ofType(BdPaymentCheckedEvent).subscribe(e =>
-            on(e.outcome === 'verified' ? 'paymentVerified' : 'paymentRejected')(e.ctx, e.order, `payment:${e.payment.id}`),
-        );
+        this.eventBus
+            .ofType(BdPaymentCheckedEvent)
+            .subscribe(e =>
+                on(e.outcome === 'verified' ? 'paymentVerified' : 'paymentRejected')(
+                    e.ctx,
+                    e.order,
+                    `payment:${e.payment.id}`,
+                ),
+            );
     }
 
     async send(ctx: RequestContext, orderId: ID, event: SmsEvent, extraKey?: string) {
-        const order = await this.orderService.findOne(ctx, orderId, ['customer', 'payments', 'payments.refunds']);
+        const order = await this.orderService.findOne(ctx, orderId, [
+            'customer',
+            'payments',
+            'payments.refunds',
+        ]);
         if (!order || order.customFields.imported || order.customFields.sendSms === false) return;
         const to = order.shippingAddress?.phoneNumber || order.customer?.customFields.phone;
         if (!to) return;
@@ -97,7 +118,9 @@ export class OrderSmsService implements OnApplicationBootstrap {
         let token = order.customFields.trackingToken;
         if (!token) {
             token = newTrackingToken(bytes => webcrypto.getRandomValues(bytes));
-            await this.connection.getRepository(ctx, Order).update(order.id, { customFields: { trackingToken: token } });
+            await this.connection
+                .getRepository(ctx, Order)
+                .update(order.id, { customFields: { trackingToken: token } });
         }
         return `${this.options.storefrontUrl.replace(/\/$/, '')}/t/${token}`;
     }

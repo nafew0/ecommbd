@@ -8,7 +8,7 @@ export const trackingShopApiExtensions = gql`
     }
 
     type BdTrackedStatus {
-        "new, confirmed, packed, shipped, partiallyDelivered, delivered, returned or cancelled"
+        "awaitingPayment, new, confirmed, packed, shipped, partiallyDelivered, delivered, returned or cancelled"
         status: String!
         at: DateTime!
     }

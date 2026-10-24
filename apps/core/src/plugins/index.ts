@@ -13,6 +13,7 @@ import { FraudGuardPlugin } from './fraud-guard';
 import { MerchantAdminPlugin } from './merchant-admin/merchant-admin.plugin';
 import { NotificationsPlugin, type SmsDriver } from './notifications';
 import { PaymentsBdPlugin } from './payments-bd';
+import { PaymentsOnlinePlugin } from './payments-online';
 import { ShippingBdPlugin } from './shipping-bd';
 // Last: its store-defaults step runs after the others (the order files load in).
 import { BdSearchPlugin, type SearchRateLimits } from './bd-search';
@@ -45,8 +46,12 @@ export interface CustomPluginOptions {
     checkoutRateLimits?: BdCheckoutPluginOptions['rateLimits'];
     /** SMS_DRIVER: the SMS provider (the log driver records instead of sending). */
     smsDriver: SmsDriver;
-    /** STOREFRONT_URL, for SMS tracking links. */
+    /** STOREFRONT_URL, for SMS tracking links and where payment gateways send shoppers back. */
     storefrontUrl?: string;
+    /** SECRETS_KEYRING: encrypts payment gateway (and later courier) credentials. */
+    secretsKeyring?: string;
+    /** Tests only: payment gateways at a mock server. */
+    gatewayBaseUrls?: Partial<Record<'sslcommerz' | 'bkash', string>>;
     /** Rate limits for search (tests set high ones). */
     searchRateLimits?: Partial<SearchRateLimits>;
     /** How long search reuses a loaded catalog, in ms (tests use 0). */
@@ -88,6 +93,11 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
         BdManualOrdersPlugin,
         NotificationsPlugin.init({ driver: options.smsDriver, storefrontUrl: options.storefrontUrl }),
         FraudGuardPlugin,
+        PaymentsOnlinePlugin.init({
+            publicUrl: options.storefrontUrl,
+            keyring: options.secretsKeyring,
+            baseUrls: options.gatewayBaseUrls,
+        }),
         MerchantAdminPlugin.init({
             appDir: ADMIN_APP_DIR,
             imageOrigins: options.assetUrlPrefix ? [new URL(options.assetUrlPrefix).origin] : [],
