@@ -141,8 +141,14 @@ export class OrderActionsService {
         return this.act(ctx, input, 'pack', (txCtx, order) => this.transition(txCtx, order.id, 'Packed'));
     }
 
-    /** Hands every item to delivery with a manual fulfillment (couriers do this in phase 19). */
-    markShipped(ctx: RequestContext, input: OrderActionInput): ActionResult {
+    /**
+     * Hands every item to delivery with a manual fulfillment: by hand, or when the courier picks the
+     * parcel up (phase 19 passes the courier's name and consignment ID).
+     */
+    markShipped(
+        ctx: RequestContext,
+        input: OrderActionInput & { shipment?: { method: string; trackingCode: string } },
+    ): ActionResult {
         return this.act(ctx, input, 'ship', async (txCtx, order) => {
             const fulfillment = await this.orderService.createFulfillment(txCtx, {
                 lines: order.lines
@@ -151,8 +157,8 @@ export class OrderActionsService {
                 handler: {
                     code: manualFulfillmentHandler.code,
                     arguments: [
-                        { name: 'method', value: 'Manual' },
-                        { name: 'trackingCode', value: '' },
+                        { name: 'method', value: input.shipment?.method ?? 'Manual' },
+                        { name: 'trackingCode', value: input.shipment?.trackingCode ?? '' },
                     ],
                 },
             });

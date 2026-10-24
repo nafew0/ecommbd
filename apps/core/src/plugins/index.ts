@@ -14,6 +14,7 @@ import { MerchantAdminPlugin } from './merchant-admin/merchant-admin.plugin';
 import { NotificationsPlugin, type SmsDriver } from './notifications';
 import { PaymentsBdPlugin } from './payments-bd';
 import { PaymentsOnlinePlugin } from './payments-online';
+import { CouriersPlugin } from './couriers';
 import { ShippingBdPlugin } from './shipping-bd';
 // Last: its store-defaults step runs after the others (the order files load in).
 import { BdSearchPlugin, type SearchRateLimits } from './bd-search';
@@ -52,6 +53,8 @@ export interface CustomPluginOptions {
     secretsKeyring?: string;
     /** Tests only: payment gateways at a mock server. */
     gatewayBaseUrls?: Partial<Record<'sslcommerz' | 'bkash', string>>;
+    /** Tests only: couriers at a mock server. */
+    courierBaseUrls?: Partial<Record<'steadfast' | 'pathao', string>>;
     /** Rate limits for search (tests set high ones). */
     searchRateLimits?: Partial<SearchRateLimits>;
     /** How long search reuses a loaded catalog, in ms (tests use 0). */
@@ -97,6 +100,11 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
             publicUrl: options.storefrontUrl,
             keyring: options.secretsKeyring,
             baseUrls: options.gatewayBaseUrls,
+        }),
+        CouriersPlugin.init({
+            publicUrl: options.storefrontUrl,
+            keyring: options.secretsKeyring,
+            baseUrls: options.courierBaseUrls,
         }),
         MerchantAdminPlugin.init({
             appDir: ADMIN_APP_DIR,

@@ -35,7 +35,7 @@ export default defineConfig({
         },
         // `astro dev`: images and the Shop API come from the core, as Nginx does in production.
         server: {
-            proxy: Object.fromEntries(['/img', '/assets', '/shop-api', '/bd-pay'].map(prefix => [prefix, core])),
+            proxy: Object.fromEntries(['/img', '/assets', '/shop-api', '/bd-pay', '/bd-courier'].map(prefix => [prefix, core])),
         },
     },
 });

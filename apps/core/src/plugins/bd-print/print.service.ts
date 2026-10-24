@@ -18,6 +18,7 @@ import {
 } from '@vendure/core';
 import { In, IsNull, Not } from 'typeorm';
 import { StoreSettingsService } from '../bd-core';
+import { shipmentInfo } from '../bd-orders/shipment-info';
 import { PRINTED_FIELD } from './custom-fields';
 import { PrintSettingsService } from './print-settings.service';
 
@@ -109,12 +110,17 @@ export class PrintService {
         const methodNames = await this.methodNames(ctx);
         const store = await this.storeSettings.get(ctx);
         const { profile, policies } = store;
+        const printed = orderIds
+            .map(id => byId.get(String(id)))
+            .filter((order): order is Order => !!order)
+            .map(order => this.toPrintOrder(ctx, order, doc, methodNames));
+        // The courier's consignment ID once booked (phase 19), for the sticker's barcode.
+        for (const order of printed) {
+            order.courierConsignment = (await shipmentInfo(ctx, order.id))?.consignmentId ?? null;
+        }
         return {
             document: doc,
-            orders: orderIds
-                .map(id => byId.get(String(id)))
-                .filter((order): order is Order => !!order)
-                .map(order => this.toPrintOrder(ctx, order, doc, methodNames)),
+            orders: printed,
             store: {
                 name: profile.storeName,
                 phones: profile.phones,

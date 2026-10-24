@@ -23,8 +23,9 @@ const host = process.env.HOST ?? '0.0.0.0';
 const coreUrl = new URL(process.env.CORE_URL ?? 'http://localhost:3000');
 const live = ['staging', 'production'].includes(process.env.APP_ENV ?? '');
 const proxyCore = (process.env.PROXY_CORE ?? (live ? 'false' : 'true')) === 'true';
-// /bd-pay: payment gateways send shoppers back and notify the core there (phase 18).
-const CORE_PATHS = ['/img', '/assets', '/shop-api', '/admin', '/admin-api', '/dashboard', '/bd-geo', '/bd-pay'];
+// /bd-pay: payment gateways send shoppers back and notify the core there (phase 18); /bd-courier:
+// courier status webhooks (phase 19).
+const CORE_PATHS = ['/img', '/assets', '/shop-api', '/admin', '/admin-api', '/dashboard', '/bd-geo', '/bd-pay', '/bd-courier'];
 const isCorePath = pathname =>
     CORE_PATHS.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
 

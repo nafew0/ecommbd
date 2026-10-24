@@ -4,6 +4,7 @@ export * from './catalog';
 export * from './checkout';
 export * from './circuit-breaker';
 export * from './content';
+export * from './couriers';
 export * from './crypto';
 export * from './env';
 export * from './fraud';

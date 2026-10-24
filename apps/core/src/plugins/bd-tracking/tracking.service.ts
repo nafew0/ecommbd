@@ -17,6 +17,7 @@ import {
     TransactionalConnection,
 } from '@vendure/core';
 import { webcrypto } from 'node:crypto';
+import { shipmentInfo } from '../bd-orders/shipment-info';
 
 export interface TrackedOrder {
     /** Not in the API: for field resolvers of other plugins (online payments). */
@@ -163,7 +164,7 @@ export class TrackingService {
             lines: await this.lineNames(ctx, order),
             total: order.totalWithTax,
             codDue,
-            courierTrackingUrl: null,
+            courierTrackingUrl: (await shipmentInfo(ctx, order.id))?.trackingUrl ?? null,
         };
     }
 }
