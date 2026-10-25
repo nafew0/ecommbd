@@ -30,7 +30,10 @@ export class BdPaymentAttempt extends VendureEntity {
         super(input);
     }
 
-    /** 32 random hex characters: our `tran_id` / invoice number, and the key in the shopper's pay link. */
+    /**
+     * Random hex: our `tran_id` / invoice number, and the key in the shopper's pay link. 30 characters
+     * (SSLCommerz's limit); attempts made before October 2026 have 32.
+     */
     @Index({ unique: true })
     @Column({ type: 'varchar', length: 40 })
     token: string;
@@ -75,6 +78,10 @@ export class BdPaymentAttempt extends VendureEntity {
     @Column({ type: 'varchar', length: 100, nullable: true })
     gatewayTransactionId: string | null;
 
+    /** Why the gateway flagged the payment as risky, in its own words (SSLCommerz risk_title). */
+    @Column({ type: 'varchar', length: 100, nullable: true })
+    riskTitle: string | null;
+
     /** Poisha the gateway says was paid (may differ: then it's a mismatch). */
     @Column({ type: 'int', nullable: true })
     paidAmount: number | null;
@@ -116,6 +123,13 @@ export class BdPaymentAttempt extends VendureEntity {
     /** The gateway's refund reference, once refunded through the API. */
     @Column({ type: 'varchar', length: 100, nullable: true })
     refundReference: string | null;
+
+    /**
+     * Our ID for the latest refund request (SSLCommerz refund_trans_id). Kept when the answer never
+     * came, so trying again can't refund twice; a new one after the gateway refused.
+     */
+    @Column({ type: 'varchar', length: 30, nullable: true })
+    refundTransId: string | null;
 
     /** Gateway responses with secrets removed, oldest first (at most 30). */
     @Column({ type: 'jsonb', default: () => "'[]'" })

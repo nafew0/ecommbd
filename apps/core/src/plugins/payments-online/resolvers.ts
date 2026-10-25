@@ -1,6 +1,13 @@
-import { GATEWAY_MODES, type GatewayMode, isOnlineGateway, ONLINE_GATEWAYS } from '@ecommbd/shared';
+import {
+    GATEWAY_MODES,
+    gatewayAcceptsAmount,
+    type GatewayMode,
+    isOnlineGateway,
+    ONLINE_GATEWAYS,
+} from '@ecommbd/shared';
 import { Args, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
 import {
+    ActiveOrderService,
     Allow,
     Ctx,
     ErrorResult,
@@ -54,14 +61,19 @@ export class OnlineShopOptionsResolver {
     constructor(
         private gateways: GatewayService,
         private payments: OnlinePaymentService,
+        private activeOrders: ActiveOrderService,
     ) {}
 
     /** Under Vendure's own bdPaymentOptions query, which already requires an active order. */
     @ResolveField()
-    async online(@Ctx() ctx: RequestContext) {
+    async online(@Ctx() ctx: RequestContext, @Parent() parent: { advanceAmount: number }) {
         if (!this.payments.publicUrl) return [];
+        const order = await this.activeOrders.getActiveOrder(ctx, undefined);
+        // What the shopper could pay online: the whole order, or only the advance with COD.
+        const amounts = [order?.totalWithTax ?? 0, parent.advanceAmount].filter(amount => amount > 0);
         const options = [];
         for (const gateway of ONLINE_GATEWAYS) {
+            if (!amounts.some(amount => gatewayAcceptsAmount(gateway, amount))) continue;
             const handle = await this.gateways.handle(ctx, gateway);
             if (!handle || this.gateways.paused(gateway, handle.mode)) continue;
             options.push({ gateway, methodCode: ONLINE_METHOD_CODES[gateway], mode: handle.mode });

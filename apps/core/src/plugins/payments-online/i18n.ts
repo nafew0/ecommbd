@@ -29,6 +29,7 @@ const messagesEn = {
     TEMPORARILY_UNAVAILABLE:
         'Temporarily unavailable. Please try again in a few minutes, or choose cash on delivery.',
     NO_ADVANCE_NEEDED: 'This order doesn’t need an advance.',
+    AMOUNT_OUT_OF_RANGE: 'Online payment works for ৳10 to ৳5,00,000. Please choose another way to pay.',
     'not-covered': 'The payments don’t cover the order total.',
 };
 
@@ -37,6 +38,8 @@ const messagesBn: typeof messagesEn = {
     TEMPORARILY_UNAVAILABLE:
         'সাময়িকভাবে বন্ধ আছে। কয়েক মিনিট পর আবার চেষ্টা করুন, অথবা ক্যাশ অন ডেলিভারি বেছে নিন।',
     NO_ADVANCE_NEEDED: 'এই অর্ডারে অগ্রিম লাগবে না।',
+    AMOUNT_OUT_OF_RANGE:
+        'অনলাইন পেমেন্ট ৳১০ থেকে ৳৫,০০,০০০ পর্যন্ত করা যায়। অন্য কোনো উপায়ে পেমেন্ট বেছে নিন।',
     'not-covered': 'পেমেন্টগুলো অর্ডারের মোট টাকা পূরণ করে না।',
 };
 

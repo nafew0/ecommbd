@@ -894,6 +894,10 @@ export const en = {
                 risky: 'Check the payment in the gateway’s panel. Accept to pay the order, or refund.',
                 mismatch: 'The amount doesn’t match the order. Refund it and ask the customer to pay again.',
             } as Record<string, string>,
+            riskTitle: (title: string) => `The gateway says: “${title}”`,
+            refunding: 'Refund processing',
+            refundingHint:
+                'The gateway accepted the refund and is still processing it. We check it every few minutes. Mark it resolved only after you see it finished in the gateway’s panel.',
             paid: 'Amount paid',
             transaction: 'Gateway transaction',
             accept: 'Accept payment',
@@ -905,6 +909,7 @@ export const en = {
             states: {
                 open: 'To decide',
                 accepted: 'Accepted',
+                refunding: 'Refund processing',
                 refunded: 'Refunded',
                 resolved: 'Resolved',
             } as Record<string, string>,

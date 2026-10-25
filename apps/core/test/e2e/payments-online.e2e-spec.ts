@@ -179,6 +179,7 @@ const ATTEMPTS = gql`
             failureCode
             reviewReason
             reviewState
+            riskTitle
             refundReference
             events {
                 source
@@ -270,11 +271,11 @@ async function onlineSettings(patch: Record<string, unknown> = {}) {
 }
 
 let phoneSuffix = 3000;
-/** A new cart for one panjabi to Mirpur, at ArrangingPayment, with the given payment choice. */
-async function readyToPay(choice: 'prepaid' | 'cod' = 'prepaid') {
+/** A new cart for one panjabi (or more) to Mirpur, at ArrangingPayment, with the given payment choice. */
+async function readyToPay(choice: 'prepaid' | 'cod' = 'prepaid', quantity = 1) {
     await shopClient.asAnonymousUser();
     phoneSuffix += 1;
-    await prepareCheckout(shopClient, { phone: `0171300${phoneSuffix}` });
+    await prepareCheckout(shopClient, { phone: `0171300${phoneSuffix}`, quantity });
     await shopClient.query(CHOICE, { choice });
     const { transitionOrderToState } = await shopClient.query(TRANSITION, { state: 'ArrangingPayment' });
     expect(transitionOrderToState.state).toBe('ArrangingPayment');
@@ -305,7 +306,7 @@ const local = (url: string) => url.replace('https://shop.example.com', core);
 async function payAgain(orderId: string): Promise<string> {
     const payPage = await follow(`${core}/bd-pay/again/${await trackingToken(orderId)}`, { method: 'POST' });
     const token = new URL(payPage).searchParams.get('to');
-    expect(payPage).toMatch(/^https:\/\/shop\.example\.com\/checkout\/pay\/\?to=[a-f0-9]{32}$/);
+    expect(payPage).toMatch(/^https:\/\/shop\.example\.com\/checkout\/pay\/\?to=[a-f0-9]{30}$/);
     return follow(`${core}/bd-pay/start/${token}`);
 }
 
@@ -361,6 +362,9 @@ beforeEach(async () => {
     await onlineSettings();
     await adminClient.query(UPDATE_PAYMENT_SETTINGS, { input: defaultPaymentSettings() });
     mock.sslSessionStatus = 200;
+    mock.sslRefundAnswer = 'success';
+    mock.sslValidationInvalid = false;
+    mock.sslOmitTranId = false;
     bk.bkashExecute = 'complete';
     clearBkashTokens();
 });
@@ -523,7 +527,7 @@ describe('SSLCommerz', () => {
         await postForm('/bd-pay/sslcommerz/ipn', mock.sslPay(risky.tranId, { risk: '1' }));
         expect((await orderById(risky.placed.id)).state).toBe('AwaitingPayment');
         const [attempt] = await attemptsOf(risky.placed.id);
-        expect(attempt.reviewReason).toBe('risky');
+        expect(attempt).toMatchObject({ reviewReason: 'risky', riskTitle: 'Risky' });
         // Held for review: the order doesn't expire.
         await db().query(`UPDATE "order" SET "orderPlacedAt" = now() - interval '2 hours' WHERE id = $1`, [
             n(risky.placed.id),
@@ -604,6 +608,140 @@ describe('SSLCommerz', () => {
             null,
             'duplicate',
         ]);
+    });
+
+    it('sends a tran_id of at most 30 characters and always a postcode', async () => {
+        const { tranId } = await placeSsl();
+        expect(tranId).toMatch(/^[a-f0-9]{30}$/);
+        const form = mock.sslSessionForms[mock.sslSessionForms.length - 1]!;
+        expect(form.get('tran_id')).toBe(tranId);
+        // Checkout doesn't ask for a postcode: Dhaka GPO's.
+        expect(form.get('cus_postcode')).toBe('1000');
+        expect((form.get('cus_email') ?? '').length).toBeLessThanOrEqual(50);
+    });
+
+    it('still finds a payment when validation says INVALID_TRANSACTION', async () => {
+        const { placed, tranId } = await placeSsl();
+        mock.sslValidationInvalid = true;
+        await postForm('/bd-pay/sslcommerz/ipn', mock.sslPay(tranId));
+        expect((await orderById(placed.id)).state).toBe('PaymentSettled');
+        const [attempt] = await attemptsOf(placed.id);
+        expect(attempt.status).toBe('paid');
+        expect(attempt.events).toEqual(
+            expect.arrayContaining([
+                { source: 'validate', status: 'INVALID_TRANSACTION' },
+                { source: 'query', status: 'VALIDATED' },
+            ]),
+        );
+    });
+
+    it('never applies an answer without our tran_id, and keeps reconciling', async () => {
+        const { placed, tranId } = await placeSsl();
+        mock.sslOmitTranId = true;
+        await postForm('/bd-pay/sslcommerz/ipn', mock.sslPay(tranId));
+        expect((await orderById(placed.id)).state).toBe('AwaitingPayment');
+        expect((await attemptsOf(placed.id))[0].status).toBe('started');
+        // The gateway's next answer names it: reconciliation applies it.
+        mock.sslOmitTranId = false;
+        await db().query(
+            `UPDATE bd_payment_attempt SET "nextCheckAt" = now() - interval '1 minute' WHERE "orderId" = $1`,
+            [n(placed.id)],
+        );
+        await service().reconcile();
+        expect((await orderById(placed.id)).state).toBe('PaymentSettled');
+    });
+
+    it('sends a unique refund_trans_id, and follows a processing refund until it is refunded', async () => {
+        const held = await placeSsl();
+        await postForm('/bd-pay/sslcommerz/ipn', mock.sslPay(held.tranId, { amount: '20.00' }));
+        const [attempt] = await attemptsOf(held.placed.id);
+        expect(attempt.reviewState).toBe('open');
+
+        mock.sslRefundAnswer = 'processing';
+        const refunding = (await adminClient.query(REVIEW, { id: attempt.id, action: 'refund' }))
+            .reviewBdPayment;
+        expect(refunding).toMatchObject({ reviewState: 'refunding', refundReference: expect.any(String) });
+        // Still listed for staff while the gateway processes it.
+        const reviews = (await adminClient.query(REVIEWS)).bdPaymentReviews;
+        expect(reviews.map((item: { id: string }) => item.id)).toContain(attempt.id);
+        // A second refund can't be started meanwhile.
+        expect(
+            (await adminClient.query(REVIEW, { id: attempt.id, action: 'refund' })).reviewBdPayment.reason,
+        ).toBe('NOT_OPEN');
+
+        // Still processing at the next check, then refunded (Refund Query).
+        const due = () =>
+            db().query(
+                `UPDATE bd_payment_attempt SET "nextCheckAt" = now() - interval '1 minute' WHERE id = $1`,
+                [n(attempt.id)],
+            );
+        await due();
+        await service().reconcile();
+        expect((await attemptsOf(held.placed.id))[0].reviewState).toBe('refunding');
+        mock.sslRefunds.get(refunding.refundReference)!.status = 'refunded';
+        await due();
+        await service().reconcile();
+        const [done] = await attemptsOf(held.placed.id);
+        expect(done.reviewState).toBe('refunded');
+        expect(done.events).toEqual(expect.arrayContaining([{ source: 'refund-query', status: 'refunded' }]));
+
+        // Every refund request had its own ID, within SSLCommerz's 30 characters.
+        const ids = [...mock.sslRefunds.values()].map(refund => refund.refundTransId);
+        expect(new Set(ids).size).toBe(ids.length);
+        for (const id of ids) expect(id.length).toBeLessThanOrEqual(30);
+    });
+
+    it('puts a refund the gateway cancelled back in Payment reviews', async () => {
+        const held = await placeSsl();
+        await postForm('/bd-pay/sslcommerz/ipn', mock.sslPay(held.tranId, { amount: '30.00' }));
+        const [attempt] = await attemptsOf(held.placed.id);
+        mock.sslRefundAnswer = 'processing';
+        const refunding = (await adminClient.query(REVIEW, { id: attempt.id, action: 'refund' }))
+            .reviewBdPayment;
+        mock.sslRefunds.get(refunding.refundReference)!.status = 'cancelled';
+        await adminClient.query(
+            gql`
+                mutation ($id: ID!) {
+                    checkBdPaymentAttempt(id: $id) {
+                        id
+                    }
+                }
+            `,
+            { id: attempt.id },
+        );
+        expect((await attemptsOf(held.placed.id))[0]).toMatchObject({
+            reviewState: 'open',
+            refundReference: null,
+        });
+    });
+
+    it('keeps the record of a refused refund, and a retry is a new refund', async () => {
+        const held = await placeSsl();
+        await postForm('/bd-pay/sslcommerz/ipn', mock.sslPay(held.tranId, { amount: '40.00' }));
+        const [attempt] = await attemptsOf(held.placed.id);
+        mock.sslRefundAnswer = 'failed';
+        const refused = (await adminClient.query(REVIEW, { id: attempt.id, action: 'refund' }))
+            .reviewBdPayment;
+        expect(refused.reason).toBe('REFUND_FAILED');
+        const [after] = await attemptsOf(held.placed.id);
+        expect(after.reviewState).toBe('open');
+        expect(after.events).toEqual(expect.arrayContaining([{ source: 'refund', status: 'failed' }]));
+
+        mock.sslRefundAnswer = 'success';
+        const refunded = (await adminClient.query(REVIEW, { id: attempt.id, action: 'refund' }))
+            .reviewBdPayment;
+        expect(refunded.reviewState).toBe('refunded');
+    });
+
+    it('offers SSLCommerz only from ৳10 to ৳5,00,000', async () => {
+        // 400 panjabis: ৳5,00,000 plus delivery.
+        await readyToPay('prepaid', 400);
+        const { bdPaymentOptions } = await shopClient.query(OPTIONS);
+        expect(bdPaymentOptions.online.map((option: { gateway: string }) => option.gateway)).toEqual([
+            'bkash',
+        ]);
+        const refused = await pay('bd-sslcommerz', { purpose: 'full' });
+        expect(refused.paymentErrorMessage).toContain('৳10');
     });
 });
 

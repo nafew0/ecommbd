@@ -4,6 +4,7 @@ import {
     bkashFailure,
     defaultOnlinePaymentSettings,
     fromGatewayAmount,
+    gatewayAcceptsAmount,
     hasAllCredentials,
     mergeCredentials,
     nextReconcileDelayMs,
@@ -93,6 +94,16 @@ describe('reconciliation timetable', () => {
         expect(nextReconcileDelayMs(23 * hour)).toBe(300_000);
         expect(nextReconcileDelayMs(25 * hour)).toBe(hour);
         expect(nextReconcileDelayMs(8 * 24 * hour)).toBeNull();
+    });
+});
+
+describe('gateway amount limits', () => {
+    it('keeps SSLCommerz to ৳10 – ৳5,00,000', () => {
+        expect(gatewayAcceptsAmount('sslcommerz', 999)).toBe(false);
+        expect(gatewayAcceptsAmount('sslcommerz', 1_000)).toBe(true);
+        expect(gatewayAcceptsAmount('sslcommerz', 50_000_000)).toBe(true);
+        expect(gatewayAcceptsAmount('sslcommerz', 50_000_001)).toBe(false);
+        expect(gatewayAcceptsAmount('bkash', 500)).toBe(true);
     });
 });
 
