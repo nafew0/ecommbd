@@ -207,7 +207,7 @@ export const sslcommerzDriver: GatewayDriver & {
     },
 
     /** Refund Query: refunded, still processing, or cancelled by SSLCommerz. */
-    async refundStatus(call, reference): Promise<RefundStatus> {
+    async refundStatus(call, _attempt, reference): Promise<RefundStatus> {
         const body = jsonOf(
             await call.http.request(
                 url(call, '/validator/api/merchantTransIDvalidationAPI.php', {

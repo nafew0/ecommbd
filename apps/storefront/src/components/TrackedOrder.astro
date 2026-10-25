@@ -22,12 +22,14 @@ const date = (iso: string, withTime = false) => formatDhaka(new Date(iso), { ban
 const ended = order.status === 'cancelled' || order.status === 'returned';
 const online = order.onlinePayment;
 const result = payment ? s.paymentResults[payment] : null;
-// bKash's own reason when it said why (insufficient balance…), else the plain result.
+// bKash's own words when it said why (in the shopper's language), else our message for its
+// reason (insufficient balance…), else the plain result.
 const failure = (reason ?? online?.lastFailure) as BkashFailure | null | undefined;
 const failureText =
-    failure && failure in BKASH_FAILURE_MESSAGES.en && failure !== 'failed'
+    online?.lastFailureMessage ??
+    (failure && failure in BKASH_FAILURE_MESSAGES.en && failure !== 'failed'
         ? BKASH_FAILURE_MESSAGES[lang === 'en' ? 'en' : 'bn'][failure]
-        : null;
+        : null);
 ---
 
 <article class="tracked-order">

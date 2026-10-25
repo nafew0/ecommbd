@@ -12,6 +12,7 @@ const errorsEn: Record<ReviewError, string> = {
     NOTE_REQUIRED: 'Write a short note on how it was handled.',
     REFUND_FAILED: 'The gateway refused the refund. Check its panel, or refund by hand and mark it resolved.',
     UNAVAILABLE: 'The gateway’s credentials for this mode aren’t saved.',
+    NO_TRANSACTION: 'This try has no bKash transaction to look up.',
 };
 
 const errorsBn: Record<ReviewError, string> = {
@@ -22,6 +23,7 @@ const errorsBn: Record<ReviewError, string> = {
     REFUND_FAILED:
         'গেটওয়ে রিফান্ড নেয়নি। গেটওয়ের প্যানেল দেখুন, অথবা হাতে রিফান্ড করে সমাধান হয়েছে চিহ্নিত করুন।',
     UNAVAILABLE: 'এই মোডের জন্য গেটওয়ের তথ্য সেভ করা নেই।',
+    NO_TRANSACTION: 'এই চেষ্টায় খোঁজার মতো কোনো বিকাশ ট্রানজেকশন নেই।',
 };
 
 const messagesEn = {

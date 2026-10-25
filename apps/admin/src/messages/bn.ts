@@ -935,6 +935,10 @@ export const bn: Messages = {
             lastChecked: (when: string) => `শেষ দেখা হয়েছে ${when}`,
             inReview: 'পেমেন্ট যাচাইয়ে আছে',
             failure: (code: string) => `কারণ: ${code}`,
+            payer: (wallet: string) => `${wallet} থেকে পরিশোধ`,
+            lookUp: 'ট্রানজেকশন খুঁজুন',
+            lookedUp: (status: string, amount: string) => `বিকাশ বলছে: ${status}, ${amount}`,
+            lookUpFailed: (error: string) => `বিকাশ খুঁজে পায়নি: ${error}`,
         },
     },
     payments: {

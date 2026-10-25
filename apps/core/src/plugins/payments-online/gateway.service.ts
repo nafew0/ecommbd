@@ -9,6 +9,7 @@ import {
 } from '@ecommbd/shared';
 import { Inject, Injectable, type OnApplicationShutdown } from '@nestjs/common';
 import { Logger, type RequestContext } from '@vendure/core';
+import { BkashTokenService } from './bkash-token.service';
 import { loggerCtx, PAYMENTS_ONLINE_OPTIONS } from './constants';
 import { bkashDriver } from './drivers/bkash';
 import { sslcommerzDriver } from './drivers/sslcommerz';
@@ -45,9 +46,11 @@ export class GatewayService implements OnApplicationShutdown {
     constructor(
         @Inject(PAYMENTS_ONLINE_OPTIONS) private options: PaymentsOnlinePluginOptions,
         private settings: OnlineSettingsService,
+        private bkashTokens: BkashTokenService,
     ) {
         this.http = createHttpClient({
             connectTimeoutMs: 5_000,
+            // bKash's calls set their own 30 seconds.
             timeoutMs: 20_000,
             circuitBreaker: this.breaker,
             // The gateways' addresses are fixed by us; tests point them at a local mock server.
@@ -84,12 +87,14 @@ export class GatewayService implements OnApplicationShutdown {
     ): Promise<GatewayHandle<G> | null> {
         const credentials = await this.settings.credentials(ctx, gateway, mode);
         if (!hasAllCredentials(gateway, credentials)) return null;
-        return {
-            gateway,
-            mode,
-            driver: DRIVERS[gateway],
-            call: { http: this.http, baseUrl: this.baseUrl(gateway, mode), credentials: credentials! },
+        const call: GatewayCall = {
+            http: this.http,
+            baseUrl: this.baseUrl(gateway, mode),
+            credentials: credentials!,
         };
+        // bKash: one token for the store, shared by every process (at most 2 token calls an hour).
+        if (gateway === 'bkash') call.token = renew => this.bkashTokens.token(call, renew);
+        return { gateway, mode, driver: DRIVERS[gateway], call };
     }
 
     /** Offered at checkout: on, complete credentials, and not paused by the circuit breaker. */

@@ -929,6 +929,10 @@ export const en = {
             lastChecked: (when: string) => `Last checked ${when}`,
             inReview: 'In Payment reviews',
             failure: (code: string) => `Reason: ${code}`,
+            payer: (wallet: string) => `Paid from ${wallet}`,
+            lookUp: 'Look up transaction',
+            lookedUp: (status: string, amount: string) => `bKash says: ${status}, ${amount}`,
+            lookUpFailed: (error: string) => `bKash couldn’t find it: ${error}`,
         },
     },
     payments: {

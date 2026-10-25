@@ -30,7 +30,7 @@ import { OrderActionsService } from '../bd-orders';
 import { TrackingService } from '../bd-tracking';
 import { type AttemptEvent, BdPaymentAttempt } from './attempt.entity';
 import { loggerCtx, ONLINE_PAYMENT_HISTORY_TYPE, PAY_ROUTE, PAYMENTS_ONLINE_OPTIONS } from './constants';
-import { bkashDriver } from './drivers/bkash';
+import { type BkashTransaction, bkashDriver } from './drivers/bkash';
 import { sslcommerzDriver } from './drivers/sslcommerz';
 import type { GatewayOutcome, RefundOutcome } from './drivers/types';
 import { GatewayService } from './gateway.service';
@@ -45,7 +45,13 @@ export type PaymentResult =
 export type ReviewAction = 'accept' | 'refund' | 'resolve';
 
 export type ReviewError =
-    'NOT_FOUND' | 'NOT_OPEN' | 'NOT_RISKY' | 'NOTE_REQUIRED' | 'REFUND_FAILED' | 'UNAVAILABLE';
+    | 'NOT_FOUND'
+    | 'NOT_OPEN'
+    | 'NOT_RISKY'
+    | 'NOTE_REQUIRED'
+    | 'REFUND_FAILED'
+    | 'UNAVAILABLE'
+    | 'NO_TRANSACTION';
 
 export class OnlinePaymentError extends Error {
     constructor(
@@ -289,6 +295,7 @@ export class OnlinePaymentService {
             await this.connection.getRepository(ctx, BdPaymentAttempt).update(attempt.id, {
                 status: 'started',
                 gatewaySessionId: started.sessionId || null,
+                gatewaySignature: started.signature?.slice(0, 255) ?? null,
                 nextCheckAt: new Date(Date.now() + 5 * MINUTE),
                 events: withEvent(attempt.events, 'start', 'started', started.raw),
             });
@@ -364,13 +371,16 @@ export class OnlinePaymentService {
     }
 
     /**
-     * bKash's callback (`?paymentID=…&status=success|failure|cancel`) through the shopper's browser.
-     * On success we execute (and query when execute fails); otherwise we ask bKash what happened.
+     * bKash's callback (`?paymentID=…&status=success|failure|cancel&signature=…`) through the shopper's
+     * browser. Only a callback with the attempt's paymentID and signature can execute, and Execute is
+     * sent once per paymentID (a second callback or the reconciliation task only queries). A failure
+     * or a cancel that bKash's query confirms ends the try, so the shopper sees "Pay again".
      */
     async bkashCallback(
         token: string,
         paymentId: string | undefined,
         status: string | undefined,
+        signature?: string,
     ): Promise<string> {
         const ctx = await this.background();
         const attempt = await this.attemptByToken(ctx, token);
@@ -386,22 +396,67 @@ export class OnlinePaymentService {
         }
         const handle = await this.gateways.handleFor(ctx, 'bkash', attempt.mode);
         if (!handle) return this.resultUrl(ctx, order, 'pending');
-        await this.addEvent(ctx, attempt, 'callback', String(status ?? ''), { paymentID: paymentId, status });
+        // Attempts made before bKash v2 have no signature to compare.
+        const signed = !attempt.gatewaySignature || signature === attempt.gatewaySignature;
+        if (!signed) {
+            Logger.warn(
+                `bKash callback with a signature that isn't attempt ${attempt.id}'s: not executed, asking bKash`,
+                loggerCtx,
+            );
+        }
+        await this.addEvent(ctx, attempt, 'callback', String(status ?? ''), {
+            paymentID: paymentId,
+            status,
+            signed,
+        });
+        const execute = status === 'success' && signed && (await this.claimExecute(ctx, attempt));
         let outcome: GatewayOutcome;
         try {
-            outcome =
-                status === 'success'
-                    ? await bkashDriver.execute(handle.call, attempt)
-                    : await bkashDriver.query(handle.call, attempt);
+            outcome = execute
+                ? await bkashDriver.execute(handle.call, attempt)
+                : await bkashDriver.query(handle.call, attempt);
         } catch (error) {
             this.gateways.noteFailure('bkash', attempt.mode, error);
             return this.resultUrl(ctx, order, 'pending');
         }
-        // The shopper cancelled or bKash refused, and bKash agrees the payment didn't complete.
-        if (status === 'cancel' && outcome.outcome === 'pending')
-            outcome = { ...outcome, outcome: 'cancelled' };
-        const result = await this.apply(ctx, attempt.id, outcome, status === 'success' ? 'execute' : 'query');
+        // The shopper cancelled or bKash refused, and bKash's query agrees it didn't complete:
+        // "Initiated" then never completes (bKash: start a new payment).
+        if (signed && outcome.outcome === 'pending' && (status === 'cancel' || status === 'failure')) {
+            outcome = {
+                ...outcome,
+                outcome: status === 'cancel' ? 'cancelled' : 'failed',
+                failureCode: status === 'failure' ? (outcome.failureCode ?? 'failed') : undefined,
+            };
+        }
+        const result = await this.apply(ctx, attempt.id, outcome, execute ? 'execute' : 'query');
         return this.resultUrl(ctx, order, result, outcome.failureCode);
+    }
+
+    /** Marks Execute as sent for this attempt; false when it already was (by a parallel callback too). */
+    private async claimExecute(ctx: RequestContext, attempt: BdPaymentAttempt): Promise<boolean> {
+        const result = await this.connection
+            .getRepository(ctx, BdPaymentAttempt)
+            .createQueryBuilder()
+            .update()
+            .set({ executeSentAt: new Date() })
+            .where('id = :id', { id: attempt.id })
+            .andWhere('"executeSentAt" IS NULL')
+            .execute();
+        return result.affected === 1;
+    }
+
+    /** "Look up transaction" for staff on a support call: what bKash says about the attempt's trxId. */
+    async lookupBkash(ctx: RequestContext, attemptId: ID): Promise<BkashTransaction> {
+        const attempt = await this.connection
+            .getRepository(ctx, BdPaymentAttempt)
+            .findOne({ where: { id: attemptId } });
+        if (!attempt) throw new OnlinePaymentError('NOT_FOUND');
+        if (attempt.gateway !== 'bkash' || !attempt.gatewayTransactionId) {
+            throw new OnlinePaymentError('NO_TRANSACTION');
+        }
+        const handle = await this.gateways.handleFor(ctx, 'bkash', attempt.mode);
+        if (!handle) throw new OnlinePaymentError('UNAVAILABLE');
+        return bkashDriver.search(handle.call, attempt.gatewayTransactionId);
     }
 
     /** "Check status now" (staff) and the reconciliation task: ask the gateway, apply the answer. */
@@ -417,7 +472,11 @@ export class OnlinePaymentService {
         const handle = await this.gateways.handleFor(ctx, attempt.gateway, attempt.mode);
         if (!handle) return this.reschedule(ctx, attempt);
         try {
-            const outcome = await handle.driver.query(handle.call, attempt);
+            let outcome = await handle.driver.query(handle.call, attempt);
+            // bKash: after an Execute, "Initiated" never completes (the paymentId can't be used again).
+            if (attempt.gateway === 'bkash' && attempt.executeSentAt && outcome.outcome === 'pending') {
+                outcome = { ...outcome, outcome: 'failed', failureCode: outcome.failureCode ?? 'failed' };
+            }
             await this.apply(ctx, attempt.id, outcome, 'query');
         } catch (error) {
             this.gateways.noteFailure(attempt.gateway, attempt.mode, error);
@@ -508,6 +567,8 @@ export class OnlinePaymentService {
                 ...checked,
                 status: outcome.outcome,
                 failureCode: outcome.failureCode ?? null,
+                failureMessageEn: outcome.failureMessage?.en ?? null,
+                failureMessageBn: outcome.failureMessage?.bn ?? null,
                 nextCheckAt: null,
             });
             await this.history(ctx, attempt, outcome.outcome, { reason: outcome.failureCode });
@@ -522,6 +583,8 @@ export class OnlinePaymentService {
             gatewayTransactionId: outcome.transactionId ?? null,
             paidAmount: outcome.amount ?? null,
             riskTitle: outcome.riskTitle ?? null,
+            maxRefundableAmount: outcome.maxRefundable ?? outcome.amount ?? null,
+            payerAccount: outcome.payerAccount ?? null,
             paidAt: new Date(),
             nextCheckAt: null,
         };
@@ -650,7 +713,7 @@ export class OnlinePaymentService {
             }
             let status;
             try {
-                status = await handle.driver.refundStatus(handle.call, attempt.refundReference);
+                status = await handle.driver.refundStatus(handle.call, attempt, attempt.refundReference);
             } catch (error) {
                 this.gateways.noteFailure(attempt.gateway, attempt.mode, error);
                 await repository.update(attempt.id, later);
@@ -841,7 +904,8 @@ export class OnlinePaymentService {
         if (!handle) return new OnlinePaymentError('UNAVAILABLE');
         // The same ID again when the last request got no answer: the gateway refunds one ID once.
         const refundTransId = attempt.refundTransId ?? newRefundId();
-        await repository.update(attempt.id, { refundTransId });
+        // Recorded before the call: if its answer never comes, the next try asks the gateway first.
+        await repository.update(attempt.id, { refundTransId, refundRequestedAt: new Date() });
         let refund: RefundOutcome;
         try {
             refund = await handle.driver.refund(
@@ -864,7 +928,12 @@ export class OnlinePaymentService {
         });
         if (refund.outcome === 'failed') {
             // Refused: trying again is a new refund, with a new ID.
-            await repository.update(attempt.id, { events, refundTransId: null });
+            await repository.update(attempt.id, {
+                events,
+                refundTransId: null,
+                // Refused before anything was sent (bKash's own limits): no request to wait for.
+                ...(refund.raw === null ? { refundRequestedAt: attempt.refundRequestedAt } : {}),
+            });
             return new OnlinePaymentError('REFUND_FAILED', refund.message);
         }
         const followUp =

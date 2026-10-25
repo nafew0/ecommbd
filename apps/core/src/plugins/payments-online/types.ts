@@ -1,4 +1,5 @@
 import type { OnlineGateway } from '@ecommbd/shared';
+import type { RedisConnectionOptions } from '../bd-checkout';
 
 declare module '@vendure/core/dist/service/helpers/payment-state-machine/payment-state' {
     interface CustomPaymentStates {
@@ -48,6 +49,10 @@ export interface PaymentsOnlinePluginOptions {
     keyring?: string;
     /** Tests point the gateways at a mock server; never set in production. */
     baseUrls?: Partial<Record<OnlineGateway, string>>;
+    /** The cache Redis: the bKash token shared by the server and the worker. Without it, one per process. */
+    redis?: RedisConnectionOptions;
+    /** REDIS_KEY_PREFIX: this store's Redis keys. */
+    redisKeyPrefix?: string;
 }
 
 export {};

@@ -2,10 +2,12 @@ import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
     bkashFailure,
+    bkashPayerReference,
     defaultOnlinePaymentSettings,
     fromGatewayAmount,
     gatewayAcceptsAmount,
     hasAllCredentials,
+    maskWallet,
     mergeCredentials,
     nextReconcileDelayMs,
     parseOnlinePaymentSettings,
@@ -104,6 +106,21 @@ describe('gateway amount limits', () => {
         expect(gatewayAcceptsAmount('sslcommerz', 50_000_000)).toBe(true);
         expect(gatewayAcceptsAmount('sslcommerz', 50_000_001)).toBe(false);
         expect(gatewayAcceptsAmount('bkash', 500)).toBe(true);
+    });
+});
+
+describe('bKash helpers', () => {
+    it('sends the phone as 01…, without the characters bKash refuses', () => {
+        expect(bkashPayerReference('+8801712345678')).toBe('01712345678');
+        expect(bkashPayerReference('8801712345678')).toBe('01712345678');
+        expect(bkashPayerReference('01712<3>&45678')).toBe('0171234567' + '8');
+        expect(bkashPayerReference('x'.repeat(300))).toHaveLength(255);
+    });
+
+    it('masks a wallet to its last 3 digits', () => {
+        expect(maskWallet('01712345678')).toBe('********678');
+        expect(maskWallet('017')).toBeNull();
+        expect(maskWallet(undefined)).toBeNull();
     });
 });
 

@@ -107,15 +107,21 @@ export class OnlineTrackedOrderResolver {
             order: { id: 'DESC' },
         });
         const { expiryMinutes } = await this.settings.get(ctx);
+        const failed = latest && (latest.status === 'failed' || latest.status === 'cancelled');
+        // bKash's own words, in the shopper's language when bKash gave it.
+        const message =
+            failed && ctx.languageCode === 'en'
+                ? (latest.failureMessageEn ?? latest.failureMessageBn)
+                : failed
+                  ? (latest.failureMessageBn ?? latest.failureMessageEn)
+                  : null;
         return {
             gateway: metadata.gateway,
             purpose: metadata.purpose,
             amount: pending.amount,
             expiresAt: new Date(order.orderPlacedAt.getTime() + expiryMinutes * 60_000),
-            lastFailure:
-                latest && (latest.status === 'failed' || latest.status === 'cancelled')
-                    ? (latest.failureCode ?? latest.status)
-                    : null,
+            lastFailure: failed ? (latest.failureCode ?? latest.status) : null,
+            lastFailureMessage: message ?? null,
         };
     }
 }
@@ -188,6 +194,21 @@ export class OnlineAdminResolver {
         return withOrders(ctx, this.connection, await this.payments.reviews(ctx));
     }
 
+    @Query()
+    @Allow(Permission.ReadOrder)
+    async bdLookupBkashTransaction(@Ctx() ctx: RequestContext, @Args() args: { attemptId: ID }) {
+        try {
+            return {
+                __typename: 'BdBkashTransaction',
+                ...(await this.payments.lookupBkash(ctx, args.attemptId)),
+            };
+        } catch (error) {
+            if (error instanceof OnlinePaymentError) return new BdOnlinePaymentError(error.code);
+            if (error instanceof Error) return new BdOnlinePaymentError('UNAVAILABLE', error.message);
+            throw error;
+        }
+    }
+
     @Mutation()
     @Allow(Permission.UpdateOrder)
     async checkBdPaymentAttempt(@Ctx() ctx: RequestContext, @Args() args: { id: ID }) {
@@ -224,6 +245,14 @@ export class BdPaymentReviewResultResolver {
     @ResolveField()
     __resolveType(value: unknown): string {
         return value instanceof ErrorResult ? 'BdOnlinePaymentError' : 'BdPaymentAttempt';
+    }
+}
+
+@Resolver('BdBkashLookupResult')
+export class BdBkashLookupResultResolver {
+    @ResolveField()
+    __resolveType(value: unknown): string {
+        return value instanceof ErrorResult ? 'BdOnlinePaymentError' : 'BdBkashTransaction';
     }
 }
 

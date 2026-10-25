@@ -60,7 +60,7 @@ function go(res: RedirectResponse, url: string) {
  *   POST /bd-pay/again/<tracking token>                → "Pay now" on the tracking page
  *   POST /bd-pay/sslcommerz/ipn                        SSLCommerz → us (server to server)
  *   POST /bd-pay/sslcommerz/return/<attempt>/<result>  the shopper back from SSLCommerz
- *   GET  /bd-pay/bkash/callback/<attempt>              the shopper back from bKash
+ *   GET  /bd-pay/bkash/callback/<attempt>              the shopper back from bKash (paymentID, status, signature)
  */
 @Controller(PAY_ROUTE)
 export class PayController {
@@ -107,6 +107,7 @@ export class PayController {
         @Param('token') token: string,
         @Query('paymentID') paymentId: string | undefined,
         @Query('status') status: string | undefined,
+        @Query('signature') signature: string | undefined,
         @Res() res: RedirectResponse,
     ) {
         const cleanStatus = ['success', 'failure', 'cancel'].includes(status ?? '') ? status : undefined;
@@ -116,6 +117,7 @@ export class PayController {
                 token,
                 typeof paymentId === 'string' ? paymentId.slice(0, 100) : undefined,
                 cleanStatus,
+                typeof signature === 'string' ? signature.slice(0, 255) : undefined,
             ),
         );
     }

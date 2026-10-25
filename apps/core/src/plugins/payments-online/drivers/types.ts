@@ -5,6 +5,8 @@ export interface GatewayCall {
     http: HttpClient;
     baseUrl: string;
     credentials: GatewayCredentials;
+    /** bKash: the store's shared token (BkashTokenService). `renew` after a 401, at most once per call. */
+    token?: (renew: boolean) => Promise<string>;
 }
 
 export interface StartPaymentInput {
@@ -30,7 +32,15 @@ export interface StartPaymentInput {
 export interface StartPaymentResult {
     redirectUrl: string;
     sessionId: string;
+    /** bKash's `signature`: its callback must bring the same one back. */
+    signature?: string | null;
     raw: unknown;
+}
+
+/** The gateway's own explanation, for the shopper (bKash errorMessageEn / errorMessageBn). */
+export interface GatewayMessage {
+    en: string | null;
+    bn: string | null;
 }
 
 /**
@@ -56,6 +66,12 @@ export interface GatewayOutcome {
     riskTitle?: string | null;
     /** Why it failed, for the shopper (bKash groups); undefined for a plain failure. */
     failureCode?: string;
+    /** The gateway's own words on why it failed, in English and Bangla (bKash). */
+    failureMessage?: GatewayMessage;
+    /** Poisha that can still be refunded (bKash maxRefundableAmount). */
+    maxRefundable?: number | null;
+    /** The payer's wallet, masked to its last 3 digits (bKash). */
+    payerAccount?: string | null;
     raw: unknown;
 }
 
@@ -79,6 +95,11 @@ export interface AttemptRefs {
     gatewayTransactionId: string | null;
     /** Our ID for the refund being made (SSLCommerz refund_trans_id): one per refund, at most 30 characters. */
     refundTransId?: string | null;
+    /** bKash's refund rules: within 60 days, at most maxRefundableAmount, never twice in 10 minutes. */
+    paidAt?: Date | null;
+    maxRefundableAmount?: number | null;
+    /** When our last refund request was sent (its answer may never have come). */
+    refundRequestedAt?: Date | null;
 }
 
 export interface GatewayDriver {
@@ -89,7 +110,7 @@ export interface GatewayDriver {
     query(call: GatewayCall, attempt: AttemptRefs): Promise<GatewayOutcome>;
     refund(call: GatewayCall, attempt: AttemptRefs, amount: number, reason: string): Promise<RefundOutcome>;
     /** Asks again about a refund that was processing; gateways without it finish refunds at once. */
-    refundStatus?(call: GatewayCall, reference: string): Promise<RefundStatus>;
+    refundStatus?(call: GatewayCall, attempt: AttemptRefs, reference: string): Promise<RefundStatus>;
 }
 
 /** A gateway answered with something we can't use (an error status, a malformed body). */

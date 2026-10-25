@@ -103,6 +103,8 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
             publicUrl: options.storefrontUrl,
             keyring: options.secretsKeyring,
             baseUrls: options.gatewayBaseUrls,
+            redis: options.cacheRedis,
+            redisKeyPrefix: options.redisKeyPrefix,
         }),
         CouriersPlugin.init({
             publicUrl: options.storefrontUrl,

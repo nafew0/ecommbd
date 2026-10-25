@@ -13,6 +13,7 @@ import { BdTrackingPlugin } from '../bd-tracking';
 import { PaymentsBdPlugin } from '../payments-bd';
 import { onlineAdminApiExtensions, onlineShopApiExtensions } from './api';
 import { BdPaymentAttempt } from './attempt.entity';
+import { BkashTokenService } from './bkash-token.service';
 import { managePaymentsPermission, PAYMENTS_ONLINE_OPTIONS } from './constants';
 import { onlineMethodsStep, onlinePermissionsStep } from './defaults';
 import { GatewayService } from './gateway.service';
@@ -28,6 +29,7 @@ import {
 import { PayController } from './pay.controller';
 import { onlineEligibilityChecker, onlinePaymentHandler } from './payment-handler';
 import {
+    BdBkashLookupResultResolver,
     BdPaymentReviewResultResolver,
     OnlineAdminResolver,
     OnlineShopOptionsResolver,
@@ -71,6 +73,7 @@ const expireTask = new ScheduledTask({
     providers: [
         { provide: PAYMENTS_ONLINE_OPTIONS, useFactory: () => PaymentsOnlinePlugin.options },
         OnlineSettingsService,
+        BkashTokenService,
         GatewayService,
         OnlinePaymentService,
     ],
@@ -81,7 +84,7 @@ const expireTask = new ScheduledTask({
     },
     adminApiExtensions: {
         schema: onlineAdminApiExtensions,
-        resolvers: [OnlineAdminResolver, BdPaymentReviewResultResolver],
+        resolvers: [OnlineAdminResolver, BdPaymentReviewResultResolver, BdBkashLookupResultResolver],
     },
     configuration: config => {
         config.authOptions.customPermissions = [

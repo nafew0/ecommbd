@@ -24,9 +24,11 @@ export const GATEWAY_BASE_URLS: Record<OnlineGateway, Record<GatewayMode, string
         sandbox: 'https://sandbox.sslcommerz.com',
         live: 'https://securepay.sslcommerz.com',
     },
+    // Tokenized checkout v2. The live address follows bKash's pattern (https://<service>.pay.bka.sh):
+    // confirm it with bKash before going live.
     bkash: {
-        sandbox: 'https://tokenized.sandbox.bka.sh/v1.2.0-beta',
-        live: 'https://tokenized.pay.bka.sh/v1.2.0-beta',
+        sandbox: 'https://tokenized.sandbox.bka.sh/v2/tokenized-checkout',
+        live: 'https://tokenized.pay.bka.sh/v2/tokenized-checkout',
     },
 };
 
@@ -48,6 +50,42 @@ export const ONLINE_PAYMENT_LIMITS = {
     /** New attempts per order (each "Pay again"); more is someone guessing or a loop. */
     attemptsPerOrder: 10,
 } as const;
+
+/** bKash's rules for tokenized checkout v2 (https://developer.bka.sh/docs). */
+export const BKASH_LIMITS = {
+    /** Every call: bKash says a timeout isn't a failure. */
+    timeoutMs: 30_000,
+    /** Grant and refresh calls together; a third in an hour blocks the app for an hour. */
+    tokenCallsPerHour: 2,
+    /** An id_token lives 60 minutes; it's refreshed between minutes 50 and 55. */
+    tokenLifetimeMs: 60 * 60_000,
+    refreshFromMs: 50 * 60_000,
+    refreshUntilMs: 55 * 60_000,
+    refreshTokenLifetimeMs: 30 * 24 * 60 * 60_000,
+    /** Refunds: within 60 days of the payment, at most 10 per transaction, none repeated within 10 minutes. */
+    refundWindowMs: 60 * 24 * 60 * 60_000,
+    refundsPerTransaction: 10,
+    refundRepeatMs: 10 * 60_000,
+} as const;
+
+/**
+ * The shopper's phone as bKash's `payerReference` (`01…`), so bKash's page opens with their wallet
+ * number filled in. bKash refuses `<`, `>` and `&`, and more than 255 characters.
+ */
+export function bkashPayerReference(phone: string): string {
+    return phone
+        .replace(/^\+?880/, '0')
+        .replace(/[<>&]/g, '')
+        .trim()
+        .slice(0, 255);
+}
+
+/** A wallet number for staff and logs: only the last 3 digits (`********678`). */
+export function maskWallet(wallet: unknown): string | null {
+    const digits = typeof wallet === 'string' ? wallet.replace(/\D/g, '') : '';
+    if (digits.length < 4) return null;
+    return `${'*'.repeat(digits.length - 3)}${digits.slice(-3)}`;
+}
 
 /** What SSLCommerz accepts for one payment, in poisha: ৳10.00 to ৳5,00,000.00. */
 export const SSLCOMMERZ_AMOUNT_LIMITS = { min: 1_000, max: 50_000_000 } as const;

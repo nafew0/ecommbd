@@ -3,7 +3,7 @@ import { TransactionalConnection } from '@vendure/core';
 import { createTestEnvironment, PostgresInitializer, registerInitializer } from '@vendure/testing';
 import gql from 'graphql-tag';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { clearBkashTokens, OnlinePaymentService } from '../../src/plugins/payments-online';
+import { BkashTokenService, OnlinePaymentService } from '../../src/plugins/payments-online';
 import { prepareCheckout, TRANSITION } from '../support/checkout';
 import { BKASH_CREDENTIALS, MockGateways, SSL_CREDENTIALS } from '../support/mock-gateways';
 import {
@@ -176,6 +176,7 @@ const ATTEMPTS = gql`
             amount
             paidAmount
             gatewayTransactionId
+            payerAccount
             failureCode
             reviewReason
             reviewState
@@ -235,6 +236,22 @@ const TRACK = gql`
                 purpose
                 amount
                 lastFailure
+                lastFailureMessage
+            }
+        }
+    }
+`;
+
+const LOOK_UP = gql`
+    query ($id: ID!) {
+        bdLookupBkashTransaction(attemptId: $id) {
+            ... on BdBkashTransaction {
+                status
+                amount
+                payerAccount
+            }
+            ... on BdOnlinePaymentError {
+                reason
             }
         }
     }
@@ -365,8 +382,8 @@ beforeEach(async () => {
     mock.sslRefundAnswer = 'success';
     mock.sslValidationInvalid = false;
     mock.sslOmitTranId = false;
-    bk.bkashExecute = 'complete';
-    clearBkashTokens();
+    bk.bkashReset();
+    await server.app.get(BkashTokenService).clear();
 });
 
 describe('setup', () => {
@@ -755,8 +772,29 @@ describe('bKash', () => {
         return { placed, paymentId, payment };
     }
 
-    const callback = (payment: { callbackUrl: string; paymentId: string }, status: string) =>
-        follow(`${payment.callbackUrl}?paymentID=${payment.paymentId}&status=${status}`);
+    /** bKash sends the shopper back with the paymentID, the outcome and the payment's signature. */
+    const callback = (
+        payment: { callbackUrl: string; paymentId: string; signature: string },
+        status: string,
+        signature = payment.signature,
+    ) =>
+        follow(
+            `${payment.callbackUrl}?paymentID=${payment.paymentId}&status=${status}&signature=${signature}`,
+        );
+
+    /** A bKash payment made after its order expired: held in Payment reviews for a refund. */
+    async function lateBkashPayment() {
+        const { placed, payment } = await placeBkash();
+        await db().query(`UPDATE "order" SET "orderPlacedAt" = now() - interval '50 minutes' WHERE id = $1`, [
+            n(placed.id),
+        ]);
+        expect(await service().expire()).toBeGreaterThanOrEqual(1);
+        bk.bkashApprove(payment.paymentId);
+        await callback(payment, 'success');
+        const [attempt] = await attemptsOf(placed.id);
+        expect(attempt).toMatchObject({ reviewReason: 'late', reviewState: 'open' });
+        return { attempt, payment };
+    }
 
     it('executes on the success callback and settles', async () => {
         const { placed, payment } = await placeBkash();
@@ -765,6 +803,101 @@ describe('bKash', () => {
         expect((await orderById(placed.id)).state).toBe('PaymentSettled');
         const [attempt] = await attemptsOf(placed.id);
         expect(attempt.gatewayTransactionId).toMatch(/^TRX/);
+        expect(attempt.payerAccount).toBe('********678');
+    });
+
+    it('sends v2 requests: the shopper’s phone, an amount with two decimals', async () => {
+        const { payment } = await placeBkash();
+        expect(payment.amount).toBe('1310.00');
+        // The wallet number is filled in on bKash's page.
+        expect(payment.payerReference).toMatch(/^0171300\d{4}$/);
+    });
+
+    it('reuses one token, and never makes a third token call in an hour', async () => {
+        for (let i = 0; i < 3; i++) await placeBkash();
+        expect(bk.bkashTokenCalls).toEqual(['grant']);
+        // bKash revokes it: one refresh (the second call this hour) and the payment goes on.
+        bk.bkashRevokeTokens();
+        await placeBkash();
+        expect(bk.bkashTokenCalls).toEqual(['grant', 'refresh']);
+        // Revoked again: a third call would block the store's bKash for an hour, so it isn't made.
+        bk.bkashRevokeTokens();
+        await readyToPay();
+        const placed = await pay('bd-bkash-online', { purpose: 'full' });
+        expect(await follow(placed.payments[0].metadata.public.payUrl)).toContain('payment=unavailable');
+        expect(bk.bkashTokenCalls).toEqual(['grant', 'refresh']);
+    });
+
+    it('executes once: a second callback and reconciliation only ask', async () => {
+        const { placed, payment } = await placeBkash();
+        bk.bkashApprove(payment.paymentId);
+        const results = await Promise.all([callback(payment, 'success'), callback(payment, 'success')]);
+        expect(results.some(url => url.includes('payment=paid'))).toBe(true);
+        expect(await callback(payment, 'success')).toContain('payment=paid');
+        await db().query(
+            `UPDATE bd_payment_attempt SET "nextCheckAt" = now() - interval '1 minute' WHERE "orderId" = $1`,
+            [n(placed.id)],
+        );
+        await service().reconcile();
+        expect(payment.executes).toBe(1);
+        expect((await orderById(placed.id)).state).toBe('PaymentSettled');
+    });
+
+    it('never executes on a callback with the wrong signature', async () => {
+        const { placed, payment } = await placeBkash();
+        bk.bkashApprove(payment.paymentId);
+        expect(await callback(payment, 'success', 'forged')).toContain('payment=pending');
+        expect(payment.executes).toBe(0);
+        expect((await attemptsOf(placed.id))[0].status).toBe('started');
+        // bKash's own callback still works.
+        expect(await callback(payment, 'success')).toContain('payment=paid');
+    });
+
+    it('offers Pay again after a cancel or a failure', async () => {
+        const { placed, payment } = await placeBkash();
+        expect(await callback(payment, 'cancel')).toContain('payment=cancelled');
+        const token = await trackingToken(placed.id);
+        let tracked = (await shopClient.query(TRACK, { token })).bdTrackOrderByToken;
+        expect(tracked.onlinePayment).toMatchObject({ gateway: 'bkash', lastFailure: 'cancelled' });
+
+        const retry = bk.bkash.get((await payAgain(placed.id)).split('/bkash/pay/')[1]!)!;
+        expect(await callback(retry, 'failure')).toContain('payment=failed');
+        tracked = (await shopClient.query(TRACK, { token })).bdTrackOrderByToken;
+        expect(tracked.onlinePayment).toMatchObject({ gateway: 'bkash', lastFailure: 'failed' });
+        expect((await orderById(placed.id)).state).toBe('AwaitingPayment');
+    });
+
+    it('asks Refund Status after a refund that timed out, and never refunds twice', async () => {
+        const { attempt, payment } = await lateBkashPayment();
+        bk.bkashRefund = 'drop';
+        const refunded = (await adminClient.query(REVIEW, { id: attempt.id, action: 'refund' }))
+            .reviewBdPayment;
+        expect(refunded).toMatchObject({
+            reviewState: 'refunded',
+            refundReference: expect.stringMatching(/^RF1/),
+        });
+        expect(payment.refunds).toHaveLength(1);
+        expect(bk.bkashCalls.filter(path => path === 'refund/payment/transaction')).toHaveLength(1);
+        expect(bk.bkashCalls).toContain('refund/payment/status');
+    });
+
+    it('refuses a refund above what bKash can still refund', async () => {
+        bk.bkashMaxRefundable = '100.00';
+        const { attempt, payment } = await lateBkashPayment();
+        const refused = (await adminClient.query(REVIEW, { id: attempt.id, action: 'refund' }))
+            .reviewBdPayment;
+        expect(refused.reason).toBe('REFUND_FAILED');
+        expect(payment.refunds).toHaveLength(0);
+        expect(bk.bkashCalls).not.toContain('refund/payment/transaction');
+    });
+
+    it('looks up a transaction for staff on a support call', async () => {
+        const { placed, payment } = await placeBkash();
+        bk.bkashApprove(payment.paymentId);
+        await callback(payment, 'success');
+        const [attempt] = await attemptsOf(placed.id);
+        const found = (await adminClient.query(LOOK_UP, { id: attempt.id })).bdLookupBkashTransaction;
+        expect(found).toMatchObject({ status: 'Completed', amount: TOTAL, payerAccount: '********678' });
     });
 
     it('settles from the query when execute times out after taking the money', async () => {
@@ -793,6 +926,8 @@ describe('bKash', () => {
                 purpose: 'full',
                 amount: TOTAL,
                 lastFailure: 'insufficientBalance',
+                // bKash's own words, in the store's language (Bangla here).
+                lastFailureMessage: 'অপর্যাপ্ত ব্যালেন্স',
             },
         });
         expect(
@@ -825,11 +960,20 @@ describe('bKash', () => {
         expect(started.state).toBe('ArrangingPayment');
         const placed = await pay('bd-cod', {});
         expect(placed.state).toBe('AwaitingPayment');
-        expect(placed.payments).toMatchObject([
-            { method: 'bd-bkash-online', amount: advance, state: 'Pending' },
-            { method: 'bd-cod', amount: bdPaymentOptions.codAmount, state: 'Authorized' },
-        ]);
-        const page = await follow(placed.payments[0].metadata.public.payUrl);
+        // In no particular order: Vendure doesn't sort an order's payments.
+        expect(placed.payments).toHaveLength(2);
+        expect(placed.payments).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ method: 'bd-bkash-online', amount: advance, state: 'Pending' }),
+                expect.objectContaining({
+                    method: 'bd-cod',
+                    amount: bdPaymentOptions.codAmount,
+                    state: 'Authorized',
+                }),
+            ]),
+        );
+        const online = placed.payments.find((item: { method: string }) => item.method === 'bd-bkash-online');
+        const page = await follow(online.metadata.public.payUrl);
         const payment = bk.bkash.get(page.split('/bkash/pay/')[1]!)!;
         bk.bkashApprove(payment.paymentId);
         await callback(payment, 'success');

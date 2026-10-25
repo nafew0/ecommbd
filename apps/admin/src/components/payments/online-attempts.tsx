@@ -18,15 +18,26 @@ interface Attempt {
     amount: number;
     status: string;
     gatewayTransactionId: string | null;
+    payerAccount: string | null;
     failureCode: string | null;
     lastCheckedAt: string | null;
     reviewReason: string | null;
     reviewState: string | null;
 }
 
-const FIELDS = `id createdAt gateway mode amount status gatewayTransactionId failureCode lastCheckedAt reviewReason reviewState`;
+const FIELDS = `id createdAt gateway mode amount status gatewayTransactionId payerAccount failureCode lastCheckedAt reviewReason reviewState`;
 const ATTEMPTS = `query ($orderId: ID!) { bdPaymentAttempts(orderId: $orderId) { ${FIELDS} } }`;
 const CHECK = `mutation ($id: ID!) { checkBdPaymentAttempt(id: $id) { ${FIELDS} } }`;
+const LOOK_UP = `query ($id: ID!) {
+    bdLookupBkashTransaction(attemptId: $id) {
+        ... on BdBkashTransaction { status amount payerAccount error }
+        ... on BdOnlinePaymentError { message detail }
+    }
+}`;
+
+type LookUp =
+    | { status: string; amount: number | null; payerAccount: string | null; error: string | null }
+    | { message: string; detail?: string | null };
 
 const TONES: Record<string, BadgeTone> = {
     created: 'slate',
@@ -39,7 +50,8 @@ const TONES: Record<string, BadgeTone> = {
 
 /**
  * Every try at paying an order online (phase 18): gateway, status, the gateway's transaction ID to
- * look up in its panel, and "Check status now", which asks the gateway (server to server).
+ * look up in its panel, and "Check status now", which asks the gateway (server to server). A bKash
+ * payment also has "Look up transaction" (bKash's Search Transaction), for support calls.
  */
 export function OnlineAttempts({ orderId, onChanged }: { orderId: string; onChanged(): void }) {
     const { messages: m } = useI18n();
@@ -49,6 +61,7 @@ export function OnlineAttempts({ orderId, onChanged }: { orderId: string; onChan
     const toast = useToast();
     const { can } = useAuth();
     const [checking, setChecking] = useState<string | null>(null);
+    const [lookedUp, setLookedUp] = useState<Record<string, string>>({});
     const query = useQuery({
         queryKey: ['paymentAttempts', orderId],
         queryFn: () =>
@@ -64,6 +77,32 @@ export function OnlineAttempts({ orderId, onChanged }: { orderId: string; onChan
             toast.success(o.attempts.checked);
             await query.refetch();
             onChanged();
+        } catch {
+            toast.error(m.errors.generic);
+        } finally {
+            setChecking(null);
+        }
+    };
+
+    const lookUp = async (id: string) => {
+        setChecking(`${id}:lookUp`);
+        try {
+            const { bdLookupBkashTransaction: found } = await adminApi<{ bdLookupBkashTransaction: LookUp }>(
+                LOOK_UP,
+                { id },
+            );
+            const text =
+                'message' in found
+                    ? found.detail
+                        ? `${found.message} (${found.detail})`
+                        : found.message
+                    : found.error
+                      ? o.attempts.lookUpFailed(found.error)
+                      : o.attempts.lookedUp(
+                            found.status,
+                            found.amount === null ? '—' : format.money(found.amount),
+                        );
+            setLookedUp(current => ({ ...current, [id]: text }));
         } catch {
             toast.error(m.errors.generic);
         } finally {
@@ -103,6 +142,11 @@ export function OnlineAttempts({ orderId, onChanged }: { orderId: string; onChan
                                 {attempt.gatewayTransactionId && (
                                     <span className="font-mono">{attempt.gatewayTransactionId}</span>
                                 )}
+                                {attempt.payerAccount && (
+                                    <span className="text-slate-600">
+                                        {o.attempts.payer(attempt.payerAccount)}
+                                    </span>
+                                )}
                                 {attempt.failureCode && (
                                     <span className="text-slate-600">
                                         {o.attempts.failure(attempt.failureCode)}
@@ -126,6 +170,16 @@ export function OnlineAttempts({ orderId, onChanged }: { orderId: string; onChan
                                             {o.attempts.checkNow}
                                         </Button>
                                     )}
+                                {attempt.gateway === 'bkash' && attempt.gatewayTransactionId && (
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        loading={checking === `${attempt.id}:lookUp`}
+                                        onClick={() => void lookUp(attempt.id)}
+                                    >
+                                        {o.attempts.lookUp}
+                                    </Button>
+                                )}
                                 {attempt.reviewState === 'open' && (
                                     <Link
                                         to="/orders/payment-reviews"
@@ -135,6 +189,11 @@ export function OnlineAttempts({ orderId, onChanged }: { orderId: string; onChan
                                     </Link>
                                 )}
                             </div>
+                            {lookedUp[attempt.id] && (
+                                <p className="text-sm text-slate-700" role="status">
+                                    {lookedUp[attempt.id]}
+                                </p>
+                            )}
                         </li>
                     ))}
                 </ul>

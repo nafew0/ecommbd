@@ -444,6 +444,7 @@ export const TrackedOrderFields = graphql(`
             amount
             expiresAt
             lastFailure
+            lastFailureMessage
         }
     }
 `);

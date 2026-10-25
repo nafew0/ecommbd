@@ -24,6 +24,8 @@ export const onlineShopApiExtensions = gql`
         expiresAt: DateTime!
         "Why the last try failed, e.g. insufficientBalance, unavailable"
         lastFailure: String
+        "The gateway's own words on why it failed (bKash), in the request's language"
+        lastFailureMessage: String
     }
 
     extend type BdTrackedOrder {
@@ -103,6 +105,10 @@ export const onlineAdminApiExtensions = gql`
         status: String!
         "What to search for in the gateway's panel"
         gatewayTransactionId: String
+        "The payer's wallet, last 3 digits only (bKash)"
+        payerAccount: String
+        "What bKash can still refund"
+        maxRefundableAmount: Money
         paidAmount: Money
         paidAt: DateTime
         failureCode: String
@@ -127,7 +133,7 @@ export const onlineAdminApiExtensions = gql`
     type BdOnlinePaymentError implements ErrorResult {
         errorCode: ErrorCode!
         message: String!
-        "NOT_FOUND, NOT_OPEN, NOT_RISKY, NOTE_REQUIRED, REFUND_FAILED or UNAVAILABLE"
+        "NOT_FOUND, NOT_OPEN, NOT_RISKY, NOTE_REQUIRED, REFUND_FAILED, UNAVAILABLE or NO_TRANSACTION"
         reason: String!
         "The gateway's own words, for REFUND_FAILED"
         detail: String
@@ -135,12 +141,29 @@ export const onlineAdminApiExtensions = gql`
 
     union BdPaymentReviewResult = BdPaymentAttempt | BdOnlinePaymentError
 
+    "What bKash's Search Transaction says about an attempt's trxId"
+    type BdBkashTransaction {
+        trxId: String!
+        "Completed, Initiated, Cancelled… or bKash's error code"
+        status: String!
+        amount: Money
+        "Last 3 digits only"
+        payerAccount: String
+        completedTime: String
+        "bKash's error, when it refused the search"
+        error: String
+    }
+
+    union BdBkashLookupResult = BdBkashTransaction | BdOnlinePaymentError
+
     extend type Query {
         bdOnlinePaymentSetup: BdOnlinePaymentSetup!
         "Every try at paying the order online, oldest first"
         bdPaymentAttempts(orderId: ID!): [BdPaymentAttempt!]!
         "Online payments held for staff (late, duplicate, risky, wrong amount) and refunds still processing"
         bdPaymentReviews: [BdPaymentAttempt!]!
+        "Look up an attempt's bKash transaction (Search Transaction), for support calls"
+        bdLookupBkashTransaction(attemptId: ID!): BdBkashLookupResult!
     }
 
     extend type Mutation {

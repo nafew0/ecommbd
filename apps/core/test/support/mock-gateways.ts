@@ -4,10 +4,15 @@ import http from 'node:http';
 /**
  * A stand-in for SSLCommerz and bKash (phase 18), for end-to-end tests: the same endpoints and
  * answers as the gateways' documented APIs, with switches for every edge case (refusals, wrong
- * amounts, risky cards, a dropped connection on execute). bKash lives under `/bkash`.
+ * amounts, risky cards, a dropped connection on execute). bKash (tokenized checkout v2) lives under
+ * `/bkash`.
  *
  * SSLCommerz's own rules are enforced: a tran_id of at most 30 characters, a cus_postcode, ৳10 to
  * ৳5,00,000, and a unique refund_trans_id on every refund (since February 2025).
+ *
+ * So are bKash's: the raw id_token (no "Bearer"), no `mode` field, errors as `externalCode` with
+ * English and Bangla messages, Execute at most once per paymentId, `Initiated` after a failed
+ * execute or a cancel, and refunds within maxRefundableAmount, none repeated within 10 minutes.
  */
 
 export const SSL_CREDENTIALS = { storeId: 'teststore', storePassword: 'testpass' };
@@ -47,11 +52,33 @@ interface BkashPayment {
     invoice: string;
     amount: string;
     callbackUrl: string;
-    status: 'Initiated' | 'Completed' | 'Failed' | 'Cancelled';
+    payerReference: string;
+    signature: string;
+    status: 'Initiated' | 'Completed' | 'Cancelled';
     trxId?: string;
     /** What execute does: complete, refuse with a code, or drop the connection after taking the money. */
     onExecute: 'complete' | 'drop' | string;
+    executes: number;
+    maxRefundable?: string;
+    refunds: Array<{ refundTrxId: string; amount: string; at: number }>;
 }
+
+/** bKash's v2 error body: no statusCode, an externalCode with its message in both languages. */
+const BKASH_ERRORS: Record<string, [string, string]> = {
+    '2023': ['Insufficient Balance', 'অপর্যাপ্ত ব্যালেন্স'],
+    '2014': ['Wrong verification code', 'ভুল ভেরিফিকেশন কোড'],
+    '2117': ['Payment execution already been called before', 'পেমেন্ট এক্সিকিউশন আগেই করা হয়েছে'],
+    '2002': ['Invalid Payment ID', 'ভুল পেমেন্ট আইডি'],
+    '2072': ['Refund amount exceeds refundable amount', 'রিফান্ডের পরিমাণ সীমার বেশি'],
+    '2073': ['Duplicate refund within 10 minutes', '১০ মিনিটের মধ্যে একই রিফান্ড'],
+    '2080': ['Invalid request', 'ভুল অনুরোধ'],
+};
+const bkashErrorBody = (code: string) => ({
+    externalCode: code,
+    internalCode: `BK${code}`,
+    errorMessageEn: BKASH_ERRORS[code]?.[0] ?? 'Failed',
+    errorMessageBn: BKASH_ERRORS[code]?.[1] ?? 'ব্যর্থ',
+});
 
 export class MockGateways {
     readonly ssl = new Map<string, SslTransaction>();
@@ -71,9 +98,18 @@ export class MockGateways {
     sslOmitTranId = false;
     /** What the next bKash executes do. */
     bkashExecute: BkashPayment['onExecute'] = 'complete';
+    /** Every bKash token call (grant or refresh), oldest first. */
+    readonly bkashTokenCalls: Array<'grant' | 'refresh'> = [];
+    /** Calls answered with each bKash path, e.g. `payment/execute`. */
+    readonly bkashCalls: string[] = [];
+    /** bKash's maxRefundableAmount on the next executes (the payment's amount when unset). */
+    bkashMaxRefundable?: string;
+    /** The next bKash refunds: complete, or take the money and drop the connection. */
+    bkashRefund: 'complete' | 'drop' = 'complete';
     sslSessions = 0;
     private server?: http.Server;
     private tokens = 0;
+    private validTokens = new Set<string>();
 
     constructor(readonly port: number) {}
 
@@ -144,6 +180,20 @@ export class MockGateways {
         if (!payment) throw new Error(`No bKash payment ${paymentId}`);
         payment.onExecute = this.bkashExecute;
         return payment;
+    }
+
+    /** bKash revokes every id_token it gave (the next payment call gets a 401). */
+    bkashRevokeTokens() {
+        this.validTokens.clear();
+    }
+
+    /** Forgets bKash's counts between tests. */
+    bkashReset() {
+        this.bkashTokenCalls.length = 0;
+        this.bkashCalls.length = 0;
+        this.bkashExecute = 'complete';
+        this.bkashMaxRefundable = undefined;
+        this.bkashRefund = 'complete';
     }
 
     private handle(req: http.IncomingMessage, res: http.ServerResponse, body: string) {
@@ -297,79 +347,146 @@ export class MockGateways {
         body: string,
         json: (status: number, value: unknown) => void,
     ) {
-        const path = url.pathname.replace(/^\/bkash\/tokenized\/checkout\//, '');
+        const path = url.pathname.replace(/^\/bkash\//, '');
         const input = body ? (JSON.parse(body) as Record<string, string>) : {};
-        if (path === 'token/grant' || path === 'token/refresh') {
+        if (path === 'auth/grant-token' || path === 'auth/refresh-token') {
+            this.bkashTokenCalls.push(path === 'auth/grant-token' ? 'grant' : 'refresh');
             if (
                 req.headers.username !== BKASH_CREDENTIALS.username ||
-                req.headers.password !== BKASH_CREDENTIALS.password
+                req.headers.password !== BKASH_CREDENTIALS.password ||
+                input.app_key !== BKASH_CREDENTIALS.appKey ||
+                input.app_secret !== BKASH_CREDENTIALS.appSecret
             ) {
-                return json(200, { statusCode: '2001', statusMessage: 'Invalid App Key' });
+                return json(200, { statusCode: '9999', statusMessage: 'Invalid credentials' });
             }
+            const idToken = `token-${++this.tokens}`;
+            this.validTokens.add(idToken);
             return json(200, {
                 statusCode: '0000',
-                id_token: `token-${++this.tokens}`,
+                statusMessage: 'Successful',
+                id_token: idToken,
                 refresh_token: `refresh-${this.tokens}`,
                 expires_in: 3600,
                 token_type: 'Bearer',
             });
         }
-        if (!String(req.headers.authorization ?? '').startsWith('token-'))
+        // The raw id_token: "Bearer …" is refused, like bKash's samples imply.
+        if (
+            !this.validTokens.has(String(req.headers.authorization ?? '')) ||
+            req.headers['x-app-key'] !== BKASH_CREDENTIALS.appKey
+        ) {
             return json(401, { message: 'Unauthorized' });
-        if (path === 'create') {
+        }
+        this.bkashCalls.push(path);
+        if (path === 'payment/create') {
+            // v2 has no `mode`, and takes the amount with two decimals.
+            if ('mode' in input || !/^\d+\.\d{2}$/.test(input.amount ?? '')) {
+                return json(200, bkashErrorBody('2080'));
+            }
             const paymentId = `TR${randomBytes(8).toString('hex')}`;
-            this.bkash.set(paymentId, {
+            const payment: BkashPayment = {
                 paymentId,
-                invoice: input.merchantInvoiceNumber,
-                amount: input.amount,
-                callbackUrl: input.callbackURL,
+                invoice: input.merchantInvoiceNumber!,
+                amount: input.amount!,
+                callbackUrl: input.callbackURL!,
+                payerReference: input.payerReference ?? '',
+                signature: randomBytes(12).toString('hex'),
                 status: 'Initiated',
                 onExecute: 'complete',
-            });
+                executes: 0,
+                refunds: [],
+            };
+            this.bkash.set(paymentId, payment);
             return json(200, {
-                statusCode: '0000',
-                statusMessage: 'Successful',
-                paymentID: paymentId,
-                bkashURL: `${this.url}/bkash/pay/${paymentId}`,
+                paymentId,
+                bKashURL: `${this.url}/bkash/pay/${paymentId}`,
+                callbackURL: payment.callbackUrl,
+                successCallbackURL: `${payment.callbackUrl}?paymentID=${paymentId}&status=success`,
                 transactionStatus: 'Initiated',
-                amount: input.amount,
-                merchantInvoiceNumber: input.merchantInvoiceNumber,
+                amount: payment.amount,
+                currency: 'BDT',
+                intent: 'sale',
+                merchantInvoiceNumber: payment.invoice,
+                signature: payment.signature,
             });
         }
-        const payment = this.bkash.get(input.paymentID ?? '');
-        if (!payment) return json(200, { statusCode: '2002', statusMessage: 'Invalid Payment ID' });
+        if (path === 'general/search-transaction') {
+            const found = [...this.bkash.values()].find(item => item.trxId && item.trxId === input.trxId);
+            if (!found) return json(200, bkashErrorBody('2002'));
+            return json(200, {
+                trxId: found.trxId,
+                transactionStatus: found.status,
+                amount: found.amount,
+                currency: 'BDT',
+                payerAccount: '01712345678',
+                completedTime: '2026-10-25T12:31:28:970 GMT+0600',
+            });
+        }
+        const payment = this.bkash.get(input.paymentId ?? '');
+        if (!payment) return json(200, bkashErrorBody('2002'));
         const record = () => ({
-            statusCode: '0000',
-            statusMessage: 'Successful',
-            paymentID: payment.paymentId,
-            trxID: payment.trxId,
+            paymentId: payment.paymentId,
+            trxId: payment.trxId,
             transactionStatus: payment.status,
+            verificationStatus: payment.status === 'Completed' ? 'Complete' : 'Incomplete',
             amount: payment.amount,
             currency: 'BDT',
-            merchantInvoiceNumber: payment.invoice,
+            intent: 'sale',
+            merchantInvoice: payment.invoice,
+            payerAccount: payment.status === 'Completed' ? '01712345678' : undefined,
+            maxRefundableAmount: payment.status === 'Completed' ? payment.maxRefundable : undefined,
         });
-        if (path === 'execute') {
+        if (path === 'payment/execute') {
+            payment.executes++;
+            // A paymentId can't be used again after any execute.
+            if (payment.executes > 1) return json(200, bkashErrorBody('2117'));
             if (payment.onExecute === 'complete' || payment.onExecute === 'drop') {
                 payment.status = 'Completed';
                 payment.trxId = `TRX${randomBytes(4).toString('hex').toUpperCase()}`;
+                payment.maxRefundable = this.bkashMaxRefundable ?? payment.amount;
                 // bKash's known failure: the money is taken, the answer never arrives.
                 if (payment.onExecute === 'drop') return req.socket.destroy();
                 return json(200, record());
             }
-            payment.status = 'Failed';
-            return json(200, { statusCode: payment.onExecute, statusMessage: 'Refused' });
+            // Refused (wrong PIN, no balance…): the payment stays Initiated and can't complete.
+            return json(200, bkashErrorBody(payment.onExecute));
         }
-        if (path === 'payment/status') return json(200, record());
-        if (path === 'payment/refund') {
-            this.refunds.push({ gateway: 'bkash', ref: input.trxID, amount: input.amount });
+        if (path === 'query/payment') return json(200, record());
+        if (path === 'refund/payment/transaction') {
+            if (input.trxId !== payment.trxId || payment.status !== 'Completed') {
+                return json(200, bkashErrorBody('2080'));
+            }
+            const refunded = payment.refunds.reduce((sum, item) => sum + Number(item.amount), 0);
+            if (Number(input.refundAmount) > Number(payment.maxRefundable ?? payment.amount) - refunded) {
+                return json(200, bkashErrorBody('2072'));
+            }
+            if (payment.refunds.some(item => Date.now() - item.at < 10 * 60_000)) {
+                return json(200, bkashErrorBody('2073'));
+            }
+            const refundTrxId = `RF${payment.refunds.length + 1}${randomBytes(3).toString('hex').toUpperCase()}`;
+            payment.refunds.push({ refundTrxId, amount: input.refundAmount!, at: Date.now() });
+            this.refunds.push({ gateway: 'bkash', ref: input.trxId!, amount: input.refundAmount! });
+            if (this.bkashRefund === 'drop') return req.socket.destroy();
             return json(200, {
-                statusCode: '0000',
-                transactionStatus: 'Completed',
-                refundTrxID: `RF${this.refunds.length}`,
-                originalTrxID: input.trxID,
-                amount: input.amount,
+                originalTrxId: payment.trxId,
+                refundTrxId,
+                refundTransactionStatus: 'Completed',
+                originalTrxAmount: payment.amount,
+                refundAmount: input.refundAmount,
+                currency: 'BDT',
             });
         }
-        json(404, { statusCode: '9999' });
+        if (path === 'refund/payment/status') {
+            return json(200, {
+                originalTrxId: payment.trxId,
+                originalTrxAmount: payment.amount,
+                refundTransactions: payment.refunds.map(item => ({
+                    refundTrxId: item.refundTrxId,
+                    refundTransactionStatus: 'Completed',
+                    refundAmount: item.amount,
+                })),
+            });
+        }
+        json(404, bkashErrorBody('2080'));
     }
 }

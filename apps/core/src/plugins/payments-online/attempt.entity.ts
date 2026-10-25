@@ -78,6 +78,22 @@ export class BdPaymentAttempt extends VendureEntity {
     @Column({ type: 'varchar', length: 100, nullable: true })
     gatewayTransactionId: string | null;
 
+    /** bKash's `signature` from Create Payment: its callback must bring the same one. */
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    gatewaySignature: string | null;
+
+    /** When bKash's Execute was sent: at most once per paymentId; afterwards only Query. */
+    @Column({ type: 'timestamp', precision: 6, nullable: true })
+    executeSentAt: Date | null;
+
+    /** Poisha bKash can still refund (maxRefundableAmount). */
+    @Column({ type: 'int', nullable: true })
+    maxRefundableAmount: number | null;
+
+    /** The payer's wallet, masked to its last 3 digits (bKash). */
+    @Column({ type: 'varchar', length: 20, nullable: true })
+    payerAccount: string | null;
+
     /** Why the gateway flagged the payment as risky, in its own words (SSLCommerz risk_title). */
     @Column({ type: 'varchar', length: 100, nullable: true })
     riskTitle: string | null;
@@ -92,6 +108,13 @@ export class BdPaymentAttempt extends VendureEntity {
     /** Why the shopper's last try failed, as a code for the storefront (e.g. insufficientBalance). */
     @Column({ type: 'varchar', length: 40, nullable: true })
     failureCode: string | null;
+
+    /** The gateway's own words on why the last try failed, shown to the shopper (bKash). */
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    failureMessageEn: string | null;
+
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    failureMessageBn: string | null;
 
     /** When the reconciliation task next asks the gateway; null when finished or given up. */
     @Index()
@@ -130,6 +153,10 @@ export class BdPaymentAttempt extends VendureEntity {
      */
     @Column({ type: 'varchar', length: 30, nullable: true })
     refundTransId: string | null;
+
+    /** When our last refund request was sent: bKash's answer may never have come (Refund Status first). */
+    @Column({ type: 'timestamp', precision: 6, nullable: true })
+    refundRequestedAt: Date | null;
 
     /** Gateway responses with secrets removed, oldest first (at most 30). */
     @Column({ type: 'jsonb', default: () => "'[]'" })

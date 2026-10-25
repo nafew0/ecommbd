@@ -4314,6 +4314,9 @@ type BdTrackedOnlinePayment {
 
   """Why the last try failed, e.g. insufficientBalance, unavailable"""
   lastFailure: String
+
+  """The gateway's own words on why it failed (bKash), in the request's language"""
+  lastFailureMessage: String
 }
 
 type BdMetaConfig {
