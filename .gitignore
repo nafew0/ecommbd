@@ -19,3 +19,6 @@ test-results
 
 # Internal guides with screenshots of our servers and client stores (this repo is public)
 /docs/internal/
+
+# Working plans (kept locally, not in the repo)
+/docs/plans/
