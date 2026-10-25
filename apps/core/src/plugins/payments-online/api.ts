@@ -110,7 +110,9 @@ export const onlineAdminApiExtensions = gql`
         nextCheckAt: DateTime
         "late, duplicate, risky or mismatch"
         reviewReason: String
-        "open, accepted, refunded or resolved"
+        "Why the gateway flagged it as risky, in its own words (SSLCommerz risk_title)"
+        riskTitle: String
+        "open, accepted, refunding (the gateway is still processing the refund), refunded or resolved"
         reviewState: String
         reviewNote: String
         reviewedBy: String
@@ -137,7 +139,7 @@ export const onlineAdminApiExtensions = gql`
         bdOnlinePaymentSetup: BdOnlinePaymentSetup!
         "Every try at paying the order online, oldest first"
         bdPaymentAttempts(orderId: ID!): [BdPaymentAttempt!]!
-        "Online payments held for staff: late, duplicate, risky or with the wrong amount"
+        "Online payments held for staff (late, duplicate, risky, wrong amount) and refunds still processing"
         bdPaymentReviews: [BdPaymentAttempt!]!
     }
 

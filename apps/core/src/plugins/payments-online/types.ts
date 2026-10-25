@@ -19,7 +19,7 @@ declare module '@vendure/core/dist/service/services/history.service' {
         BD_ONLINE_PAYMENT: {
             attemptId: string;
             gateway: string;
-            /** paid, failed, cancelled, expired, review, accepted, refunded, resolved */
+            /** paid, failed, cancelled, expired, review, accepted, refunding, refunded, refundCancelled, resolved */
             event: string;
             amount?: number;
             reason?: string;

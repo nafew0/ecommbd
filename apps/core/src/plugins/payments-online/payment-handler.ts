@@ -1,4 +1,4 @@
-import { isOnlineGateway, ONLINE_GATEWAYS, type OnlineGateway } from '@ecommbd/shared';
+import { gatewayAcceptsAmount, isOnlineGateway, ONLINE_GATEWAYS, type OnlineGateway } from '@ecommbd/shared';
 import {
     type Injector,
     LanguageCode,
@@ -64,7 +64,10 @@ export const onlinePaymentHandler = new PaymentMethodHandler({
             const { advanceAmount } = await rules.options(ctx, order);
             if (advanceAmount <= 0) return decline(ctx, 'NO_ADVANCE_NEEDED', amount);
             toPay = Math.min(advanceAmount, amount);
+            if (!gatewayAcceptsAmount(gateway, toPay)) return decline(ctx, 'AMOUNT_OUT_OF_RANGE', amount);
         } else {
+            // SSLCommerz takes ৳10 to ৳5,00,000 (checkout hides it outside that).
+            if (!gatewayAcceptsAmount(gateway, toPay)) return decline(ctx, 'AMOUNT_OUT_OF_RANGE', amount);
             // The full payment places the order: lock and check stock first (phase 05), like COD.
             const short = await lockAndCheckStock(ctx, order, injectorRef);
             if (short.length) {

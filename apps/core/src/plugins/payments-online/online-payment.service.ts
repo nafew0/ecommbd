@@ -1,4 +1,5 @@
 import {
+    gatewayAcceptsAmount,
     isPlaceholderEmail,
     nextReconcileDelayMs,
     ONLINE_PAYMENT_LIMITS,
@@ -31,7 +32,7 @@ import { type AttemptEvent, BdPaymentAttempt } from './attempt.entity';
 import { loggerCtx, ONLINE_PAYMENT_HISTORY_TYPE, PAY_ROUTE, PAYMENTS_ONLINE_OPTIONS } from './constants';
 import { bkashDriver } from './drivers/bkash';
 import { sslcommerzDriver } from './drivers/sslcommerz';
-import type { GatewayOutcome } from './drivers/types';
+import type { GatewayOutcome, RefundOutcome } from './drivers/types';
 import { GatewayService } from './gateway.service';
 import { OnlineSettingsService } from './online-settings.service';
 import { keepsWaiting } from './order-operations';
@@ -60,8 +61,18 @@ const MAX_EVENTS = 30;
 const UNIQUE_VIOLATION = '23505';
 const MINUTE = 60_000;
 
-/** A new attempt key: 32 hex characters (128 bits), our tran_id and the key in the pay link. */
-export const newAttemptToken = () => randomBytes(16).toString('hex');
+/**
+ * A new attempt key: 30 hex characters (120 bits), our tran_id and the key in the pay link.
+ * SSLCommerz takes a tran_id of at most 30; attempts made before that change have 32.
+ */
+export const newAttemptToken = () => randomBytes(15).toString('hex');
+const ATTEMPT_TOKEN = /^[a-f0-9]{30}(?:[a-f0-9]{2})?$/;
+
+/** Our ID for one refund request (SSLCommerz refund_trans_id, at most 30 characters). */
+const newRefundId = () => randomBytes(15).toString('hex');
+
+/** SSLCommerz takes a cus_email of at most 50 characters. */
+const MAX_GATEWAY_EMAIL = 50;
 
 /**
  * Online payments (roadmap phase 18). An attempt is one try at paying a Pending payment. Whatever
@@ -230,12 +241,20 @@ export class OnlinePaymentService {
         order: Order,
     ): Promise<string> {
         const handle = await this.gateways.handleFor(ctx, attempt.gateway, attempt.mode);
-        if (!handle || !this.publicUrl || this.gateways.paused(attempt.gateway, attempt.mode)) {
+        if (
+            !handle ||
+            !this.publicUrl ||
+            this.gateways.paused(attempt.gateway, attempt.mode) ||
+            !gatewayAcceptsAmount(attempt.gateway, attempt.amount)
+        ) {
             return this.resultUrl(ctx, order, 'unavailable');
         }
         const base = `${this.publicUrl}/${PAY_ROUTE}`;
         const address = order.shippingAddress ?? {};
         const email = order.customer?.emailAddress;
+        // Phone-only customers have a placeholder email: never sent to a gateway. Nor is one too long for it.
+        const usableEmail =
+            email && !isPlaceholderEmail(email) && email.length <= MAX_GATEWAY_EMAIL ? email : null;
         try {
             const started = await handle.driver.start(handle.call, {
                 token: attempt.token,
@@ -251,13 +270,13 @@ export class OnlinePaymentService {
                 customer: {
                     name: address.fullName || 'Customer',
                     phone: address.phoneNumber || order.customer?.phoneNumber || '',
-                    // Phone-only customers have a placeholder email: never sent to a gateway.
                     email:
-                        email && !isPlaceholderEmail(email)
-                            ? email
-                            : `orders@${new URL(this.publicUrl).hostname}`,
+                        usableEmail ??
+                        `orders@${new URL(this.publicUrl).hostname}`.slice(0, MAX_GATEWAY_EMAIL),
                     address: address.streetLine1 || address.city || 'Bangladesh',
                     city: address.city || address.province || 'Dhaka',
+                    // SSLCommerz requires one; checkout doesn't ask for it (not used for delivery): Dhaka GPO.
+                    postcode: address.postalCode?.trim() || '1000',
                 },
                 items: {
                     count: order.lines.reduce((sum, line) => sum + line.quantity, 0),
@@ -324,16 +343,23 @@ export class OnlinePaymentService {
             );
         }
         let outcome: GatewayOutcome;
+        let checkedBy = valId && signed ? 'validate' : 'query';
         try {
             outcome =
                 valId && signed
                     ? await sslcommerzDriver.validate(handle.call, valId)
                     : await sslcommerzDriver.query(handle.call, attempt);
+            if (checkedBy === 'validate' && outcome.status === 'INVALID_TRANSACTION') {
+                // Validation didn't know this val_id: that ends nothing, our tran_id may still be paid.
+                await this.addEvent(ctx, attempt, 'validate', outcome.status, outcome.raw);
+                outcome = await sslcommerzDriver.query(handle.call, attempt);
+                checkedBy = 'query';
+            }
         } catch (error) {
             this.gateways.noteFailure('sslcommerz', attempt.mode, error);
             return this.resultUrl(ctx, order, 'pending');
         }
-        const result = await this.apply(ctx, attempt.id, outcome, valId && signed ? 'validate' : 'query');
+        const result = await this.apply(ctx, attempt.id, outcome, checkedBy);
         return this.resultUrl(ctx, order, result, outcome.failureCode);
     }
 
@@ -384,6 +410,7 @@ export class OnlinePaymentService {
             .getRepository(ctx, BdPaymentAttempt)
             .findOne({ where: { id: attemptId } });
         if (!attempt) return null;
+        if (attempt.reviewState === 'refunding') return this.checkRefund(ctx, attempt.id);
         if (attempt.status === 'created' || (!attempt.gatewaySessionId && attempt.gateway === 'bkash')) {
             return this.reschedule(ctx, attempt);
         }
@@ -455,21 +482,25 @@ export class OnlinePaymentService {
             await repository.update(attempt.id, checked);
             return attempt.reviewState ? 'review' : 'paid';
         }
-        if (outcome.token && outcome.token !== attempt.token) {
-            // An answer about another transaction: never applied here.
+        const delay = nextReconcileDelayMs(Date.now() - attempt.createdAt.getTime());
+        const keepChecking = {
+            ...checked,
+            nextCheckAt: delay === null ? null : new Date(Date.now() + delay),
+        };
+        // SSLCommerz always names our tran_id in a real answer: one without it proves nothing.
+        const tokenMissing =
+            attempt.gateway === 'sslcommerz' && outcome.outcome !== 'pending' && !outcome.token;
+        if ((outcome.token && outcome.token !== attempt.token) || tokenMissing) {
+            // An answer about another transaction (or none): never applied here; reconciliation goes on.
             Logger.warn(
-                `Gateway answer for another transaction on attempt ${attempt.id}, ignored`,
+                `Gateway answer ${tokenMissing ? 'without a transaction' : 'for another transaction'} on attempt ${attempt.id}, ignored`,
                 loggerCtx,
             );
-            await repository.update(attempt.id, checked);
+            await repository.update(attempt.id, keepChecking);
             return 'pending';
         }
         if (outcome.outcome === 'pending') {
-            const delay = nextReconcileDelayMs(Date.now() - attempt.createdAt.getTime());
-            await repository.update(attempt.id, {
-                ...checked,
-                nextCheckAt: delay === null ? null : new Date(Date.now() + delay),
-            });
+            await repository.update(attempt.id, keepChecking);
             return 'pending';
         }
         if (outcome.outcome === 'failed' || outcome.outcome === 'cancelled') {
@@ -490,6 +521,7 @@ export class OnlinePaymentService {
             gatewayReference: outcome.reference ?? `${attempt.gateway}:${attempt.token}`,
             gatewayTransactionId: outcome.transactionId ?? null,
             paidAmount: outcome.amount ?? null,
+            riskTitle: outcome.riskTitle ?? null,
             paidAt: new Date(),
             nextCheckAt: null,
         };
@@ -575,12 +607,85 @@ export class OnlinePaymentService {
             order: { nextCheckAt: 'ASC' },
             take: limit,
         });
-        for (const attempt of due) {
+        // Refunds the gateway was still processing (reviewState refunding), until it says how they ended.
+        const refunds = await this.connection.getRepository(ctx, BdPaymentAttempt).find({
+            where: { reviewState: 'refunding', nextCheckAt: LessThanOrEqual(new Date()) },
+            order: { nextCheckAt: 'ASC' },
+            take: limit,
+        });
+        for (const attempt of [...due, ...refunds]) {
             await this.check(ctx, attempt.id).catch(error =>
                 Logger.error(`Reconciling attempt ${attempt.id} failed: ${String(error)}`, loggerCtx),
             );
         }
-        return due.length;
+        return due.length + refunds.length;
+    }
+
+    /**
+     * Asks the gateway about a refund it was still processing: refunded ends it, cancelled puts the
+     * money back in Payment reviews for staff, processing asks again later (for a week).
+     */
+    private async checkRefund(ctx: RequestContext, attemptId: ID): Promise<BdPaymentAttempt | null> {
+        return this.connection.withTransaction(ctx, async txCtx => {
+            const repository = this.connection.getRepository(txCtx, BdPaymentAttempt);
+            const attempt = await repository
+                .createQueryBuilder('attempt')
+                .setLock('pessimistic_write')
+                .where('attempt.id = :id', { id: attemptId })
+                .getOne();
+            if (!attempt) return null;
+            if (attempt.reviewState !== 'refunding') return attempt;
+            const since = (attempt.reviewedAt ?? attempt.createdAt).getTime();
+            const delay = nextReconcileDelayMs(Date.now() - since);
+            const later = {
+                checks: attempt.checks + 1,
+                lastCheckedAt: new Date(),
+                // After a week staff check the gateway's panel (it stays in Payment reviews).
+                nextCheckAt: delay === null ? null : new Date(Date.now() + delay),
+            };
+            const handle = await this.gateways.handleFor(txCtx, attempt.gateway, attempt.mode);
+            if (!handle?.driver.refundStatus || !attempt.refundReference) {
+                await repository.update(attempt.id, later);
+                return { ...attempt, ...later } as BdPaymentAttempt;
+            }
+            let status;
+            try {
+                status = await handle.driver.refundStatus(handle.call, attempt.refundReference);
+            } catch (error) {
+                this.gateways.noteFailure(attempt.gateway, attempt.mode, error);
+                await repository.update(attempt.id, later);
+                return { ...attempt, ...later } as BdPaymentAttempt;
+            }
+            const events = withEvent(attempt.events, 'refund-query', status.outcome, status.raw);
+            const extra = {
+                amount: attempt.paidAmount ?? attempt.amount,
+                reason: attempt.reviewReason ?? undefined,
+            };
+            if (status.outcome === 'processing') {
+                await repository.update(attempt.id, { ...later, events });
+            } else if (status.outcome === 'refunded') {
+                await repository.update(attempt.id, {
+                    ...later,
+                    events,
+                    reviewState: 'refunded',
+                    nextCheckAt: null,
+                });
+                await this.history(txCtx, attempt, 'refunded', extra);
+            } else {
+                // Cancelled by the gateway: the money is still with the store, so staff decide again.
+                await repository.update(attempt.id, {
+                    ...later,
+                    events,
+                    reviewState: 'open',
+                    refundReference: null,
+                    refundTransId: null,
+                    reviewNote: 'The gateway cancelled the refund',
+                    nextCheckAt: null,
+                });
+                await this.history(txCtx, attempt, 'refundCancelled', extra);
+            }
+            return repository.findOne({ where: { id: attempt.id } });
+        });
     }
 
     /**
@@ -656,9 +761,11 @@ export class OnlinePaymentService {
     }
 
     reviews(ctx: RequestContext): Promise<BdPaymentAttempt[]> {
-        return this.connection
-            .getRepository(ctx, BdPaymentAttempt)
-            .find({ where: { reviewState: 'open' }, order: { paidAt: 'ASC' }, take: 200 });
+        return this.connection.getRepository(ctx, BdPaymentAttempt).find({
+            where: { reviewState: In(['open', 'refunding']) },
+            order: { paidAt: 'ASC' },
+            take: 200,
+        });
     }
 
     /**
@@ -674,7 +781,7 @@ export class OnlinePaymentService {
         const cleaned = (note ?? '').trim().slice(0, 500);
         if (action === 'resolve' && !cleaned) throw new OnlinePaymentError('NOTE_REQUIRED');
         const by = await this.staffName(ctx);
-        return this.connection.withTransaction(ctx, async txCtx => {
+        const result = await this.connection.withTransaction(ctx, async txCtx => {
             const repository = this.connection.getRepository(txCtx, BdPaymentAttempt);
             const attempt = await repository
                 .createQueryBuilder('attempt')
@@ -682,8 +789,13 @@ export class OnlinePaymentService {
                 .where('attempt.id = :id', { id: attemptId })
                 .getOne();
             if (!attempt) throw new OnlinePaymentError('NOT_FOUND');
-            if (attempt.reviewState !== 'open') throw new OnlinePaymentError('NOT_OPEN');
+            // A refund still processing can only be marked resolved (staff saw it in the gateway's panel).
+            const open =
+                attempt.reviewState === 'open' ||
+                (attempt.reviewState === 'refunding' && action === 'resolve');
+            if (!open) throw new OnlinePaymentError('NOT_OPEN');
             const decided = { reviewedBy: by, reviewedAt: new Date(), reviewNote: cleaned || null };
+            let event = action === 'accept' ? 'accepted' : action === 'refund' ? 'refunded' : 'resolved';
             if (action === 'accept') {
                 if (attempt.reviewReason !== 'risky') throw new OnlinePaymentError('NOT_RISKY');
                 const payment = await this.connection
@@ -693,43 +805,81 @@ export class OnlinePaymentService {
                 await repository.update(attempt.id, { ...decided, reviewState: 'accepted' });
                 await this.settle(txCtx, payment, attempt, attempt.gatewayTransactionId);
             } else if (action === 'refund') {
-                const handle = await this.gateways.handleFor(txCtx, attempt.gateway, attempt.mode);
-                if (!handle) throw new OnlinePaymentError('UNAVAILABLE');
-                const refund = await handle.driver.refund(
-                    handle.call,
-                    attempt,
-                    attempt.paidAmount ?? attempt.amount,
-                    `Refund (${attempt.reviewReason})`,
-                );
-                await repository.update(attempt.id, {
-                    events: withEvent(attempt.events, 'refund', refund.outcome, refund.raw),
-                });
-                if (refund.outcome === 'failed') {
-                    throw new OnlinePaymentError('REFUND_FAILED', refund.message);
-                }
+                const refunded = await this.refundAtGateway(txCtx, attempt, decided);
+                // Returned, not thrown: the try stays in the attempt's log when the transaction commits.
+                if (refunded instanceof OnlinePaymentError) return refunded;
+                event = refunded;
+            } else {
                 await repository.update(attempt.id, {
                     ...decided,
-                    reviewState: 'refunded',
-                    refundReference: refund.reference ?? null,
-                    reviewNote:
-                        cleaned ||
-                        (refund.outcome === 'processing' ? 'Refund is processing at the gateway' : null),
+                    reviewState: 'resolved',
+                    nextCheckAt: null,
                 });
-            } else {
-                await repository.update(attempt.id, { ...decided, reviewState: 'resolved' });
             }
-            await this.history(
-                txCtx,
-                attempt,
-                action === 'accept' ? 'accepted' : action === 'refund' ? 'refunded' : 'resolved',
-                {
-                    amount: attempt.paidAmount ?? attempt.amount,
-                    reason: attempt.reviewReason ?? undefined,
-                    note: cleaned || undefined,
-                },
-            );
+            await this.history(txCtx, attempt, event, {
+                amount: attempt.paidAmount ?? attempt.amount,
+                reason: attempt.reviewReason ?? undefined,
+                note: cleaned || undefined,
+            });
             return (await repository.findOne({ where: { id: attempt.id } }))!;
         });
+        if (result instanceof OnlinePaymentError) throw result;
+        return result;
+    }
+
+    /**
+     * Refunds a held payment through the gateway. Every try is logged on the attempt. A refund the
+     * gateway is still processing becomes `refunding` and is asked about until it ends.
+     */
+    private async refundAtGateway(
+        ctx: RequestContext,
+        attempt: BdPaymentAttempt,
+        decided: { reviewedBy: string; reviewedAt: Date; reviewNote: string | null },
+    ): Promise<'refunded' | 'refunding' | OnlinePaymentError> {
+        const repository = this.connection.getRepository(ctx, BdPaymentAttempt);
+        const handle = await this.gateways.handleFor(ctx, attempt.gateway, attempt.mode);
+        if (!handle) return new OnlinePaymentError('UNAVAILABLE');
+        // The same ID again when the last request got no answer: the gateway refunds one ID once.
+        const refundTransId = attempt.refundTransId ?? newRefundId();
+        await repository.update(attempt.id, { refundTransId });
+        let refund: RefundOutcome;
+        try {
+            refund = await handle.driver.refund(
+                handle.call,
+                { ...attempt, refundTransId },
+                attempt.paidAmount ?? attempt.amount,
+                `Refund (${attempt.reviewReason})`,
+            );
+        } catch (error) {
+            this.gateways.noteFailure(attempt.gateway, attempt.mode, error);
+            const message = error instanceof Error ? error.message : String(error);
+            await repository.update(attempt.id, {
+                events: withEvent(attempt.events, 'refund', 'error', { refundTransId, message }),
+            });
+            return new OnlinePaymentError('REFUND_FAILED', message);
+        }
+        const events = withEvent(attempt.events, 'refund', refund.outcome, {
+            refundTransId,
+            response: refund.raw,
+        });
+        if (refund.outcome === 'failed') {
+            // Refused: trying again is a new refund, with a new ID.
+            await repository.update(attempt.id, { events, refundTransId: null });
+            return new OnlinePaymentError('REFUND_FAILED', refund.message);
+        }
+        const followUp =
+            refund.outcome === 'processing' && !!handle.driver.refundStatus && !!refund.reference;
+        await repository.update(attempt.id, {
+            ...decided,
+            events,
+            reviewState: followUp ? 'refunding' : 'refunded',
+            refundReference: refund.reference ?? null,
+            reviewNote:
+                decided.reviewNote ||
+                (refund.outcome === 'processing' ? 'Refund is processing at the gateway' : null),
+            nextCheckAt: followUp ? new Date(Date.now() + 5 * MINUTE) : null,
+        });
+        return followUp ? 'refunding' : 'refunded';
     }
 
     async testConnection(ctx: RequestContext, gateway: OnlineGateway, mode: 'sandbox' | 'live') {
@@ -741,7 +891,7 @@ export class OnlinePaymentService {
     // ── Helpers ───────────────────────────────────────────────────────────────────────────────
 
     private attemptByToken(ctx: RequestContext, token: string) {
-        if (!/^[a-f0-9]{32}$/.test(token)) return Promise.resolve(null);
+        if (!ATTEMPT_TOKEN.test(token)) return Promise.resolve(null);
         return this.connection.getRepository(ctx, BdPaymentAttempt).findOne({ where: { token } });
     }
 

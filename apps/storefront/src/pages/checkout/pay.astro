@@ -13,7 +13,8 @@ if (redirect) return redirect;
 privatePage(Astro);
 const { s, href } = pageContext(Astro);
 const token = Astro.url.searchParams.get('to') ?? '';
-const valid = /^[a-f0-9]{32}$/.test(token);
+// 30 hex characters (32 for attempts made before October 2026).
+const valid = /^[a-f0-9]{30}(?:[a-f0-9]{2})?$/.test(token);
 // Not under the language prefix: the core answers /bd-pay itself.
 const target = `/bd-pay/start/${token}`;
 if (!valid) Astro.response.status = 404;

@@ -429,7 +429,7 @@ export function payToken(payments: ReadonlyArray<{ state: string; metadata?: unk
     // The Shop API shows only a payment's public metadata.
     const metadata = pending?.metadata as { payUrl?: string; public?: { payUrl?: string } } | null;
     const url = metadata?.payUrl ?? metadata?.public?.payUrl ?? '';
-    return /\/bd-pay\/start\/([a-f0-9]{32})$/.exec(url)?.[1] ?? null;
+    return /\/bd-pay\/start\/([a-f0-9]{30}(?:[a-f0-9]{2})?)$/.exec(url)?.[1] ?? null;
 }
 
 /** COD with an SMS code: checks a typed code, skips when asked (and allowed), else sends one. */

@@ -23,7 +23,7 @@ export interface StartPaymentInput {
         /** bKash sends the shopper back here with paymentID and status. */
         callback: string;
     };
-    customer: { name: string; phone: string; email: string; address: string; city: string };
+    customer: { name: string; phone: string; email: string; address: string; city: string; postcode: string };
     items: { count: number; names: string };
 }
 
@@ -52,6 +52,8 @@ export interface GatewayOutcome {
     transactionId?: string | null;
     /** The gateway flags the payment as risky (SSLCommerz risk_level 1). */
     risky?: boolean;
+    /** The gateway's own words on the risk (SSLCommerz risk_title), for staff. */
+    riskTitle?: string | null;
     /** Why it failed, for the shopper (bKash groups); undefined for a plain failure. */
     failureCode?: string;
     raw: unknown;
@@ -64,11 +66,19 @@ export interface RefundOutcome {
     raw: unknown;
 }
 
+/** A refund the gateway was still processing, asked about again (SSLCommerz Refund Query). */
+export interface RefundStatus {
+    outcome: 'refunded' | 'processing' | 'cancelled';
+    raw: unknown;
+}
+
 /** The attempt as the drivers need it (a BdPaymentAttempt fits). */
 export interface AttemptRefs {
     token: string;
     gatewaySessionId: string | null;
     gatewayTransactionId: string | null;
+    /** Our ID for the refund being made (SSLCommerz refund_trans_id): one per refund, at most 30 characters. */
+    refundTransId?: string | null;
 }
 
 export interface GatewayDriver {
@@ -78,6 +88,8 @@ export interface GatewayDriver {
     /** Asks the gateway what happened to an attempt (reconciliation, "Check status now"). */
     query(call: GatewayCall, attempt: AttemptRefs): Promise<GatewayOutcome>;
     refund(call: GatewayCall, attempt: AttemptRefs, amount: number, reason: string): Promise<RefundOutcome>;
+    /** Asks again about a refund that was processing; gateways without it finish refunds at once. */
+    refundStatus?(call: GatewayCall, reference: string): Promise<RefundStatus>;
 }
 
 /** A gateway answered with something we can't use (an error status, a malformed body). */

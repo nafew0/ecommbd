@@ -7,6 +7,7 @@ import {
     type GatewayOutcome,
     jsonOf,
     type RefundOutcome,
+    type RefundStatus,
     str,
     type StartPaymentInput,
     type StartPaymentResult,
@@ -52,6 +53,7 @@ export function outcomeOf(record: Record<string, unknown>): GatewayOutcome {
         transactionId: str(record.bank_tran_id),
         // risk_level 1: SSLCommerz suspects the card; staff decide (phase 18).
         risky: str(record.risk_level) === '1',
+        riskTitle: str(record.risk_title)?.slice(0, 100) ?? null,
         raw: record,
     };
 }
@@ -94,11 +96,13 @@ export const sslcommerzDriver: GatewayDriver & {
             cancel_url: input.urls.cancel,
             ipn_url: input.urls.ipn,
             cus_name: input.customer.name.slice(0, 50),
+            // At most 50 characters: the service sends the store's address instead of a longer one.
             cus_email: input.customer.email,
             cus_add1: input.customer.address.slice(0, 50),
             cus_city: input.customer.city.slice(0, 50),
+            cus_postcode: input.customer.postcode.slice(0, 10),
             cus_country: 'Bangladesh',
-            cus_phone: input.customer.phone,
+            cus_phone: input.customer.phone.slice(0, 20),
             // We deliver ourselves; SSLCommerz needs no shipping details.
             shipping_method: 'NO',
             num_of_item: String(input.items.count),
@@ -166,12 +170,17 @@ export const sslcommerzDriver: GatewayDriver & {
         if (!attempt.gatewayTransactionId) {
             return { outcome: 'failed', message: 'No bank transaction ID to refund', raw: null };
         }
+        // Required since 24 February 2025: our own unique ID for each refund.
+        if (!attempt.refundTransId) {
+            return { outcome: 'failed', message: 'No refund ID', raw: null };
+        }
         const body = jsonOf(
             await call.http.request(
                 url(call, '/validator/api/merchantTransIDvalidationAPI.php', {
                     bank_tran_id: attempt.gatewayTransactionId,
+                    refund_trans_id: attempt.refundTransId,
                     refund_amount: toGatewayAmount(amount),
-                    refund_remarks: reason.slice(0, 100),
+                    refund_remarks: reason.slice(0, 255),
                     refe_id: attempt.token,
                     ...auth(call),
                     v: '1',
@@ -179,11 +188,42 @@ export const sslcommerzDriver: GatewayDriver & {
                 }),
             ),
         );
+        const connect = str(body.APIConnect) ?? '';
+        if (connect !== 'DONE') {
+            return {
+                outcome: 'failed',
+                message:
+                    str(body.errorReason) ?? `SSLCommerz refused the request (${connect || 'no answer'})`,
+                raw: body,
+            };
+        }
         const status = (str(body.status) ?? '').toLowerCase();
         return {
             outcome: status === 'success' ? 'refunded' : status === 'processing' ? 'processing' : 'failed',
             reference: str(body.refund_ref_id),
             message: str(body.errorReason) ?? undefined,
+            raw: body,
+        };
+    },
+
+    /** Refund Query: refunded, still processing, or cancelled by SSLCommerz. */
+    async refundStatus(call, reference): Promise<RefundStatus> {
+        const body = jsonOf(
+            await call.http.request(
+                url(call, '/validator/api/merchantTransIDvalidationAPI.php', {
+                    refund_ref_id: reference,
+                    ...auth(call),
+                    format: 'json',
+                }),
+            ),
+        );
+        const connect = str(body.APIConnect) ?? '';
+        if (connect !== 'DONE') {
+            throw new GatewayError(`SSLCommerz refund query failed (${connect || 'no answer'})`, body);
+        }
+        const status = (str(body.status) ?? '').toLowerCase();
+        return {
+            outcome: status === 'refunded' ? 'refunded' : status === 'cancelled' ? 'cancelled' : 'processing',
             raw: body,
         };
     },

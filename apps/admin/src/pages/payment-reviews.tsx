@@ -16,7 +16,7 @@ import { useToast } from '../lib/toast';
 
 export const REVIEW_FIELDS = `
     id orderId orderCode orderNumber gateway mode amount paidAmount paidAt status
-    gatewayTransactionId reviewReason reviewState reviewNote reviewedBy
+    gatewayTransactionId reviewReason reviewState reviewNote reviewedBy riskTitle
 `;
 
 const REVIEWS = `{ bdPaymentReviews { ${REVIEW_FIELDS} } }`;
@@ -41,6 +41,7 @@ export interface ReviewItem {
     gatewayTransactionId: string | null;
     reviewReason: string;
     reviewState: string;
+    riskTitle: string | null;
 }
 
 type Decision =
@@ -49,7 +50,8 @@ type Decision =
 /**
  * Payment reviews (roadmap phase 18): online money that couldn't go to its order by itself (paid
  * late, paid twice, flagged risky, wrong amount). Each needs a person; nothing is refunded
- * automatically. Deciding needs ManagePayments (checked on the server too).
+ * automatically. Refunds the gateway is still processing stay listed until they finish. Deciding
+ * needs ManagePayments (checked on the server too).
  */
 export function PaymentReviewsPage() {
     const { messages: m } = useI18n();
@@ -102,6 +104,7 @@ export function PaymentReviewsPage() {
                 <ul className="space-y-3">
                     {items.map(item => {
                         const amount = format.money(item.paidAmount ?? item.amount);
+                        const refunding = item.reviewState === 'refunding';
                         return (
                             <li key={item.id}>
                                 <Card>
@@ -120,11 +123,17 @@ export function PaymentReviewsPage() {
                                                 <Badge tone={item.reviewReason === 'risky' ? 'amber' : 'red'}>
                                                     {r.reasons[item.reviewReason] ?? item.reviewReason}
                                                 </Badge>
+                                                {refunding && <Badge tone="amber">{r.refunding}</Badge>}
                                             </div>
                                         </div>
                                         <p className="text-sm text-slate-700">
-                                            {r.reasonHints[item.reviewReason]}
+                                            {refunding ? r.refundingHint : r.reasonHints[item.reviewReason]}
                                         </p>
+                                        {item.reviewReason === 'risky' && item.riskTitle && (
+                                            <p className="text-sm text-slate-700">
+                                                {r.riskTitle(item.riskTitle)}
+                                            </p>
+                                        )}
                                         <dl className="grid gap-3 sm:grid-cols-3">
                                             <div>
                                                 <dt className="text-sm text-slate-600">{r.paid}</dt>
@@ -163,7 +172,7 @@ export function PaymentReviewsPage() {
                                         )}
                                         {canDecide && (
                                             <div className="flex flex-wrap gap-2">
-                                                {item.reviewReason === 'risky' && (
+                                                {item.reviewReason === 'risky' && !refunding && (
                                                     <Button
                                                         loading={busy === `${item.id}:accept`}
                                                         onClick={() => void decide(item, 'accept')}
@@ -171,26 +180,28 @@ export function PaymentReviewsPage() {
                                                         {r.accept}
                                                     </Button>
                                                 )}
-                                                <Button
-                                                    variant={
-                                                        item.reviewReason === 'risky'
-                                                            ? 'secondary'
-                                                            : 'primary'
-                                                    }
-                                                    loading={busy === `${item.id}:refund`}
-                                                    onClick={async () => {
-                                                        if (
-                                                            await confirm({
-                                                                title: r.confirmRefund(amount),
-                                                                danger: true,
-                                                            })
-                                                        ) {
-                                                            void decide(item, 'refund');
+                                                {!refunding && (
+                                                    <Button
+                                                        variant={
+                                                            item.reviewReason === 'risky'
+                                                                ? 'secondary'
+                                                                : 'primary'
                                                         }
-                                                    }}
-                                                >
-                                                    {r.refund}
-                                                </Button>
+                                                        loading={busy === `${item.id}:refund`}
+                                                        onClick={async () => {
+                                                            if (
+                                                                await confirm({
+                                                                    title: r.confirmRefund(amount),
+                                                                    danger: true,
+                                                                })
+                                                            ) {
+                                                                void decide(item, 'refund');
+                                                            }
+                                                        }}
+                                                    >
+                                                        {r.refund}
+                                                    </Button>
+                                                )}
                                                 <Button
                                                     variant="secondary"
                                                     loading={busy === `${item.id}:resolve`}

@@ -49,6 +49,15 @@ export const ONLINE_PAYMENT_LIMITS = {
     attemptsPerOrder: 10,
 } as const;
 
+/** What SSLCommerz accepts for one payment, in poisha: ৳10.00 to ৳5,00,000.00. */
+export const SSLCOMMERZ_AMOUNT_LIMITS = { min: 1_000, max: 50_000_000 } as const;
+
+/** The gateway can take this amount (poisha); bKash has no fixed range of its own. */
+export function gatewayAcceptsAmount(gateway: OnlineGateway, amount: number): boolean {
+    if (gateway !== 'sslcommerz') return amount > 0;
+    return amount >= SSLCOMMERZ_AMOUNT_LIMITS.min && amount <= SSLCOMMERZ_AMOUNT_LIMITS.max;
+}
+
 const gateway = z.object({ enabled: z.boolean(), mode: z.enum(GATEWAY_MODES) });
 
 export const onlinePaymentSettingsSchema = z.object({
@@ -165,7 +174,8 @@ export type AttemptStatus = (typeof ATTEMPT_STATUSES)[number];
 export const PAYMENT_REVIEW_REASONS = ['late', 'duplicate', 'risky', 'mismatch'] as const;
 export type PaymentReviewReason = (typeof PAYMENT_REVIEW_REASONS)[number];
 
-export const PAYMENT_REVIEW_STATES = ['open', 'accepted', 'refunded', 'resolved'] as const;
+/** `refunding`: the gateway took the refund but hasn't finished it; checked until it has. */
+export const PAYMENT_REVIEW_STATES = ['open', 'accepted', 'refunding', 'refunded', 'resolved'] as const;
 export type PaymentReviewState = (typeof PAYMENT_REVIEW_STATES)[number];
 
 /** What the shopper is told after a failed bKash payment, by group of bKash error codes. */
