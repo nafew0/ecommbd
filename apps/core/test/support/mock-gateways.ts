@@ -56,11 +56,14 @@ interface BkashPayment {
     signature: string;
     status: 'Initiated' | 'Completed' | 'Cancelled';
     trxId?: string;
-    /** What execute does: complete, refuse with a code, or drop the connection after taking the money. */
-    onExecute: 'complete' | 'drop' | string;
+    /**
+     * What execute does: complete, refuse with a code, drop the connection after taking the money
+     * (`drop`), or drop it with the payment still Initiated (`timeout`: bKash may finish it later).
+     */
+    onExecute: 'complete' | 'drop' | 'timeout' | string;
     executes: number;
     maxRefundable?: string;
-    refunds: Array<{ refundTrxId: string; amount: string; at: number }>;
+    refunds: Array<{ refundTrxId: string; amount: string; at: number; status: 'Completed' | 'Pending' }>;
 }
 
 /** bKash's v2 error body: no statusCode, an externalCode with its message in both languages. */
@@ -90,8 +93,15 @@ export class MockGateways {
     readonly sslSessionForms: URLSearchParams[] = [];
     /** Answer every SSLCommerz session request with this HTTP status (e.g. 503). */
     sslSessionStatus = 200;
-    /** How the next SSLCommerz refunds answer: success, processing, or failed (with an errorReason). */
-    sslRefundAnswer: 'success' | 'processing' | 'failed' = 'success';
+    /**
+     * How the next SSLCommerz refunds answer: success, processing, failed (with an errorReason), or
+     * `drop`: the refund is made but the connection drops before the answer.
+     */
+    sslRefundAnswer: 'success' | 'processing' | 'failed' | 'drop' = 'success';
+    /** Every SSLCommerz refund request we were sent (retries included). */
+    sslRefundRequests = 0;
+    /** Milliseconds before answering a session (SSLCommerz) or Create Payment (bKash): for races. */
+    startDelayMs = 0;
     /** The validation API says INVALID_TRANSACTION for every val_id (the transaction query still works). */
     sslValidationInvalid = false;
     /** Validation and query answers leave out tran_id. */
@@ -104,8 +114,11 @@ export class MockGateways {
     readonly bkashCalls: string[] = [];
     /** bKash's maxRefundableAmount on the next executes (the payment's amount when unset). */
     bkashMaxRefundable?: string;
-    /** The next bKash refunds: complete, or take the money and drop the connection. */
-    bkashRefund: 'complete' | 'drop' = 'complete';
+    /**
+     * The next bKash refunds: complete; take the money and drop the connection (`drop`); stay Pending
+     * at bKash (`pending`); or drop the connection before bKash records anything (`lost`).
+     */
+    bkashRefund: 'complete' | 'drop' | 'pending' | 'lost' = 'complete';
     sslSessions = 0;
     private server?: http.Server;
     private tokens = 0;
@@ -121,7 +134,7 @@ export class MockGateways {
         this.server = http.createServer((req, res) => {
             let body = '';
             req.on('data', chunk => (body += chunk));
-            req.on('end', () => this.handle(req, res, body));
+            req.on('end', () => void this.handle(req, res, body));
         });
         return new Promise(resolve => this.server!.listen(this.port, '127.0.0.1', () => resolve()));
     }
@@ -182,6 +195,16 @@ export class MockGateways {
         return payment;
     }
 
+    /** bKash finishes a payment late, after its Execute timed out (`timeout`). */
+    bkashCompleteLate(paymentId: string) {
+        const payment = this.bkash.get(paymentId);
+        if (!payment) throw new Error(`No bKash payment ${paymentId}`);
+        payment.status = 'Completed';
+        payment.trxId = `TRX${randomBytes(4).toString('hex').toUpperCase()}`;
+        payment.maxRefundable = this.bkashMaxRefundable ?? payment.amount;
+        return payment;
+    }
+
     /** bKash revokes every id_token it gave (the next payment call gets a 401). */
     bkashRevokeTokens() {
         this.validTokens.clear();
@@ -194,10 +217,14 @@ export class MockGateways {
         this.bkashExecute = 'complete';
         this.bkashMaxRefundable = undefined;
         this.bkashRefund = 'complete';
+        this.startDelayMs = 0;
     }
 
-    private handle(req: http.IncomingMessage, res: http.ServerResponse, body: string) {
+    private async handle(req: http.IncomingMessage, res: http.ServerResponse, body: string) {
         const url = new URL(req.url ?? '/', this.url);
+        const starting = url.pathname === '/gwprocess/v4/api.php' || url.pathname === '/bkash/payment/create';
+        if (starting && this.startDelayMs)
+            await new Promise(resolve => setTimeout(resolve, this.startDelayMs));
         const json = (status: number, value: unknown) => {
             res.writeHead(status, { 'content-type': 'application/json' });
             res.end(JSON.stringify(value));
@@ -258,6 +285,7 @@ export class MockGateways {
             if (!sslAuthorized(params.get('store_id'), params.get('store_passwd')))
                 return json(200, { APIConnect: 'INVALID_REQUEST' });
             if (params.get('bank_tran_id')) {
+                this.sslRefundRequests++;
                 const refundTransId = params.get('refund_trans_id') ?? '';
                 if (!refundTransId || refundTransId.length > 30) {
                     return json(200, {
@@ -293,6 +321,8 @@ export class MockGateways {
                     refId,
                     status: this.sslRefundAnswer === 'processing' ? 'processing' : 'refunded',
                 });
+                // The refund is made; its answer never arrives.
+                if (this.sslRefundAnswer === 'drop') return req.socket.destroy();
                 return json(200, {
                     APIConnect: 'DONE',
                     status: this.sslRefundAnswer,
@@ -440,6 +470,8 @@ export class MockGateways {
             payment.executes++;
             // A paymentId can't be used again after any execute.
             if (payment.executes > 1) return json(200, bkashErrorBody('2117'));
+            // No answer, and bKash hasn't finished it (yet): the query says Initiated.
+            if (payment.onExecute === 'timeout') return req.socket.destroy();
             if (payment.onExecute === 'complete' || payment.onExecute === 'drop') {
                 payment.status = 'Completed';
                 payment.trxId = `TRX${randomBytes(4).toString('hex').toUpperCase()}`;
@@ -463,14 +495,16 @@ export class MockGateways {
             if (payment.refunds.some(item => Date.now() - item.at < 10 * 60_000)) {
                 return json(200, bkashErrorBody('2073'));
             }
+            if (this.bkashRefund === 'lost') return req.socket.destroy();
             const refundTrxId = `RF${payment.refunds.length + 1}${randomBytes(3).toString('hex').toUpperCase()}`;
-            payment.refunds.push({ refundTrxId, amount: input.refundAmount!, at: Date.now() });
+            const status = this.bkashRefund === 'pending' ? 'Pending' : 'Completed';
+            payment.refunds.push({ refundTrxId, amount: input.refundAmount!, at: Date.now(), status });
             this.refunds.push({ gateway: 'bkash', ref: input.trxId!, amount: input.refundAmount! });
             if (this.bkashRefund === 'drop') return req.socket.destroy();
             return json(200, {
                 originalTrxId: payment.trxId,
                 refundTrxId,
-                refundTransactionStatus: 'Completed',
+                refundTransactionStatus: status,
                 originalTrxAmount: payment.amount,
                 refundAmount: input.refundAmount,
                 currency: 'BDT',
@@ -482,7 +516,7 @@ export class MockGateways {
                 originalTrxAmount: payment.amount,
                 refundTransactions: payment.refunds.map(item => ({
                     refundTrxId: item.refundTrxId,
-                    refundTransactionStatus: 'Completed',
+                    refundTransactionStatus: item.status,
                     refundAmount: item.amount,
                 })),
             });

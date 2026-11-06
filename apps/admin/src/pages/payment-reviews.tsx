@@ -15,8 +15,8 @@ import { useAgo } from '../lib/orders';
 import { useToast } from '../lib/toast';
 
 export const REVIEW_FIELDS = `
-    id orderId orderCode orderNumber gateway mode amount paidAmount paidAt status
-    gatewayTransactionId reviewReason reviewState reviewNote reviewedBy riskTitle
+    id orderId orderCode orderNumber orderCancelled gateway mode amount paidAmount paidAt status
+    gatewayTransactionId reviewReason reviewState reviewNote reviewedBy riskTitle refundReference
 `;
 
 const REVIEWS = `{ bdPaymentReviews { ${REVIEW_FIELDS} } }`;
@@ -33,6 +33,8 @@ export interface ReviewItem {
     orderId: string;
     orderCode: string | null;
     orderNumber: string | null;
+    /** The order was cancelled: its money can only be refunded or resolved. */
+    orderCancelled?: boolean | null;
     gateway: string;
     mode: string;
     amount: number;
@@ -42,6 +44,8 @@ export interface ReviewItem {
     reviewReason: string;
     reviewState: string;
     riskTitle: string | null;
+    /** Null while refunding: the gateway's answer to the refund never came (it may have gone through). */
+    refundReference: string | null;
 }
 
 type Decision =
@@ -84,6 +88,8 @@ export function PaymentReviewsPage() {
         const decision = result.reviewBdPayment;
         if ('reason' in decision) {
             toast.error(decision.detail ? `${decision.message} (${decision.detail})` : decision.message);
+            // A refund with no answer is now "Refund processing": the list shows it.
+            void queryClient.invalidateQueries({ queryKey: ['paymentReviews'] });
             return;
         }
         toast.success(r.done);
@@ -127,7 +133,11 @@ export function PaymentReviewsPage() {
                                             </div>
                                         </div>
                                         <p className="text-sm text-slate-700">
-                                            {refunding ? r.refundingHint : r.reasonHints[item.reviewReason]}
+                                            {refunding
+                                                ? item.refundReference
+                                                    ? r.refundingHint
+                                                    : r.refundUnknownHint
+                                                : r.reasonHints[item.reviewReason]}
                                         </p>
                                         {item.reviewReason === 'risky' && item.riskTitle && (
                                             <p className="text-sm text-slate-700">
@@ -172,14 +182,17 @@ export function PaymentReviewsPage() {
                                         )}
                                         {canDecide && (
                                             <div className="flex flex-wrap gap-2">
-                                                {item.reviewReason === 'risky' && !refunding && (
-                                                    <Button
-                                                        loading={busy === `${item.id}:accept`}
-                                                        onClick={() => void decide(item, 'accept')}
-                                                    >
-                                                        {r.accept}
-                                                    </Button>
-                                                )}
+                                                {/* A cancelled order can't take the money: refund or resolve only (the server refuses too). */}
+                                                {item.reviewReason === 'risky' &&
+                                                    !refunding &&
+                                                    !item.orderCancelled && (
+                                                        <Button
+                                                            loading={busy === `${item.id}:accept`}
+                                                            onClick={() => void decide(item, 'accept')}
+                                                        >
+                                                            {r.accept}
+                                                        </Button>
+                                                    )}
                                                 {!refunding && (
                                                     <Button
                                                         variant={

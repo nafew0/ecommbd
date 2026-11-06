@@ -78,6 +78,21 @@ export class BdPaymentAttempt extends VendureEntity {
     @Column({ type: 'varchar', length: 100, nullable: true })
     gatewayTransactionId: string | null;
 
+    /**
+     * When this attempt was claimed for starting at the gateway (created → started). A second
+     * `/bd-pay/start` meanwhile (the pay page's refresh plus its button, a reload) waits for that
+     * start instead of starting the gateway again.
+     */
+    @Column({ type: 'timestamp', precision: 6, nullable: true })
+    startedAt: Date | null;
+
+    /**
+     * The gateway's payment page for this attempt, as the gateway gave it: a reload of the pay link
+     * soon after goes back to the same page instead of opening a new attempt.
+     */
+    @Column({ type: 'text', nullable: true })
+    gatewayRedirectUrl: string | null;
+
     /** bKash's `signature` from Create Payment: its callback must bring the same one. */
     @Column({ type: 'varchar', length: 255, nullable: true })
     gatewaySignature: string | null;
@@ -116,7 +131,10 @@ export class BdPaymentAttempt extends VendureEntity {
     @Column({ type: 'varchar', length: 255, nullable: true })
     failureMessageBn: string | null;
 
-    /** When the reconciliation task next asks the gateway; null when finished or given up. */
+    /**
+     * When the reconciliation task next asks the gateway; null when finished or given up. A `failed`
+     * attempt keeps one while its failure was ambiguous (no clear refusal from the gateway).
+     */
     @Index()
     @Column({ type: 'timestamp', precision: 6, nullable: true })
     nextCheckAt: Date | null;

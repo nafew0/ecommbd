@@ -179,7 +179,7 @@ export class OnlineAdminResolver {
     ) {
         const { gateway, mode } = gatewayAndMode(args.gateway, args.mode);
         const result = await this.payments.testConnection(ctx, gateway, mode);
-        return { ok: result.ok, message: 'message' in result ? result.message : null };
+        return { ok: result.ok, reason: result.reason, message: result.detail };
     }
 
     @Query()
@@ -230,9 +230,10 @@ export class OnlineAdminResolver {
             return (await withOrders(ctx, this.connection, [attempt]))[0];
         } catch (error) {
             if (error instanceof OnlinePaymentError) {
+                // The gateway's own words (or the amount bKash can still refund), when there are any.
                 return new BdOnlinePaymentError(
                     error.code,
-                    error.code === 'REFUND_FAILED' ? error.message : undefined,
+                    error.message !== error.code ? error.message : undefined,
                 );
             }
             throw error;
@@ -256,7 +257,10 @@ export class BdBkashLookupResultResolver {
     }
 }
 
-/** Adds each attempt's order number for the screens. */
+/**
+ * Adds each attempt's order number for the screens, and whether its order was cancelled: money
+ * for a cancelled order can only be refunded or resolved, so the review screen hides "Accept".
+ */
 async function withOrders(
     ctx: RequestContext,
     connection: TransactionalConnection,
@@ -266,7 +270,7 @@ async function withOrders(
     const orders = ids.length
         ? await connection.getRepository(ctx, Order).find({
               where: { id: In(ids) },
-              select: { id: true, code: true, customFields: { orderNumber: true } },
+              select: { id: true, code: true, state: true, customFields: { orderNumber: true } },
           })
         : [];
     const byId = new Map(orders.map(order => [String(order.id), order]));
@@ -274,6 +278,7 @@ async function withOrders(
         ...attempt,
         orderCode: byId.get(String(attempt.orderId))?.code ?? null,
         orderNumber: byId.get(String(attempt.orderId))?.customFields.orderNumber ?? null,
+        orderCancelled: byId.get(String(attempt.orderId))?.state === 'Cancelled',
         events: attempt.events ?? [],
     }));
 }

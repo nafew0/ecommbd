@@ -56,8 +56,22 @@ const SAVE_CREDENTIALS = `mutation ($gateway: String!, $mode: String!, $input: J
     }
 }`;
 
+/** reason: a code to translate; message: the gateway's own words (not translated). */
+interface TestResult {
+    ok: boolean;
+    reason: string | null;
+    message: string | null;
+}
+
+/** A failed test in the staff member's language, with the gateway's own words after it. */
+function testFailure(o: ReturnType<typeof useI18n>['messages']['onlinePayments'], result: TestResult) {
+    const reason = o.testFailures[result.reason ?? ''];
+    if (!reason) return o.testFailed(result.message ?? '');
+    return result.message ? `${reason} (${result.message})` : reason;
+}
+
 const TEST = `mutation ($gateway: String!, $mode: String!) {
-    testBdGatewayConnection(gateway: $gateway, mode: $mode) { ok message }
+    testBdGatewayConnection(gateway: $gateway, mode: $mode) { ok reason message }
 }`;
 
 /**
@@ -259,7 +273,7 @@ function CredentialsCard({
     const toast = useToast();
     const [values, setValues] = useState<Record<string, string>>({});
     const [errors, setErrors] = useState<Record<string, string>>({});
-    const [testResult, setTestResult] = useState<{ ok: boolean; message: string | null } | null>(null);
+    const [testResult, setTestResult] = useState<TestResult | null>(null);
     const save = useMutation({
         mutationFn: () =>
             adminApi<{
@@ -283,7 +297,7 @@ function CredentialsCard({
     });
     const test = useMutation({
         mutationFn: () =>
-            adminApi<{ testBdGatewayConnection: { ok: boolean; message: string | null } }>(TEST, {
+            adminApi<{ testBdGatewayConnection: TestResult }>(TEST, {
                 gateway,
                 mode,
             }).then(r => r.testBdGatewayConnection),
@@ -350,7 +364,7 @@ function CredentialsCard({
                     </div>
                     {testResult && (
                         <Alert tone={testResult.ok ? 'info' : 'error'}>
-                            {testResult.ok ? o.testOk : o.testFailed(testResult.message ?? '')}
+                            {testResult.ok ? o.testOk : testFailure(o, testResult)}
                         </Alert>
                     )}
                 </form>

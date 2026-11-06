@@ -163,6 +163,7 @@ const TEST_CONNECTION = gql`
     mutation ($gateway: String!, $mode: String!) {
         testBdGatewayConnection(gateway: $gateway, mode: $mode) {
             ok
+            reason
             message
         }
     }
@@ -211,6 +212,21 @@ const REVIEW = gql`
             ... on BdOnlinePaymentError {
                 reason
                 message
+                detail
+            }
+        }
+    }
+`;
+
+/** Staff cancel an order (the merchant admin's "Cancel order"). */
+const CANCEL = gql`
+    mutation ($id: ID!) {
+        cancelBdOrder(input: { orderId: $id, reason: "customerCancelled" }) {
+            ... on Order {
+                state
+            }
+            ... on BdOrderActionError {
+                reason
             }
         }
     }
@@ -327,6 +343,21 @@ async function payAgain(orderId: string): Promise<string> {
     return follow(`${core}/bd-pay/start/${token}`);
 }
 
+/** The order's attempts still being asked about are due for the reconciliation task now. */
+const dueNow = (orderId: string) =>
+    db().query(
+        `UPDATE bd_payment_attempt SET "nextCheckAt" = now() - interval '1 minute' WHERE "orderId" = $1 AND "nextCheckAt" IS NOT NULL`,
+        [n(orderId)],
+    );
+/** The order's newest attempt as stored (fields the API doesn't show). */
+const attemptRow = async (orderId: string) =>
+    (
+        await db().query(
+            `SELECT status, "nextCheckAt", "reviewState" FROM bd_payment_attempt WHERE "orderId" = $1 ORDER BY id DESC LIMIT 1`,
+            [n(orderId)],
+        )
+    )[0];
+
 /** Follows our redirect once; returns the Location header. */
 async function follow(url: string, init: RequestInit = {}): Promise<string> {
     const response = await fetch(local(url), { redirect: 'manual', ...init });
@@ -410,6 +441,7 @@ describe('setup', () => {
                 .testBdGatewayConnection,
         ).toEqual({
             ok: true,
+            reason: null,
             message: null,
         });
         expect(
@@ -424,7 +456,8 @@ describe('setup', () => {
         });
         const failed = (await adminClient.query(TEST_CONNECTION, { gateway: 'sslcommerz', mode: 'live' }))
             .testBdGatewayConnection;
-        expect(failed.ok).toBe(false);
+        // A code the admin translates, with SSLCommerz's own word after it.
+        expect(failed).toEqual({ ok: false, reason: 'refused', message: 'INVALID_REQUEST' });
         await adminClient.query(SAVE_CREDENTIALS, {
             gateway: 'sslcommerz',
             mode: 'live',
@@ -750,6 +783,101 @@ describe('SSLCommerz', () => {
         expect(refunded.reviewState).toBe('refunded');
     });
 
+    it('opens one gateway page for parallel starts and reloads, not a new try each time', async () => {
+        await readyToPay();
+        const placed = await pay('bd-sslcommerz', { purpose: 'full' });
+        const { payUrl } = placed.payments[0].metadata.public;
+        const sessions = mock.sslSessions;
+        // The pay page's instant refresh and its button together, while SSLCommerz is slow to answer.
+        mock.startDelayMs = 300;
+        const [first, second] = await Promise.all([follow(payUrl), follow(payUrl)]);
+        mock.startDelayMs = 0;
+        expect(first).toMatch(/\/pay\/[a-f0-9]{30}$/);
+        expect(second).toBe(first);
+        expect(mock.sslSessions).toBe(sessions + 1);
+        // A reload a moment later goes back to the same page.
+        expect(await follow(payUrl)).toBe(first);
+        expect(await attemptsOf(placed.id)).toHaveLength(1);
+        // Ten minutes on, a reload opens a fresh try (the old page may be closed), and only one.
+        await db().query(
+            `UPDATE bd_payment_attempt SET "startedAt" = now() - interval '11 minutes' WHERE "orderId" = $1`,
+            [n(placed.id)],
+        );
+        const fresh = await follow(payUrl);
+        expect(fresh).not.toBe(first);
+        expect(await follow(payUrl)).toBe(fresh);
+        expect(await attemptsOf(placed.id)).toHaveLength(2);
+    });
+
+    it('cancelling an order cancels its online payment; money that comes later is held, never settled', async () => {
+        const { placed, tranId } = await placeSsl();
+        expect((await adminClient.query(CANCEL, { id: placed.id })).cancelBdOrder.state).toBe('Cancelled');
+        expect((await orderById(placed.id)).payments).toMatchObject([{ state: 'Cancelled' }]);
+        // The shopper was still on SSLCommerz's page and paid: the IPN goes to Payment reviews.
+        await postForm('/bd-pay/sslcommerz/ipn', mock.sslPay(tranId));
+        const [attempt] = await attemptsOf(placed.id);
+        expect(attempt).toMatchObject({ status: 'paid', reviewReason: 'late', reviewState: 'open' });
+        const order = await orderById(placed.id);
+        expect(order.state).toBe('Cancelled');
+        expect(order.payments).toMatchObject([{ state: 'Cancelled' }]);
+    });
+
+    it('holds money for an order cancelled while its payment was left Pending (before this fix)', async () => {
+        const { placed, tranId } = await placeSsl();
+        await adminClient.query(CANCEL, { id: placed.id });
+        // As orders cancelled by staff used to be: the payment still Pending.
+        await db().query(`UPDATE payment SET state = 'Pending' WHERE "orderId" = $1`, [n(placed.id)]);
+        mock.sslPay(tranId); // paid, no IPN: reconciliation finds it
+        await dueNow(placed.id);
+        await service().reconcile();
+        expect((await attemptsOf(placed.id))[0]).toMatchObject({
+            status: 'paid',
+            reviewReason: 'late',
+            reviewState: 'open',
+        });
+        const order = await orderById(placed.id);
+        expect(order.state).toBe('Cancelled');
+        expect(order.payments).toMatchObject([{ state: 'Pending' }]);
+    });
+
+    it('never retries a refund whose answer was lost, and keeps it as processing for staff', async () => {
+        const held = await placeSsl();
+        await postForm('/bd-pay/sslcommerz/ipn', mock.sslPay(held.tranId, { amount: '50.00' }));
+        const [attempt] = await attemptsOf(held.placed.id);
+        const requests = mock.sslRefundRequests;
+        mock.sslRefundAnswer = 'drop';
+        const unknown = (await adminClient.query(REVIEW, { id: attempt.id, action: 'refund' }))
+            .reviewBdPayment;
+        // Not "refused": it may have gone through. And the GET wasn't sent again by the HTTP client.
+        expect(unknown.reason).toBe('REFUND_UNKNOWN');
+        expect(mock.sslRefundRequests).toBe(requests + 1);
+        expect((await attemptsOf(held.placed.id))[0]).toMatchObject({
+            reviewState: 'refunding',
+            refundReference: null,
+        });
+        // Nobody can refund it again meanwhile.
+        mock.sslRefundAnswer = 'success';
+        expect(
+            (await adminClient.query(REVIEW, { id: attempt.id, action: 'refund' })).reviewBdPayment.reason,
+        ).toBe('NOT_OPEN');
+        expect(mock.sslRefundRequests).toBe(requests + 1);
+        // SSLCommerz can't be asked without its refund reference: staff check its panel and resolve it.
+        await dueNow(held.placed.id);
+        await service().reconcile();
+        expect(await attemptRow(held.placed.id)).toMatchObject({
+            reviewState: 'refunding',
+            nextCheckAt: null,
+        });
+        const resolved = (
+            await adminClient.query(REVIEW, {
+                id: attempt.id,
+                action: 'resolve',
+                note: 'Refunded, seen in the panel',
+            })
+        ).reviewBdPayment;
+        expect(resolved.reviewState).toBe('resolved');
+    });
+
     it('offers SSLCommerz only from ৳10 to ৳5,00,000', async () => {
         // 400 panjabis: ৳5,00,000 plus delivery.
         await readyToPay('prepaid', 400);
@@ -793,7 +921,7 @@ describe('bKash', () => {
         await callback(payment, 'success');
         const [attempt] = await attemptsOf(placed.id);
         expect(attempt).toMatchObject({ reviewReason: 'late', reviewState: 'open' });
-        return { attempt, payment };
+        return { attempt, payment, placed };
     }
 
     it('executes on the success callback and settles', async () => {
@@ -886,9 +1014,122 @@ describe('bKash', () => {
         const { attempt, payment } = await lateBkashPayment();
         const refused = (await adminClient.query(REVIEW, { id: attempt.id, action: 'refund' }))
             .reviewBdPayment;
-        expect(refused.reason).toBe('REFUND_FAILED');
+        // A code staff see in their language, with the most bKash can still refund.
+        expect(refused).toMatchObject({ reason: 'REFUND_TOO_MUCH', detail: '৳100.00' });
         expect(payment.refunds).toHaveLength(0);
         expect(bk.bkashCalls).not.toContain('refund/payment/transaction');
+    });
+
+    it('starts bKash once for parallel starts, so its callback is still accepted', async () => {
+        await readyToPay();
+        const placed = await pay('bd-bkash-online', { purpose: 'full' });
+        const { payUrl } = placed.payments[0].metadata.public;
+        bk.startDelayMs = 300;
+        const pages = await Promise.all([follow(payUrl), follow(payUrl), follow(payUrl)]);
+        bk.startDelayMs = 0;
+        expect(new Set(pages).size).toBe(1);
+        expect(bk.bkashCalls.filter(path => path === 'payment/create')).toHaveLength(1);
+        const payment = bk.bkash.get(pages[0]!.split('/bkash/pay/')[1]!)!;
+        bk.bkashApprove(payment.paymentId);
+        expect(await callback(payment, 'success')).toContain('payment=paid');
+    });
+
+    it('holds a payment made after staff cancelled the order (found by reconciliation)', async () => {
+        const { placed, payment } = await placeBkash();
+        await adminClient.query(CANCEL, { id: placed.id });
+        expect((await orderById(placed.id)).payments).toMatchObject([{ state: 'Cancelled' }]);
+        // The shopper finished on bKash's page; no callback reached us.
+        bk.bkashCompleteLate(payment.paymentId);
+        await dueNow(placed.id);
+        await service().reconcile();
+        expect((await attemptsOf(placed.id))[0]).toMatchObject({
+            status: 'paid',
+            reviewReason: 'late',
+            reviewState: 'open',
+        });
+        expect((await orderById(placed.id)).state).toBe('Cancelled');
+    });
+
+    it('keeps asking after an execute that timed out, and pays the order when bKash finishes late', async () => {
+        bk.bkashExecute = 'timeout';
+        const { placed, payment } = await placeBkash();
+        bk.bkashApprove(payment.paymentId);
+        // No answer to Execute and the query says Initiated: the shopper is told it failed...
+        expect(await callback(payment, 'success')).toContain('payment=failed');
+        expect(await attemptRow(placed.id)).toMatchObject({
+            status: 'failed',
+            nextCheckAt: expect.any(Date),
+        });
+        // ...asking again while it's still Initiated changes nothing...
+        await dueNow(placed.id);
+        await service().reconcile();
+        expect(await attemptRow(placed.id)).toMatchObject({
+            status: 'failed',
+            nextCheckAt: expect.any(Date),
+        });
+        // ...and bKash finishing it late pays the order.
+        bk.bkashCompleteLate(payment.paymentId);
+        await dueNow(placed.id);
+        await service().reconcile();
+        expect((await orderById(placed.id)).state).toBe('PaymentSettled');
+        expect((await attemptsOf(placed.id))[0].status).toBe('paid');
+    });
+
+    it('stops asking after a clear refusal from bKash', async () => {
+        bk.bkashExecute = '2023';
+        const { placed, payment } = await placeBkash();
+        bk.bkashApprove(payment.paymentId);
+        expect(await callback(payment, 'success')).toContain('payment=failed');
+        expect(await attemptRow(placed.id)).toMatchObject({ status: 'failed', nextCheckAt: null });
+    });
+
+    it('follows a refund bKash is still processing, and never sends a second one meanwhile', async () => {
+        const { attempt, payment, placed } = await lateBkashPayment();
+        bk.bkashRefund = 'pending';
+        const refunding = (await adminClient.query(REVIEW, { id: attempt.id, action: 'refund' }))
+            .reviewBdPayment;
+        expect(refunding).toMatchObject({
+            reviewState: 'refunding',
+            refundReference: expect.stringMatching(/^RF1/),
+        });
+        // Even when it's up for a decision again (as after a lost answer) and bKash's 10 minutes
+        // have passed, the refund in progress is followed: no second refund is sent.
+        await db().query(
+            `UPDATE bd_payment_attempt SET "reviewState" = 'open', "refundTransId" = NULL, "refundRequestedAt" = now() - interval '20 minutes' WHERE id = $1`,
+            [n(attempt.id)],
+        );
+        payment.refunds[0]!.at -= 20 * 60_000;
+        bk.bkashRefund = 'complete';
+        const again = (await adminClient.query(REVIEW, { id: attempt.id, action: 'refund' })).reviewBdPayment;
+        expect(again).toMatchObject({ reviewState: 'refunding', refundReference: refunding.refundReference });
+        expect(payment.refunds).toHaveLength(1);
+        // bKash finishes it: Refund Status says Completed.
+        payment.refunds[0]!.status = 'Completed';
+        await dueNow(placed.id);
+        await service().reconcile();
+        expect(await attemptRow(placed.id)).toMatchObject({ reviewState: 'refunded', nextCheckAt: null });
+    });
+
+    it('a refund that never reached bKash goes back to staff, and a new refund then works', async () => {
+        const { attempt, payment, placed } = await lateBkashPayment();
+        bk.bkashRefund = 'lost';
+        const unknown = (await adminClient.query(REVIEW, { id: attempt.id, action: 'refund' }))
+            .reviewBdPayment;
+        expect(unknown.reason).toBe('REFUND_UNKNOWN');
+        expect(await attemptRow(placed.id)).toMatchObject({ reviewState: 'refunding' });
+        // Refund Status lists nothing 10 minutes on: it never arrived, so staff decide again.
+        await db().query(
+            `UPDATE bd_payment_attempt SET "refundRequestedAt" = now() - interval '11 minutes' WHERE id = $1`,
+            [n(attempt.id)],
+        );
+        await dueNow(placed.id);
+        await service().reconcile();
+        expect(await attemptRow(placed.id)).toMatchObject({ reviewState: 'open' });
+        bk.bkashRefund = 'complete';
+        const refunded = (await adminClient.query(REVIEW, { id: attempt.id, action: 'refund' }))
+            .reviewBdPayment;
+        expect(refunded.reviewState).toBe('refunded');
+        expect(payment.refunds).toHaveLength(1);
     });
 
     it('looks up a transaction for staff on a support call', async () => {

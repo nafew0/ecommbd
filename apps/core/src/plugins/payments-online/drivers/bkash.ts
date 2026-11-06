@@ -164,6 +164,9 @@ export function outcomeOf(body: Record<string, unknown>): GatewayOutcome {
     };
 }
 
+/** Refund statuses that are final: anything else (Pending, Processing, no status) is still in progress. */
+const REFUND_ENDED = new Set(['Completed', 'Failed', 'Cancelled', 'Declined']);
+
 /** One refund of a transaction, as Refund Status lists it. */
 interface BkashRefund {
     refundTrxId: string | null;
@@ -216,7 +219,9 @@ export const bkashDriver: GatewayDriver & {
             await call.token(false);
             return { ok: true };
         } catch (error) {
-            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+            const detail = error instanceof Error ? error.message : String(error);
+            // A GatewayError is bKash's own answer (it refused the credentials); anything else is the network.
+            return { ok: false, reason: error instanceof GatewayError ? 'refused' : 'unreachable', detail };
         }
     },
 
@@ -251,7 +256,9 @@ export const bkashDriver: GatewayDriver & {
     /**
      * Execute after the shopper approved; the service makes sure it's sent once per paymentId. When it
      * fails or doesn't answer, the query decides; "Initiated" then means it will never complete
-     * (bKash: start a new payment), so it's a failure with execute's reason.
+     * (bKash: start a new payment), so it's a failure with execute's reason. Unless execute itself
+     * refused with a code, that failure is `ambiguous`: bKash may still finish it late (a timeout
+     * isn't a failure), so reconciliation keeps asking.
      */
     async execute(call, attempt) {
         if (!attempt.gatewaySessionId) throw new GatewayError('No bKash paymentId');
@@ -265,11 +272,13 @@ export const bkashDriver: GatewayDriver & {
         }
         const queried = await this.query(call, attempt);
         if (queried.outcome !== 'failed' && queried.outcome !== 'pending') return queried;
+        const refused = executed?.outcome === 'failed' || executed?.outcome === 'cancelled';
         return {
             ...queried,
             outcome: 'failed',
             failureCode: executed?.failureCode ?? queried.failureCode ?? 'failed',
             failureMessage: executed?.failureMessage ?? queried.failureMessage,
+            ambiguous: queried.outcome === 'pending' && !refused,
         };
     },
 
@@ -308,24 +317,23 @@ export const bkashDriver: GatewayDriver & {
 
     /**
      * A refund by bKash's rules: within 60 days, no more than maxRefundableAmount, at most 10 per
-     * transaction, and never repeated within 10 minutes. After a request whose answer never came,
-     * Refund Status is asked first, so the money is never sent back twice.
+     * transaction, and never repeated within 10 minutes. After an earlier request, Refund Status is
+     * asked first: a refund that completed or is still in progress is followed, never sent again, so
+     * the money is never sent back twice.
      */
     async refund(call, attempt, amount, reason): Promise<RefundOutcome> {
         if (!attempt.gatewaySessionId || !attempt.gatewayTransactionId) {
-            return { outcome: 'failed', message: 'No bKash payment to refund', raw: null };
+            return { outcome: 'failed', code: 'noTransaction', raw: null };
         }
         if (attempt.paidAt && Date.now() - attempt.paidAt.getTime() > BKASH_LIMITS.refundWindowMs) {
-            return {
-                outcome: 'failed',
-                message: 'bKash refunds only within 60 days of the payment',
-                raw: null,
-            };
+            return { outcome: 'failed', code: 'tooLate', raw: null };
         }
         if (attempt.maxRefundableAmount != null && amount > attempt.maxRefundableAmount) {
             return {
                 outcome: 'failed',
-                message: `bKash can refund at most ৳${toGatewayAmount(attempt.maxRefundableAmount)} of this payment`,
+                code: 'tooMuch',
+                // The amount, shown after the translated reason.
+                message: `৳${toGatewayAmount(attempt.maxRefundableAmount)}`,
                 raw: null,
             };
         }
@@ -333,19 +341,15 @@ export const bkashDriver: GatewayDriver & {
             const earlier = await refundsOf(call, attempt);
             const done = earlier.refunds.find(item => item.status === 'Completed');
             if (done) return { outcome: 'refunded', reference: done.refundTrxId, raw: earlier.raw };
+            const inProgress = earlier.refunds.find(item => !REFUND_ENDED.has(item.status));
+            if (inProgress) {
+                return { outcome: 'processing', reference: inProgress.refundTrxId, raw: earlier.raw };
+            }
             if (Date.now() - attempt.refundRequestedAt.getTime() < BKASH_LIMITS.refundRepeatMs) {
-                return {
-                    outcome: 'failed',
-                    message: 'A refund was asked for less than 10 minutes ago. Try again in a few minutes.',
-                    raw: earlier.raw,
-                };
+                return { outcome: 'failed', code: 'tooSoon', raw: earlier.raw };
             }
             if (earlier.refunds.length >= BKASH_LIMITS.refundsPerTransaction) {
-                return {
-                    outcome: 'failed',
-                    message: 'bKash allows at most 10 refunds of a payment',
-                    raw: earlier.raw,
-                };
+                return { outcome: 'failed', code: 'tooMany', raw: earlier.raw };
             }
         }
         let body: Record<string, unknown>;
@@ -368,10 +372,15 @@ export const bkashDriver: GatewayDriver & {
             const after = await refundsOf(call, attempt).catch(() => null);
             const done = after?.refunds.find(item => item.status === 'Completed');
             if (done) return { outcome: 'refunded', reference: done.refundTrxId, raw: after!.raw };
+            const inProgress = after?.refunds.find(item => !REFUND_ENDED.has(item.status));
+            if (inProgress) {
+                return { outcome: 'processing', reference: inProgress.refundTrxId, raw: after!.raw };
+            }
+            // Still unknown: the service keeps it pending and asks Refund Status again later.
             throw error;
         }
         const error = bkashError(body);
-        if (error) return { outcome: 'failed', message: describe(error), raw: body };
+        if (error) return { outcome: 'failed', code: 'refused', message: describe(error), raw: body };
         const status = pick(body, 'refundTransactionStatus', 'transactionStatus');
         return {
             outcome: status === 'Completed' ? 'refunded' : 'processing',
@@ -380,17 +389,29 @@ export const bkashDriver: GatewayDriver & {
         };
     },
 
+    /**
+     * Refund Status, by the payment (bKash needs no refund reference): the refund named, else the
+     * latest. With no refund listed 10 minutes after our request, it never arrived: `cancelled`
+     * (the money is still with the store; staff decide again).
+     */
     async refundStatus(call, attempt, reference): Promise<RefundStatus> {
         const { refunds, raw } = await refundsOf(call, attempt);
-        const refund = refunds.find(item => item.refundTrxId === reference) ?? refunds[refunds.length - 1];
-        const status = refund?.status ?? 'unknown';
+        const refund =
+            (reference && refunds.find(item => item.refundTrxId === reference)) ||
+            refunds[refunds.length - 1];
+        if (!refund) {
+            const asked = attempt.refundRequestedAt?.getTime() ?? 0;
+            const settled = Date.now() - asked >= BKASH_LIMITS.refundRepeatMs;
+            return { outcome: settled ? 'cancelled' : 'processing', raw };
+        }
         return {
             outcome:
-                status === 'Completed'
+                refund.status === 'Completed'
                     ? 'refunded'
-                    : status === 'Failed' || status === 'Cancelled'
+                    : REFUND_ENDED.has(refund.status)
                       ? 'cancelled'
                       : 'processing',
+            reference: refund.refundTrxId,
             raw,
         };
     },

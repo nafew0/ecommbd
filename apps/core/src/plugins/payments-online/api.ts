@@ -84,6 +84,9 @@ export const onlineAdminApiExtensions = gql`
 
     type BdGatewayTestResult {
         ok: Boolean!
+        "Why it failed: missingCredentials, refused or unreachable (the admin translates it)"
+        reason: String
+        "The gateway's own words, when it said anything"
         message: String
     }
 
@@ -127,15 +130,17 @@ export const onlineAdminApiExtensions = gql`
         events: [BdPaymentAttemptEvent!]!
         orderCode: String
         orderNumber: String
+        "The order was cancelled: its money can only be refunded or resolved, not accepted (lists only)"
+        orderCancelled: Boolean
     }
 
     "An online payment action was refused. message is in the request's language."
     type BdOnlinePaymentError implements ErrorResult {
         errorCode: ErrorCode!
         message: String!
-        "NOT_FOUND, NOT_OPEN, NOT_RISKY, NOTE_REQUIRED, REFUND_FAILED, UNAVAILABLE or NO_TRANSACTION"
+        "NOT_FOUND, NOT_OPEN, NOT_RISKY, NOTE_REQUIRED, REFUND_FAILED, REFUND_UNKNOWN, REFUND_NO_TRANSACTION, REFUND_TOO_LATE, REFUND_TOO_MUCH, REFUND_TOO_SOON, REFUND_LIMIT, UNAVAILABLE or NO_TRANSACTION"
         reason: String!
-        "The gateway's own words, for REFUND_FAILED"
+        "The gateway's own words (REFUND_FAILED, REFUND_UNKNOWN) or the amount bKash can still refund (REFUND_TOO_MUCH)"
         detail: String
     }
 

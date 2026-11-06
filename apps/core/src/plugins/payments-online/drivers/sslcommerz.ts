@@ -76,12 +76,13 @@ export const sslcommerzDriver: GatewayDriver & {
             const connect = str(body.APIConnect) ?? '';
             return connect === 'DONE'
                 ? { ok: true }
-                : {
-                      ok: false,
-                      message: `SSLCommerz refused the store ID or password (${connect || 'no answer'})`,
-                  };
+                : { ok: false, reason: 'refused', detail: connect || 'no answer' };
         } catch (error) {
-            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+            return {
+                ok: false,
+                reason: 'unreachable',
+                detail: error instanceof Error ? error.message : String(error),
+            };
         }
     },
 
@@ -168,12 +169,15 @@ export const sslcommerzDriver: GatewayDriver & {
 
     async refund(call, attempt, amount, reason): Promise<RefundOutcome> {
         if (!attempt.gatewayTransactionId) {
-            return { outcome: 'failed', message: 'No bank transaction ID to refund', raw: null };
+            return { outcome: 'failed', code: 'noTransaction', raw: null };
         }
         // Required since 24 February 2025: our own unique ID for each refund.
         if (!attempt.refundTransId) {
-            return { outcome: 'failed', message: 'No refund ID', raw: null };
+            return { outcome: 'failed', code: 'noTransaction', raw: null };
         }
+        // A GET, but it moves money: never retried by the HTTP client. When its answer is lost the
+        // service keeps the refund pending and staff check the panel (the same refund_trans_id is
+        // used again, which SSLCommerz refunds once).
         const body = jsonOf(
             await call.http.request(
                 url(call, '/validator/api/merchantTransIDvalidationAPI.php', {
@@ -186,28 +190,35 @@ export const sslcommerzDriver: GatewayDriver & {
                     v: '1',
                     format: 'json',
                 }),
+                { idempotent: false },
             ),
         );
         const connect = str(body.APIConnect) ?? '';
         if (connect !== 'DONE') {
             return {
                 outcome: 'failed',
-                message:
-                    str(body.errorReason) ?? `SSLCommerz refused the request (${connect || 'no answer'})`,
+                code: 'refused',
+                message: str(body.errorReason) ?? (connect || 'no answer'),
                 raw: body,
             };
         }
         const status = (str(body.status) ?? '').toLowerCase();
-        return {
-            outcome: status === 'success' ? 'refunded' : status === 'processing' ? 'processing' : 'failed',
-            reference: str(body.refund_ref_id),
-            message: str(body.errorReason) ?? undefined,
-            raw: body,
-        };
+        if (status === 'success' || status === 'processing') {
+            return {
+                outcome: status === 'success' ? 'refunded' : 'processing',
+                reference: str(body.refund_ref_id),
+                raw: body,
+            };
+        }
+        return { outcome: 'failed', code: 'refused', message: str(body.errorReason) ?? status, raw: body };
     },
 
-    /** Refund Query: refunded, still processing, or cancelled by SSLCommerz. */
-    async refundStatus(call, _attempt, reference): Promise<RefundStatus> {
+    /**
+     * Refund Query: refunded, still processing, or cancelled by SSLCommerz. It needs SSLCommerz's
+     * refund_ref_id: without one (the refund request's answer was lost) it can't be asked (null).
+     */
+    async refundStatus(call, _attempt, reference): Promise<RefundStatus | null> {
+        if (!reference) return null;
         const body = jsonOf(
             await call.http.request(
                 url(call, '/validator/api/merchantTransIDvalidationAPI.php', {

@@ -11,8 +11,10 @@ import {
     type Payment,
     type PaymentProcess,
     type RequestContext,
+    TransactionalConnection,
 } from '@vendure/core';
 import type { OnlinePaymentSettings } from '@ecommbd/shared';
+import { BdPaymentAttempt } from './attempt.entity';
 import { loggerCtx } from './constants';
 
 /**
@@ -61,6 +63,7 @@ export function coveredWithPending(order: Order, payments: Payment[]): boolean {
 export function createOnlineOrderProcess(): OrderProcess<'AwaitingPayment'> {
     let orderService: OrderService;
     let paymentService: PaymentService;
+    let connection: TransactionalConnection;
     return {
         transitions: {
             ArrangingPayment: { to: ['AwaitingPayment'] },
@@ -69,6 +72,7 @@ export function createOnlineOrderProcess(): OrderProcess<'AwaitingPayment'> {
         init(injector: Injector) {
             orderService = injector.get(OrderService);
             paymentService = injector.get(PaymentService);
+            connection = injector.get(TransactionalConnection);
         },
         async onTransitionStart(fromState, toState, { ctx, order }) {
             if (toState !== 'AwaitingPayment') return;
@@ -79,11 +83,27 @@ export function createOnlineOrderProcess(): OrderProcess<'AwaitingPayment'> {
         },
         // Back to the cart (a later payment was refused): an online payment started for it can't be
         // used any more, so it's cancelled and the next try starts fresh.
+        //
+        // Cancelled while waiting for its online payment (by staff, the Dashboard or the expiry task):
+        // nothing can pay it any more. Its pending online payments are cancelled in the same
+        // transaction, so a payment that arrives later is held in Payment reviews ("late") instead of
+        // settling on a cancelled order. Tries never opened can't be used; tries already on the
+        // gateway's page keep being reconciled, so their money still reaches the review queue.
         async onTransitionEnd(fromState, toState, { ctx, order }) {
-            if (fromState !== 'ArrangingPayment' || toState !== 'AddingItems') return;
+            const backToCart = fromState === 'ArrangingPayment' && toState === 'AddingItems';
+            const cancelled = fromState === 'AwaitingPayment' && toState === 'Cancelled';
+            if (!backToCart && !cancelled) return;
             const payments = await orderService.getOrderPayments(ctx, order.id);
             for (const payment of payments.filter(item => item.state === 'Pending')) {
                 await paymentService.cancelPayment(ctx, payment.id);
+            }
+            if (cancelled) {
+                await connection
+                    .getRepository(ctx, BdPaymentAttempt)
+                    .update(
+                        { orderId: order.id, status: 'created' },
+                        { status: 'expired', nextCheckAt: null },
+                    );
             }
         },
     };

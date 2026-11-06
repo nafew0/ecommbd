@@ -7,6 +7,7 @@ import {
     fromGatewayAmount,
     gatewayAcceptsAmount,
     hasAllCredentials,
+    isOnlineGateway,
     maskWallet,
     mergeCredentials,
     nextReconcileDelayMs,
@@ -67,6 +68,20 @@ describe('SSLCommerz verify_sign', () => {
         expect(sslcommerzSignatureValid({ ...post, verify_sign: '' }, 'secret')).toBe(false);
         expect(sslcommerzSignatureValid({ ...post, verify_key: undefined }, 'secret')).toBe(false);
     });
+
+    it('signs a missing, null or numeric field as SSLCommerz does (empty text, or the number as text)', () => {
+        // verify_key can name a field the post left out; SSLCommerz signs it as an empty value.
+        const fields = { tran_id: 'A1', amount: 1250, card_no: '', risk_title: '' };
+        const verify_key = 'tran_id,amount,card_no,risk_title';
+        const verify_sign = sign({ tran_id: 'A1', amount: '1250', card_no: '', risk_title: '' }, 'secret');
+        expect(
+            sslcommerzSignatureValid(
+                { tran_id: 'A1', amount: 1250, risk_title: null, verify_key, verify_sign },
+                'secret',
+            ),
+        ).toBe(true);
+        expect(sslcommerzSignatureValid({ ...fields, verify_key, verify_sign }, 'secret')).toBe(true);
+    });
 });
 
 describe('settings and credentials', () => {
@@ -83,9 +98,24 @@ describe('settings and credentials', () => {
             credentials: { storeId: 'shop2', storePassword: 'old' },
         });
         expect(mergeCredentials('sslcommerz', null, { storeId: 5 })).toMatchObject({ ok: false });
+        expect(mergeCredentials('sslcommerz', null, { storeId: 'x'.repeat(201) })).toEqual({
+            ok: false,
+            errors: [{ path: 'storeId', code: 'tooLong' }],
+        });
+        // Not an object at all: every field is blank, so nothing is saved over.
+        expect(mergeCredentials('bkash', null, 'nope')).toMatchObject({ ok: true });
         expect(hasAllCredentials('bkash', { username: 'u', password: 'p', appKey: 'k', appSecret: '' })).toBe(
             false,
         );
+    });
+});
+
+describe('gateway names', () => {
+    it('knows only SSLCommerz and bKash', () => {
+        expect(isOnlineGateway('sslcommerz')).toBe(true);
+        expect(isOnlineGateway('bkash')).toBe(true);
+        expect(isOnlineGateway('nagad')).toBe(false);
+        expect(isOnlineGateway(undefined)).toBe(false);
     });
 });
 

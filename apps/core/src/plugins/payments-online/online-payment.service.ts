@@ -32,7 +32,7 @@ import { type AttemptEvent, BdPaymentAttempt } from './attempt.entity';
 import { loggerCtx, ONLINE_PAYMENT_HISTORY_TYPE, PAY_ROUTE, PAYMENTS_ONLINE_OPTIONS } from './constants';
 import { type BkashTransaction, bkashDriver } from './drivers/bkash';
 import { sslcommerzDriver } from './drivers/sslcommerz';
-import type { GatewayOutcome, RefundOutcome } from './drivers/types';
+import type { GatewayOutcome, RefundOutcome, RefundRefusal, RefundStatus } from './drivers/types';
 import { GatewayService } from './gateway.service';
 import { OnlineSettingsService } from './online-settings.service';
 import { keepsWaiting } from './order-operations';
@@ -50,8 +50,24 @@ export type ReviewError =
     | 'NOT_RISKY'
     | 'NOTE_REQUIRED'
     | 'REFUND_FAILED'
+    | 'REFUND_UNKNOWN'
+    | 'REFUND_NO_TRANSACTION'
+    | 'REFUND_TOO_LATE'
+    | 'REFUND_TOO_MUCH'
+    | 'REFUND_TOO_SOON'
+    | 'REFUND_LIMIT'
     | 'UNAVAILABLE'
     | 'NO_TRANSACTION';
+
+/** A driver's refusal code as the error staff see (translated in i18n.ts). */
+const REFUSAL_ERRORS: Record<RefundRefusal, ReviewError> = {
+    noTransaction: 'REFUND_NO_TRANSACTION',
+    tooLate: 'REFUND_TOO_LATE',
+    tooMuch: 'REFUND_TOO_MUCH',
+    tooSoon: 'REFUND_TOO_SOON',
+    tooMany: 'REFUND_LIMIT',
+    refused: 'REFUND_FAILED',
+};
 
 export class OnlinePaymentError extends Error {
     constructor(
@@ -62,10 +78,27 @@ export class OnlinePaymentError extends Error {
     }
 }
 
-const OPEN = ['created', 'started'] as const;
+/**
+ * Attempts the reconciliation task asks about while they have a `nextCheckAt`: unfinished ones, and
+ * failed ones whose failure was ambiguous (the gateway may still finish them late).
+ */
+const RECONCILED = ['created', 'started', 'failed'] as const;
 const MAX_EVENTS = 30;
 const UNIQUE_VIOLATION = '23505';
 const MINUTE = 60_000;
+
+/**
+ * A reload of the pay link within this time goes back to the same gateway page instead of opening a
+ * new attempt: well inside how long the gateways keep a payment page open.
+ */
+const REUSE_PAGE_MS = 10 * MINUTE;
+/**
+ * How long a second `/bd-pay/start` waits for a parallel one to get the gateway's page (bKash may
+ * take its full 30 seconds to answer).
+ */
+const START_WAIT_MS = 35_000;
+const START_POLL_MS = 200;
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * A new attempt key: 30 hex characters (120 bits), our tran_id and the key in the pay link.
@@ -160,7 +193,9 @@ export class OnlinePaymentService {
 
     /**
      * `/bd-pay/start/<token>`: starts the attempt at the gateway and returns where to send the
-     * shopper. An attempt already started (back button, a reload) gets a fresh one.
+     * shopper. Each attempt is started once: the pay page's instant refresh, its button and a reload
+     * can all arrive together, so `created → started` is claimed by one request and the others go to
+     * the page it gets. An attempt started a while ago (or one that ended) gets a fresh attempt.
      */
     async start(token: string): Promise<string> {
         const ctx = await this.background();
@@ -175,9 +210,65 @@ export class OnlinePaymentService {
         if (order.state !== 'AwaitingPayment' || payment?.state !== 'Pending') {
             return this.resultUrl(ctx, order, order.state === 'Cancelled' ? 'expired' : 'paid');
         }
-        const current = attempt.status === 'created' ? attempt : await this.newAttempt(ctx, attempt, order);
-        if (!current) return this.resultUrl(ctx, order, 'limit');
-        return this.startAtGateway(ctx, current, order);
+        // The payment's newest try: an older pay link (a reload after a fresh try) goes there too.
+        const latest =
+            (await this.connection.getRepository(ctx, BdPaymentAttempt).findOne({
+                where: { paymentId: attempt.paymentId },
+                order: { id: 'DESC' },
+            })) ?? attempt;
+        if (latest.status === 'created' && (await this.claimStart(ctx, latest.id))) {
+            return this.startAtGateway(ctx, latest, order);
+        }
+        if (latest.status === 'created' || latest.status === 'started') {
+            const page = await this.startedPage(ctx, latest.id);
+            if (page === 'unavailable') return this.resultUrl(ctx, order, 'unavailable');
+            if (page) return page;
+        }
+        const fresh = await this.newAttempt(ctx, latest, order);
+        if (!fresh) return this.resultUrl(ctx, order, 'limit');
+        // Known to no one else yet, so the claim can't be lost; it records when it was started.
+        await this.claimStart(ctx, fresh.id);
+        return this.startAtGateway(ctx, fresh, order);
+    }
+
+    /** Claims `created → started` for this request; false when another one claimed it first. */
+    private async claimStart(ctx: RequestContext, attemptId: ID): Promise<boolean> {
+        const result = await this.connection
+            .getRepository(ctx, BdPaymentAttempt)
+            .createQueryBuilder()
+            .update()
+            .set({ status: 'started', startedAt: new Date() })
+            .where('id = :id', { id: attemptId })
+            .andWhere('status = :created', { created: 'created' })
+            .execute();
+        return result.affected === 1;
+    }
+
+    /**
+     * The gateway page of an attempt another request started: waited for while that start is still
+     * talking to the gateway; reused while recent. `unavailable` when that start just failed; null
+     * when there's nothing to reuse (the caller opens a new attempt).
+     */
+    private async startedPage(ctx: RequestContext, attemptId: ID): Promise<string | 'unavailable' | null> {
+        const repository = this.connection.getRepository(ctx, BdPaymentAttempt);
+        for (;;) {
+            const current = await repository.findOne({ where: { id: attemptId } });
+            // The other request gave its claim back: the gateway can't be used right now.
+            if (current?.status === 'created') return 'unavailable';
+            // Attempts started before startedAt existed: nothing known to reuse.
+            if (!current?.startedAt) return null;
+            const age = Date.now() - current.startedAt.getTime();
+            if (current.status === 'started' && current.gatewayRedirectUrl) {
+                // Not after bKash's Execute: that paymentID can't be paid again.
+                return age < REUSE_PAGE_MS && !current.executeSentAt ? current.gatewayRedirectUrl : null;
+            }
+            if (current.status === 'failed' && current.failureCode === 'unavailable' && age < START_WAIT_MS) {
+                return 'unavailable';
+            }
+            // Still being started by the other request (unless it died on the way: then a new attempt).
+            if (current.status !== 'started' || age >= START_WAIT_MS) return null;
+            await sleep(START_POLL_MS);
+        }
     }
 
     /**
@@ -253,6 +344,10 @@ export class OnlinePaymentService {
             this.gateways.paused(attempt.gateway, attempt.mode) ||
             !gatewayAcceptsAmount(attempt.gateway, attempt.amount)
         ) {
+            // Nothing was sent: the claim is given back, so the attempt can be started later.
+            await this.connection
+                .getRepository(ctx, BdPaymentAttempt)
+                .update(attempt.id, { status: 'created', startedAt: null });
             return this.resultUrl(ctx, order, 'unavailable');
         }
         const base = `${this.publicUrl}/${PAY_ROUTE}`;
@@ -292,21 +387,20 @@ export class OnlinePaymentService {
                         .join(', '),
                 },
             });
-            await this.connection.getRepository(ctx, BdPaymentAttempt).update(attempt.id, {
-                status: 'started',
+            await this.record(ctx, attempt.id, ['start', 'started', started.raw], {
                 gatewaySessionId: started.sessionId || null,
                 gatewaySignature: started.signature?.slice(0, 255) ?? null,
+                gatewayRedirectUrl: started.redirectUrl,
                 nextCheckAt: new Date(Date.now() + 5 * MINUTE),
-                events: withEvent(attempt.events, 'start', 'started', started.raw),
             });
             return started.redirectUrl;
         } catch (error) {
             this.gateways.noteFailure(attempt.gateway, attempt.mode, error);
-            await this.connection.getRepository(ctx, BdPaymentAttempt).update(attempt.id, {
+            // The shopper never got a payment page, so nothing can be paid: no need to reconcile.
+            await this.record(ctx, attempt.id, ['start', 'error', { message: String(error) }], {
                 status: 'failed',
                 failureCode: 'unavailable',
                 nextCheckAt: null,
-                events: withEvent(attempt.events, 'start', 'error', { message: String(error) }),
             });
             return this.resultUrl(ctx, order, 'unavailable');
         }
@@ -473,9 +567,16 @@ export class OnlinePaymentService {
         if (!handle) return this.reschedule(ctx, attempt);
         try {
             let outcome = await handle.driver.query(handle.call, attempt);
-            // bKash: after an Execute, "Initiated" never completes (the paymentId can't be used again).
+            // bKash: after an Execute, "Initiated" shouldn't complete any more (the paymentId can't be
+            // used again), so the shopper is told it failed. bKash never said so, though: it stays
+            // ambiguous and keeps being asked, in case its Execute finishes late.
             if (attempt.gateway === 'bkash' && attempt.executeSentAt && outcome.outcome === 'pending') {
-                outcome = { ...outcome, outcome: 'failed', failureCode: outcome.failureCode ?? 'failed' };
+                outcome = {
+                    ...outcome,
+                    outcome: 'failed',
+                    failureCode: attempt.failureCode ?? outcome.failureCode ?? 'failed',
+                    ambiguous: true,
+                };
             }
             await this.apply(ctx, attempt.id, outcome, 'query');
         } catch (error) {
@@ -492,8 +593,9 @@ export class OnlinePaymentService {
             lastCheckedAt: new Date(),
             nextCheckAt: delay === null ? null : new Date(Date.now() + delay),
         };
-        // A week without an answer: given up (a created attempt was never opened at all).
-        if (delay === null) changes.status = 'expired';
+        // A week without an answer: given up (a created attempt was never opened at all). A failed
+        // one stays failed.
+        if (delay === null && attempt.status !== 'failed') changes.status = 'expired';
         await this.connection.getRepository(ctx, BdPaymentAttempt).update(attempt.id, changes);
         return { ...attempt, ...changes } as BdPaymentAttempt;
     }
@@ -569,13 +671,27 @@ export class OnlinePaymentService {
                 failureCode: outcome.failureCode ?? null,
                 failureMessageEn: outcome.failureMessage?.en ?? null,
                 failureMessageBn: outcome.failureMessage?.bn ?? null,
-                nextCheckAt: null,
+                // A clear refusal ends it; an ambiguous failure is asked about for the rest of the
+                // reconciliation window, so a late success still pays the order (or goes to review).
+                nextCheckAt: outcome.ambiguous ? keepChecking.nextCheckAt : null,
             });
-            await this.history(ctx, attempt, outcome.outcome, { reason: outcome.failureCode });
+            // Once per change: an ambiguous failure asked about again doesn't repeat it in the history.
+            if (attempt.status !== outcome.outcome) {
+                await this.history(ctx, attempt, outcome.outcome, { reason: outcome.failureCode });
+            }
             return outcome.outcome;
         }
 
         // Paid. Record it first (the unique reference stops a second application), then decide.
+        // The order is locked before the payment, in the same order as staff actions (OrderActionsService
+        // locks the order, then cancelling it cancels this payment), so a cancel and a payment can't
+        // cross: whichever comes second sees what the first did.
+        const order = await this.connection
+            .getRepository(ctx, Order)
+            .createQueryBuilder('order')
+            .setLock('pessimistic_write')
+            .where('order.id = :id', { id: attempt.orderId })
+            .getOne();
         const paid: Partial<BdPaymentAttempt> = {
             ...checked,
             status: 'paid',
@@ -612,7 +728,9 @@ export class OnlinePaymentService {
             });
             return 'review';
         }
-        if (!payment || payment.state !== 'Pending') {
+        // A cancelled order never takes the money, even when its payment was left Pending (orders
+        // cancelled by staff before their payments were cancelled with them): it's held as late.
+        if (!payment || payment.state !== 'Pending' || !order || order.state === 'Cancelled') {
             const reason = payment?.state === 'Settled' ? 'duplicate' : 'late';
             await repository.update(attempt.id, review(reason));
             Logger.warn(
@@ -666,7 +784,7 @@ export class OnlinePaymentService {
     async reconcile(limit = 100): Promise<number> {
         const ctx = await this.background();
         const due = await this.connection.getRepository(ctx, BdPaymentAttempt).find({
-            where: { status: In([...OPEN]), nextCheckAt: LessThanOrEqual(new Date()) },
+            where: { status: In([...RECONCILED]), nextCheckAt: LessThanOrEqual(new Date()) },
             order: { nextCheckAt: 'ASC' },
             take: limit,
         });
@@ -685,10 +803,25 @@ export class OnlinePaymentService {
     }
 
     /**
-     * Asks the gateway about a refund it was still processing: refunded ends it, cancelled puts the
-     * money back in Payment reviews for staff, processing asks again later (for a week).
+     * Asks the gateway about a refund it was still processing, or whose answer never came: refunded
+     * ends it, cancelled (or never arrived) puts the money back in Payment reviews for staff,
+     * processing asks again later (for a week). The gateway is asked with no row locked; its answer
+     * is applied under the lock, and only if nobody decided on the refund meanwhile.
      */
     private async checkRefund(ctx: RequestContext, attemptId: ID): Promise<BdPaymentAttempt | null> {
+        const asked = await this.connection
+            .getRepository(ctx, BdPaymentAttempt)
+            .findOne({ where: { id: attemptId } });
+        if (!asked || asked.reviewState !== 'refunding') return asked;
+        const handle = await this.gateways.handleFor(ctx, asked.gateway, asked.mode);
+        let status: RefundStatus | null | undefined;
+        if (handle) {
+            try {
+                status = await handle.driver.refundStatus(handle.call, asked, asked.refundReference);
+            } catch (error) {
+                this.gateways.noteFailure(asked.gateway, asked.mode, error);
+            }
+        }
         return this.connection.withTransaction(ctx, async txCtx => {
             const repository = this.connection.getRepository(txCtx, BdPaymentAttempt);
             const attempt = await repository
@@ -696,8 +829,10 @@ export class OnlinePaymentService {
                 .setLock('pessimistic_write')
                 .where('attempt.id = :id', { id: attemptId })
                 .getOne();
-            if (!attempt) return null;
-            if (attempt.reviewState !== 'refunding') return attempt;
+            // Decided meanwhile (staff marked it resolved, a parallel check finished it): this answer is old.
+            if (attempt?.reviewState !== 'refunding' || attempt.refundTransId !== asked.refundTransId) {
+                return attempt;
+            }
             const since = (attempt.reviewedAt ?? attempt.createdAt).getTime();
             const delay = nextReconcileDelayMs(Date.now() - since);
             const later = {
@@ -706,43 +841,43 @@ export class OnlinePaymentService {
                 // After a week staff check the gateway's panel (it stays in Payment reviews).
                 nextCheckAt: delay === null ? null : new Date(Date.now() + delay),
             };
-            const handle = await this.gateways.handleFor(txCtx, attempt.gateway, attempt.mode);
-            if (!handle?.driver.refundStatus || !attempt.refundReference) {
+            if (status === undefined) {
+                // No credentials, or no answer: asked again later.
                 await repository.update(attempt.id, later);
                 return { ...attempt, ...later } as BdPaymentAttempt;
             }
-            let status;
-            try {
-                status = await handle.driver.refundStatus(handle.call, attempt, attempt.refundReference);
-            } catch (error) {
-                this.gateways.noteFailure(attempt.gateway, attempt.mode, error);
-                await repository.update(attempt.id, later);
-                return { ...attempt, ...later } as BdPaymentAttempt;
+            if (status === null) {
+                // The gateway can't be asked without its refund reference (SSLCommerz, after a lost
+                // answer): staff check its panel and mark it resolved. Nothing more to ask.
+                await repository.update(attempt.id, { ...later, nextCheckAt: null });
+                return { ...attempt, ...later, nextCheckAt: null } as BdPaymentAttempt;
             }
             const events = withEvent(attempt.events, 'refund-query', status.outcome, status.raw);
+            const reference = attempt.refundReference ?? status.reference ?? null;
             const extra = {
                 amount: attempt.paidAmount ?? attempt.amount,
                 reason: attempt.reviewReason ?? undefined,
             };
             if (status.outcome === 'processing') {
-                await repository.update(attempt.id, { ...later, events });
+                await repository.update(attempt.id, { ...later, events, refundReference: reference });
             } else if (status.outcome === 'refunded') {
                 await repository.update(attempt.id, {
                     ...later,
                     events,
                     reviewState: 'refunded',
+                    refundReference: reference,
                     nextCheckAt: null,
                 });
                 await this.history(txCtx, attempt, 'refunded', extra);
             } else {
-                // Cancelled by the gateway: the money is still with the store, so staff decide again.
+                // Cancelled by the gateway (or it never arrived): the money is still with the store, so
+                // staff decide again; the order's history says why.
                 await repository.update(attempt.id, {
                     ...later,
                     events,
                     reviewState: 'open',
                     refundReference: null,
                     refundTransId: null,
-                    reviewNote: 'The gateway cancelled the refund',
                     nextCheckAt: null,
                 });
                 await this.history(txCtx, attempt, 'refundCancelled', extra);
@@ -784,7 +919,11 @@ export class OnlinePaymentService {
         const attempts = await this.connection
             .getRepository(ctx, BdPaymentAttempt)
             .find({ where: { orderId } });
-        for (const attempt of attempts.filter(item => item.status === 'started')) {
+        // Ambiguous failures too: bKash may have finished one late, and then the order is paid.
+        const unfinished = attempts.filter(
+            item => item.status === 'started' || (item.status === 'failed' && item.nextCheckAt),
+        );
+        for (const attempt of unfinished) {
             await this.check(ctx, attempt.id);
         }
         const fresh = await this.connection.getRepository(ctx, BdPaymentAttempt).find({ where: { orderId } });
@@ -803,15 +942,14 @@ export class OnlinePaymentService {
             Logger.warn(`Expiry skipped order ${orderId}: ${result.message}`, loggerCtx);
             return false;
         }
-        // Nothing can pay the order any more: its pending and COD payments are cancelled too.
-        for (const payment of payments.filter(
+        // Cancelling the order cancelled its pending online payments and unopened tries (the order
+        // process). Nothing can pay it any more, so a COD payment still to collect is cancelled too.
+        const remaining = await this.orderService.getOrderPayments(ctx, orderId);
+        for (const payment of remaining.filter(
             item => item.state === 'Pending' || item.state === 'Authorized',
         )) {
             await this.orderService.cancelPayment(ctx, payment.id);
         }
-        await this.connection
-            .getRepository(ctx, BdPaymentAttempt)
-            .update({ orderId, status: 'created' }, { status: 'expired', nextCheckAt: null });
         return true;
     }
 
@@ -844,34 +982,26 @@ export class OnlinePaymentService {
         const cleaned = (note ?? '').trim().slice(0, 500);
         if (action === 'resolve' && !cleaned) throw new OnlinePaymentError('NOTE_REQUIRED');
         const by = await this.staffName(ctx);
-        const result = await this.connection.withTransaction(ctx, async txCtx => {
+        const decided = { reviewedBy: by, reviewedAt: new Date(), reviewNote: cleaned || null };
+        if (action === 'refund') return this.refund(ctx, attemptId, decided);
+        return this.connection.withTransaction(ctx, async txCtx => {
             const repository = this.connection.getRepository(txCtx, BdPaymentAttempt);
-            const attempt = await repository
-                .createQueryBuilder('attempt')
-                .setLock('pessimistic_write')
-                .where('attempt.id = :id', { id: attemptId })
-                .getOne();
+            const attempt = await this.locked(txCtx, attemptId);
             if (!attempt) throw new OnlinePaymentError('NOT_FOUND');
             // A refund still processing can only be marked resolved (staff saw it in the gateway's panel).
             const open =
                 attempt.reviewState === 'open' ||
                 (attempt.reviewState === 'refunding' && action === 'resolve');
             if (!open) throw new OnlinePaymentError('NOT_OPEN');
-            const decided = { reviewedBy: by, reviewedAt: new Date(), reviewNote: cleaned || null };
-            let event = action === 'accept' ? 'accepted' : action === 'refund' ? 'refunded' : 'resolved';
             if (action === 'accept') {
                 if (attempt.reviewReason !== 'risky') throw new OnlinePaymentError('NOT_RISKY');
                 const payment = await this.connection
                     .getRepository(txCtx, Payment)
                     .findOne({ where: { id: attempt.paymentId } });
+                // A cancelled order cancelled its payment too: the money can only be refunded now.
                 if (payment?.state !== 'Pending') throw new OnlinePaymentError('NOT_OPEN');
                 await repository.update(attempt.id, { ...decided, reviewState: 'accepted' });
                 await this.settle(txCtx, payment, attempt, attempt.gatewayTransactionId);
-            } else if (action === 'refund') {
-                const refunded = await this.refundAtGateway(txCtx, attempt, decided);
-                // Returned, not thrown: the try stays in the attempt's log when the transaction commits.
-                if (refunded instanceof OnlinePaymentError) return refunded;
-                event = refunded;
             } else {
                 await repository.update(attempt.id, {
                     ...decided,
@@ -879,82 +1009,135 @@ export class OnlinePaymentService {
                     nextCheckAt: null,
                 });
             }
-            await this.history(txCtx, attempt, event, {
+            await this.history(txCtx, attempt, action === 'accept' ? 'accepted' : 'resolved', {
                 amount: attempt.paidAmount ?? attempt.amount,
                 reason: attempt.reviewReason ?? undefined,
                 note: cleaned || undefined,
             });
             return (await repository.findOne({ where: { id: attempt.id } }))!;
         });
+    }
+
+    /**
+     * Refunds a held payment through the gateway, in three steps so no row stays locked while the
+     * gateway answers (bKash may take 30 seconds, twice):
+     *
+     * 1. Under the lock, the refund is claimed: the attempt becomes `refunding` (nobody accepts or
+     *    refunds it meanwhile) with our refund ID, and a check is scheduled in case we never finish.
+     * 2. The gateway is asked, no lock held.
+     * 3. Under the lock again, its answer is recorded: refunded; processing (asked about until it
+     *    ends); refused (back to `open`, a retry is a new refund); or no answer at all. With no
+     *    answer the refund may have gone through, so it is never shown as refused: it stays
+     *    `refunding` and is checked with the gateway (bKash's Refund Status; SSLCommerz can't be asked
+     *    without its reference, so staff check its panel). Never refunded twice.
+     *
+     * Every try is logged on the attempt.
+     */
+    private async refund(
+        ctx: RequestContext,
+        attemptId: ID,
+        decided: { reviewedBy: string; reviewedAt: Date; reviewNote: string | null },
+    ): Promise<BdPaymentAttempt> {
+        const found = await this.connection
+            .getRepository(ctx, BdPaymentAttempt)
+            .findOne({ where: { id: attemptId } });
+        if (!found) throw new OnlinePaymentError('NOT_FOUND');
+        const handle = await this.gateways.handleFor(ctx, found.gateway, found.mode);
+        if (!handle) throw new OnlinePaymentError('UNAVAILABLE');
+
+        const claimed = await this.connection.withTransaction(ctx, async txCtx => {
+            const attempt = await this.locked(txCtx, attemptId);
+            if (!attempt) throw new OnlinePaymentError('NOT_FOUND');
+            if (attempt.reviewState !== 'open') throw new OnlinePaymentError('NOT_OPEN');
+            // The same ID again when an earlier request got no answer: the gateway refunds one ID once.
+            const refundTransId = attempt.refundTransId ?? newRefundId();
+            await this.connection.getRepository(txCtx, BdPaymentAttempt).update(attempt.id, {
+                reviewState: 'refunding',
+                refundTransId,
+                refundRequestedAt: new Date(),
+                nextCheckAt: new Date(Date.now() + 5 * MINUTE),
+            });
+            // As before the claim (bKash's repeat guard reads the earlier refundRequestedAt).
+            return { ...attempt, refundTransId };
+        });
+
+        let refund: RefundOutcome | null = null;
+        let lost: string | null = null;
+        try {
+            refund = await handle.driver.refund(
+                handle.call,
+                claimed,
+                claimed.paidAmount ?? claimed.amount,
+                `Refund (${claimed.reviewReason})`,
+            );
+        } catch (error) {
+            this.gateways.noteFailure(claimed.gateway, claimed.mode, error);
+            lost = error instanceof Error ? error.message : String(error);
+        }
+
+        const result = await this.connection.withTransaction(ctx, async txCtx => {
+            const repository = this.connection.getRepository(txCtx, BdPaymentAttempt);
+            const attempt = await this.locked(txCtx, attemptId);
+            if (!attempt) return new OnlinePaymentError('NOT_FOUND');
+            const refundTransId = claimed.refundTransId;
+            const events = refund
+                ? withEvent(attempt.events, 'refund', refund.outcome, { refundTransId, response: refund.raw })
+                : withEvent(attempt.events, 'refund', 'error', { refundTransId, message: lost });
+            if (attempt.reviewState !== 'refunding' || attempt.refundTransId !== refundTransId) {
+                // Decided meanwhile (staff marked it resolved, a check found it finished): only logged.
+                await repository.update(attempt.id, { events });
+                return (await repository.findOne({ where: { id: attempt.id } }))!;
+            }
+            const extra = {
+                amount: attempt.paidAmount ?? attempt.amount,
+                reason: attempt.reviewReason ?? undefined,
+                note: decided.reviewNote ?? undefined,
+            };
+            if (!refund) {
+                await repository.update(attempt.id, { ...decided, events });
+                await this.history(txCtx, attempt, 'refundUnknown', extra);
+                return new OnlinePaymentError('REFUND_UNKNOWN', lost ?? undefined);
+            }
+            if (refund.outcome === 'failed') {
+                // Refused: nothing was refunded, staff decide again; trying again is a new refund (new ID).
+                await repository.update(attempt.id, {
+                    events,
+                    reviewState: 'open',
+                    refundTransId: null,
+                    nextCheckAt: null,
+                    // Refused before anything was sent (bKash's own limits): no request to wait for.
+                    ...(refund.raw === null ? { refundRequestedAt: claimed.refundRequestedAt } : {}),
+                });
+                return new OnlinePaymentError(REFUSAL_ERRORS[refund.code ?? 'refused'], refund.message);
+            }
+            const processing = refund.outcome === 'processing';
+            await repository.update(attempt.id, {
+                ...decided,
+                events,
+                reviewState: processing ? 'refunding' : 'refunded',
+                refundReference: refund.reference ?? null,
+                nextCheckAt: processing ? new Date(Date.now() + 5 * MINUTE) : null,
+            });
+            await this.history(txCtx, attempt, processing ? 'refunding' : 'refunded', extra);
+            return (await repository.findOne({ where: { id: attempt.id } }))!;
+        });
+        // Returned from the transaction, not thrown in it: what happened stays in the attempt's log.
         if (result instanceof OnlinePaymentError) throw result;
         return result;
     }
 
-    /**
-     * Refunds a held payment through the gateway. Every try is logged on the attempt. A refund the
-     * gateway is still processing becomes `refunding` and is asked about until it ends.
-     */
-    private async refundAtGateway(
+    /** "Test connection": a reason code the admin translates, with the gateway's own words as detail. */
+    async testConnection(
         ctx: RequestContext,
-        attempt: BdPaymentAttempt,
-        decided: { reviewedBy: string; reviewedAt: Date; reviewNote: string | null },
-    ): Promise<'refunded' | 'refunding' | OnlinePaymentError> {
-        const repository = this.connection.getRepository(ctx, BdPaymentAttempt);
-        const handle = await this.gateways.handleFor(ctx, attempt.gateway, attempt.mode);
-        if (!handle) return new OnlinePaymentError('UNAVAILABLE');
-        // The same ID again when the last request got no answer: the gateway refunds one ID once.
-        const refundTransId = attempt.refundTransId ?? newRefundId();
-        // Recorded before the call: if its answer never comes, the next try asks the gateway first.
-        await repository.update(attempt.id, { refundTransId, refundRequestedAt: new Date() });
-        let refund: RefundOutcome;
-        try {
-            refund = await handle.driver.refund(
-                handle.call,
-                { ...attempt, refundTransId },
-                attempt.paidAmount ?? attempt.amount,
-                `Refund (${attempt.reviewReason})`,
-            );
-        } catch (error) {
-            this.gateways.noteFailure(attempt.gateway, attempt.mode, error);
-            const message = error instanceof Error ? error.message : String(error);
-            await repository.update(attempt.id, {
-                events: withEvent(attempt.events, 'refund', 'error', { refundTransId, message }),
-            });
-            return new OnlinePaymentError('REFUND_FAILED', message);
-        }
-        const events = withEvent(attempt.events, 'refund', refund.outcome, {
-            refundTransId,
-            response: refund.raw,
-        });
-        if (refund.outcome === 'failed') {
-            // Refused: trying again is a new refund, with a new ID.
-            await repository.update(attempt.id, {
-                events,
-                refundTransId: null,
-                // Refused before anything was sent (bKash's own limits): no request to wait for.
-                ...(refund.raw === null ? { refundRequestedAt: attempt.refundRequestedAt } : {}),
-            });
-            return new OnlinePaymentError('REFUND_FAILED', refund.message);
-        }
-        const followUp =
-            refund.outcome === 'processing' && !!handle.driver.refundStatus && !!refund.reference;
-        await repository.update(attempt.id, {
-            ...decided,
-            events,
-            reviewState: followUp ? 'refunding' : 'refunded',
-            refundReference: refund.reference ?? null,
-            reviewNote:
-                decided.reviewNote ||
-                (refund.outcome === 'processing' ? 'Refund is processing at the gateway' : null),
-            nextCheckAt: followUp ? new Date(Date.now() + 5 * MINUTE) : null,
-        });
-        return followUp ? 'refunding' : 'refunded';
-    }
-
-    async testConnection(ctx: RequestContext, gateway: OnlineGateway, mode: 'sandbox' | 'live') {
+        gateway: OnlineGateway,
+        mode: 'sandbox' | 'live',
+    ): Promise<{ ok: boolean; reason: string | null; detail: string | null }> {
         const handle = await this.gateways.handleFor(ctx, gateway, mode);
-        if (!handle) return { ok: false, message: 'Save all the credentials for this mode first' };
-        return handle.driver.testConnection(handle.call);
+        if (!handle) return { ok: false, reason: 'missingCredentials', detail: null };
+        const result = await handle.driver.testConnection(handle.call);
+        return result.ok
+            ? { ok: true, reason: null, detail: null }
+            : { ok: false, reason: result.reason, detail: result.detail };
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────────────────────
@@ -981,17 +1164,46 @@ export class OnlinePaymentService {
         return token ? `${await this.storefrontBase(ctx, order)}/t/${token}/?${query}` : this.homeUrl();
     }
 
-    private async addEvent(
+    /** Logs a gateway event on the attempt (see `record`). */
+    private addEvent(
         ctx: RequestContext,
         attempt: BdPaymentAttempt,
         source: string,
         status: string,
         data: unknown,
     ) {
-        attempt.events = withEvent(attempt.events, source, status, data);
-        await this.connection
+        return this.record(ctx, attempt.id, [source, status, data]);
+    }
+
+    /**
+     * Appends an event to the attempt's log, with other changes, under the row lock: notifications
+     * arrive in parallel (IPN and return post, two callbacks), and a read-modify-write of the log
+     * without the lock would drop one of them.
+     */
+    private async record(
+        ctx: RequestContext,
+        attemptId: ID,
+        [source, status, data]: [string, string, unknown],
+        changes: Partial<BdPaymentAttempt> = {},
+    ) {
+        await this.connection.withTransaction(ctx, async txCtx => {
+            const attempt = await this.locked(txCtx, attemptId);
+            if (!attempt) return;
+            await this.connection.getRepository(txCtx, BdPaymentAttempt).update(attempt.id, {
+                ...changes,
+                events: withEvent(attempt.events, source, status, data),
+            });
+        });
+    }
+
+    /** The attempt, its row locked until the transaction ends. */
+    private locked(ctx: RequestContext, attemptId: ID): Promise<BdPaymentAttempt | null> {
+        return this.connection
             .getRepository(ctx, BdPaymentAttempt)
-            .update(attempt.id, { events: attempt.events });
+            .createQueryBuilder('attempt')
+            .setLock('pessimistic_write')
+            .where('attempt.id = :id', { id: attemptId })
+            .getOne();
     }
 
     private async history(
