@@ -6,6 +6,22 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Fixed
 
+- **Phase 18 review (online payments):**
+  - Cancelling an order that is waiting for its online payment cancels that payment, whoever cancels it. Money that arrives later is held in Payment reviews ("paid after the order was cancelled"), never settled on a cancelled order; the review screen offers only refund or resolve for it.
+  - Payments whose outcome was unclear (a bKash Execute that timed out) are checked again for up to a week, so a late success still pays the order.
+  - The pay link starts the gateway once, even when the page refresh and the button arrive together or the shopper reloads; bKash no longer rejects the callback.
+  - A refund whose answer was lost shows as "Refund processing" and is checked with the gateway, never as refused. SSLCommerz refund requests are never retried, and bKash never sends a second refund while one is in progress. Refund refusals and Test connection results are in Bangla and English.
+- **Phase 19 review (couriers):**
+  - A booking with no clear answer (timeout, dropped connection, 5xx, 429) stays live and is checked with the courier before booking again: never booked twice. Pathao has no lookup, so staff check its panel.
+  - "Booked by hand" accepts any courier name, including Bangla (it crashed past 16 characters).
+  - Steadfast "pending" no longer marks orders shipped; "cancelled" before the parcel leaves cancels the booking instead of returning the order.
+  - Bulk booking shows why each order wasn't booked; staff are warned when the cash to collect changes after booking; "waiting for <courier>" during outages; Pathao places reset when the mode changes; webhook secrets are made only from settings; order moves that fail are retried.
+- **Phase 20 review (Meta Pixel and Conversions API):**
+  - No secret addresses (tracking and payment links, order codes) go to Meta or the event log, and private pages aren't tracked. Shopper IP and browser are cleared from all orders after 90 days, placed or not.
+  - A refused token or Pixel holds that Pixel's events with a warning until a new token is saved (it used to fail every event, one request each). Purchase is sent before browser events, the queue is bounded, and sending runs can't overlap.
+  - Sales pages send ViewContent and Purchase; AddToCart fires only when the add worked, InitiateCheckout once per cart. The Meta script loads only on stores with a Pixel. "Send test event" needs a test code. The event log has paging and an order filter.
+- `packages/shared` meets its 100% coverage gate again (`npm test` failed on the M4 files).
+
 - The merchant admin's product, category and stock lists showed broken thumbnails (in development too): those lists returned an image's stored path (`preview/a3/photo.jpg`) instead of its address. They now get the full address the way Vendure gives its own images (`ASSET_URL_PREFIX` on live stores).
 - Phase 04 review: confirm, pack and cancel permissions now apply to Vendure's standard order mutations as well as the merchant admin. Native cancellation checks the reason, required note and settled payments before changing lines, under a transaction and order lock. Direct cancellation transitions cannot leave live quantities and reserved stock behind.
 - The home widget is labelled **Order value today** in English and Bangla, with its meaning explained. The Admin API exposes `todayOrderValue`; `todaySales` remains a deprecated alias with the same permission check.
