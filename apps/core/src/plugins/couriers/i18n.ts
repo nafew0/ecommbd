@@ -1,4 +1,4 @@
-import type { CourierErrorCode } from './courier.service';
+import type { CourierErrorCode } from './errors';
 
 /** Courier messages in English and Bangla (`errorResult.BD_COURIER.<code>`, `message.couriers.<key>`). */
 const errorsEn: Record<CourierErrorCode, string> = {
@@ -6,11 +6,15 @@ const errorsEn: Record<CourierErrorCode, string> = {
     NOT_READY: 'Only confirmed or packed orders can be booked.',
     NO_COURIER: 'Choose a courier (or set a default courier for this delivery zone).',
     COURIER_OFF: 'This courier is off, or its credentials aren’t saved.',
-    UNMAPPED_ADDRESS: 'Pathao doesn’t know this thana yet. Match it in Couriers → Unmapped addresses.',
+    UNMAPPED_ADDRESS: 'Pathao doesn’t know this thana yet. Match it in Orders → Unmapped addresses.',
     NO_PHONE: 'The order has no phone number.',
     NO_PATHAO_STORE: 'Choose your Pathao store in Settings → Couriers.',
     COURIER_REFUSED: 'The courier refused the parcel. Fix the order and try again.',
-    COURIER_UNAVAILABLE: 'The courier isn’t answering. Try again later, or mark it booked by hand.',
+    COURIER_UNAVAILABLE:
+        'The courier gave no clear answer, so the parcel may already exist. We check with the courier before trying again.',
+    COURIER_BUSY: 'The courier is busy or not answering. The booking waits and is tried again shortly.',
+    CHECK_COURIER_PANEL:
+        'We couldn’t tell whether the courier made the parcel. Check the courier’s panel, then say whether it’s there.',
     ALREADY_BOOKED: 'This order is already booked.',
     NOT_BOOKED: 'This order has no courier booking.',
     ALREADY_PICKED_UP: 'The courier has picked it up: it can’t be cancelled now, only returned.',
@@ -22,11 +26,15 @@ const errorsBn: Record<CourierErrorCode, string> = {
     NOT_READY: 'শুধু কনফার্মড বা প্যাকড অর্ডার বুক করা যায়।',
     NO_COURIER: 'কুরিয়ার বেছে নিন (বা এই ডেলিভারি এলাকার জন্য একটি কুরিয়ার ঠিক করে রাখুন)।',
     COURIER_OFF: 'এই কুরিয়ার বন্ধ, অথবা এর তথ্য সেভ করা নেই।',
-    UNMAPPED_ADDRESS: 'পাঠাও এই থানা এখনো চেনে না। কুরিয়ার → না-মেলা ঠিকানা থেকে মিলিয়ে দিন।',
+    UNMAPPED_ADDRESS: 'পাঠাও এই থানা এখনো চেনে না। অর্ডার → না-মেলা ঠিকানা থেকে মিলিয়ে দিন।',
     NO_PHONE: 'অর্ডারে ফোন নম্বর নেই।',
     NO_PATHAO_STORE: 'সেটিংস → কুরিয়ার থেকে আপনার পাঠাও স্টোর বেছে নিন।',
     COURIER_REFUSED: 'কুরিয়ার পার্সেলটি নেয়নি। অর্ডার ঠিক করে আবার চেষ্টা করুন।',
-    COURIER_UNAVAILABLE: 'কুরিয়ার সাড়া দিচ্ছে না। পরে চেষ্টা করুন, অথবা হাতে বুক করা হয়েছে লিখে রাখুন।',
+    COURIER_UNAVAILABLE:
+        'কুরিয়ার স্পষ্ট উত্তর দেয়নি, তাই পার্সেলটি হয়তো তৈরি হয়ে গেছে। আবার চেষ্টার আগে কুরিয়ারের কাছে খোঁজ নেওয়া হবে।',
+    COURIER_BUSY: 'কুরিয়ার ব্যস্ত বা সাড়া দিচ্ছে না। বুকিং অপেক্ষায় আছে, একটু পরে আবার চেষ্টা হবে।',
+    CHECK_COURIER_PANEL:
+        'কুরিয়ার পার্সেলটি তৈরি করেছে কি না বোঝা যায়নি। কুরিয়ারের প্যানেলে দেখে জানান পার্সেলটি আছে কি না।',
     ALREADY_BOOKED: 'এই অর্ডার আগেই বুক করা হয়েছে।',
     NOT_BOOKED: 'এই অর্ডারের কোনো কুরিয়ার বুকিং নেই।',
     ALREADY_PICKED_UP: 'কুরিয়ার পার্সেল তুলে নিয়েছে: এখন বাতিল করা যাবে না, শুধু ফেরত আসবে।',
@@ -35,10 +43,12 @@ const errorsBn: Record<CourierErrorCode, string> = {
 
 const messagesEn = {
     'cancel-booking-first': 'Cancel the courier booking first.',
+    'save-credentials-first': 'Save all the credentials for this mode first.',
 };
 
 const messagesBn: typeof messagesEn = {
     'cancel-booking-first': 'আগে কুরিয়ার বুকিং বাতিল করুন।',
+    'save-credentials-first': 'আগে এই মোডের সব তথ্য সেভ করুন।',
 };
 
 export const courierTranslations = {

@@ -13,10 +13,13 @@ import {
 } from '@vendure/core';
 import { updateStoreSettingsPermission } from '../bd-core';
 import { bookCourierPermission } from './constants';
-import { CourierActionError, type CourierErrorCode, CourierService } from './courier.service';
+import { CourierClients } from './courier-clients.service';
+import { CourierService } from './courier.service';
 import { CourierSettingsService } from './courier-settings.service';
 import { pathaoDriver } from './drivers/pathao';
 import { BdCourierLocation, type BdCourierBooking } from './entities';
+import { CourierActionError, type CourierErrorCode } from './errors';
+import { PathaoPlacesService } from './pathao-places.service';
 
 export class BdCourierError extends ErrorResult {
     readonly __typename = 'BdCourierError';
@@ -31,7 +34,8 @@ export class BdCourierError extends ErrorResult {
     }
 }
 
-const view = (booking: BdCourierBooking) => ({
+/** A booking as the Admin API shows it: the courier's tracking page, and whether it waits for the courier. */
+const view = (booking: BdCourierBooking, couriers: CourierService) => ({
     ...booking,
     trackingUrl:
         booking.consignmentId && isCourier(booking.courier) && booking.status === 'booked'
@@ -40,11 +44,9 @@ const view = (booking: BdCourierBooking) => ({
                   trackingCode: booking.trackingCode,
               })
             : null,
+    waitingForCourier: couriers.waiting(booking),
     events: booking.events ?? [],
 });
-
-const result = (value: BdCourierBooking | CourierActionError) =>
-    value instanceof CourierActionError ? new BdCourierError(value.code, value.detail) : view(value);
 
 function courierAndMode(courier: string, mode: string) {
     if (!isCourier(courier) || !(COURIER_MODES as readonly string[]).includes(mode)) {
@@ -57,18 +59,26 @@ function courierAndMode(courier: string, mode: string) {
 export class CourierAdminResolver {
     constructor(
         private couriers: CourierService,
+        private clients: CourierClients,
+        private places: PathaoPlacesService,
         private settings: CourierSettingsService,
         private connection: TransactionalConnection,
     ) {}
 
+    private result(value: BdCourierBooking | CourierActionError) {
+        return value instanceof CourierActionError
+            ? new BdCourierError(value.code, value.detail)
+            : view(value, this.couriers);
+    }
+
     @Query()
     @Allow(Permission.ReadSettings)
     async bdCourierSetup(@Ctx() ctx: RequestContext) {
-        // Webhook secrets are for staff who set couriers up.
+        // Webhook secrets are for staff who set couriers up; only they make one (on first look).
         const canSee = ctx.userHasPermissions([updateStoreSettingsPermission.Permission]);
         const webhooks = [];
         for (const courier of COURIERS) {
-            const secret = canSee ? await this.settings.webhookSecret(ctx, courier) : null;
+            const secret = canSee ? await this.settings.ensureWebhookSecret(ctx, courier) : null;
             webhooks.push({ courier, secret, url: this.couriers.webhookUrl(courier, secret) });
         }
         return {
@@ -85,7 +95,10 @@ export class CourierAdminResolver {
     @Mutation()
     @Allow(updateStoreSettingsPermission.Permission)
     async updateBdCourierSettings(@Ctx() ctx: RequestContext, @Args() args: { input: unknown }) {
+        const before = (await this.settings.get(ctx)).pathao.mode;
         const saved = await this.settings.update(ctx, args.input);
+        // Sandbox and live have their own place IDs: the old mode's copy and maps go.
+        if (saved.value && saved.value.pathao.mode !== before) await this.places.forget(ctx);
         return { settings: saved.value, errors: saved.errors };
     }
 
@@ -107,7 +120,7 @@ export class CourierAdminResolver {
         @Args() args: { courier: string; mode: string },
     ) {
         const { courier, mode } = courierAndMode(args.courier, args.mode);
-        const tested = await this.couriers.testConnection(ctx, courier, mode);
+        const tested = await this.clients.testConnection(ctx, courier, mode);
         return { ok: tested.ok, message: 'message' in tested ? tested.message : null };
     }
 
@@ -115,7 +128,7 @@ export class CourierAdminResolver {
     @Allow(updateStoreSettingsPermission.Permission)
     async syncBdPathaoLocations(@Ctx() ctx: RequestContext) {
         try {
-            return await this.couriers.syncPathaoLocations(ctx);
+            return await this.places.sync(ctx);
         } catch (error) {
             if (error instanceof CourierActionError)
                 throw new UserInputError(`errorResult.BD_COURIER.${error.code}`);
@@ -126,7 +139,7 @@ export class CourierAdminResolver {
     @Query()
     @Allow(Permission.ReadSettings)
     async bdPathaoStores(@Ctx() ctx: RequestContext) {
-        const handle = await this.couriers.handle(ctx, 'pathao', await this.settings.mode(ctx, 'pathao'));
+        const handle = await this.clients.handle(ctx, 'pathao', await this.settings.mode(ctx, 'pathao'));
         return handle ? pathaoDriver.stores(handle.call) : [];
     }
 
@@ -134,13 +147,22 @@ export class CourierAdminResolver {
     @Allow(Permission.ReadOrder)
     async bdCourierBooking(@Ctx() ctx: RequestContext, @Args() args: { orderId: ID }) {
         const booking = await this.couriers.bookingFor(ctx, args.orderId);
-        return booking ? view(booking) : null;
+        return booking ? view(booking, this.couriers) : null;
+    }
+
+    @Query()
+    @Allow(Permission.ReadOrder)
+    async bdCourierBookings(@Ctx() ctx: RequestContext, @Args() args: { orderIds: ID[] }) {
+        if (args.orderIds.length > 100) throw new UserInputError('At most 100 orders at once');
+        return (await this.couriers.bookingsFor(ctx, args.orderIds)).map(booking =>
+            view(booking, this.couriers),
+        );
     }
 
     @Query()
     @Allow(Permission.ReadOrder)
     async bdPathaoCities(@Ctx() ctx: RequestContext) {
-        return (await this.couriers.locations(ctx, 'city')).map(place => ({
+        return (await this.places.list(ctx, 'city')).map(place => ({
             id: place.externalId,
             name: place.name,
         }));
@@ -149,7 +171,7 @@ export class CourierAdminResolver {
     @Query()
     @Allow(Permission.ReadOrder)
     async bdPathaoZones(@Ctx() ctx: RequestContext, @Args() args: { cityId: number }) {
-        return (await this.couriers.locations(ctx, 'zone', args.cityId)).map(place => ({
+        return (await this.places.list(ctx, 'zone', args.cityId)).map(place => ({
             id: place.externalId,
             name: place.name,
         }));
@@ -159,7 +181,7 @@ export class CourierAdminResolver {
     @Allow(Permission.ReadOrder)
     async bdUnmappedAddresses(@Ctx() ctx: RequestContext) {
         const language = ctx.languageCode === 'en' ? 'en' : 'bn';
-        return (await this.couriers.unmapped(ctx)).map(group => ({
+        return (await this.places.unmapped(ctx)).map(group => ({
             ...group,
             districtName: findDistrict(group.districtId)?.[language] ?? group.districtId,
             thanaName: findThana(group.thanaId)?.[language] ?? group.thanaId,
@@ -175,7 +197,7 @@ export class CourierAdminResolver {
     @Mutation()
     @Allow(bookCourierPermission.Permission)
     async bookBdCourier(@Ctx() ctx: RequestContext, @Args() args: { orderId: ID; courier?: string | null }) {
-        return result(await this.couriers.book(ctx, args.orderId, args.courier));
+        return this.result(await this.couriers.book(ctx, args.orderId, args.courier));
     }
 
     @Mutation()
@@ -200,13 +222,28 @@ export class CourierAdminResolver {
         @Ctx() ctx: RequestContext,
         @Args() args: { orderId: ID; courierName: string; trackingCode: string },
     ) {
-        return result(await this.couriers.markBookedManually(ctx, args));
+        return this.result(await this.couriers.markBookedManually(ctx, args));
     }
 
     @Mutation()
     @Allow(bookCourierPermission.Permission)
     async cancelBdCourierBooking(@Ctx() ctx: RequestContext, @Args() args: { orderId: ID }) {
-        return result(await this.couriers.cancelBooking(ctx, args.orderId));
+        return this.result(await this.couriers.cancelBooking(ctx, args.orderId));
+    }
+
+    @Mutation()
+    @Allow(bookCourierPermission.Permission)
+    async resolveBdCourierBooking(
+        @Ctx() ctx: RequestContext,
+        @Args() args: { orderId: ID; consignmentId?: string | null },
+    ) {
+        return this.result(await this.couriers.resolveUnconfirmed(ctx, args));
+    }
+
+    @Mutation()
+    @Allow(bookCourierPermission.Permission)
+    async confirmBdCourierCodUpdated(@Ctx() ctx: RequestContext, @Args() args: { orderId: ID }) {
+        return this.result(await this.couriers.confirmCodUpdated(ctx, args.orderId));
     }
 
     @Mutation()
@@ -215,7 +252,7 @@ export class CourierAdminResolver {
         const booking = await this.couriers.bookingFor(ctx, args.orderId);
         if (!booking) return null;
         const checked = await this.couriers.check(ctx, booking.id);
-        return checked ? view(checked) : null;
+        return checked ? view(checked, this.couriers) : null;
     }
 
     @Mutation()
@@ -225,7 +262,7 @@ export class CourierAdminResolver {
         @Args() args: { districtId: string; thanaId: string; cityId: number; zoneId: number },
     ) {
         try {
-            await this.couriers.setPathaoMapping(ctx, args);
+            await this.places.setMapping(ctx, args);
             return true;
         } catch (error) {
             if (error instanceof CourierActionError)

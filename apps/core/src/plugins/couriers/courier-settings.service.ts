@@ -142,12 +142,21 @@ export class CourierSettingsService {
         return { value: view(courier, mode, next, this), errors: [] };
     }
 
-    /** The courier's webhook secret, made (and stored encrypted) on first use. Null without a keyring. */
+    /** The courier's webhook secret, or null when none was made yet (or there's no keyring). Never writes. */
     async webhookSecret(ctx: RequestContext, courier: Courier): Promise<string | null> {
-        if (!this.keyring) return null;
         const stored = await this.stored(ctx);
-        const existing = this.decrypt(stored.webhooks?.[courier], `couriers:webhook:${courier}`);
+        return this.decrypt(stored.webhooks?.[courier], `couriers:webhook:${courier}`);
+    }
+
+    /**
+     * The courier's webhook secret, made (and stored encrypted) on first use. Only for staff setting
+     * couriers up: a public webhook request never creates one. Null without a keyring.
+     */
+    async ensureWebhookSecret(ctx: RequestContext, courier: Courier): Promise<string | null> {
+        if (!this.keyring) return null;
+        const existing = await this.webhookSecret(ctx, courier);
         if (existing) return existing;
+        const stored = await this.stored(ctx);
         const secret = randomBytes(24).toString('hex');
         stored.webhooks = {
             ...stored.webhooks,

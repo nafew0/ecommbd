@@ -61,15 +61,23 @@ export const courierAdminApiExtensions = gql`
         id: ID!
         createdAt: DateTime!
         orderId: ID!
-        "steadfast, pathao, or the name typed for a manual booking"
+        "steadfast or pathao; manual for a parcel booked by hand (see courierName); empty when bulk booking found no courier"
         courier: String!
+        "The courier's name typed for a booking made by hand"
+        courierName: String
         mode: String!
-        "booking, booked, failed, cancelled or manual"
+        "Our order number as the courier knows it"
+        invoice: String
+        "booking, unconfirmed (no clear answer from the courier: tried again, or staff check its panel), booked, failed, cancelled or manual"
         status: String!
         consignmentId: String
         trackingCode: String
         trackingUrl: String
         codAmount: Money!
+        "What the courier should collect now, when it changed after booking: change it in the courier's panel, then confirm"
+        newCodAmount: Money
+        "Calls to this courier are paused after repeated failures: the booking waits for it"
+        waitingForCourier: Boolean!
         weightGrams: Int
         deliveryFee: Money
         "booked, pickedUp, delivered, partiallyDelivered, returned, cancelled or note"
@@ -86,7 +94,7 @@ export const courierAdminApiExtensions = gql`
     type BdCourierError implements ErrorResult {
         errorCode: ErrorCode!
         message: String!
-        "ORDER_NOT_FOUND, NOT_READY, NO_COURIER, COURIER_OFF, UNMAPPED_ADDRESS, NO_PHONE, NO_PATHAO_STORE, COURIER_REFUSED, COURIER_UNAVAILABLE, ALREADY_BOOKED, NOT_BOOKED, ALREADY_PICKED_UP or INVALID_INPUT"
+        "ORDER_NOT_FOUND, NOT_READY, NO_COURIER, COURIER_OFF, UNMAPPED_ADDRESS, NO_PHONE, NO_PATHAO_STORE, COURIER_REFUSED, COURIER_UNAVAILABLE, COURIER_BUSY, CHECK_COURIER_PANEL, ALREADY_BOOKED, NOT_BOOKED, ALREADY_PICKED_UP or INVALID_INPUT"
         reason: String!
         "The courier's own words"
         detail: String
@@ -128,6 +136,8 @@ export const courierAdminApiExtensions = gql`
         bdCourierSetup: BdCourierSetup!
         "The order's live booking, else its latest one"
         bdCourierBooking(orderId: ID!): BdCourierBooking
+        "Each order's live booking, else its latest one (bulk booking's progress); at most 100"
+        bdCourierBookings(orderIds: [ID!]!): [BdCourierBooking!]!
         bdPathaoCities: [BdCourierPlace!]!
         bdPathaoZones(cityId: Int!): [BdCourierPlace!]!
         bdPathaoStores: [BdPathaoStore!]!
@@ -145,9 +155,9 @@ export const courierAdminApiExtensions = gql`
         ): BdSaveCourierCredentialsResult!
         testBdCourierConnection(courier: String!, mode: String!): BdCourierTestResult!
         syncBdPathaoLocations: BdSyncLocationsResult!
-        "courier: steadfast or pathao; default: the store's courier for the delivery zone"
+        "courier: steadfast or pathao; default: the store's courier for the delivery zone. An unconfirmed booking is tried again (looked up at the courier first)."
         bookBdCourier(orderId: ID!, courier: String): BdCourierBookingResult!
-        "Books in the background (one job per order); returns how many were queued"
+        "Books in the background (one job per order); returns how many were queued. An order that can't be booked gets a failed booking saying why."
         bookBdCouriers(orderIds: [ID!]!, courier: String): Int!
         markBdCourierBooked(
             orderId: ID!
@@ -156,6 +166,10 @@ export const courierAdminApiExtensions = gql`
         ): BdCourierBookingResult!
         "After cancelling it in the courier's panel; only before pickup"
         cancelBdCourierBooking(orderId: ID!): BdCourierBookingResult!
+        "An unconfirmed booking, after checking the courier's panel: its consignment ID if the parcel is there, none if it isn't"
+        resolveBdCourierBooking(orderId: ID!, consignmentId: String): BdCourierBookingResult!
+        "The parcel's COD was changed in the courier's panel to newCodAmount"
+        confirmBdCourierCodUpdated(orderId: ID!): BdCourierBookingResult!
         checkBdCourierStatus(orderId: ID!): BdCourierBooking
         setBdPathaoMapping(districtId: String!, thanaId: String!, cityId: Int!, zoneId: Int!): Boolean!
     }

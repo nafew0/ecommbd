@@ -5,6 +5,7 @@ import { Printer, ShoppingBag, Truck } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { usePlaces } from '../components/address/district-thana-picker';
+import { BulkBookingProgress, type BulkRun, bulkStart } from '../components/couriers/bulk-booking';
 import { DistrictName } from '../components/address/place-name';
 import { type Column, ListPage, type ListTab } from '../components/list-page';
 import { PaymentBadge, StatusBadge } from '../components/orders/status';
@@ -95,16 +96,21 @@ export function OrdersPage() {
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [printDocument, setPrintDocument] = useState<PrintDocument>('invoice');
     const [booking, setBooking] = useState(false);
+    const [bulk, setBulk] = useState<BulkRun | null>(null);
     const toast = useToast();
-    // Bulk booking (phase 19): each order is booked in the background with its default courier.
+    // Bulk booking (phase 19): each order is booked in the background with its default courier;
+    // the progress card shows each answer, and why an order wasn't booked.
     const bookSelected = async () => {
         setBooking(true);
         try {
+            const orderIds = [...selected];
+            const before = await bulkStart(orderIds);
             const result = await adminApi<{ bookBdCouriers: number }>(
                 'mutation ($orderIds: [ID!]!) { bookBdCouriers(orderIds: $orderIds) }',
-                { orderIds: [...selected] },
+                { orderIds },
             );
             toast.success(m.couriers.bulk.queued(result.bookBdCouriers));
+            setBulk({ orderIds, before });
             setSelected(new Set());
         } catch {
             toast.error(m.errors.generic);
@@ -217,6 +223,15 @@ export function OrdersPage() {
     return (
         <>
             <PageHeader title={m.orders.title} description={m.orders.description} />
+            {bulk && (
+                <BulkBookingProgress
+                    run={bulk}
+                    onClose={() => {
+                        setBulk(null);
+                        void query.refetch();
+                    }}
+                />
+            )}
             <ListPage
                 rows={query.data?.bdOrders.items ?? []}
                 rowId={row => row.id}

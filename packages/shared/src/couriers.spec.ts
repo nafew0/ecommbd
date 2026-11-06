@@ -6,6 +6,8 @@ import {
     courierStatusKey,
     courierTrackingUrl,
     defaultCourierSettings,
+    isCourier,
+    LIVE_BOOKING_STATUSES,
     matchPlace,
     outcomeMovesOn,
     parseCourierSettings,
@@ -16,10 +18,11 @@ describe('courier statuses', () => {
     it('maps every Steadfast status', () => {
         const cases: Array<[string, string]> = [
             ['in_review', 'booked'],
-            ['pending', 'pickedUp'],
+            // Steadfast's "pending" is "not delivered or cancelled yet": not a pickup.
+            ['pending', 'booked'],
             ['delivered', 'delivered'],
             ['partial_delivered', 'partiallyDelivered'],
-            ['cancelled', 'returned'],
+            ['cancelled', 'cancelled'],
             ['hold', 'note'],
             ['unknown', 'note'],
             ['delivered_approval_pending', 'note'],
@@ -30,6 +33,14 @@ describe('courier statuses', () => {
         ];
         for (const [status, outcome] of cases)
             expect(courierOutcome('steadfast', status), status).toBe(outcome);
+    });
+
+    it('reads Steadfast’s "cancelled" as a cancelled booking before pickup, a return after', () => {
+        expect(courierOutcome('steadfast', 'cancelled')).toBe('cancelled');
+        expect(courierOutcome('steadfast', 'cancelled', true)).toBe('returned');
+        // Only Steadfast's word is ambiguous: Pathao's pickup_cancelled is always before pickup.
+        expect(courierOutcome('pathao', 'Pickup_Cancelled', true)).toBe('cancelled');
+        expect(courierOutcome('steadfast', 'delivered', true)).toBe('delivered');
     });
 
     it('maps every Pathao status, as a slug or a webhook event', () => {
@@ -75,11 +86,25 @@ describe('courier statuses', () => {
 describe('formats', () => {
     it('writes phones and COD amounts the way couriers take them', () => {
         expect(courierPhone('+8801712345678')).toBe('01712345678');
+        expect(courierPhone('8801712345678')).toBe('01712345678');
         expect(courierCod(131000)).toBe(1310);
         expect(courierCod(-5)).toBe(0);
         expect(courierTrackingUrl('steadfast', { consignmentId: '1', trackingCode: 'ABC12' })).toBe(
             'https://steadfast.com.bd/t/ABC12',
         );
+        expect(courierTrackingUrl('steadfast', { consignmentId: '77', trackingCode: null })).toBe(
+            'https://steadfast.com.bd/t/77',
+        );
+        expect(courierTrackingUrl('pathao', { consignmentId: 'DL 1', trackingCode: null })).toBe(
+            'https://merchant.pathao.com/tracking?consignment_id=DL%201',
+        );
+    });
+
+    it('knows its couriers and which bookings are live', () => {
+        expect(isCourier('steadfast')).toBe(true);
+        expect(isCourier('redx')).toBe(false);
+        expect(isCourier('manual')).toBe(false);
+        expect(LIVE_BOOKING_STATUSES).toEqual(['booking', 'unconfirmed', 'booked', 'manual']);
     });
 
     it('validates settings', () => {
@@ -99,6 +124,8 @@ describe('place matching', () => {
         expect(placeKey('Comilla Sadar')).toBe(placeKey('Cumilla'));
         expect(placeKey("Cox's Bazar")).toBe(placeKey('Coxs Bazar'));
         expect(placeKey('Mohammadpur (Dhaka)')).toBe(placeKey('Mohammadpur'));
+        // Accents (combining marks after NFKD) are dropped.
+        expect(placeKey('Ba\u0301dda')).toBe('badda');
     });
 
     const zones = [
@@ -120,5 +147,12 @@ describe('place matching', () => {
         expect(matchPlace(['Uttara'], zones)).toBeNull();
         expect(matchPlace(['Nowhere'], zones)).toBeNull();
         expect(matchPlace([], zones)).toBeNull();
+        // Two exact matches: never a guess.
+        expect(matchPlace(['Badda'], [...zones, { id: 7, name: 'Badda Thana' }])).toBeNull();
+    });
+
+    it('matches a unique prefix either way', () => {
+        expect(matchPlace(['Dhanmo'], zones)?.id).toBe(2);
+        expect(matchPlace(['Gulshanabad'], zones)?.id).toBe(3);
     });
 });

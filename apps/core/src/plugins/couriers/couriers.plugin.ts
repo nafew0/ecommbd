@@ -14,10 +14,12 @@ import { BdOrdersPlugin, registerShipmentInfo } from '../bd-orders';
 import { registerOrderEditGuard } from '../bd-manual-orders/edit-guard';
 import { courierAdminApiExtensions } from './api';
 import { bookCourierPermission, COURIERS_OPTIONS } from './constants';
+import { CourierClients } from './courier-clients.service';
 import { CourierService } from './courier.service';
 import { CourierSettingsService } from './courier-settings.service';
 import { BdCourierBooking, BdCourierLocation, BdCourierLocationMap } from './entities';
 import { courierTranslations } from './i18n';
+import { PathaoPlacesService } from './pathao-places.service';
 import { BdCourierBookingResultResolver, CourierAdminResolver } from './resolvers';
 import type { CouriersPluginOptions } from './types';
 import { CourierWebhookController } from './webhook.controller';
@@ -66,10 +68,14 @@ const cancelGuard: OrderProcess<never> = {
     },
 };
 
+/**
+ * Every 10 minutes: unconfirmed bookings are tried again, orders catch up with their parcels, and
+ * active parcels are asked about when due (each every 30 minutes: the webhook fallback).
+ */
 const pollTask = new ScheduledTask({
     id: 'bd-poll-couriers',
-    description: 'Ask the couriers about active parcels (webhook fallback)',
-    schedule: '*/30 * * * *',
+    description: 'Retry unconfirmed courier bookings and ask the couriers about active parcels',
+    schedule: '*/10 * * * *',
     async execute({ injector }) {
         return { checked: await injector.get(CourierService).poll() };
     },
@@ -80,10 +86,9 @@ const locationsTask = new ScheduledTask({
     description: "Refresh Pathao's cities and zones",
     schedule: '0 3 * * 1',
     async execute({ injector }) {
-        const couriers = injector.get(CourierService);
-        const ctx = await couriers.background();
-        if (!(await couriers.handle(ctx, 'pathao'))) return { skipped: true };
-        return couriers.syncPathaoLocations(ctx);
+        const ctx = await injector.get(CourierService).background();
+        if (!(await injector.get(CourierClients).handle(ctx, 'pathao'))) return { skipped: true };
+        return injector.get(PathaoPlacesService).sync(ctx);
     },
 });
 
@@ -100,6 +105,8 @@ const locationsTask = new ScheduledTask({
     providers: [
         { provide: COURIERS_OPTIONS, useFactory: () => CouriersPlugin.options },
         CourierSettingsService,
+        CourierClients,
+        PathaoPlacesService,
         CourierService,
     ],
     exports: [CourierService],

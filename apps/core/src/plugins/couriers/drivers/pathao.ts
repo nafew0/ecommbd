@@ -3,6 +3,7 @@ import {
     type CourierDriver,
     CourierError,
     courierDate,
+    failureOf,
     jsonOf,
     messageOf,
     type ParcelInput,
@@ -13,8 +14,13 @@ import {
 /**
  * Pathao Courier merchant API (aladdin v1): an access token from a password grant (client ID and
  * secret plus the merchant's login), refreshed when it expires; cities and zones to address parcels;
- * create an order in the merchant's store; view an order. Webhooks carry the secret the merchant set
- * in Pathao's panel in `X-PATHAO-Signature`; the first call is an integration handshake.
+ * create an order in the merchant's store; view an order by consignment ID. Webhooks carry the secret
+ * the merchant set in Pathao's panel in `X-PATHAO-Signature`; the first call is an integration
+ * handshake.
+ *
+ * Not used: Pathao's areas (`recipient_area` is optional; city and zone place a parcel). Not
+ * available: finding an order by our merchant_order_id (so no `findParcel`: after a booking with no
+ * clear answer, staff check Pathao's panel), and changing an order's COD amount.
  */
 
 interface CachedToken {
@@ -36,31 +42,39 @@ const key = (call: CourierCall) =>
     `${call.baseUrl}|${call.credentials.clientId}|${call.credentials.username}`;
 
 async function issue(call: CourierCall, refreshToken?: string): Promise<CachedToken> {
-    const body = jsonOf(
-        await call.http.request(url(call, 'issue-token'), {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', accept: 'application/json' },
-            body: JSON.stringify(
-                refreshToken
-                    ? {
-                          client_id: call.credentials.clientId,
-                          client_secret: call.credentials.clientSecret,
-                          grant_type: 'refresh_token',
-                          refresh_token: refreshToken,
-                      }
-                    : {
-                          client_id: call.credentials.clientId,
-                          client_secret: call.credentials.clientSecret,
-                          grant_type: 'password',
-                          username: call.credentials.username,
-                          password: call.credentials.password,
-                      },
-            ),
-            idempotent: true,
-        }),
-    );
+    const response = await call.http.request(url(call, 'issue-token'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify(
+            refreshToken
+                ? {
+                      client_id: call.credentials.clientId,
+                      client_secret: call.credentials.clientSecret,
+                      grant_type: 'refresh_token',
+                      refresh_token: refreshToken,
+                  }
+                : {
+                      client_id: call.credentials.clientId,
+                      client_secret: call.credentials.clientSecret,
+                      grant_type: 'password',
+                      username: call.credentials.username,
+                      password: call.credentials.password,
+                  },
+        ),
+        idempotent: true,
+    });
+    // No token means no parcel call was made: a 4xx is wrong credentials, anything else "try later".
+    const failure = failureOf(response.status) === 'refused' ? 'refused' : 'notCreated';
+    let body: Record<string, unknown>;
+    try {
+        body = jsonOf(response);
+    } catch (error) {
+        throw new CourierError(error instanceof Error ? error.message : String(error), null, failure);
+    }
     const token = str(body.access_token);
-    if (!token) throw new CourierError(`Pathao refused the credentials (${messageOf(body)})`, null, true);
+    if (!token) {
+        throw new CourierError(`Pathao refused the credentials (${messageOf(body)})`, null, failure);
+    }
     const seconds = Number(body.expires_in) > 0 ? Number(body.expires_in) : 3600;
     return { token, refreshToken: str(body.refresh_token) ?? '', expiresAt: Date.now() + seconds * 1000 };
 }
@@ -138,7 +152,7 @@ export const pathaoDriver: CourierDriver & {
 
     async createParcel(call, parcel: ParcelInput) {
         const pathao = parcel.pathao;
-        if (!pathao) throw new CourierError('No Pathao address', null, true);
+        if (!pathao) throw new CourierError('No Pathao address', null, 'refused');
         const { status, body } = await api(call, 'orders', {
             method: 'POST',
             body: {
@@ -162,7 +176,8 @@ export const pathaoDriver: CourierDriver & {
         const data = body.data as Record<string, unknown> | undefined;
         const id = str(data?.consignment_id);
         if (!id) {
-            throw new CourierError(`Pathao refused the parcel: ${messageOf(body)}`, body, status < 500);
+            // A 200 without a consignment ID is unclear (unknown), like a 5xx.
+            throw new CourierError(`Pathao refused the parcel: ${messageOf(body)}`, body, failureOf(status));
         }
         const fee = Number(data?.delivery_fee);
         return {
@@ -174,8 +189,8 @@ export const pathaoDriver: CourierDriver & {
         };
     },
 
-    async getStatus(call, consignmentId) {
-        const { body } = await api(call, `orders/${encodeURIComponent(consignmentId)}/info`, {
+    async getStatus(call, parcel) {
+        const { body } = await api(call, `orders/${encodeURIComponent(parcel.consignmentId ?? '')}/info`, {
             idempotent: true,
         });
         const data = body.data as Record<string, unknown> | undefined;

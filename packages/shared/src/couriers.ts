@@ -132,17 +132,23 @@ export const OUTCOME_RANK: Record<CourierOutcome, number> = {
     returned: 5,
 };
 
+/**
+ * Steadfast's documented delivery statuses (API v1, "delivery_status"):
+ * - in_review: placed, waiting for Steadfast's review
+ * - pending: "not delivered or cancelled yet". Steadfast has no "picked up" status, so pending says
+ *   nothing about pickup: the order stays Packed (it moves to Shipped when staff mark it shipped, or
+ *   is filled in on delivery), and the booking can still be cancelled.
+ * - cancelled: see `courierOutcome`: before pickup the booking is cancelled, after it a return.
+ * - *_approval_pending: waiting for Steadfast's own approval: final only once approved.
+ */
 const STEADFAST: Record<string, CourierOutcome> = {
     in_review: 'booked',
-    // Accepted and on its way (Steadfast has no separate "picked up" status).
-    pending: 'pickedUp',
+    pending: 'booked',
     delivered: 'delivered',
     partial_delivered: 'partiallyDelivered',
-    // Cancelled by Steadfast means it didn't reach the customer: it comes back to the merchant.
-    cancelled: 'returned',
+    cancelled: 'cancelled',
     hold: 'note',
     unknown: 'note',
-    // Waiting for Steadfast's own approval: final only once approved.
     delivered_approval_pending: 'note',
     partial_delivered_approval_pending: 'note',
     cancelled_approval_pending: 'note',
@@ -184,9 +190,16 @@ export function courierStatusKey(status: string): string {
         .replace(/[\s-]+/g, '_');
 }
 
-export function courierOutcome(courier: Courier, status: string): CourierOutcome {
+/**
+ * Our reading of a courier status. `pickedUp`: whether the parcel already left (the booking was
+ * picked up, or staff marked the order shipped). It only matters for Steadfast's "cancelled", which
+ * means two things: a booking cancelled before pickup (the order stays Packed), or a parcel that
+ * didn't reach the customer and comes back (a return).
+ */
+export function courierOutcome(courier: Courier, status: string, pickedUp = false): CourierOutcome {
     const key = courierStatusKey(status);
-    return (courier === 'steadfast' ? STEADFAST : PATHAO)[key] ?? 'note';
+    const outcome = (courier === 'steadfast' ? STEADFAST : PATHAO)[key] ?? 'note';
+    return courier === 'steadfast' && outcome === 'cancelled' && pickedUp ? 'returned' : outcome;
 }
 
 /**
@@ -218,7 +231,7 @@ export function placeKey(name: string): string {
     let key = name
         .toLowerCase()
         .normalize('NFKD')
-        .replace(/[̀-ͯ]/g, '')
+        .replace(/[\u0300-\u036f]/g, '')
         .replace(/\(.*?\)/g, ' ')
         .replace(/\b(sadar|thana|upazila|city|corporation|metro|model)\b/g, ' ')
         .replace(/[^a-z]/g, '');
@@ -270,6 +283,27 @@ export function matchPlace(
     return prefix.length === 1 ? prefix[0]! : null;
 }
 
-/** Booking states. One active booking per order (booking, booked). */
-export const BOOKING_STATUSES = ['booking', 'booked', 'failed', 'cancelled', 'manual'] as const;
+/**
+ * Booking states:
+ * - booking: we are asking the courier now
+ * - unconfirmed: the courier gave no clear answer (timeout, dropped connection, 5xx, 429). The
+ *   booking stays live, so the order can't be booked twice: it is retried (Steadfast: looked up by
+ *   invoice first) or, when the courier can't be asked (Pathao), staff check its panel and say.
+ * - booked, manual (booked outside, by hand): live
+ * - failed, cancelled: not live; the order can be booked again
+ */
+export const BOOKING_STATUSES = [
+    'booking',
+    'unconfirmed',
+    'booked',
+    'failed',
+    'cancelled',
+    'manual',
+] as const;
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
+
+/** The statuses that hold the order's one live booking (editing and cancelling the order wait). */
+export const LIVE_BOOKING_STATUSES: readonly BookingStatus[] = ['booking', 'unconfirmed', 'booked', 'manual'];
+
+/** The `courier` of a booking made outside our integrations ("booked by hand"); its name is kept apart. */
+export const MANUAL_COURIER = 'manual';

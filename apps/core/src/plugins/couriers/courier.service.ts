@@ -1,26 +1,27 @@
 import { findDistrict, findThana } from '@ecommbd/bd-geo';
 import {
-    CircuitBreaker,
-    COURIER_BASE_URLS,
+    cleanText,
     COURIERS,
     courierCod,
     type Courier,
     type CourierMode,
     courierOutcome,
+    type CourierOutcome,
     courierPhone,
     courierTrackingUrl,
-    createHttpClient,
-    startOfDhakaDay,
-    type HttpClient,
+    HttpError,
     isCourier,
-    matchPlace,
+    LIVE_BOOKING_STATUSES,
+    MANUAL_COURIER,
     outcomeMovesOn,
     redactObject,
     type ShippingZone,
+    startOfDhakaDay,
 } from '@ecommbd/shared';
-import { Inject, Injectable, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import {
     AdministratorService,
+    EventBus,
     HistoryService,
     type ID,
     isGraphQlErrorResult,
@@ -29,13 +30,15 @@ import {
     Logger,
     Order,
     OrderService,
+    PaymentStateTransitionEvent,
     ProductVariant,
+    RefundStateTransitionEvent,
     RequestContext,
     RequestContextService,
     TransactionalConnection,
 } from '@vendure/core';
 import { timingSafeEqual } from 'node:crypto';
-import { In, IsNull, LessThanOrEqual, MoreThanOrEqual, Not } from 'typeorm';
+import { In, IsNull, LessThan, LessThanOrEqual, MoreThanOrEqual, Not } from 'typeorm';
 import { OrderActionsService, settledAmount } from '../bd-orders';
 import type { ShipmentInfo } from '../bd-orders/shipment-info';
 import {
@@ -46,92 +49,80 @@ import {
     COURIERS_OPTIONS,
     loggerCtx,
 } from './constants';
+import { CourierClients, type CourierHandle } from './courier-clients.service';
 import { CourierSettingsService } from './courier-settings.service';
 import { pathaoDriver } from './drivers/pathao';
 import { steadfastDriver } from './drivers/steadfast';
-import { type CourierCall, type CourierDriver, CourierError, type ParcelInput } from './drivers/types';
-import { BdCourierBooking, BdCourierLocation, BdCourierLocationMap, type CourierEvent } from './entities';
+import { type CourierFailure, CourierError, type ParcelInput } from './drivers/types';
+import { BdCourierBooking, type CourierEvent } from './entities';
+import { CourierActionError } from './errors';
+import { PathaoPlacesService } from './pathao-places.service';
 import type { CouriersPluginOptions } from './types';
 
-const DRIVERS: Record<Courier, CourierDriver> = { steadfast: steadfastDriver, pathao: pathaoDriver };
-
-export type CourierErrorCode =
-    | 'ORDER_NOT_FOUND'
-    | 'NOT_READY'
-    | 'NO_COURIER'
-    | 'COURIER_OFF'
-    | 'UNMAPPED_ADDRESS'
-    | 'NO_PHONE'
-    | 'NO_PATHAO_STORE'
-    | 'COURIER_REFUSED'
-    | 'COURIER_UNAVAILABLE'
-    | 'ALREADY_BOOKED'
-    | 'NOT_BOOKED'
-    | 'ALREADY_PICKED_UP'
-    | 'INVALID_INPUT';
-
-export class CourierActionError extends Error {
-    constructor(
-        readonly code: CourierErrorCode,
-        readonly detail?: string,
-    ) {
-        super(code);
-    }
-}
+export { CourierActionError, type CourierErrorCode } from './errors';
 
 const MINUTE = 60_000;
 /** Active parcels are asked about every 30 minutes, for 30 days at most. */
 const POLL_EVERY_MS = 30 * MINUTE;
 const POLL_FOR_MS = 30 * 24 * 60 * MINUTE;
+/** An unconfirmed booking, or an order that didn't follow its parcel, is tried again every 10 minutes. */
+const RETRY_EVERY_MS = 10 * MINUTE;
+/** Unconfirmed bookings are tried again on their own for a day; after that, only when staff ask. */
+const RETRY_FOR_MS = 24 * 60 * MINUTE;
+/** A booking still "booking" after this lost its answer (the server stopped mid-call): unconfirmed. */
+const STUCK_AFTER_MS = 5 * MINUTE;
 const MAX_EVENTS = 40;
 const UNIQUE_VIOLATION = '23505';
+/** Outcomes after which the courier has nothing more to say. */
+const FINAL_OUTCOMES: readonly CourierOutcome[] = ['delivered', 'returned', 'cancelled'];
+/** Order states that can't follow a parcel any further. */
+const SETTLED_STATES = ['Delivered', 'Returned', 'Cancelled'];
+
+type BookJob = { orderId: string; courier: string | null; by: string | null };
 
 /**
  * Couriers (roadmap phase 19). Booking writes the booking row first (the order's one live booking:
- * a unique key), then asks the courier; a refused or failed booking is kept with its reason. Status
- * updates come by webhook and polling and move the order through our own order actions: picked up →
- * Shipped, delivered → Delivered (COD settles), returned → Returned. Never backwards.
+ * a unique key), then asks the courier. A refusal is kept with its reason and frees the order to be
+ * booked again; no clear answer (a timeout, a 5xx, a 429) keeps the booking live as `unconfirmed`, so
+ * the same parcel is never made twice: it's tried again later, looked up at the courier first when
+ * it may exist. Status updates come by webhook and polling and move the order through our own order
+ * actions: picked up → Shipped, delivered → Delivered (COD settles), returned → Returned. Never
+ * backwards; a move that fails is tried again by the next poll.
+ *
+ * Pathao's places are in `PathaoPlacesService`, the couriers' APIs in `CourierClients`.
  */
 @Injectable()
-export class CourierService implements OnModuleInit, OnApplicationShutdown {
-    private readonly http: HttpClient;
-    private readonly breaker = new CircuitBreaker({ failureThreshold: 5, cooldownMs: 3 * MINUTE });
-    private queue: JobQueue<{ orderId: string; courier: string | null; by: string | null }> | undefined;
+export class CourierService implements OnModuleInit {
+    private queue: JobQueue<BookJob> | undefined;
 
     constructor(
         @Inject(COURIERS_OPTIONS) private options: CouriersPluginOptions,
         private connection: TransactionalConnection,
         private settings: CourierSettingsService,
+        private clients: CourierClients,
+        private places: PathaoPlacesService,
         private orderService: OrderService,
         private orderActions: OrderActionsService,
         private historyService: HistoryService,
         private requestContextService: RequestContextService,
         private administrators: AdministratorService,
         private jobQueueService: JobQueueService,
-    ) {
-        this.http = createHttpClient({
-            timeoutMs: 20_000,
-            circuitBreaker: this.breaker,
-            ssrfProtection: !options.baseUrls,
-            userAgent: 'EcommBD-Couriers',
-        });
-    }
+        private eventBus: EventBus,
+    ) {}
 
     async onModuleInit() {
         this.queue = await this.jobQueueService.createQueue({
             name: BOOK_JOB,
-            process: async job => {
-                const ctx = await this.background();
-                const result = await this.book(ctx, job.data.orderId, job.data.courier, job.data.by);
-                if (result instanceof CourierActionError && result.code !== 'ALREADY_BOOKED') {
-                    Logger.warn(`Bulk booking skipped order ${job.data.orderId}: ${result.code}`, loggerCtx);
-                }
-            },
+            process: async job => this.bookFromJob(job.data),
         });
-    }
-
-    async onApplicationShutdown() {
-        await this.http.close();
+        // Money received or given back after booking changes what the courier should collect.
+        this.eventBus.ofType(PaymentStateTransitionEvent).subscribe(event => {
+            if (['Settled', 'Declined', 'Cancelled'].includes(event.toState))
+                this.codMayHaveChanged(event.order.id);
+        });
+        this.eventBus.ofType(RefundStateTransitionEvent).subscribe(event => {
+            if (event.toState === 'Settled') this.codMayHaveChanged(event.order.id);
+        });
     }
 
     background(): Promise<RequestContext> {
@@ -140,32 +131,6 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
 
     get publicUrl(): string | null {
         return this.options.publicUrl ? this.options.publicUrl.replace(/\/$/, '') : null;
-    }
-
-    /** The courier, ready to call: on, with complete credentials for its mode. */
-    async handle(ctx: RequestContext, courier: Courier, mode?: CourierMode) {
-        const settings = await this.settings.get(ctx);
-        if (!mode && !settings[courier].enabled) return null;
-        const useMode = mode ?? (await this.settings.mode(ctx, courier));
-        const credentials = await this.settings.credentials(ctx, courier, useMode);
-        if (!this.settings.complete(courier, credentials)) return null;
-        const call: CourierCall = {
-            http: this.http,
-            baseUrl: this.options.baseUrls?.[courier] ?? COURIER_BASE_URLS[courier][useMode],
-            credentials: credentials!,
-        };
-        return { courier, mode: useMode, driver: DRIVERS[courier], call };
-    }
-
-    paused(courier: Courier, mode: CourierMode): boolean {
-        const base = this.options.baseUrls?.[courier] ?? COURIER_BASE_URLS[courier][mode];
-        return this.breaker.state(new URL(base).host) === 'open';
-    }
-
-    async testConnection(ctx: RequestContext, courier: Courier, mode: CourierMode) {
-        const handle = await this.handle(ctx, courier, mode);
-        if (!handle) return { ok: false, message: 'Save all the credentials for this mode first' };
-        return handle.driver.testConnection(handle.call);
     }
 
     // ── Booking ──────────────────────────────────────────────────────────────────────────────
@@ -179,9 +144,20 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
         );
     }
 
+    /** For bulk booking's progress: each order's live booking, else its latest one. */
+    async bookingsFor(ctx: RequestContext, orderIds: ID[]): Promise<BdCourierBooking[]> {
+        const bookings: BdCourierBooking[] = [];
+        for (const orderId of orderIds) {
+            const booking = await this.bookingFor(ctx, orderId);
+            if (booking) bookings.push(booking);
+        }
+        return bookings;
+    }
+
     /**
      * Books one order. A Confirmed order is packed first (stores that skip packing). Idempotent: an
-     * order that already has a live booking gets it back.
+     * order that already has a live booking gets it back, and an unconfirmed one is tried again
+     * (looked up at the courier first).
      */
     async book(
         ctx: RequestContext,
@@ -192,6 +168,11 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
         const existing = await this.connection
             .getRepository(ctx, BdCourierBooking)
             .findOne({ where: { activeKey: String(orderId) } });
+        if (existing?.status === 'unconfirmed') {
+            // Whatever happens, the unconfirmed booking shows it: bulk booking adds no failed row.
+            const retried = await this.retry(ctx, existing);
+            return retried instanceof CourierActionError ? retried.shown() : retried;
+        }
         if (existing) return existing;
         let order = await this.orderService.findOne(ctx, orderId);
         if (!order) return new CourierActionError('ORDER_NOT_FOUND');
@@ -204,14 +185,14 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
         const courier = chosen ?? (await this.defaultCourier(ctx, order));
         if (!courier) return new CourierActionError('NO_COURIER');
         if (!isCourier(courier)) return new CourierActionError('INVALID_INPUT');
-        const handle = await this.handle(ctx, courier);
+        const handle = await this.clients.handle(ctx, courier);
         if (!handle) return new CourierActionError('COURIER_OFF');
 
         const parcel = await this.parcel(ctx, order, courier);
         if (parcel instanceof CourierActionError) {
             // Kept (not live) so the unmapped addresses screen can list it.
-            await this.failed(ctx, order, courier, handle.mode, parcel, null, by ?? null);
-            return parcel;
+            await this.failed(ctx, order, courier, handle.mode, parcel, by ?? null);
+            return parcel.shown();
         }
         const repository = this.connection.getRepository(ctx, BdCourierBooking);
         let booking: BdCourierBooking;
@@ -222,6 +203,7 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
                     activeKey: String(order.id),
                     courier,
                     mode: handle.mode,
+                    invoice: parcel.invoice,
                     status: 'booking',
                     codAmount: parcel.codAmount * 100,
                     weightGrams: Math.round(parcel.weightKg * 1000),
@@ -237,6 +219,20 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
             }
             throw error;
         }
+        return this.attempt(ctx, booking, handle, parcel);
+    }
+
+    /**
+     * Asks the courier to make the parcel for a booking we hold ("booking"). Booked: linked. Refused:
+     * failed, and the order is free to book again. No clear answer: unconfirmed, still live.
+     */
+    private async attempt(
+        ctx: RequestContext,
+        booking: BdCourierBooking,
+        handle: CourierHandle,
+        parcel: ParcelInput,
+    ): Promise<BdCourierBooking | CourierActionError> {
+        const repository = this.connection.getRepository(ctx, BdCourierBooking);
         try {
             const booked = await handle.driver.createParcel(handle.call, parcel);
             await repository.update(booking.id, {
@@ -245,34 +241,183 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
                 trackingCode: booked.trackingCode,
                 courierStatus: booked.status,
                 deliveryFee: booked.deliveryFee,
+                codAmount: parcel.codAmount * 100,
+                newCodAmount: null,
+                errorCode: null,
+                errorMessage: null,
                 nextPollAt: new Date(Date.now() + POLL_EVERY_MS),
                 events: withEvent(booking.events, 'book', booked.status, booked.raw),
             });
-            await this.history(ctx, order.id, courier, 'booked', { consignmentId: booked.consignmentId });
+            await this.history(ctx, booking.orderId, handle.courier, 'booked', {
+                consignmentId: booked.consignmentId,
+            });
+            return (await repository.findOne({ where: { id: booking.id } }))!;
         } catch (error) {
-            const refused = error instanceof CourierError && error.refused;
-            if (!refused)
-                Logger.warn(`${courier} booking failed for order ${order.id}: ${String(error)}`, loggerCtx);
-            const reason = new CourierActionError(
-                refused ? 'COURIER_REFUSED' : 'COURIER_UNAVAILABLE',
-                error instanceof Error ? error.message : String(error),
+            const failure = failureOf(error);
+            const detail = error instanceof Error ? error.message : String(error);
+            const events = withEvent(
+                booking.events,
+                'book',
+                'error',
+                error instanceof CourierError ? error.raw : null,
             );
+            if (failure === 'refused') {
+                await repository.update(booking.id, {
+                    status: 'failed',
+                    activeKey: null,
+                    nextPollAt: null,
+                    errorCode: 'COURIER_REFUSED',
+                    errorMessage: detail.slice(0, 500),
+                    events,
+                });
+                await this.history(ctx, booking.orderId, handle.courier, 'booking-failed', {
+                    message: detail.slice(0, 200),
+                });
+                return new CourierActionError('COURIER_REFUSED', detail).shown();
+            }
+            Logger.warn(
+                `${handle.courier} gave no clear answer booking order ${booking.orderId}: ${detail}`,
+                loggerCtx,
+            );
+            const code = failure === 'notCreated' ? 'COURIER_BUSY' : 'COURIER_UNAVAILABLE';
+            // Tried again on its own only when that's safe: surely not made, or the courier can be asked.
+            const again = failure === 'notCreated' || !!handle.driver.findParcel;
             await repository.update(booking.id, {
-                status: 'failed',
-                activeKey: null,
-                errorCode: reason.code,
-                errorMessage: (reason.detail ?? '').slice(0, 500),
-                events: withEvent(
-                    booking.events,
-                    'book',
-                    'error',
-                    error instanceof CourierError ? error.raw : null,
-                ),
+                status: 'unconfirmed',
+                errorCode: code,
+                errorMessage: detail.slice(0, 500),
+                nextPollAt: again ? new Date(Date.now() + RETRY_EVERY_MS) : null,
+                events,
             });
-            await this.history(ctx, order.id, courier, 'booking-failed', {
-                message: reason.detail?.slice(0, 200),
+            await this.history(ctx, booking.orderId, handle.courier, 'booking-unconfirmed', {
+                message: detail.slice(0, 200),
             });
-            return reason;
+            return new CourierActionError(code, detail).shown();
+        }
+    }
+
+    /**
+     * An unconfirmed booking, again ("Try again", or the polling task). Surely not made (COURIER_BUSY):
+     * made now. Maybe made: looked up by our invoice first and linked if the courier has it; a courier
+     * that can't be asked (Pathao) waits for staff (`resolveUnconfirmed`).
+     */
+    async retry(
+        ctx: RequestContext,
+        booking: BdCourierBooking,
+    ): Promise<BdCourierBooking | CourierActionError> {
+        if (!isCourier(booking.courier)) return booking;
+        const repository = this.connection.getRepository(ctx, BdCourierBooking);
+        const handle = await this.clients.handle(ctx, booking.courier, booking.mode);
+        if (!handle) return new CourierActionError('COURIER_OFF');
+        if (this.clients.paused(booking.courier, booking.mode)) return new CourierActionError('COURIER_BUSY');
+        const order = await this.orderService.findOne(ctx, booking.orderId);
+        if (!order) return new CourierActionError('ORDER_NOT_FOUND');
+        const invoice = booking.invoice ?? order.customFields.orderNumber ?? order.code;
+
+        if (booking.errorCode !== 'COURIER_BUSY') {
+            if (!handle.driver.findParcel) return new CourierActionError('CHECK_COURIER_PANEL');
+            let found;
+            try {
+                found = await handle.driver.findParcel(handle.call, invoice);
+            } catch (error) {
+                const detail = error instanceof Error ? error.message : String(error);
+                await repository.update(
+                    { id: booking.id, status: 'unconfirmed' },
+                    { nextPollAt: this.retryAt(booking), errorMessage: detail.slice(0, 500) },
+                );
+                return new CourierActionError('COURIER_UNAVAILABLE', detail);
+            }
+            if (found) {
+                // The courier made it after all: linked, and tracked by invoice until the courier
+                // tells us its consignment ID (Steadfast's webhooks carry both).
+                const linked = await repository.update(
+                    { id: booking.id, status: 'unconfirmed' },
+                    {
+                        status: 'booked',
+                        invoice,
+                        courierStatus: found.status.slice(0, 60),
+                        errorCode: null,
+                        errorMessage: null,
+                        nextPollAt: new Date(),
+                        events: withEvent(booking.events, 'retry', found.status, found.raw),
+                    },
+                );
+                if (linked.affected) {
+                    await this.history(ctx, booking.orderId, booking.courier, 'booked', { status: 'found' });
+                }
+                return (await repository.findOne({ where: { id: booking.id } }))!;
+            }
+        }
+
+        // Surely no parcel at the courier: make it now.
+        const parcel = await this.parcel(ctx, order, booking.courier);
+        if (parcel instanceof CourierActionError) {
+            await repository.update(
+                { id: booking.id, status: 'unconfirmed' },
+                {
+                    status: 'failed',
+                    activeKey: null,
+                    nextPollAt: null,
+                    errorCode: parcel.code,
+                    errorMessage: parcel.detail ?? null,
+                },
+            );
+            return parcel.shown();
+        }
+        // Claimed first, so a poll and a click can't both make it.
+        const claimed = await repository.update(
+            { id: booking.id, status: 'unconfirmed' },
+            { status: 'booking', invoice: parcel.invoice },
+        );
+        if (!claimed.affected) return (await repository.findOne({ where: { id: booking.id } }))!;
+        return this.attempt(ctx, booking, handle, parcel);
+    }
+
+    /**
+     * Staff checked the courier's panel for an unconfirmed booking: the parcel is there (its
+     * consignment ID links it and tracking starts), or it isn't (the booking fails and the order can
+     * be booked again).
+     */
+    async resolveUnconfirmed(
+        ctx: RequestContext,
+        input: { orderId: ID; consignmentId?: string | null },
+    ): Promise<BdCourierBooking | CourierActionError> {
+        const repository = this.connection.getRepository(ctx, BdCourierBooking);
+        const booking = await repository.findOne({
+            where: { activeKey: String(input.orderId), status: 'unconfirmed' },
+        });
+        if (!booking) return new CourierActionError('NOT_BOOKED');
+        const consignmentId = cleanText(input.consignmentId ?? '').slice(0, 60);
+        const by = await this.staffName(ctx);
+        if (consignmentId) {
+            await repository.update(
+                { id: booking.id, status: 'unconfirmed' },
+                {
+                    status: 'booked',
+                    consignmentId,
+                    errorCode: null,
+                    errorMessage: null,
+                    nextPollAt: new Date(),
+                    events: withEvent(booking.events, 'resolve', 'found', { by }),
+                },
+            );
+            await this.history(ctx, booking.orderId, booking.courier, 'booked', { consignmentId });
+            await this.check(ctx, booking.id).catch(error =>
+                Logger.warn(`Status check after linking failed: ${String(error)}`, loggerCtx),
+            );
+        } else {
+            await repository.update(
+                { id: booking.id, status: 'unconfirmed' },
+                {
+                    status: 'failed',
+                    activeKey: null,
+                    nextPollAt: null,
+                    events: withEvent(booking.events, 'resolve', 'not-booked', { by }),
+                },
+            );
+            await this.history(ctx, booking.orderId, booking.courier, 'booking-failed', {
+                message: 'Not at the courier (checked by staff)',
+            });
         }
         return (await repository.findOne({ where: { id: booking.id } }))!;
     }
@@ -287,13 +432,32 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
         return orderIds.length;
     }
 
+    /**
+     * One order of a bulk booking. A failure no booking shows yet (not ready, no courier, courier
+     * off…) is written as a failed booking, so staff see why on the order and in the bulk booking's
+     * progress, instead of the order being skipped silently.
+     */
+    private async bookFromJob(job: BookJob) {
+        const ctx = await this.background();
+        const result = await this.book(ctx, job.orderId, job.courier, job.by);
+        if (!(result instanceof CourierActionError) || result.recorded) return;
+        const order = await this.orderService.findOne(ctx, job.orderId);
+        if (!order) {
+            Logger.warn(`Bulk booking: order ${job.orderId} not found`, loggerCtx);
+            return;
+        }
+        const courier = job.courier && isCourier(job.courier) ? job.courier : '';
+        await this.failed(ctx, order, courier, 'live', result, job.by);
+    }
+
     /** The manual fallback: the parcel was booked outside (a courier's panel, a phone call). */
     async markBookedManually(
         ctx: RequestContext,
         input: { orderId: ID; courierName: string; trackingCode: string },
     ): Promise<BdCourierBooking | CourierActionError> {
-        const name = input.courierName.trim().slice(0, 40);
-        const code = input.trackingCode.trim().slice(0, 60);
+        // Any courier, in any script ("Sundarban Courier", "সুন্দরবন কুরিয়ার"), in its own column.
+        const name = [...cleanText(input.courierName)].slice(0, 40).join('');
+        const code = cleanText(input.trackingCode).slice(0, 60);
         if (!name || !code) return new CourierActionError('INVALID_INPUT');
         const order = await this.orderService.findOne(ctx, input.orderId);
         if (!order) return new CourierActionError('ORDER_NOT_FOUND');
@@ -305,12 +469,14 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
                 new BdCourierBooking({
                     orderId: order.id,
                     activeKey: String(order.id),
-                    courier: (known ?? name.toLowerCase()) as Courier,
+                    courier: known ?? MANUAL_COURIER,
+                    courierName: known ? COURIER_NAMES[known] : name,
                     mode: 'live',
+                    invoice: order.customFields.orderNumber ?? order.code,
                     status: 'manual',
                     consignmentId: code,
                     trackingCode: code,
-                    codAmount: Math.max(0, order.totalWithTax - settledAmount(order)),
+                    codAmount: courierCod(Math.max(0, order.totalWithTax - settledAmount(order))) * 100,
                     outcome: 'booked',
                     bookedBy: await this.staffName(ctx),
                     events: withEvent([], 'manual', 'booked', { courier: name }),
@@ -327,13 +493,17 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
 
     /**
      * The booking is cancelled (staff cancelled it in the courier's panel), only before pickup. A
-     * picked-up parcel can't be cancelled: it comes back as a return.
+     * picked-up parcel can't be cancelled: it comes back as a return. An order already Shipped counts
+     * as picked up (Steadfast never says "picked up"; staff may have marked it shipped).
      */
     async cancelBooking(ctx: RequestContext, orderId: ID): Promise<BdCourierBooking | CourierActionError> {
         const repository = this.connection.getRepository(ctx, BdCourierBooking);
         const booking = await repository.findOne({ where: { activeKey: String(orderId) } });
         if (!booking) return new CourierActionError('NOT_BOOKED');
         if (booking.outcome !== 'booked') return new CourierActionError('ALREADY_PICKED_UP');
+        const order = await this.orderService.findOne(ctx, orderId);
+        if (order && order.state !== 'Packed' && order.state !== 'Confirmed')
+            return new CourierActionError('ALREADY_PICKED_UP');
         await repository.update(booking.id, {
             status: 'cancelled',
             activeKey: null,
@@ -341,7 +511,7 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
             nextPollAt: null,
             events: withEvent(booking.events, 'cancel', 'cancelled', { by: await this.staffName(ctx) }),
         });
-        await this.history(ctx, orderId, booking.courier, 'cancelled', {
+        await this.history(ctx, orderId, booking.courierName ?? booking.courier, 'cancelled', {
             consignmentId: booking.consignmentId ?? undefined,
         });
         return (await repository.findOne({ where: { id: booking.id } }))!;
@@ -393,6 +563,8 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
             recipientAddress: [address.streetLine1, fields.area, fields.landmark, thana?.en, district?.en]
                 .filter(Boolean)
                 .join(', '),
+            // Money already received (settled) isn't collected again. An advance still waiting for
+            // staff to verify it counts once verified: the booking is then flagged (`recheckCod`).
             codAmount: courierCod(Math.max(0, order.totalWithTax - settledAmount(order))),
             note: order.customFields.customerNote ?? '',
             itemDescription: lines
@@ -404,7 +576,7 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
         };
         if (courier === 'pathao') {
             if (!settings.pathao.storeId) return new CourierActionError('NO_PATHAO_STORE');
-            const place = await this.pathaoPlace(ctx, fields.districtId ?? '', fields.thanaId ?? '');
+            const place = await this.places.place(ctx, fields.districtId ?? '', fields.thanaId ?? '');
             if (!place) return new CourierActionError('UNMAPPED_ADDRESS');
             parcel.pathao = {
                 storeId: settings.pathao.storeId,
@@ -418,13 +590,13 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
         return parcel;
     }
 
+    /** A booking that failed before reaching the courier, kept (not live) to show why. */
     private async failed(
         ctx: RequestContext,
         order: Order,
-        courier: Courier,
+        courier: Courier | '',
         mode: CourierMode,
         reason: CourierActionError,
-        detail: string | null,
         by: string | null,
     ) {
         await this.connection.getRepository(ctx, BdCourierBooking).save(
@@ -433,163 +605,76 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
                 activeKey: null,
                 courier,
                 mode,
+                invoice: order.customFields.orderNumber ?? order.code,
                 status: 'failed',
                 codAmount: 0,
                 outcome: 'note',
                 errorCode: reason.code,
-                errorMessage: detail,
+                errorMessage: reason.detail?.slice(0, 500) ?? null,
                 bookedBy: by ?? (await this.staffName(ctx)),
                 events: [],
             }),
         );
     }
 
-    // ── Pathao places ─────────────────────────────────────────────────────────────────────────
+    // ── COD changes after booking ─────────────────────────────────────────────────────────────
+
+    /** Runs after the payment's own transaction (Vendure publishes events after commit), in a new context. */
+    private codMayHaveChanged(orderId: ID) {
+        void this.background()
+            .then(ctx => this.recheckCod(ctx, orderId))
+            .catch(error =>
+                Logger.error(`COD check for order ${String(orderId)} failed: ${String(error)}`, loggerCtx),
+            );
+    }
 
     /**
-     * Our district and thana as Pathao's city and zone: a saved map first; else matched by name and
-     * aliases from the cached location list (and saved as `auto`); else null (unmapped).
+     * After a payment or refund settles: if the order has a live booking the courier hasn't finished,
+     * and what's left to collect differs from the parcel's COD, the booking is flagged for staff.
+     * Neither courier's API can change a parcel's COD, so staff change it in the courier's panel and
+     * confirm (`confirmCodUpdated`). Back to the booked amount: the flag goes.
      */
-    async pathaoPlace(ctx: RequestContext, districtId: string, thanaId: string) {
-        if (!districtId || !thanaId) return null;
-        const maps = this.connection.getRepository(ctx, BdCourierLocationMap);
-        const saved = await maps.findOne({ where: { courier: 'pathao', districtId, thanaId } });
-        if (saved) return saved;
-        const district = findDistrict(districtId);
-        const thana = findThana(thanaId);
-        if (!district || !thana) return null;
-        const locations = this.connection.getRepository(ctx, BdCourierLocation);
-        const cities = await locations.find({ where: { courier: 'pathao', kind: 'city' } });
-        const city = matchPlace(
-            [district.en, ...district.aliases],
-            cities.map(c => ({ id: c.externalId, name: c.name })),
-        );
-        if (!city) return null;
-        const zones = await locations.find({ where: { courier: 'pathao', kind: 'zone', parentId: city.id } });
-        const zone = matchPlace(
-            [thana.en, ...thana.aliases],
-            zones.map(z => ({ id: z.externalId, name: z.name })),
-        );
-        if (!zone) return null;
-        return maps.save(
-            new BdCourierLocationMap({
-                courier: 'pathao',
-                districtId,
-                thanaId,
-                cityId: city.id,
-                zoneId: zone.id,
-                areaId: null,
-                source: 'auto',
+    async recheckCod(ctx: RequestContext, orderId: ID): Promise<void> {
+        const repository = this.connection.getRepository(ctx, BdCourierBooking);
+        const booking = await repository.findOne({ where: { activeKey: String(orderId) } });
+        // Once delivered (or partly), the COD settles from the order itself.
+        if (!booking || !['booked', 'pickedUp', 'note'].includes(booking.outcome)) return;
+        const order = await this.orderService.findOne(ctx, orderId, ['payments', 'payments.refunds']);
+        // A delivered order's COD payment settles too: that's the end, not a change (bookings by hand
+        // stay "booked" whatever happens).
+        if (!order || SETTLED_STATES.includes(order.state) || order.state === 'PartiallyDelivered') return;
+        const due = courierCod(Math.max(0, order.totalWithTax - settledAmount(order))) * 100;
+        const flagged = due === booking.codAmount ? null : due;
+        if (flagged === booking.newCodAmount) return;
+        await repository.update(booking.id, {
+            newCodAmount: flagged,
+            events: withEvent(booking.events, 'cod', flagged === null ? 'cod-unchanged' : 'cod-changed', {
+                was: booking.codAmount,
+                now: due,
             }),
-        );
-    }
-
-    /** Fetches Pathao's cities and zones (weekly, or "Sync now"). Returns how many of each. */
-    async syncPathaoLocations(ctx: RequestContext): Promise<{ cities: number; zones: number }> {
-        const handle = await this.handle(ctx, 'pathao', await this.settings.mode(ctx, 'pathao'));
-        if (!handle) throw new CourierActionError('COURIER_OFF');
-        const cities = await pathaoDriver.cities(handle.call);
-        const repository = this.connection.getRepository(ctx, BdCourierLocation);
-        let zones = 0;
-        for (const city of cities) {
-            await repository.upsert(
-                { courier: 'pathao', kind: 'city', externalId: city.id, parentId: null, name: city.name },
-                ['courier', 'kind', 'externalId'],
-            );
-            for (const zone of await pathaoDriver.zones(handle.call, city.id)) {
-                zones++;
-                await repository.upsert(
-                    {
-                        courier: 'pathao',
-                        kind: 'zone',
-                        externalId: zone.id,
-                        parentId: city.id,
-                        name: zone.name,
-                    },
-                    ['courier', 'kind', 'externalId'],
-                );
-            }
-        }
-        return { cities: cities.length, zones };
-    }
-
-    locations(ctx: RequestContext, kind: 'city' | 'zone', parentId?: number | null) {
-        return this.connection.getRepository(ctx, BdCourierLocation).find({
-            where: { courier: 'pathao', kind, ...(parentId ? { parentId } : {}) },
-            order: { name: 'ASC' },
         });
-    }
-
-    /**
-     * Addresses Pathao couldn't place: the latest failed booking of each order still waiting to be
-     * booked, by district and thana, with how many orders wait.
-     */
-    async unmapped(ctx: RequestContext) {
-        const rows: Array<{ orderId: number; districtId: string | null; thanaId: string | null }> =
-            await this.connection.getRepository(ctx, BdCourierBooking).query(
-                // Vendure keeps the shipping address as JSON text.
-                `SELECT DISTINCT ON (b."orderId") b."orderId",
-                        o."shippingAddress"::jsonb -> 'customFields' ->> 'districtId' AS "districtId",
-                        o."shippingAddress"::jsonb -> 'customFields' ->> 'thanaId' AS "thanaId"
-                 FROM bd_courier_booking b
-                 JOIN "order" o ON o.id = b."orderId"
-                 WHERE b."errorCode" = 'UNMAPPED_ADDRESS'
-                   AND o.state IN ('Confirmed', 'Packed')
-                   AND NOT EXISTS (SELECT 1 FROM bd_courier_booking live WHERE live."activeKey" = b."orderId"::text)
-                 ORDER BY b."orderId", b.id DESC`,
-            );
-        const groups = new Map<string, { districtId: string; thanaId: string; orderIds: number[] }>();
-        for (const row of rows) {
-            if (!row.districtId || !row.thanaId) continue;
-            const mapped = await this.connection
-                .getRepository(ctx, BdCourierLocationMap)
-                .count({ where: { courier: 'pathao', districtId: row.districtId, thanaId: row.thanaId } });
-            if (mapped) continue;
-            const key = `${row.districtId}|${row.thanaId}`;
-            const group = groups.get(key) ?? {
-                districtId: row.districtId,
-                thanaId: row.thanaId,
-                orderIds: [],
-            };
-            group.orderIds.push(row.orderId);
-            groups.set(key, group);
+        if (flagged !== null) {
+            await this.history(ctx, orderId, booking.courierName ?? booking.courier, 'cod-changed', {
+                message: `COD ${booking.codAmount / 100} → ${due / 100}`,
+            });
         }
-        return [...groups.values()];
     }
 
-    async setPathaoMapping(
+    /** Staff changed the parcel's COD in the courier's panel: the booking takes the new amount. */
+    async confirmCodUpdated(
         ctx: RequestContext,
-        input: {
-            districtId: string;
-            thanaId: string;
-            cityId: number;
-            zoneId: number;
-            areaId?: number | null;
-        },
-    ) {
-        if (!findDistrict(input.districtId) || (!findThana(input.thanaId) && input.thanaId !== 'other')) {
-            throw new CourierActionError('INVALID_INPUT');
-        }
-        const zone = await this.connection.getRepository(ctx, BdCourierLocation).findOne({
-            where: { courier: 'pathao', kind: 'zone', externalId: input.zoneId, parentId: input.cityId },
+        orderId: ID,
+    ): Promise<BdCourierBooking | CourierActionError> {
+        const repository = this.connection.getRepository(ctx, BdCourierBooking);
+        const booking = await repository.findOne({ where: { activeKey: String(orderId) } });
+        if (!booking) return new CourierActionError('NOT_BOOKED');
+        if (booking.newCodAmount === null) return booking;
+        await repository.update(booking.id, {
+            codAmount: booking.newCodAmount,
+            newCodAmount: null,
+            events: withEvent(booking.events, 'cod', 'cod-updated', { by: await this.staffName(ctx) }),
         });
-        if (!zone) throw new CourierActionError('INVALID_INPUT');
-        const repository = this.connection.getRepository(ctx, BdCourierLocationMap);
-        await repository.upsert(
-            {
-                courier: 'pathao',
-                districtId: input.districtId,
-                thanaId: input.thanaId,
-                cityId: input.cityId,
-                zoneId: input.zoneId,
-                areaId: input.areaId ?? null,
-                source: 'manual',
-            },
-            ['courier', 'districtId', 'thanaId'],
-        );
-        return repository.findOne({
-            where: { courier: 'pathao', districtId: input.districtId, thanaId: input.thanaId },
-        });
+        return (await repository.findOne({ where: { id: booking.id } }))!;
     }
 
     // ── Status sync ───────────────────────────────────────────────────────────────────────────
@@ -607,12 +692,13 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
     ): Promise<{ status: number; headers?: Record<string, string> }> {
         if (!isCourier(courier)) return { status: 404 };
         const ctx = await this.background();
+        // Only read here: the secret is made when staff open the courier settings.
         const expected = await this.settings.webhookSecret(ctx, courier);
         const header =
             courier === 'pathao'
                 ? headers['x-pathao-signature']
                 : (headers.authorization ?? '').replace(/^Bearer\s+/i, '');
-        const reading = DRIVERS[courier].readWebhook(body);
+        const reading = (courier === 'pathao' ? pathaoDriver : steadfastDriver).readWebhook(body);
         if (!expected || !same(secret, expected)) return { status: 401 };
         if (reading.kind === 'handshake') {
             // Pathao checks the URL by asking us to echo its integration secret.
@@ -621,28 +707,68 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
         }
         if (!header || !same(header, expected)) return { status: 401 };
         if (reading.kind === 'ignored') return { status: 202 };
-        const booking = await this.connection
-            .getRepository(ctx, BdCourierBooking)
-            .findOne({
-                where: { courier, consignmentId: reading.consignmentId, status: In(['booked', 'cancelled']) },
+        const repository = this.connection.getRepository(ctx, BdCourierBooking);
+        let booking = await repository.findOne({
+            where: { courier, consignmentId: reading.consignmentId, status: In(['booked', 'cancelled']) },
+        });
+        if (!booking && reading.invoice) {
+            // A parcel linked by invoice (found after an unclear booking): now we learn its ID.
+            booking = await repository.findOne({
+                where: { courier, invoice: reading.invoice, consignmentId: IsNull(), status: 'booked' },
             });
+            if (booking) {
+                await repository.update(booking.id, {
+                    consignmentId: reading.consignmentId,
+                    trackingCode: reading.trackingCode ?? null,
+                });
+            }
+        }
         if (!booking) {
             Logger.warn(`${courier} webhook for an unknown consignment, ignored`, loggerCtx);
             return { status: 202 };
         }
         await this.applyStatus(ctx, booking.id, reading.status, reading.at, 'webhook', reading.raw);
+        await this.follow(ctx, booking.id);
         return { status: 202 };
     }
 
-    /** The polling task: asks about every active parcel that's due. Returns how many were asked. */
+    /**
+     * The polling task (every 10 minutes): bookings that lost their answer become unconfirmed;
+     * unconfirmed ones are tried again while the courier isn't paused; active parcels that are due
+     * are asked about, and orders that didn't follow their parcel are moved. Returns how many
+     * bookings were looked at.
+     */
     async poll(limit = 100): Promise<number> {
         const ctx = await this.background();
-        const due = await this.connection.getRepository(ctx, BdCourierBooking).find({
-            where: {
-                status: 'booked',
-                outcome: In(['booked', 'pickedUp', 'partiallyDelivered', 'note']),
-                nextPollAt: LessThanOrEqual(new Date()),
+        const repository = this.connection.getRepository(ctx, BdCourierBooking);
+        const now = new Date();
+        await repository.update(
+            { status: 'booking', updatedAt: LessThan(new Date(now.getTime() - STUCK_AFTER_MS)) },
+            {
+                status: 'unconfirmed',
+                errorCode: 'COURIER_UNAVAILABLE',
+                errorMessage: 'The booking lost its answer (the server stopped while asking)',
+                nextPollAt: now,
             },
+        );
+        const unsure = await repository.find({
+            where: { status: 'unconfirmed', nextPollAt: LessThanOrEqual(now) },
+            order: { nextPollAt: 'ASC' },
+            take: limit,
+        });
+        for (const booking of unsure) {
+            // Waiting for the courier: its calls are paused; the next run tries again.
+            if (isCourier(booking.courier) && this.clients.paused(booking.courier, booking.mode)) continue;
+            const result = await this.retry(ctx, booking).catch(error => {
+                Logger.error(`Retrying booking ${booking.id} failed: ${String(error)}`, loggerCtx);
+                return null;
+            });
+            if (result instanceof CourierActionError && result.code === 'CHECK_COURIER_PANEL') {
+                await repository.update({ id: booking.id, status: 'unconfirmed' }, { nextPollAt: null });
+            }
+        }
+        const due = await repository.find({
+            where: { status: 'booked', nextPollAt: LessThanOrEqual(now) },
             order: { nextPollAt: 'ASC' },
             take: limit,
         });
@@ -651,34 +777,53 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
                 Logger.error(`Polling booking ${booking.id} failed: ${String(error)}`, loggerCtx),
             );
         }
-        return due.length;
+        return unsure.length + due.length;
     }
 
-    /** "Check status now" and polling: asks the courier, applies the answer. */
+    /** When to try an unconfirmed booking again on its own: soon, for a day; then only when staff ask. */
+    private retryAt(booking: BdCourierBooking): Date | null {
+        return Date.now() - booking.createdAt.getTime() > RETRY_FOR_MS
+            ? null
+            : new Date(Date.now() + RETRY_EVERY_MS);
+    }
+
+    /**
+     * "Check status now" and polling: asks the courier (unless it already said its last word), applies
+     * the answer, and moves the order if it hasn't followed its parcel yet.
+     */
     async check(ctx: RequestContext, bookingId: ID): Promise<BdCourierBooking | null> {
         const repository = this.connection.getRepository(ctx, BdCourierBooking);
-        const booking = await repository.findOne({ where: { id: bookingId } });
-        if (!booking?.consignmentId || booking.status !== 'booked') return booking;
-        const handle = await this.handle(ctx, booking.courier, booking.mode);
+        let booking = await repository.findOne({ where: { id: bookingId } });
+        if (!booking || booking.status !== 'booked' || !isCourier(booking.courier)) return booking;
         const old = Date.now() - booking.createdAt.getTime() > POLL_FOR_MS;
-        const next = old ? null : new Date(Date.now() + POLL_EVERY_MS);
-        if (!handle) {
-            await repository.update(booking.id, { nextPollAt: next });
-            return booking;
+        if (!FINAL_OUTCOMES.includes(booking.outcome) && (booking.consignmentId || booking.invoice)) {
+            const handle = await this.clients.handle(ctx, booking.courier, booking.mode);
+            if (handle) {
+                try {
+                    const status = await handle.driver.getStatus(handle.call, {
+                        consignmentId: booking.consignmentId,
+                        invoice: booking.invoice,
+                    });
+                    await this.applyStatus(ctx, booking.id, status.status, status.at, 'poll', status.raw);
+                } catch (error) {
+                    Logger.warn(`${booking.courier} status check failed: ${String(error)}`, loggerCtx);
+                }
+            }
+            booking = (await repository.findOne({ where: { id: bookingId } }))!;
         }
-        try {
-            const status = await handle.driver.getStatus(handle.call, booking.consignmentId);
-            await this.applyStatus(ctx, booking.id, status.status, status.at, 'poll', status.raw);
-        } catch (error) {
-            Logger.warn(`${booking.courier} status check failed: ${String(error)}`, loggerCtx);
-        }
+        // A cancelled booking leaves "booked"; the order has nothing to follow then.
+        if (booking.status !== 'booked') return booking;
+        const caughtUp = await this.moveOrder(ctx, booking);
+        const done = FINAL_OUTCOMES.includes(booking.outcome) && caughtUp;
+        const next = old || done ? null : new Date(Date.now() + (caughtUp ? POLL_EVERY_MS : RETRY_EVERY_MS));
         await repository.update({ id: booking.id, status: 'booked' }, { nextPollAt: next });
         return repository.findOne({ where: { id: booking.id } });
     }
 
     /**
      * Applies a courier status once, in order: the booking row is locked; a status older than the
-     * last applied one, or one that would move backwards, is only recorded. Then the order follows.
+     * last applied one, or one that would move backwards, is only recorded. The order follows
+     * separately (`follow`, `check`), so a move that fails can be tried again.
      */
     async applyStatus(
         ctx: RequestContext,
@@ -695,8 +840,17 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
                 .setLock('pessimistic_write')
                 .where('booking.id = :id', { id: bookingId })
                 .getOne();
-            if (!booking) return null;
-            const outcome = courierOutcome(booking.courier, status);
+            if (!booking || !isCourier(booking.courier)) return null;
+            // Steadfast's "cancelled" is a return once the parcel has left: picked up by our
+            // reading, or the order marked shipped by staff (Steadfast never says "picked up").
+            const order = await this.connection
+                .getRepository(txCtx, Order)
+                .findOne({ where: { id: booking.orderId }, select: ['id', 'state'] });
+            const left =
+                booking.outcome === 'pickedUp' ||
+                booking.outcome === 'partiallyDelivered' ||
+                (!!order && order.state !== 'Packed' && order.state !== 'Confirmed');
+            const outcome = courierOutcome(booking.courier, status, left);
             const events = withEvent(booking.events, source, status, raw);
             const stale = !!at && !!booking.statusAt && at < booking.statusAt;
             if (stale || !outcomeMovesOn(booking.outcome, outcome)) {
@@ -706,7 +860,6 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
                 });
                 return null;
             }
-            const final = outcome === 'delivered' || outcome === 'returned' || outcome === 'cancelled';
             await repository.update(booking.id, {
                 events,
                 outcome,
@@ -714,7 +867,8 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
                 // Only the courier's own times order updates (one without a time keeps the last).
                 statusAt: at ?? booking.statusAt,
                 outcomeAt: new Date(),
-                ...(final ? { nextPollAt: null } : {}),
+                ...(FINAL_OUTCOMES.includes(outcome) ? { nextPollAt: null } : {}),
+                // Cancelled before pickup: the order stays Packed and can be booked again.
                 ...(outcome === 'cancelled' ? { status: 'cancelled' as const, activeKey: null } : {}),
             });
             return { booking, outcome };
@@ -726,44 +880,60 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
             status: status.slice(0, 60),
             outcome,
         });
-        await this.moveOrder(ctx, booking, outcome);
     }
 
-    /** The order follows the parcel, through the same actions staff use (a missed pickup is filled in). */
-    private async moveOrder(ctx: RequestContext, booking: BdCourierBooking, outcome: string) {
-        const ship = async () => {
-            const order = await this.orderService.findOne(ctx, booking.orderId);
-            if (order?.state !== 'Packed') return;
-            const result = await this.orderActions.markShipped(ctx, {
+    /** The order follows its parcel; if it can't now, the next poll tries again soon. */
+    private async follow(ctx: RequestContext, bookingId: ID) {
+        const repository = this.connection.getRepository(ctx, BdCourierBooking);
+        const booking = await repository.findOne({ where: { id: bookingId } });
+        if (!booking || booking.status !== 'booked' || (await this.moveOrder(ctx, booking))) return;
+        await repository.update(
+            { id: booking.id, status: 'booked' },
+            { nextPollAt: new Date(Date.now() + RETRY_EVERY_MS) },
+        );
+    }
+
+    /**
+     * Moves the order to where its parcel is, through the same actions staff use (a missed pickup is
+     * filled in). Safe to repeat: it acts only where the order lags. Returns whether the order is
+     * where it should be (or can't move any more).
+     */
+    private async moveOrder(ctx: RequestContext, booking: BdCourierBooking): Promise<boolean> {
+        const goal = booking.outcome;
+        if (goal !== 'pickedUp' && goal !== 'delivered' && goal !== 'returned') return true;
+        const state = async () => (await this.orderService.findOne(ctx, booking.orderId))?.state;
+        const warn = (what: string, message: string) => {
+            Logger.warn(`Couldn't mark order ${booking.orderId} ${what}: ${message}`, loggerCtx);
+            return false;
+        };
+        const name = isCourier(booking.courier) ? COURIER_NAMES[booking.courier] : booking.courier;
+        let now = await state();
+        if (!now || SETTLED_STATES.includes(now)) return true;
+        if (now === 'Packed') {
+            const shipped = await this.orderActions.markShipped(ctx, {
                 orderId: booking.orderId,
                 expectedStatus: 'packed',
-                shipment: {
-                    method: COURIER_NAMES[booking.courier] ?? booking.courier,
-                    trackingCode: booking.consignmentId ?? '',
-                },
+                shipment: { method: name, trackingCode: booking.consignmentId ?? booking.invoice ?? '' },
             });
-            if (isGraphQlErrorResult(result))
-                Logger.warn(`Couldn't mark order ${booking.orderId} shipped: ${result.message}`, loggerCtx);
-        };
-        if (outcome === 'pickedUp') await ship();
-        if (outcome === 'delivered') {
-            await ship();
-            const result = await this.orderActions.markDelivered(ctx, {
+            if (isGraphQlErrorResult(shipped)) return warn('shipped', shipped.message);
+            now = await state();
+        }
+        if (goal === 'pickedUp') return now !== 'Packed';
+        if (goal === 'delivered' && now === 'Shipped') {
+            const delivered = await this.orderActions.markDelivered(ctx, {
                 orderId: booking.orderId,
                 expectedStatus: 'shipped',
             });
-            if (isGraphQlErrorResult(result))
-                Logger.warn(`Couldn't mark order ${booking.orderId} delivered: ${result.message}`, loggerCtx);
+            if (isGraphQlErrorResult(delivered)) return warn('delivered', delivered.message);
         }
-        if (outcome === 'returned') {
-            await ship();
-            const result = await this.orderActions.markReturned(ctx, {
+        if (goal === 'returned' && (now === 'Shipped' || now === 'PartiallyDelivered')) {
+            const returned = await this.orderActions.markReturned(ctx, {
                 orderId: booking.orderId,
-                note: `Returned by ${COURIER_NAMES[booking.courier] ?? booking.courier} (${booking.courierStatus ?? ''})`,
+                note: `Returned by ${name} (${booking.courierStatus ?? ''})`,
             });
-            if (isGraphQlErrorResult(result))
-                Logger.warn(`Couldn't mark order ${booking.orderId} returned: ${result.message}`, loggerCtx);
+            if (isGraphQlErrorResult(returned)) return warn('returned', returned.message);
         }
+        return SETTLED_STATES.includes((await state()) ?? 'Delivered');
     }
 
     // ── For other plugins and the home page ─────────────────────────────────────────────────
@@ -775,14 +945,14 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
             order: { id: 'DESC' },
         });
         if (!booking?.consignmentId) return null;
-        const known = isCourier(booking.courier);
+        const courier = isCourier(booking.courier) ? booking.courier : null;
         return {
-            courier: known ? COURIER_NAMES[booking.courier] : booking.courier,
+            courier: booking.courierName ?? (courier ? COURIER_NAMES[courier] : booking.courier),
             consignmentId: booking.consignmentId,
             trackingCode: booking.trackingCode,
             trackingUrl:
-                known && booking.status === 'booked'
-                    ? courierTrackingUrl(booking.courier, {
+                courier && booking.status === 'booked'
+                    ? courierTrackingUrl(courier, {
                           consignmentId: booking.consignmentId,
                           trackingCode: booking.trackingCode,
                       })
@@ -796,6 +966,15 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
             (await this.connection
                 .getRepository(ctx, BdCourierBooking)
                 .count({ where: { activeKey: String(orderId) } })) > 0
+        );
+    }
+
+    /** Whether a live booking is waiting because calls to its courier are paused. */
+    waiting(booking: BdCourierBooking): boolean {
+        return (
+            LIVE_BOOKING_STATUSES.includes(booking.status) &&
+            isCourier(booking.courier) &&
+            this.clients.paused(booking.courier, booking.mode)
         );
     }
 
@@ -842,6 +1021,19 @@ export class CourierService implements OnModuleInit, OnApplicationShutdown {
             : undefined;
         return administrator ? `${administrator.firstName} ${administrator.lastName}`.trim() : 'system';
     }
+}
+
+/**
+ * What a failed create call tells us: the driver's reading; calls paused by the circuit breaker or
+ * blocked before sending surely made nothing; anything else (a timeout, a dropped connection) is
+ * unknown.
+ */
+function failureOf(error: unknown): CourierFailure {
+    if (error instanceof CourierError) return error.failure;
+    if (error instanceof HttpError && (error.kind === 'circuit_open' || error.kind === 'blocked')) {
+        return 'notCreated';
+    }
+    return 'unknown';
 }
 
 /** Constant-time comparison of two secrets. */

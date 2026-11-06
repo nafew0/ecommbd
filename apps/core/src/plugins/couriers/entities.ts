@@ -5,7 +5,7 @@ import { Column, Entity, Index, Unique } from 'typeorm';
 /** One courier answer or status, kept for support (JSON text, personal data removed). */
 export interface CourierEvent {
     at: string;
-    /** book, webhook, poll, manual, cancel */
+    /** book, retry, resolve, webhook, poll, manual, cancel, cod */
     source: string;
     status: string;
     data: string;
@@ -13,8 +13,8 @@ export interface CourierEvent {
 
 /**
  * A parcel booked (or being booked) with a courier for an order (phase 19). `activeKey` is the
- * order ID while the booking is live (booking, booked, manual) and null otherwise: unique, so an
- * order can never have two live bookings, however many clicks or retries.
+ * order ID while the booking is live (booking, unconfirmed, booked, manual) and null otherwise:
+ * unique, so an order can never have two live bookings, however many clicks or retries.
  */
 @Entity('bd_courier_booking')
 export class BdCourierBooking extends VendureEntity {
@@ -30,11 +30,24 @@ export class BdCourierBooking extends VendureEntity {
     @Column({ type: 'varchar', length: 20, nullable: true })
     activeKey: string | null;
 
+    /**
+     * steadfast or pathao; `manual` for a parcel booked by hand with another courier (its name is in
+     * `courierName`); empty when bulk booking found no courier for the order.
+     */
     @Column({ type: 'varchar', length: 16 })
-    courier: Courier;
+    courier: Courier | 'manual' | '';
+
+    /** The courier's name as staff typed it, for a booking made by hand (any script, e.g. Bangla). */
+    @Column({ type: 'varchar', length: 60, nullable: true })
+    courierName: string | null;
 
     @Column({ type: 'varchar', length: 8 })
     mode: CourierMode;
+
+    /** Our order number as the courier knows it (Steadfast's invoice, Pathao's merchant_order_id). */
+    @Index()
+    @Column({ type: 'varchar', length: 40, nullable: true })
+    invoice: string | null;
 
     @Index()
     @Column({ type: 'varchar', length: 12 })
@@ -51,6 +64,14 @@ export class BdCourierBooking extends VendureEntity {
     /** Poisha, whole taka: what the courier collects. */
     @Column({ type: 'int' })
     codAmount: number;
+
+    /**
+     * Poisha: what the courier should collect now, when it changed after booking (an advance
+     * verified or refunded). Staff change the parcel in the courier's panel, then confirm: it
+     * becomes `codAmount`. Null when nothing changed.
+     */
+    @Column({ type: 'int', nullable: true })
+    newCodAmount: number | null;
 
     @Column({ type: 'int', nullable: true })
     weightGrams: number | null;
@@ -87,7 +108,10 @@ export class BdCourierBooking extends VendureEntity {
     @Column({ type: 'varchar', length: 120, nullable: true })
     bookedBy: string | null;
 
-    /** The polling task's next look (active parcels only). */
+    /**
+     * The polling task's next look: active parcels, an order that didn't follow its parcel yet, and
+     * unconfirmed bookings to try again.
+     */
     @Index()
     @Column({ type: 'timestamp', precision: 6, nullable: true })
     nextPollAt: Date | null;

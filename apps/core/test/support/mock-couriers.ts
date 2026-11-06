@@ -3,9 +3,16 @@ import http from 'node:http';
 
 /**
  * A stand-in for Steadfast and Pathao (phase 19) for end-to-end tests: their documented endpoints
- * and answers, with switches for refusals, an expired token, and status changes. Pathao is under
- * `/pathao`, Steadfast under `/steadfast`.
+ * and answers, with switches for refusals, an expired token, unclear answers to a create call, and
+ * status changes. Pathao is under `/pathao`, Steadfast under `/steadfast`.
  */
+
+/**
+ * How the next create calls go wrong: `drop` makes the parcel then drops the connection (like a
+ * timeout after the courier acted), `error500` makes it then answers 500, `tooMany` answers 429
+ * without making it.
+ */
+export type CreateTrouble = 'drop' | 'error500' | 'tooMany';
 
 export const STEADFAST_CREDENTIALS = { apiKey: 'sf-key', secretKey: 'sf-secret' };
 export const PATHAO_CREDENTIALS = {
@@ -30,6 +37,12 @@ export class MockCouriers {
     /** The next Pathao calls answer 401 once (an expired token). */
     expirePathaoToken = false;
     tokensIssued = 0;
+    /** Trouble for the next create calls, one per call, either courier. */
+    readonly createTrouble: CreateTrouble[] = [];
+    /** Create calls received (Steadfast and Pathao). */
+    createCalls = 0;
+    /** Steadfast's status_by_invoice answers 500 while set. */
+    invoiceLookupDown = false;
     private server?: http.Server;
     private nextId = 1000;
 
@@ -56,10 +69,24 @@ export class MockCouriers {
         return [...this.parcels.values()].find(parcel => parcel.invoice === invoice);
     }
 
+    /** Steadfast's parcel for an invoice (its status_by_invoice). */
+    private steadfastByInvoice(invoice: string): MockParcel | undefined {
+        return [...this.parcels.values()].find(p => p.courier === 'steadfast' && p.invoice === invoice);
+    }
+
     private handle(req: http.IncomingMessage, res: http.ServerResponse, raw: string) {
         const json = (status: number, value: unknown) => {
             res.writeHead(status, { 'content-type': 'application/json' });
             res.end(JSON.stringify(value));
+        };
+        /** Answers a create call that made `parcel`, unless trouble was asked for. */
+        const created = (parcel: MockParcel | null, answer: () => void) => {
+            const trouble = this.createTrouble.shift();
+            if (trouble === 'tooMany') return json(429, { message: 'Too Many Attempts.' });
+            if (parcel) this.parcels.set(`${parcel.courier}:${parcel.consignmentId}`, parcel);
+            if (trouble === 'drop') return req.socket.destroy();
+            if (trouble === 'error500') return json(500, { message: 'Server Error' });
+            answer();
         };
         const url = new URL(req.url ?? '/', this.url);
         const input = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
@@ -74,6 +101,7 @@ export class MockCouriers {
             const path = url.pathname.replace('/steadfast/', '');
             if (path === 'get_balance') return json(200, { status: 200, current_balance: 0 });
             if (path === 'create_order') {
+                this.createCalls++;
                 if (this.refusePhones.has(String(input.recipient_phone))) {
                     return json(422, {
                         status: 400,
@@ -88,17 +116,26 @@ export class MockCouriers {
                     body: input,
                     status: 'in_review',
                 };
-                this.parcels.set(`steadfast:${id}`, parcel);
-                return json(200, {
-                    status: 200,
-                    message: 'Consignment has been created successfully.',
-                    consignment: {
-                        consignment_id: Number(id),
-                        invoice: input.invoice,
-                        tracking_code: `SF${id}`,
-                        status: 'in_review',
-                    },
-                });
+                return created(parcel, () =>
+                    json(200, {
+                        status: 200,
+                        message: 'Consignment has been created successfully.',
+                        consignment: {
+                            consignment_id: Number(id),
+                            invoice: input.invoice,
+                            tracking_code: `SF${id}`,
+                            status: 'in_review',
+                        },
+                    }),
+                );
+            }
+            const byInvoice = /^status_by_invoice\/(.+)$/.exec(path);
+            if (byInvoice) {
+                if (this.invoiceLookupDown) return json(500, { message: 'Server Error' });
+                const parcel = this.steadfastByInvoice(decodeURIComponent(byInvoice[1]!));
+                return parcel
+                    ? json(200, { status: 200, delivery_status: parcel.status })
+                    : json(404, { status: 404, message: 'Consignment not found' });
             }
             const match = /^status_by_cid\/(\w+)$/.exec(path);
             if (match) {
@@ -161,6 +198,7 @@ export class MockCouriers {
                     data: { data: [{ store_id: 555, store_name: 'Main store' }] },
                 });
             if (path === 'orders' && req.method === 'POST') {
+                this.createCalls++;
                 if (this.refusePhones.has(String(input.recipient_phone))) {
                     return json(422, {
                         code: 422,
@@ -169,23 +207,25 @@ export class MockCouriers {
                     });
                 }
                 const id = `DL${this.nextId++}PATH`;
-                this.parcels.set(`pathao:${id}`, {
+                const parcel: MockParcel = {
                     courier: 'pathao',
                     consignmentId: id,
                     invoice: String(input.merchant_order_id),
                     body: input,
                     status: 'Pending',
-                });
-                return json(200, {
-                    code: 200,
-                    message: 'Order Created Successfully',
-                    data: {
-                        consignment_id: id,
-                        merchant_order_id: input.merchant_order_id,
-                        order_status: 'Pending',
-                        delivery_fee: 60,
-                    },
-                });
+                };
+                return created(parcel, () =>
+                    json(200, {
+                        code: 200,
+                        message: 'Order Created Successfully',
+                        data: {
+                            consignment_id: id,
+                            merchant_order_id: input.merchant_order_id,
+                            order_status: 'Pending',
+                            delivery_fee: 60,
+                        },
+                    }),
+                );
             }
             const info = /^orders\/(\w+)\/info$/.exec(path);
             if (info) {

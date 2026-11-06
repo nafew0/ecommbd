@@ -158,7 +158,7 @@ export function CourierSettingsPage() {
                             }
                         />
                         <div className="grid gap-4 sm:grid-cols-2">
-                            <Field label={c.mode}>
+                            <Field label={c.mode} hint={c.modeHint}>
                                 {control => (
                                     <Select
                                         {...control}

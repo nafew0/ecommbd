@@ -1,4 +1,4 @@
-import { COURIERS } from '@ecommbd/shared/couriers';
+import { COURIERS, LIVE_BOOKING_STATUSES } from '@ecommbd/shared/couriers';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
@@ -17,11 +17,15 @@ import { Badge, type BadgeTone, Card, CardBody, CardHeader } from '../ui/misc';
 interface Booking {
     id: string;
     courier: string;
+    courierName: string | null;
+    invoice: string | null;
     status: string;
     consignmentId: string | null;
     trackingCode: string | null;
     trackingUrl: string | null;
     codAmount: number;
+    newCodAmount: number | null;
+    waitingForCourier: boolean;
     deliveryFee: number | null;
     outcome: string;
     courierStatus: string | null;
@@ -30,7 +34,7 @@ interface Booking {
     events: Array<{ at: string; source: string; status: string }>;
 }
 
-const FIELDS = `id courier status consignmentId trackingCode trackingUrl codAmount deliveryFee outcome courierStatus errorCode errorMessage events { at source status }`;
+const FIELDS = `id courier courierName invoice status consignmentId trackingCode trackingUrl codAmount newCodAmount waitingForCourier deliveryFee outcome courierStatus errorCode errorMessage events { at source status }`;
 const BOOKING = `query ($orderId: ID!) { bdCourierBooking(orderId: $orderId) { ${FIELDS} } }`;
 const RESULT = `... on BdCourierBooking { ${FIELDS} } ... on BdCourierError { reason message detail }`;
 const BOOK = `mutation ($orderId: ID!, $courier: String) { bookBdCourier(orderId: $orderId, courier: $courier) { ${RESULT} } }`;
@@ -39,6 +43,10 @@ const MANUAL = `mutation ($orderId: ID!, $courierName: String!, $trackingCode: S
 }`;
 const CANCEL = `mutation ($orderId: ID!) { cancelBdCourierBooking(orderId: $orderId) { ${RESULT} } }`;
 const CHECK = `mutation ($orderId: ID!) { checkBdCourierStatus(orderId: $orderId) { ${FIELDS} } }`;
+const RESOLVE = `mutation ($orderId: ID!, $consignmentId: String) {
+    resolveBdCourierBooking(orderId: $orderId, consignmentId: $consignmentId) { ${RESULT} }
+}`;
+const CONFIRM_COD = `mutation ($orderId: ID!) { confirmBdCourierCodUpdated(orderId: $orderId) { ${RESULT} } }`;
 
 type Result = Booking | { reason: string; message: string; detail?: string | null };
 
@@ -52,10 +60,16 @@ const TONES: Record<string, BadgeTone> = {
     note: 'slate',
 };
 
+/** Couriers the server can ask about an order by its number after an unclear booking (Steadfast). */
+const LOOKS_UP_BY_INVOICE = ['steadfast'];
+
 /**
  * The order's courier (roadmap phase 19): book it (Confirmed or Packed), its consignment and status,
  * the courier's tracking page, "Check status now", cancel before pickup, and a booking made by hand
- * when a courier's system is down. The server checks BookCourier; buttons only follow it.
+ * when a courier's system is down. A booking with no clear answer from the courier stays live
+ * ("not confirmed yet"): checked again with the courier, or (Pathao) staff look in its panel and
+ * say. When the cash to collect changes after booking, staff are asked to change it at the courier.
+ * The server checks BookCourier; buttons only follow it.
  */
 export function OrderCourier({
     orderId,
@@ -77,6 +91,7 @@ export function OrderCourier({
     const [courier, setCourier] = useState('');
     const [busy, setBusy] = useState<string | null>(null);
     const [manual, setManual] = useState<{ name: string; code: string } | null>(null);
+    const [found, setFound] = useState('');
     const query = useQuery({
         queryKey: ['courierBooking', orderId],
         queryFn: () =>
@@ -85,9 +100,14 @@ export function OrderCourier({
             ),
     });
     const booking = query.data;
-    const live = booking && ['booking', 'booked', 'manual'].includes(booking.status);
+    const live = !!booking && (LIVE_BOOKING_STATUSES as readonly string[]).includes(booking.status);
     const bookable = !live && (status === 'confirmed' || status === 'packed');
     const name = (value: string) => m.couriers.names[value] ?? value;
+    const courierLabel = booking ? (booking.courierName ?? name(booking.courier)) : '';
+    const unconfirmed = booking?.status === 'unconfirmed';
+    // No clear answer and the courier can't be asked by order number: staff look in its panel.
+    const askStaff =
+        unconfirmed && booking.errorCode !== 'COURIER_BUSY' && !LOOKS_UP_BY_INVOICE.includes(booking.courier);
 
     const run = async (
         key: string,
@@ -105,6 +125,7 @@ export function OrderCourier({
             } else {
                 toast.success(success);
                 setManual(null);
+                setFound('');
             }
             await query.refetch();
             onChanged();
@@ -123,10 +144,14 @@ export function OrderCourier({
                 {booking && (live || booking.status === 'failed' || booking.status === 'cancelled') && (
                     <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium">{name(booking.courier)}</span>
+                            <span className="font-medium">{courierLabel}</span>
                             <Badge
                                 tone={
-                                    booking.status === 'failed' ? 'red' : (TONES[booking.outcome] ?? 'slate')
+                                    booking.status === 'failed'
+                                        ? 'red'
+                                        : unconfirmed
+                                          ? 'amber'
+                                          : (TONES[booking.outcome] ?? 'slate')
                                 }
                             >
                                 {booking.status === 'booked'
@@ -144,6 +169,107 @@ export function OrderCourier({
                                 )}
                                 {booking.errorMessage && ` (${booking.errorMessage})`}
                             </p>
+                        )}
+                        {booking.waitingForCourier && (
+                            <p className="text-sm text-amber-800">{o.waiting(courierLabel)}</p>
+                        )}
+                        {unconfirmed && !booking.waitingForCourier && (
+                            <p className="text-sm text-amber-800">
+                                {booking.errorCode === 'COURIER_BUSY'
+                                    ? o.busy(courierLabel)
+                                    : askStaff
+                                      ? o.checkPanel(courierLabel, booking.invoice ?? '')
+                                      : o.unclear(courierLabel)}
+                            </p>
+                        )}
+                        {unconfirmed && canBook && !askStaff && (
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                loading={busy === 'retry'}
+                                onClick={() =>
+                                    void run('retry', BOOK, { orderId }, 'bookBdCourier', o.booked)
+                                }
+                            >
+                                {booking.errorCode === 'COURIER_BUSY' ? o.retry : o.checkAgain}
+                            </Button>
+                        )}
+                        {askStaff && canBook && (
+                            <div className="flex flex-wrap items-end gap-2">
+                                <Field label={o.foundId}>
+                                    {control => (
+                                        <Input
+                                            {...control}
+                                            maxLength={60}
+                                            value={found}
+                                            onChange={event => setFound(event.target.value)}
+                                            className="w-56"
+                                        />
+                                    )}
+                                </Field>
+                                <Button
+                                    size="sm"
+                                    disabled={!found.trim()}
+                                    loading={busy === 'link'}
+                                    onClick={() =>
+                                        void run(
+                                            'link',
+                                            RESOLVE,
+                                            { orderId, consignmentId: found.trim() },
+                                            'resolveBdCourierBooking',
+                                            o.linked,
+                                        )
+                                    }
+                                >
+                                    {o.linkParcel}
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    loading={busy === 'notThere'}
+                                    onClick={async () => {
+                                        if (await confirm({ title: o.notThere, body: o.notThereConfirm })) {
+                                            void run(
+                                                'notThere',
+                                                RESOLVE,
+                                                { orderId, consignmentId: null },
+                                                'resolveBdCourierBooking',
+                                                o.statuses.failed ?? '',
+                                            );
+                                        }
+                                    }}
+                                >
+                                    {o.notThere}
+                                </Button>
+                            </div>
+                        )}
+                        {live && booking.newCodAmount !== null && (
+                            <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm">
+                                <p className="text-amber-900">
+                                    {o.codChanged(
+                                        format.money(booking.codAmount),
+                                        format.money(booking.newCodAmount),
+                                    )}
+                                </p>
+                                {canBook && (
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        loading={busy === 'cod'}
+                                        onClick={() =>
+                                            void run(
+                                                'cod',
+                                                CONFIRM_COD,
+                                                { orderId },
+                                                'confirmBdCourierCodUpdated',
+                                                o.codConfirmed,
+                                            )
+                                        }
+                                    >
+                                        {o.codUpdated}
+                                    </Button>
+                                )}
+                            </div>
                         )}
                         {booking.status === 'failed' && booking.errorCode === 'UNMAPPED_ADDRESS' && (
                             <Link to="/orders/unmapped-addresses" className="text-sm text-teal-800 underline">
@@ -199,7 +325,7 @@ export function OrderCourier({
                                     {o.checkNow}
                                 </Button>
                             )}
-                            {live && booking.outcome === 'booked' && canBook && (
+                            {live && !unconfirmed && booking.outcome === 'booked' && canBook && (
                                 <Button
                                     size="sm"
                                     variant="secondary"
@@ -233,7 +359,9 @@ export function OrderCourier({
                                         >
                                             <span>
                                                 {event.status}{' '}
-                                                <span className="text-slate-500">({event.source})</span>
+                                                <span className="text-slate-500">
+                                                    ({o.sources[event.source] ?? event.source})
+                                                </span>
                                             </span>
                                             <span className="text-slate-500">{ago(event.at)}</span>
                                         </li>
