@@ -679,8 +679,18 @@ export const en = {
         sendTest: 'Send test event',
         testOk: (count: number, trace: string) => `Meta received ${count} event (trace ${trace}).`,
         testFailed: (message: string) => `Meta refused: ${message}`,
-        tokenProblem: (pixel: string, message: string) =>
-            `Meta refused the token of Pixel ${pixel} (${message}). Events are kept for 7 days: save a new token.`,
+        testNeedsCode:
+            'A test event needs a test event code (above): without one it would count as a real visit in your ads data.',
+        testErrors: {
+            noToken: 'Save the Conversions API token first.',
+            noTestCode: 'Enter a test event code from Events Manager → Test events first, and save.',
+        } as Record<string, string>,
+        holds: {
+            token: (pixel: string, message: string) =>
+                `Meta refused the token of Pixel ${pixel} (${message}). Nothing is sent for this Pixel until you save a new token; its events wait up to 7 days.`,
+            pixel: (pixel: string, message: string) =>
+                `Meta refused Pixel ${pixel} (${message}). Check the Pixel ID, and that the token belongs to this Pixel and has permission for it, then save the token again. Nothing is sent for this Pixel until then; its events wait up to 7 days.`,
+        } as Record<string, (pixel: string, message: string) => string>,
         noKeyring: 'Tokens can’t be saved yet: the server needs SECRETS_KEYRING (ask support).',
         saved: 'Meta settings saved',
         version: (version: string) => `Graph API ${version}`,
@@ -698,10 +708,20 @@ export const en = {
                 string
             >,
             time: 'Time',
-            received: (count: number) => `Meta received ${count}`,
+            received: (count: number, batch: number) =>
+                batch > 1 ? `Sent in a batch of ${batch}; Meta received ${count}` : `Meta received it`,
             details: 'Details',
-            payload: 'What was sent (customer data hashed)',
+            payload: 'What was sent: phone, name and email hashed; Meta’s cookie IDs and the page address as they are',
             response: 'Meta’s answer',
+            order: 'Order number',
+            kept: 'Browser events are kept for 7 days and Purchases for 90 days.',
+            errors: {
+                tooOld: 'Older than 7 days: Meta no longer accepts it',
+                backlog: 'Too many events were waiting: older ones were dropped',
+            } as Record<string, string>,
+            previous: 'Previous',
+            next: 'Next',
+            range: (from: number, to: number, total: number) => `${from}–${to} of ${total}`,
         },
     },
     couriers: {
@@ -713,6 +733,8 @@ export const en = {
             on: (name: string) => `Use ${name}`,
             mode: 'Mode',
             modes: { sandbox: 'Sandbox (test)', live: 'Live' } as Record<string, string>,
+            modeHint:
+                'Sandbox and live have their own areas: changing the mode clears Pathao’s saved areas and address matches. Get the areas again after saving.',
             store: 'Pathao store (pickup point)',
             storeHint: 'Save the Pathao credentials first, then choose your store.',
             noStores: 'No stores found. Check the credentials and mode.',
@@ -776,6 +798,7 @@ export const en = {
             } as Record<string, string>,
             statuses: {
                 booking: 'Booking…',
+                unconfirmed: 'Not confirmed yet',
                 booked: 'Booked',
                 failed: 'Booking failed',
                 cancelled: 'Cancelled',
@@ -798,16 +821,53 @@ export const en = {
             retry: 'Try again',
             mapAddress: 'Match the address',
             history: 'Courier updates',
+            sources: {
+                book: 'booking',
+                retry: 'checked again',
+                resolve: 'checked by staff',
+                webhook: 'courier update',
+                poll: 'status check',
+                manual: 'booked by hand',
+                cancel: 'cancelled',
+                cod: 'cash to collect',
+            } as Record<string, string>,
+            waiting: (name: string) =>
+                `Waiting for ${name}: its system isn’t answering, so calls are paused for a few minutes. Bookings are tried again on their own.`,
+            busy: (name: string) =>
+                `${name} is busy or not answering. Nothing was booked yet: it’s tried again on its own every 10 minutes, or now with “Try again”.`,
+            unclear: (name: string) =>
+                `${name} gave no clear answer, so the parcel may already exist. Before booking again we ask ${name} whether it has this order (on its own every 10 minutes, or now with “Check again”).`,
+            checkAgain: 'Check again',
+            checkPanel: (name: string, invoice: string) =>
+                `${name} gave no clear answer, so the parcel may already exist, and ${name} can’t be asked by order number. Look for order ${invoice} in ${name}’s merchant panel.`,
+            foundId: 'Consignment ID in the panel',
+            linkParcel: 'It’s there: link it',
+            notThere: 'It isn’t there',
+            notThereConfirm:
+                'Only if the order isn’t in the courier’s panel: the booking is marked failed and you can book again.',
+            linked: 'Parcel linked',
+            codChanged: (from: string, to: string) =>
+                `The cash to collect changed after booking (a payment was verified or refunded): ${from} → ${to}. The courier still has ${from}: change it in the courier’s panel, then confirm here.`,
+            codUpdated: 'Changed in the courier’s panel',
+            codConfirmed: 'Cash to collect updated',
         },
         bulk: {
             button: 'Book courier',
-            queued: (count: number) => `Booking ${count} orders. Refresh in a moment to see each one.`,
+            queued: (count: number) => `Booking ${count} orders in the background.`,
             defaultCourier: 'Default courier',
+            title: 'Courier booking',
+            progress: (done: number, total: number) => `${done} of ${total} done`,
+            booked: (count: number) => `${count} booked`,
+            failed: (count: number) => `${count} not booked`,
+            waiting: (count: number) => `${count} waiting for the courier`,
+            failedList: 'Not booked, and why',
+            order: (number: string) => `Order ${number}`,
+            close: 'Close',
         },
         unmapped: {
             title: 'Unmapped addresses',
             description:
-                'Thanas Pathao couldn’t match by name. Choose Pathao’s city and zone once: every later order to that thana books on its own.',
+                'Thanas Pathao couldn’t match by name. Choose Pathao’s city and zone once: the waiting orders are booked now, and later orders to that thana can be booked with Pathao as usual.',
             empty: 'Every address is matched.',
             orders: (count: number) => `${count} order${count === 1 ? '' : 's'} waiting`,
             city: 'Pathao city',
@@ -830,7 +890,9 @@ export const en = {
             NO_PHONE: 'The order has no phone number.',
             NO_PATHAO_STORE: 'Choose your Pathao store in Settings → Couriers.',
             COURIER_REFUSED: 'The courier refused the parcel.',
-            COURIER_UNAVAILABLE: 'The courier isn’t answering.',
+            COURIER_UNAVAILABLE: 'The courier gave no clear answer: the parcel may already exist.',
+            COURIER_BUSY: 'The courier is busy or not answering: tried again shortly.',
+            CHECK_COURIER_PANEL: 'Check the courier’s panel, then say whether the parcel is there.',
             ALREADY_BOOKED: 'This order is already booked.',
             NOT_BOOKED: 'This order has no courier booking.',
             ALREADY_PICKED_UP: 'Already picked up: it can only come back as a return.',
@@ -862,6 +924,12 @@ export const en = {
         test: 'Test connection',
         testOk: 'Connected: the gateway accepted these credentials.',
         testFailed: (message: string) => `The gateway refused: ${message}`,
+        /** Why "Test connection" failed, by the server's reason code; the gateway's own words follow. */
+        testFailures: {
+            missingCredentials: 'Save all the credentials for this mode first.',
+            refused: 'The gateway refused these credentials.',
+            unreachable: 'The gateway couldn’t be reached. Try again in a few minutes.',
+        } as Record<string, string>,
         incomplete: 'Enter every field for this mode before turning the gateway on.',
         sandboxWarning:
             'Sandbox mode: shoppers can’t pay real money. Switch to Live with your live credentials.',
@@ -898,6 +966,8 @@ export const en = {
             refunding: 'Refund processing',
             refundingHint:
                 'The gateway accepted the refund and is still processing it. We check it every few minutes. Mark it resolved only after you see it finished in the gateway’s panel.',
+            refundUnknownHint:
+                'The gateway didn’t answer the refund request, so it may have gone through. Don’t refund again: check the gateway’s panel, then mark it resolved. bKash refunds are also checked every few minutes.',
             paid: 'Amount paid',
             transaction: 'Gateway transaction',
             accept: 'Accept payment',
