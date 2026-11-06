@@ -16,9 +16,9 @@ import type { PurchaseTrigger } from '@ecommbd/shared';
 import { BdCheckoutPlugin } from '../bd-checkout';
 import { BdOrderConfirmedEvent } from '../bd-orders';
 import { metaAdminApiExtensions, metaShopApiExtensions } from './api';
-import { loggerCtx, META_OPTIONS } from './constants';
+import { EVENTS_ROUTE, loggerCtx, META_OPTIONS, SEND_TASK_TIMEOUT_MS } from './constants';
 import { BdMetaEvent } from './entities';
-import { MetaEventsController } from './events.controller';
+import { MetaEventsController, metaEventsBodyParser } from './events.controller';
 import { MetaService } from './meta.service';
 import { MetaSettingsService } from './meta-settings.service';
 import { MetaAdminResolver, MetaShopResolver } from './resolvers';
@@ -39,13 +39,21 @@ const orderFields: CustomFieldConfig[] = [
         length: 64,
         label: text('Shopper IP (kept 90 days)', 'ক্রেতার আইপি (৯০ দিন)'),
     },
-    { ...hidden, name: 'metaUserAgent', length: 400, label: text('Shopper browser', 'ক্রেতার ব্রাউজার') },
+    {
+        ...hidden,
+        name: 'metaUserAgent',
+        length: 400,
+        label: text('Shopper browser (kept 90 days)', 'ক্রেতার ব্রাউজার (৯০ দিন)'),
+    },
 ];
 
 const sendTask = new ScheduledTask({
     id: 'bd-send-meta-events',
     description: 'Send queued Meta events (Conversions API)',
     schedule: '* * * * *',
+    // Vendure's default (60 s) would let the next run start while a slow one still sends. A run stops
+    // starting batches after 40 s (SEND_LIMITS), so this is never reached; events are leased anyway.
+    timeout: SEND_TASK_TIMEOUT_MS,
     async execute({ injector }) {
         return { sent: await injector.get(MetaService).send() };
     },
@@ -53,7 +61,7 @@ const sendTask = new ScheduledTask({
 
 const retentionTask = new ScheduledTask({
     id: 'bd-meta-retention',
-    description: 'Delete old Meta events and shopper IP addresses older than 90 days',
+    description: 'Delete old Meta events, and shopper IP addresses and browsers older than 90 days',
     schedule: '30 2 * * *',
     async execute({ injector }) {
         return { removed: await injector.get(MetaService).retention() };
@@ -81,6 +89,11 @@ const retentionTask = new ScheduledTask({
     configuration: config => {
         config.customFields.Order = [...(config.customFields.Order ?? []), ...orderFields];
         config.schedulerOptions.tasks = [...(config.schedulerOptions.tasks ?? []), sendTask, retentionTask];
+        // The events route reads at most 8 KB of body, before NestJS's own parser (which allows 100 KB).
+        config.apiOptions.middleware = [
+            ...(config.apiOptions.middleware ?? []),
+            { route: `/${EVENTS_ROUTE}`, handler: metaEventsBodyParser, beforeListen: true },
+        ];
         config.settingsStoreFields = {
             ...config.settingsStoreFields,
             metaCapi: [
@@ -126,9 +139,10 @@ export class MetaCapiPlugin implements OnApplicationBootstrap {
                 void this.meta
                     .purchase(event.ctx, event.order.id, trigger)
                     .catch(error => Logger.error(`Could not queue Purchase: ${String(error)}`, loggerCtx));
-        // Placed: at once, or for an online order once it's paid (phase 18).
+        // Placed: at once, or for an online order once it's paid (phase 18). The state the order is
+        // placed into, from the event itself (the order object may already have moved on).
         this.eventBus.ofType(OrderPlacedEvent).subscribe(event => {
-            if (event.order.state !== 'AwaitingPayment') purchase('placed')(event);
+            if (event.toState !== 'AwaitingPayment') purchase('placed')(event);
         });
         this.eventBus.ofType(OrderStateTransitionEvent).subscribe(event => {
             if (event.fromState === 'AwaitingPayment' && event.toState !== 'Cancelled')

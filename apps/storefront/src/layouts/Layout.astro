@@ -18,6 +18,7 @@ import { jsonLd } from '../lib/seo';
 import { storeName } from '../lib/store';
 import { sameOriginAssetUrl } from '../lib/urls';
 import { env } from '../env';
+import { isPrivateMetaPath } from '@ecommbd/shared/meta-url';
 
 interface Props {
     /** The page's own title; the store name is added after it. */
@@ -77,8 +78,10 @@ const phone = settings.profile.phones[0];
 // The theme (phase 15): data attributes switch its look; custom colours come in a small stylesheet.
 const theme = Astro.locals.theme;
 const preview = Astro.locals.preview;
-// Previews (the page editor) are never tracked.
-const trackMeta = !preview && (Astro.locals.meta?.pixelIds.length ?? 0) > 0;
+// Previews (the page editor) are never tracked, nor private pages (tracking and payment links carry
+// secrets in their address; the account is the shopper's own): no Meta script or Pixel there at all.
+const trackMeta =
+    !preview && (Astro.locals.meta?.pixelIds.length ?? 0) > 0 && !isPrivateMetaPath(Astro.url.pathname);
 const editorOrigin = preview?.mode === 'editor' ? (env().EDITOR_ORIGIN ?? undefined) : undefined;
 const htmlAttributes = { ...themeAttributes(theme), ...(sales?.font ? { 'data-font': sales.font } : {}) };
 const header = sales?.header ?? 'store';
@@ -161,14 +164,14 @@ const header = sales?.header ?? 'store';
         <PreviewBar />
         {preview?.mode === 'editor' && <PreviewTools />}
         <script>
-            // One script on every page, bundled as a file (a script under 4 KB would be inlined, and the
-            // CSP allows no inline scripts): where the shopper came from (phase 16), and Meta tracking
-            // (phase 20, only on stores with a Pixel).
+            // One script on every page, always a file (Astro inlines a small script without imports; its
+            // dynamic import keeps this one a file, and the CSP allows no inline scripts): where the
+            // shopper came from (phase 16), and Meta tracking (phase 20), a file of its own loaded only
+            // on pages of a store with a Pixel, so stores without one carry none of its code.
             import { recordVisit } from '../scripts/attribution';
-            import { initMeta } from '../scripts/meta';
 
             recordVisit();
-            initMeta();
+            if (document.body.dataset.metaPixels) void import('../scripts/meta').then(meta => meta.initMeta());
         </script>
     </body>
 </html>

@@ -374,10 +374,11 @@ async function placeOrder(shopper: ShopperContext, form: FormData, s: Strings): 
         };
     }
 
+    /** `fields`: where a bad sender number or transaction ID shows (manual payments only). */
     const pay = async (
         method: string,
         metadata: Record<string, unknown>,
-        fields: [CheckoutField, CheckoutField],
+        fields?: [CheckoutField, CheckoutField],
     ) => {
         const result = (await ask(ADD_PAYMENT, { input: { method, metadata } })).addPaymentToOrder;
         if (result.__typename === 'Order')
@@ -388,11 +389,9 @@ async function placeOrder(shopper: ShopperContext, form: FormData, s: Strings): 
     if (payment === 'cod') {
         if (options.advanceAmount > 0 && !advanceDone) {
             // An online advance is paid on the gateway's page after the order is placed.
+            // Online: no sender or transaction ID to get wrong; a refusal shows by the payment choice.
             outcome = onlineAdvance
-                ? await pay(onlineAdvance.methodCode, { purpose: 'advance' }, [
-                      'advanceProvider',
-                      'advanceProvider',
-                  ])
+                ? await pay(onlineAdvance.methodCode, { purpose: 'advance' })
                 : await pay(
                       account(v.advanceProvider)!.methodCode,
                       {
@@ -404,9 +403,9 @@ async function placeOrder(shopper: ShopperContext, form: FormData, s: Strings): 
                   );
             if (outcome.refused) return outcome.refused;
         }
-        outcome = await pay('bd-cod', {}, ['payment', 'payment']);
+        outcome = await pay('bd-cod', {});
     } else if (isOnlineChoice(payment)) {
-        outcome = await pay(gateway(payment)!.methodCode, { purpose: 'full' }, ['payment', 'payment']);
+        outcome = await pay(gateway(payment)!.methodCode, { purpose: 'full' });
     } else {
         outcome = await pay(
             account(payment)!.methodCode,
@@ -464,9 +463,11 @@ async function checkOtp(
 async function refused(
     shopper: ShopperContext,
     result: { __typename: string; message?: string; paymentErrorMessage?: string },
-    [sender, transaction]: [CheckoutField, CheckoutField],
+    fields: [CheckoutField, CheckoutField] | undefined,
     s: Strings,
 ): Promise<PlaceOutcome> {
+    // Without sender and transaction fields (cash on delivery, online), every refusal shows by the payment choice.
+    const [sender, transaction] = fields ?? ['payment', 'payment'];
     await shopQuery(TO_STATE, { state: 'AddingItems' }, shopper.lang, shopper).catch(() => undefined);
     const order = await activeOrder(shopper);
     const declined = [...(order?.payments ?? [])].reverse().find(item => item.state === 'Declined');

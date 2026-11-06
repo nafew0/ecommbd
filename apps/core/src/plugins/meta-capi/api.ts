@@ -37,8 +37,12 @@ export const metaAdminApiExtensions = gql`
         tokenSaved: Boolean!
     }
 
-    type BdMetaTokenProblem {
+    "A Pixel whose events are held until a new token is saved (or a test event works)"
+    type BdMetaPixelHold {
         pixelId: String!
+        "token: Meta refused the token; pixel: Meta refused the Pixel (wrong ID or no permission)"
+        kind: String!
+        "Meta's own message"
         message: String!
         at: DateTime!
     }
@@ -47,8 +51,8 @@ export const metaAdminApiExtensions = gql`
         "MetaSettings from @ecommbd/shared"
         settings: JSON!
         pixels: [BdMetaPixel!]!
-        "A token Meta refused: sending is paused until a new one is saved"
-        tokenProblem: BdMetaTokenProblem
+        "Pixels whose events are held: nothing is sent for them until a new token is saved"
+        holds: [BdMetaPixelHold!]!
         keyringConfigured: Boolean!
         graphVersion: String!
     }
@@ -60,6 +64,9 @@ export const metaAdminApiExtensions = gql`
 
     type BdMetaTestResult {
         ok: Boolean!
+        "Why it didn't work: noToken, noTestCode (a test event needs one) or refused (Meta's message)"
+        code: String
+        "Meta's own message"
         message: String
         eventsReceived: Int
         fbtraceId: String
@@ -79,8 +86,9 @@ export const metaAdminApiExtensions = gql`
         eventTime: DateTime!
         "What was sent: hashed customer data only"
         payload: JSON!
-        "Meta's answer: events_received, fbtrace_id, messages"
+        "Meta's answer to the request that carried it: events_received (of batch_size), fbtrace_id, messages"
         response: JSON
+        "Meta's message, or ours: tooOld (over Meta's 7 days), backlog (dropped from a large backlog)"
         error: String
         attempts: Int!
         sentAt: DateTime
@@ -93,7 +101,8 @@ export const metaAdminApiExtensions = gql`
 
     extend type Query {
         bdMetaSetup: BdMetaSetup!
-        bdMetaEvents(eventName: String, status: String, skip: Int, take: Int): BdMetaEventList!
+        "Newest first. order: an order code or number"
+        bdMetaEvents(eventName: String, status: String, order: String, skip: Int, take: Int): BdMetaEventList!
     }
 
     extend type Mutation {

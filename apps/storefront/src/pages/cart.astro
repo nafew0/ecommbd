@@ -4,6 +4,7 @@ import Layout from '../layouts/Layout.astro';
 import { activeOrder, applyCartCookies, cartAction, type CartActionResult, shopperContext } from '../lib/cart';
 import { isSameSite } from '../lib/csrf';
 import { canonicalRedirect, pageContext, privatePage } from '../lib/page';
+import { metaAddedCookie, metaAddedValue } from '../lib/meta';
 
 /**
  * The cart page (roadmap phase 14), also where product pages' forms post without JavaScript:
@@ -18,11 +19,15 @@ const shopper = shopperContext(Astro);
 let result: CartActionResult | null = null;
 if (Astro.request.method === 'POST') {
     if (!isSameSite(Astro.request)) return new Response(null, { status: 403 });
-    result = await cartAction(shopper, await Astro.request.formData(), s);
+    const form = await Astro.request.formData();
+    result = await cartAction(shopper, form, s);
     if (!result.message) {
         // Post, redirect, get: a reload doesn't add the item again.
         const headers = new Headers({ location: href(result.intent === 'buy' ? '/checkout/' : '/cart/') });
         applyCartCookies(headers, shopper, result.order);
+        // Meta (phase 20): the next page's tracker sends AddToCart, now that the add worked.
+        const added = metaAddedValue(Astro.locals.meta, result, form);
+        if (added) headers.append('set-cookie', metaAddedCookie(added));
         return new Response(null, { status: 303, headers });
     }
 }

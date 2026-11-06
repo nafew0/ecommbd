@@ -14,9 +14,21 @@ import { mergeDefaults } from '../bd-core';
 import { loggerCtx, META_OPTIONS, META_SECRETS_KEY, META_SETTINGS_KEY, META_STATUS_KEY } from './constants';
 import type { MetaCapiPluginOptions } from './types';
 
+/**
+ * A Pixel whose events are held: Meta refused its token (`token`, code 190) or the Pixel itself
+ * (`pixel`: a wrong Pixel ID or a token without permission for it). Nothing is sent for it until
+ * a new token is saved or "Send test event" works again; its events wait (up to Meta's 7 days).
+ */
+export interface MetaPixelHold {
+    pixelId: string;
+    kind: 'token' | 'pixel';
+    /** Meta's own message (English), shown inside our bilingual warning. */
+    message: string;
+    at: string;
+}
+
 export interface MetaStatus {
-    /** A token Meta refused (code 190), until a send works again. */
-    tokenProblem: { pixelId: string; message: string; at: string } | null;
+    holds: MetaPixelHold[];
 }
 
 /**
@@ -85,15 +97,36 @@ export class MetaSettingsService {
         };
         const saved = await this.settingsStore.set(ctx, META_SECRETS_KEY, tokens);
         if (!saved.result) throw new Error(`Could not save the Meta token: ${saved.error}`);
-        await this.setStatus(ctx, { tokenProblem: null });
+        // A new token releases this Pixel's held events (the next run sends them); other Pixels keep theirs.
+        await this.release(ctx, pixelId);
         return [];
     }
 
     async status(ctx: RequestContext): Promise<MetaStatus> {
-        return (await this.settingsStore.get<MetaStatus>(ctx, META_STATUS_KEY)) ?? { tokenProblem: null };
+        const stored = await this.settingsStore.get<
+            Partial<MetaStatus> & { tokenProblem?: Omit<MetaPixelHold, 'kind'> | null }
+        >(ctx, META_STATUS_KEY);
+        if (stored?.holds) return { holds: stored.holds };
+        // Saved before holds (one `tokenProblem`): read as a token hold.
+        return { holds: stored?.tokenProblem ? [{ ...stored.tokenProblem, kind: 'token' }] : [] };
     }
 
-    async setStatus(ctx: RequestContext, status: MetaStatus): Promise<void> {
+    /** Holds a Pixel's events (replacing an earlier hold of the same Pixel). */
+    async hold(ctx: RequestContext, hold: MetaPixelHold): Promise<void> {
+        const { holds } = await this.status(ctx);
+        await this.setStatus(ctx, { holds: [...holds.filter(item => item.pixelId !== hold.pixelId), hold] });
+    }
+
+    /** Ends a Pixel's hold. Returns false when it wasn't held. */
+    async release(ctx: RequestContext, pixelId: string): Promise<boolean> {
+        const { holds } = await this.status(ctx);
+        const rest = holds.filter(item => item.pixelId !== pixelId);
+        if (rest.length === holds.length) return false;
+        await this.setStatus(ctx, { holds: rest });
+        return true;
+    }
+
+    private async setStatus(ctx: RequestContext, status: MetaStatus): Promise<void> {
         await this.settingsStore.set(ctx, META_STATUS_KEY, status);
     }
 }

@@ -25,7 +25,8 @@ import { useToast } from '../lib/toast';
 interface Setup {
     settings: MetaSettings;
     pixels: Array<{ pixelId: string; tokenSaved: boolean }>;
-    tokenProblem: { pixelId: string; message: string } | null;
+    /** Pixels whose events are held until a new token is saved. */
+    holds: Array<{ pixelId: string; kind: string; message: string }>;
     keyringConfigured: boolean;
     graphVersion: string;
 }
@@ -39,16 +40,18 @@ interface MetaEvent {
     source: string;
     status: string;
     payload: unknown;
-    response: { events_received?: number; fbtrace_id?: string } | null;
+    /** Meta's answer to the request that carried this event (with `batch_size` events in it). */
+    response: { events_received?: number; batch_size?: number; fbtrace_id?: string } | null;
     error: string | null;
 }
 
-const SETUP = `{ bdMetaSetup { settings keyringConfigured graphVersion pixels { pixelId tokenSaved } tokenProblem { pixelId message } } }`;
+const SETUP = `{ bdMetaSetup { settings keyringConfigured graphVersion pixels { pixelId tokenSaved } holds { pixelId kind message } } }`;
 const UPDATE = `mutation ($input: JSON!) { updateBdMetaSettings(input: $input) { settings errors { path code } } }`;
 const TOKEN = `mutation ($pixelId: String!, $token: String!) { saveBdMetaToken(pixelId: $pixelId, token: $token) { path code } }`;
-const TEST = `mutation ($pixelId: String!) { sendBdMetaTestEvent(pixelId: $pixelId) { ok message eventsReceived fbtraceId } }`;
-const EVENTS = `query ($eventName: String, $status: String) {
-    bdMetaEvents(eventName: $eventName, status: $status, take: 50) {
+const TEST = `mutation ($pixelId: String!) { sendBdMetaTestEvent(pixelId: $pixelId) { ok code message eventsReceived fbtraceId } }`;
+const PAGE_SIZE = 50;
+const EVENTS = `query ($eventName: String, $status: String, $order: String, $skip: Int) {
+    bdMetaEvents(eventName: $eventName, status: $status, order: $order, skip: $skip, take: ${PAGE_SIZE}) {
         totalItems
         items { id createdAt pixelId eventName eventId source status payload response error }
     }
@@ -113,11 +116,11 @@ export function MetaTrackingPage() {
             <div className="mb-4 space-y-2">
                 {!canEdit && <Alert>{m.payments.settings.readOnly}</Alert>}
                 {!setup.keyringConfigured && <Alert tone="warning">{t.noKeyring}</Alert>}
-                {setup.tokenProblem && (
-                    <Alert tone="error">
-                        {t.tokenProblem(setup.tokenProblem.pixelId, setup.tokenProblem.message)}
+                {setup.holds.map(hold => (
+                    <Alert key={hold.pixelId} tone="error">
+                        {(t.holds[hold.kind] ?? t.holds.token)!(hold.pixelId, hold.message)}
                     </Alert>
-                )}
+                ))}
             </div>
             <form
                 className="space-y-4"
@@ -247,6 +250,7 @@ export function MetaTrackingPage() {
                             key={pixel.pixelId}
                             pixelId={pixel.pixelId}
                             saved={pixel.tokenSaved}
+                            testCode={!!setup.settings.testEventCode}
                             onSaved={() => void queryClient.invalidateQueries({ queryKey: ['metaSetup'] })}
                         />
                     ))}
@@ -258,7 +262,18 @@ export function MetaTrackingPage() {
     );
 }
 
-function TokenCard({ pixelId, saved, onSaved }: { pixelId: string; saved: boolean; onSaved(): void }) {
+function TokenCard({
+    pixelId,
+    saved,
+    testCode,
+    onSaved,
+}: {
+    pixelId: string;
+    saved: boolean;
+    /** A saved test event code: "Send test event" needs one, so it never counts as a real visit. */
+    testCode: boolean;
+    onSaved(): void;
+}) {
     const { messages: m } = useI18n();
     const t = m.meta;
     const toast = useToast();
@@ -282,17 +297,26 @@ function TokenCard({ pixelId, saved, onSaved }: { pixelId: string; saved: boolea
             adminApi<{
                 sendBdMetaTestEvent: {
                     ok: boolean;
+                    code: string | null;
                     message: string | null;
                     eventsReceived: number | null;
                     fbtraceId: string | null;
                 };
             }>(TEST, { pixelId }).then(r => r.sendBdMetaTestEvent),
-        onSuccess: answer =>
+        onSuccess: answer => {
             setResult(
                 answer.ok
                     ? { ok: true, text: t.testOk(answer.eventsReceived ?? 0, answer.fbtraceId ?? '') }
-                    : { ok: false, text: t.testFailed(answer.message ?? '') },
-            ),
+                    : {
+                          ok: false,
+                          text:
+                              (answer.code && t.testErrors[answer.code]) ||
+                              t.testFailed(answer.message ?? ''),
+                      },
+            );
+            // A test that works releases a held Pixel: show the warning gone.
+            if (answer.ok) onSaved();
+        },
         onError: () => toast.error(m.errors.generic),
     });
     return (
@@ -328,12 +352,13 @@ function TokenCard({ pixelId, saved, onSaved }: { pixelId: string; saved: boolea
                             type="button"
                             variant="secondary"
                             loading={test.isPending}
-                            disabled={!saved}
+                            disabled={!saved || !testCode}
                             onClick={() => test.mutate()}
                         >
                             {t.sendTest}
                         </Button>
                     </div>
+                    {saved && !testCode && <p className="text-sm text-slate-600">{t.testNeedsCode}</p>}
                     {result && <Alert tone={result.ok ? 'info' : 'error'}>{result.text}</Alert>}
                 </form>
             </CardBody>
@@ -347,26 +372,36 @@ function EventLog() {
     const ago = useAgo();
     const [eventName, setEventName] = useState('');
     const [status, setStatus] = useState('');
+    const [order, setOrder] = useState('');
+    const [skip, setSkip] = useState(0);
     const query = useQuery({
-        queryKey: ['metaEvents', eventName, status],
+        queryKey: ['metaEvents', eventName, status, order.trim(), skip],
         queryFn: () =>
             adminApi<{ bdMetaEvents: { totalItems: number; items: MetaEvent[] } }>(EVENTS, {
                 eventName: eventName || null,
                 status: status || null,
+                order: order.trim() || null,
+                skip,
             }).then(r => r.bdMetaEvents),
         refetchInterval: 30_000,
     });
     const items = query.data?.items ?? [];
+    const total = query.data?.totalItems ?? 0;
+    // A new filter starts from the first page.
+    const filter = (set: (value: string) => void) => (value: string) => {
+        set(value);
+        setSkip(0);
+    };
     return (
         <Card className="mt-6">
-            <CardHeader title={l.title} />
+            <CardHeader title={l.title} description={l.kept} />
             <CardBody className="space-y-3">
                 <div className="flex flex-wrap gap-2">
                     <Select
                         aria-label={l.event}
                         className="w-48"
                         value={eventName}
-                        onChange={event => setEventName(event.target.value)}
+                        onChange={event => filter(setEventName)(event.target.value)}
                     >
                         <option value="">{l.all}</option>
                         {[...BROWSER_EVENTS, 'Purchase'].map(name => (
@@ -379,7 +414,7 @@ function EventLog() {
                         aria-label={l.status}
                         className="w-48"
                         value={status}
-                        onChange={event => setStatus(event.target.value)}
+                        onChange={event => filter(setStatus)(event.target.value)}
                     >
                         <option value="">{l.allStatuses}</option>
                         {Object.entries(l.statuses).map(([key, label]) => (
@@ -388,6 +423,14 @@ function EventLog() {
                             </option>
                         ))}
                     </Select>
+                    <Input
+                        aria-label={l.order}
+                        placeholder={l.order}
+                        className="w-48"
+                        maxLength={40}
+                        value={order}
+                        onChange={event => filter(setOrder)(event.target.value)}
+                    />
                 </div>
                 {items.length === 0 ? (
                     <p className="text-sm text-slate-600">{l.empty}</p>
@@ -407,10 +450,17 @@ function EventLog() {
                                     <span className="text-slate-500">{ago(event.createdAt)}</span>
                                     {event.response?.events_received !== undefined && (
                                         <span className="text-green-800">
-                                            {l.received(event.response.events_received)}
+                                            {l.received(
+                                                event.response.events_received,
+                                                event.response.batch_size ?? 1,
+                                            )}
                                         </span>
                                     )}
-                                    {event.error && <span className="text-red-700">{event.error}</span>}
+                                    {event.error && (
+                                        <span className="text-red-700">
+                                            {l.errors[event.error] ?? event.error}
+                                        </span>
+                                    )}
                                 </div>
                                 <details className="mt-1">
                                     <summary className="cursor-pointer text-slate-600">{l.details}</summary>
@@ -430,6 +480,29 @@ function EventLog() {
                             </li>
                         ))}
                     </ul>
+                )}
+                {total > PAGE_SIZE && (
+                    <div className="flex items-center gap-2 text-sm">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            disabled={skip === 0}
+                            onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}
+                        >
+                            {l.previous}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            disabled={skip + PAGE_SIZE >= total}
+                            onClick={() => setSkip(skip + PAGE_SIZE)}
+                        >
+                            {l.next}
+                        </Button>
+                        <span className="text-slate-600">
+                            {l.range(skip + 1, Math.min(skip + PAGE_SIZE, total), total)}
+                        </span>
+                    </div>
                 )}
             </CardBody>
         </Card>

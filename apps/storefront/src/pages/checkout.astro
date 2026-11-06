@@ -21,6 +21,7 @@ import { CHECKOUT_SETTINGS, DISTRICTS, THANAS } from '../lib/checkout-queries';
 import { shopQuery } from '../lib/core';
 import { csrfToken, formStamp, isSameSite, verifyCsrf } from '../lib/csrf';
 import { canonicalRedirect, pageContext, privatePage } from '../lib/page';
+import { initiateCheckoutEvent } from '../lib/meta';
 import { LAST_ORDER_COOKIE, lastOrderCookie, parseCookies } from '../lib/session';
 
 /**
@@ -104,27 +105,9 @@ const deliveryKnown = !!values.districtId && !!values.thanaId && shipping.length
 const chosenShipping = order.shippingLines[0]?.shippingMethod.id;
 const cod = values.payment !== '' && !MFS_PROVIDERS.includes(values.payment as never);
 const free = order.bdDelivery.freeDeliveryRemaining;
-// Meta (phase 20): InitiateCheckout when the checkout opens (not on each re-render of the form).
-const metaEvents =
-    Astro.request.method === 'GET'
-        ? [
-              {
-                  name: 'InitiateCheckout',
-                  data: {
-                      content_ids: order.lines.map(line => line.productVariant.id),
-                      contents: order.lines.map(line => ({
-                          id: line.productVariant.id,
-                          quantity: line.quantity,
-                          item_price: Math.round(line.unitPriceWithTax / 100),
-                      })),
-                      content_type: 'product',
-                      num_items: order.lines.reduce((sum, line) => sum + line.quantity, 0),
-                      value: Math.round(order.subTotalWithTax / 100),
-                      currency: 'BDT',
-                  },
-              },
-          ]
-        : [];
+// Meta (phase 20): InitiateCheckout when the checkout opens (not on each re-render of the form), with
+// one ID per cart, so a reload or a return to the checkout doesn't count a new one.
+const metaEvents = Astro.request.method === 'GET' ? [initiateCheckoutEvent(order)] : [];
 ---
 
 {

@@ -6,6 +6,7 @@ import { imageAttributes, largestImageUrl } from '../../../lib/images';
 import { alternates, canonicalRedirect, pageContext } from '../../../lib/page';
 import { loadSalesPage, salesFormData, startingPack, startingVariant } from '../../../lib/sales';
 import { loadSectionData, pageStyle, visibleSections } from '../../../lib/sections';
+import { viewContentEvent } from '../../../lib/meta';
 import { metaDescription } from '../../../lib/seo';
 import { salesPath, salesSlug } from '../../../lib/urls';
 import Sections from '../../../sections/Sections.astro';
@@ -77,6 +78,10 @@ const structuredData = questions.length
 const startPrice = page
     ? (startingPack(page.packs)?.price ?? startingVariant(page.product.variants)?.priceWithTax ?? null)
     : null;
+// Meta (phase 20): ViewContent of the page's product, as on a product page: the variant the order form
+// starts with, at the price shown first (a pack's, when the page sells packs).
+const metaVariant = page ? startingVariant(page.product.variants) : undefined;
+const metaEvents = metaVariant && startPrice != null ? [viewContentEvent(metaVariant.id, startPrice)] : [];
 const sticky =
     settings?.stickyBar && page?.available && startPrice != null && shown.some(section => section.type === 'order-form')
         ? format.price(startPrice)
@@ -105,6 +110,7 @@ const sticky =
                 font: settings.font,
                 sticky,
             }}
+            metaEvents={metaEvents}
         >
             <Sections layout={loaded.layout} data={data} sales={sales} firstIsH1 />
         </Layout>

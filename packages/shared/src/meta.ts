@@ -114,3 +114,57 @@ export const FBC_PATTERN = /^fb\.[0-2]\.\d{10,16}\.[\w-]{1,500}$/;
 export function purchaseEventId(orderCode: string): string {
     return `purchase-${orderCode}`;
 }
+
+/**
+ * The event ID for a checkout's InitiateCheckout: one per cart (its order code), so reloading the
+ * checkout page doesn't count a new checkout.
+ */
+export function checkoutEventId(orderCode: string): string {
+    return `checkout-${orderCode}`;
+}
+
+/**
+ * What Meta's refusal means for sending:
+ * - `token`: the token is revoked or expired (code 190, HTTP 401). Hold the Pixel's events.
+ * - `pixel`: the whole Pixel is refused: a wrong Pixel ID or a token without permission for it
+ *   (codes 10, 200–299 and 803, and 100 with subcode 33 "object does not exist or missing
+ *   permissions"). Sending event by event can't help: hold the Pixel's events too.
+ * - `retry`: Meta is busy or rate-limiting (HTTP 429 and 5xx; codes 1, 2, 4, 17, 32, 341, 613).
+ * - `invalid`: something in the events themselves (code 100 and the rest): find the bad one.
+ * Codes from Meta's Graph API error reference, from memory: check them when moving Graph versions.
+ */
+export type MetaErrorKind = 'token' | 'pixel' | 'retry' | 'invalid';
+
+const RETRY_CODES = new Set([1, 2, 4, 17, 32, 341, 613]);
+
+export function classifyMetaError(status: number, code?: number, subcode?: number): MetaErrorKind {
+    if (code === 190 || status === 401) return 'token';
+    if (code === 10 || code === 803 || (code !== undefined && code >= 200 && code <= 299)) return 'pixel';
+    if (code === 100 && subcode === 33) return 'pixel';
+    if (status === 429 || status >= 500 || (code !== undefined && RETRY_CODES.has(code))) return 'retry';
+    return 'invalid';
+}
+
+/**
+ * Meta's `action_source` for an order, by where it came from: the storefront is `website`; orders
+ * staff enter (phase 05) say how the shopper ordered. Values from Meta's Conversions API reference
+ * (from memory): website, phone_call, chat, physical_store, system_generated, other.
+ */
+export function metaActionSource(orderSource: string | null | undefined): string {
+    switch (orderSource ?? 'web') {
+        case 'web':
+            return 'website';
+        case 'phone':
+            return 'phone_call';
+        case 'messenger':
+        case 'whatsapp':
+        case 'facebookComment':
+            return 'chat';
+        case 'walkIn':
+            return 'physical_store';
+        case 'import':
+            return 'system_generated';
+        default:
+            return 'other';
+    }
+}

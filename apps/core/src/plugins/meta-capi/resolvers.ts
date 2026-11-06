@@ -56,7 +56,7 @@ export class MetaAdminResolver {
         return {
             settings,
             pixels,
-            tokenProblem: (await this.settings.status(ctx)).tokenProblem,
+            holds: (await this.settings.status(ctx)).holds,
             keyringConfigured: this.settings.keyringConfigured,
             graphVersion: META_GRAPH_VERSION,
         };
@@ -89,6 +89,7 @@ export class MetaAdminResolver {
         args: {
             eventName?: string | null;
             status?: string | null;
+            order?: string | null;
             skip?: number | null;
             take?: number | null;
         },

@@ -100,6 +100,8 @@ async function request(init?: RequestInit): Promise<boolean> {
         const response = await fetch(drawerUrl(), { headers: { accept: 'text/html' }, ...init });
         if (!response.ok) return false;
         show(await response.text());
+        // Meta tracking (phase 20), when the store has it, sends AddToCart if the add worked.
+        document.dispatchEvent(new Event('bd:cart-updated'));
         return true;
     } catch {
         return false;
