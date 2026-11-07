@@ -41,6 +41,9 @@ for (const order of fixture.orders)
         order.date_modified_gmt = yesterday;
     }
 
+// A real store's order-number plugin had reached 1,001,102: new orders must continue after it.
+fixture.orders[fixture.orders.length - 1].number = '1001102';
+
 const IMPORT_FILE = gql`
     mutation ImportWooFile($input: [WooFileInput!]!) {
         importWooFile(input: $input)
@@ -124,6 +127,9 @@ describe('WooCommerce export file (WordPress helper "Export to a file")', () => 
         expect((await run('import')).status).toBe('completed');
         expect(await db.rawConnection.getRepository(Product).count()).toBe(fixture.products.length);
         expect(await db.rawConnection.getRepository(Customer).count()).toBe(fixture.customers.length);
+        // The next new order is numbered after the highest WooCommerce number, in one step.
+        const [next] = await db.rawConnection.query("SELECT nextval('bd_order_number_seq')::text AS number");
+        expect(next.number).toBe('1001103');
     });
 
     it('accepts a plain (not gzipped) file and an http address of the old site', async () => {

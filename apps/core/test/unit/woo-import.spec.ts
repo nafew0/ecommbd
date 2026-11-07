@@ -1,13 +1,38 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { minor, catalogPrice, recordPhone, digest } from '../../src/plugins/woo-import/helpers';
+import {
+    minor,
+    catalogPrice,
+    recordPhone,
+    digest,
+    restoreWordPressEmoji,
+    safeDescription,
+} from '../../src/plugins/woo-import/helpers';
 import { mapWooAddress } from '../../src/plugins/woo-import/import-mapper.service';
 import { verifyWordPressPassword } from '../../src/plugins/woo-import/passwords';
 import { migrationPath, safeMigrationTarget } from '../../src/plugins/woo-import/urls';
 import { chunkSignature } from '../../src/plugins/woo-import/helper.service';
 
 describe('WooCommerce migration boundaries', () => {
+    it('puts back emoji that WordPress turned into s.w.org images, and keeps real images', () => {
+        const emoji =
+            '<p>Fast delivery <img draggable="false" role="img" class="emoji" alt="🏍" src="https://s.w.org/images/core/emoji/17.0.2/svg/1f3cd.svg"> to your home <img class="wp-smiley" alt=\'🏠\' src=\'https://s.w.org/images/core/emoji/17.0.2/72x72/1f3e0.png\' /></p>';
+        expect(restoreWordPressEmoji(emoji)).toBe('<p>Fast delivery 🏍 to your home 🏠</p>');
+        expect(safeDescription(emoji)).toContain('🏍');
+        expect(safeDescription(emoji)).not.toContain('s.w.org');
+        const photo = '<img src="https://shop.test/wp-content/uploads/a.jpg" alt="Red dress">';
+        expect(restoreWordPressEmoji(photo)).toBe(photo);
+        // An alt that isn't an emoji (markup, long text) is dropped, never inserted as HTML.
+        expect(
+            restoreWordPressEmoji('<img alt="<b>x</b>" src="https://s.w.org/images/core/emoji/1/svg/1.svg">'),
+        ).toBe('');
+        expect(
+            restoreWordPressEmoji(
+                '<img alt="&#x1f3cd;" src="https://s.w.org/images/core/emoji/1/svg/1.svg">',
+            ),
+        ).toBe('&#x1f3cd;');
+    });
     it('verifies real WordPress phpass output for P and H prefixes', async () => {
         const reference = path.join(__dirname, '../fixtures/woo/class-phpass.php');
         const password = 'Synthetic-চা-password';

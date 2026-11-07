@@ -6,6 +6,9 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Fixed
 
+- **WooCommerce import:**
+  - A store whose order-number plugin had reached 1,000,000 or more stopped at the very end with ORDER_NUMBER_RANGE_REQUIRES_REVIEW (a real store: 1,001,102). New order numbers now jump past the highest WooCommerce number in one step; only a jump of over a billion (a typo or a date-based number) asks for review.
+  - Emoji in product descriptions came out blank and counted as failed images: WordPress stores them as small images from its own server (s.w.org). They now become emoji characters again.
 - The merchant admin no longer shows "Unexpected Application Error! Failed to fetch dynamically imported module" when a tab that was open during a deploy opens another screen: it reloads itself once to get the new version. If the screen still can't load, it shows a short message with a Reload button (Bangla and English) instead of the developer error page.
 - **Phase 18 review (online payments):**
   - Cancelling an order that is waiting for its online payment cancels that payment, whoever cancels it. Money that arrives later is held in Payment reviews ("paid after the order was cancelled"), never settled on a cancelled order; the review screen offers only refund or resolve for it.

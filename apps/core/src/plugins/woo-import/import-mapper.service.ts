@@ -46,6 +46,7 @@ import {
     pathOf,
     phoneOf,
     recordPhone,
+    restoreWordPressEmoji,
     safeDescription,
     text,
     WooRecord,
@@ -379,7 +380,7 @@ export class ImportMapperService {
         }
     }
     private async description(ctx: RequestContext, source: WooSource, run: WooRun, value: unknown) {
-        let html = text(value, 500_000);
+        let html = restoreWordPressEmoji(text(value, 500_000));
         const urls = [
             ...new Set(
                 [...html.matchAll(/<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)].map(match => match[1]),
@@ -841,13 +842,19 @@ export class ImportMapperService {
         const next = BigInt(sequence.current) + (sequence.called ? BigInt(1) : BigInt(0));
         // Draws needed so the next number is the highest legacy number + 1 (none if already past).
         const advance = BigInt(maxRow.maximum) - next + BigInt(1);
-        if (advance > BigInt(1_000_000)) throw new Error('ORDER_NUMBER_RANGE_REQUIRES_REVIEW');
+        // Order-number plugins often start at 1,000,000 or more (a real store's last WooCommerce
+        // number was 1,001,102), so only a jump past a billion asks for a person: that is a typo
+        // or a date-based number, and following it would make every new order number huge.
+        if (advance > BigInt(1_000_000_000)) throw new Error('ORDER_NUMBER_RANGE_REQUIRES_REVIEW');
+        // One step to "next is highest + 1". Drawing the numbers one by one (the old way) took
+        // ages for a big jump. The WHERE keeps it from ever moving back: if checkouts have already
+        // drawn past the highest legacy number meanwhile, nothing changes.
         if (advance > BigInt(0))
-            await this.connection
-                .getRepository(ctx, LegacyOrder)
-                .query("SELECT max(nextval('bd_order_number_seq')) FROM generate_series(1, $1::int)", [
-                    Number(advance),
-                ]);
+            await this.connection.getRepository(ctx, LegacyOrder).query(
+                `SELECT setval('bd_order_number_seq', $1::bigint, true)
+                     WHERE (SELECT last_value + CASE WHEN is_called THEN 1 ELSE 0 END FROM bd_order_number_seq) <= $1::bigint`,
+                [maxRow.maximum],
+            );
 
         const mappings = await this.connection
             .getRepository(ctx, WooMapping)

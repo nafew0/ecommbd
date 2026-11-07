@@ -112,8 +112,24 @@ export function meta(row: WooRecord, ...names: string[]): string {
     }
     return '';
 }
+/**
+ * WordPress shows emoji in post text as small images from its own server:
+ * `<img class="emoji" alt="🏍" src="https://s.w.org/images/core/emoji/17.0.2/svg/1f3cd.svg">`.
+ * They aren't product photos. Put the emoji character (the image's alt text) back, so the import
+ * neither tries to copy them (s.w.org isn't the store's host, so each one failed and the emoji
+ * vanished from the description) nor keeps a link to WordPress's server.
+ */
+export function restoreWordPressEmoji(html: string): string {
+    // Quoted attribute values are skipped whole, so a ">" inside one doesn't end the tag.
+    return html.replace(/<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi, tag => {
+        if (!/\bsrc\s*=\s*["']https?:\/\/s\.w\.org\/images\/core\/emoji\//i.test(tag)) return tag;
+        const alt = /\balt\s*=\s*(["'])(.*?)\1/i.exec(tag)?.[2] ?? '';
+        // An emoji is a few characters or entities; anything else (markup, long text) is dropped.
+        return /^(?:[^<>&"']{1,16}|(?:&#x?[0-9a-f]{1,6};){1,8})$/i.test(alt) ? alt : '';
+    });
+}
 export const safeDescription = (value: unknown) =>
-    sanitizeRichText(stripShortcodes(text(value, 500_000)).text);
+    sanitizeRichText(stripShortcodes(restoreWordPressEmoji(text(value, 500_000))).text);
 export const arrays = (value: unknown): WooRecord[] =>
     Array.isArray(value) ? value.filter(v => v && typeof v === 'object') : [];
 
