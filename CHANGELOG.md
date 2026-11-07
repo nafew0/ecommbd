@@ -6,6 +6,7 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Fixed
 
+- The merchant admin no longer shows "Unexpected Application Error! Failed to fetch dynamically imported module" when a tab that was open during a deploy opens another screen: it reloads itself once to get the new version. If the screen still can't load, it shows a short message with a Reload button (Bangla and English) instead of the developer error page.
 - **Phase 18 review (online payments):**
   - Cancelling an order that is waiting for its online payment cancels that payment, whoever cancels it. Money that arrives later is held in Payment reviews ("paid after the order was cancelled"), never settled on a cancelled order; the review screen offers only refund or resolve for it.
   - Payments whose outcome was unclear (a bKash Execute that timed out) are checked again for up to a week, so a late success still pays the order.

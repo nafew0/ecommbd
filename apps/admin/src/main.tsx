@@ -4,13 +4,22 @@ import './styles.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { createBrowserRouter, Navigate, Outlet, RouterProvider, useLocation } from 'react-router';
+import {
+    createBrowserRouter,
+    Navigate,
+    Outlet,
+    RouterProvider,
+    useLocation,
+    useRouteError,
+} from 'react-router';
+import { Button } from './components/ui/button';
 import { PageSkeleton } from './components/ui/misc';
 import { AppLayout } from './layout/app-layout';
 import { ApiError } from './lib/api';
 import { AuthProvider, useAuth } from './lib/auth';
 import { ConfirmProvider } from './lib/confirm';
-import { I18nProvider } from './lib/i18n';
+import { I18nProvider, useI18n } from './lib/i18n';
+import { isMissingBuildFile, reloadForNewBuild } from './lib/new-build';
 import { ToastProvider } from './lib/toast';
 
 const queryClient = new QueryClient({
@@ -44,11 +53,34 @@ function Protected({ bare = false }: { bare?: boolean }) {
     return bare ? <Outlet /> : <AppLayout />;
 }
 
+/**
+ * Any screen that fails to open. A tab left open across a deploy asks for a screen file the deploy
+ * replaced: then the page reloads once to get the new build (lib/new-build.ts). Anything else
+ * shows a short message with a Reload button instead of React Router's developer page.
+ */
+function RouteError() {
+    const error = useRouteError();
+    const { messages: m } = useI18n();
+    if (isMissingBuildFile(error) && reloadForNewBuild()) return <Loading />;
+    return (
+        <div className="mx-auto max-w-5xl space-y-4 p-6" role="alert">
+            <p>{m.errors.pageFailed}</p>
+            <Button onClick={() => window.location.reload()}>{m.errors.reload}</Button>
+        </div>
+    );
+}
+
+// Vite also reports a screen file that failed to load (or its stylesheet) as this event.
+window.addEventListener('vite:preloadError', event => {
+    if (reloadForNewBuild()) event.preventDefault();
+});
+
 // Each screen is its own chunk, loaded when first opened: the first load stays small on mobile data.
 const router = createBrowserRouter(
     [
         {
             element: <Providers />,
+            errorElement: <RouteError />,
             hydrateFallbackElement: <Loading />,
             children: [
                 {

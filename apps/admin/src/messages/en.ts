@@ -115,6 +115,8 @@ export const en = {
         openOrders: 'See orders',
     },
     errors: {
+        pageFailed: 'This page could not be opened. Reload to try again.',
+        reload: 'Reload',
         required: 'This is required.',
         tooLong: 'This is too long.',
         tooMany: 'Too many entries.',
@@ -716,7 +718,8 @@ export const en = {
             received: (count: number, batch: number) =>
                 batch > 1 ? `Sent in a batch of ${batch}; Meta received ${count}` : `Meta received it`,
             details: 'Details',
-            payload: 'What was sent: phone, name and email hashed; Meta’s cookie IDs and the page address as they are',
+            payload:
+                'What was sent: phone, name and email hashed; Meta’s cookie IDs and the page address as they are',
             response: 'Meta’s answer',
             order: 'Order number',
             kept: 'Browser events are kept for 7 days and Purchases for 90 days.',
