@@ -370,9 +370,8 @@ describe('page sections (phase 15)', () => {
         await redis.sadd(`${prefix}tag:layouts`, 'layout:home:bn');
         const home = await layoutOf('home');
         await publish(home.id, home.publishedVersion);
-        expect(await redis.exists(`${prefix}data:layout:home:bn`)).toBe(0);
-        await new Promise(resolve => setTimeout(resolve, 200));
-        expect(messages).toContain('layouts');
+        await expect.poll(() => redis.exists(`${prefix}data:layout:home:bn`), { timeout: 5000 }).toBe(0);
+        await expect.poll(() => messages.some(message => message.split(',').includes('layouts'))).toBe(true);
         subscriber.disconnect();
         redis.disconnect();
     });

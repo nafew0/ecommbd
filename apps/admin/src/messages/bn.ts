@@ -1,5 +1,6 @@
 import { asciiToBanglaDigits } from '@ecommbd/shared/text';
 import type { Messages } from './en';
+import { migrationBn } from './migration';
 
 /** Bangla strings. Terms follow docs/glossary.md; to be reviewed by merchants in phase 33. */
 const n = (value: number) => asciiToBanglaDigits(String(value));
@@ -7,6 +8,7 @@ const n = (value: number) => asciiToBanglaDigits(String(value));
 const n2 = (value: string) => asciiToBanglaDigits(value);
 
 export const bn: Messages = {
+    migration: migrationBn,
     appName: 'স্টোর অ্যাডমিন',
     common: {
         save: 'সেভ করুন',
@@ -81,6 +83,7 @@ export const bn: Messages = {
         coupons: 'কুপন',
         tracking: 'ট্র্যাকিং',
         settings: 'সেটিংস',
+        migration: 'WooCommerce মাইগ্রেশন',
         store: 'স্টোর',
         delivery: 'ডেলিভারি',
         payments: 'পেমেন্ট',

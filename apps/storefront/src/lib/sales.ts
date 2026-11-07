@@ -65,7 +65,8 @@ export async function loadSalesPage(Astro: AstroGlobal, slug: string): Promise<L
     }
     const page = await dataCache().get(
         `sales:${encodeURIComponent(slug).slice(0, 300)}:${lang}`,
-        [SALES_CACHE_TAG, 'layouts'],
+        // The page includes its product (price, stock): a product purge drops it too (phase 17).
+        found => [SALES_CACHE_TAG, 'layouts', ...(found ? [`product:${found.product.id}`] : [])],
         async () => (await shopQuery(SALES_PAGE, { slug }, lang)).bdSalesPage,
     );
     return page ? loaded(page) : null;

@@ -11,6 +11,7 @@ import {
 import { Injectable } from '@nestjs/common';
 import {
     Collection,
+    EventBus,
     CollectionService,
     ConfigService,
     ProductService,
@@ -20,6 +21,7 @@ import {
 } from '@vendure/core';
 import { MENUS_KEY } from './constants';
 import { BdPage } from './entities';
+import { StorefrontChangedEvent } from '../cache-purge/events';
 
 export interface ResolvedMenuLink {
     label: string;
@@ -63,6 +65,7 @@ export class MenuService {
         private collectionService: CollectionService,
         private productService: ProductService,
         private configService: ConfigService,
+        private events: EventBus,
     ) {}
 
     /** As stored: links hold database IDs. */
@@ -84,6 +87,7 @@ export class MenuService {
         const stored = mapLinkIds(parsed.value, id => String(entityIdStrategy?.decodeId(id) ?? id));
         const saved = await this.settingsStore.set(ctx, MENUS_KEY, stored);
         if (!saved.result) throw new Error(`Could not save menus: ${saved.error}`);
+        await this.events.publish(new StorefrontChangedEvent(ctx, ['menus']));
         return { menus: parsed.value, errors: [] };
     }
 

@@ -1,8 +1,11 @@
+import { migrationEn } from './migration';
+
 /**
  * English strings. `bn.ts` must have every key (TypeScript checks it), so a screen can never ship
  * with a missing Bangla string. Terms follow docs/glossary.md.
  */
 export const en = {
+    migration: migrationEn,
     appName: 'Store admin',
     common: {
         save: 'Save',
@@ -77,6 +80,7 @@ export const en = {
         coupons: 'Coupons',
         tracking: 'Tracking',
         settings: 'Settings',
+        migration: 'WooCommerce migration',
         store: 'Store',
         delivery: 'Delivery',
         payments: 'Payments',

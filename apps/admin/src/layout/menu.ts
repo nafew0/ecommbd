@@ -108,6 +108,7 @@ export const MENU: MenuGroup[] = [
         icon: Settings,
         children: [
             link('store', '/settings/store', '02', true, 'ReadSettings'),
+            link('migration', '/settings/woocommerce', '21', true, 'RunMigration'),
             link('orderSettings', '/settings/orders', '04', true, 'ReadSettings'),
             link('delivery', '/settings/delivery', '07', true, 'ReadSettings'),
             link('payments', '/settings/payments', '08', true, 'ReadSettings'),

@@ -6,6 +6,7 @@ import { Link, useParams } from 'react-router';
 import { BLOCK, UNBLOCK, UnblockDialog } from '../components/block-dialogs';
 import { Field } from '../components/form/field';
 import { Button } from '../components/ui/button';
+import { LegacyOrders } from '../components/legacy-orders';
 import { Textarea } from '../components/ui/input';
 import { Alert, Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { Switch } from '../components/ui/switch';
@@ -14,7 +15,6 @@ import { useAuth } from '../lib/auth';
 import { useFormat } from '../lib/format';
 import { useI18n } from '../lib/i18n';
 import { useToast } from '../lib/toast';
-
 
 const CUSTOMER = `
     query Customer($id: ID!) {
@@ -342,6 +342,7 @@ export function CustomerDetailPage() {
                     )}
                 </Card>
             </div>
+            {can('ReadOrder') && <LegacyOrders key={id} customerId={id} />}
         </>
     );
 }

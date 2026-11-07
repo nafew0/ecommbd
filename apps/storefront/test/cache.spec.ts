@@ -7,6 +7,24 @@ const host = process.env.TEST_REDIS_CACHE_HOST ?? '127.0.0.1';
 const port = Number(process.env.TEST_REDIS_CACHE_PORT ?? 63791);
 
 describe('the data cache without Redis', () => {
+    it('does not reuse an in-flight old load after invalidation', async () => {
+        const cache = new DataCache({ ttlSeconds: 60, prefix: 'test-race' });
+        let release!: (value: number) => void;
+        const old = cache.get(
+            'settings',
+            ['settings'],
+            () =>
+                new Promise<number>(resolve => {
+                    release = resolve;
+                }),
+        );
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await cache.invalidate(['settings']);
+        expect(await cache.get('settings', ['settings'], async () => 2)).toBe(2);
+        release(1);
+        expect(await old).toBe(1);
+        expect(await cache.get('settings', ['settings'], async () => 3)).toBe(2);
+    });
     it('loads once, even for requests at the same moment', async () => {
         const cache = new DataCache({ ttlSeconds: 60, prefix: 'test' });
         let loads = 0;
@@ -35,6 +53,23 @@ describe('the data cache without Redis', () => {
         expect([await menus(), await settings()]).toEqual([2, 1]);
     });
 
+    it('tags an entry from its value (a sales page by the product it sells)', async () => {
+        const cache = new DataCache({ ttlSeconds: 60, prefix: 'test' });
+        let price = 500;
+        const sales = () =>
+            cache.get(
+                'sales:honey:bn',
+                value => ['sales-pages', `product:${value.productId}`],
+                async () => ({ productId: '9', price }),
+            );
+        expect((await sales()).price).toBe(500);
+        price = 450;
+        await cache.invalidate(['product:8']);
+        expect((await sales()).price).toBe(500);
+        await cache.invalidate(['product:9']);
+        expect((await sales()).price).toBe(450);
+    });
+
     it('can be turned off (TTL 0)', async () => {
         const cache = new DataCache({ ttlSeconds: 0, prefix: 'test' });
         let loads = 0;
@@ -46,7 +81,13 @@ describe('the data cache without Redis', () => {
 
 /** Unit tests run without services too: the Redis part is skipped when Redis isn't up. */
 const redisUp = await new Promise<boolean>(resolve => {
-    const probe = new Redis({ host, port, lazyConnect: true, maxRetriesPerRequest: 0, retryStrategy: () => null });
+    const probe = new Redis({
+        host,
+        port,
+        lazyConnect: true,
+        maxRetriesPerRequest: 0,
+        retryStrategy: () => null,
+    });
     probe.on('error', () => undefined);
     probe.connect().then(
         () => {
@@ -88,6 +129,22 @@ describe.skipIf(!redisUp)('the data cache with Redis', () => {
         await first.invalidate(['collections']);
         await new Promise(resolve => setTimeout(resolve, 200));
         expect(await second.get('collections:top:bn', ['collections'], async () => version)).toBe(2);
+    });
+
+    it('a core purge by a tag worked out from the value reaches every process', async () => {
+        const first = make();
+        const second = make();
+        await new Promise(resolve => setTimeout(resolve, 200));
+        let price = 500;
+        const load = async () => ({ productId: '9', price });
+        const tags = (value: { productId: string }) => ['sales-pages', `product:${value.productId}`];
+        expect((await first.get('sales:honey:bn', tags, load)).price).toBe(500);
+        // The second process takes the shared copy, and keeps the computed tags locally too.
+        expect((await second.get('sales:honey:bn', tags, load)).price).toBe(500);
+        price = 450;
+        await first.invalidate(['product:9']);
+        await new Promise(resolve => setTimeout(resolve, 200));
+        expect((await second.get('sales:honey:bn', tags, load)).price).toBe(450);
     });
 
     it('keeps working when Redis is down', async () => {

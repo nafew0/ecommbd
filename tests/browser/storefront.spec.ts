@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { gzipSync } from 'node:zlib';
-import { resetHome } from './support/sections';
+import { resetHome, waitForStorefront } from './support/sections';
 import { adminSession, type ApiSession } from './support/store-api';
 import { ensureStorefrontFixtures, type StorefrontFixtures } from './support/storefront-seed';
 
@@ -23,9 +23,15 @@ test.beforeAll(async () => {
     // The store's default language is Bangla in these tests.
     const { bdStoreSettings } = await admin.query('{ bdStoreSettings { settings } }');
     const settings = bdStoreSettings.settings;
-    if (settings.locale.defaultLanguage !== 'bn' || !settings.profile.whatsapp) {
+    if (
+        settings.locale.defaultLanguage !== 'bn' ||
+        !settings.profile.whatsapp ||
+        (!settings.profile.storeName.bn && !settings.profile.storeName.en)
+    ) {
         settings.locale.defaultLanguage = 'bn';
         settings.profile.whatsapp ||= '+8801712345678';
+        if (!settings.profile.storeName.bn && !settings.profile.storeName.en)
+            settings.profile.storeName = { en: 'Synthetic storefront', bn: 'সিন্থেটিক স্টোর' };
         const { updateBdStoreSettings } = await admin.query(
             'mutation ($input: JSON!) { updateBdStoreSettings(input: $input) { errors { path code } } }',
             { input: settings },
@@ -34,6 +40,14 @@ test.beforeAll(async () => {
     }
     // The home page a new store has (phase 15 sections), whatever another test published.
     await resetHome(admin);
+    for (const path of [
+        `/en/product/${enc(fixtures.panjabi.en)}/`,
+        `/product/${enc(fixtures.panjabi.bn)}/`,
+    ]) {
+        await waitForStorefront(`${SITE}${path}`, html =>
+            html.includes(`wa.me/${settings.profile.whatsapp.replace(/\D/g, '')}`),
+        );
+    }
     // New products reach the search index and categories through the worker.
     await expect
         .poll(async () => (await fetch(`${SITE}/product-category/${enc(fixtures.men.bn)}/`)).status, {

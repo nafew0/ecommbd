@@ -198,6 +198,13 @@ const router = createBrowserRouter(
                                 })),
                         },
                         {
+                            path: 'settings/woocommerce',
+                            lazy: () =>
+                                import('./pages/woo-migration').then(module => ({
+                                    Component: module.WooMigrationPage,
+                                })),
+                        },
+                        {
                             path: 'settings/sms',
                             lazy: () =>
                                 import('./pages/sms-settings').then(module => ({

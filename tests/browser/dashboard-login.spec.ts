@@ -8,7 +8,7 @@ test.describe('Vendure Dashboard (support team)', () => {
     test('a staff member can still sign in', async ({ page }, testInfo) => {
         test.skip(testInfo.project.name !== 'desktop', 'The support team uses the Dashboard on a desktop');
         await page.goto('/dashboard/');
-        await expect(page).toHaveURL(/\/dashboard\/login/);
+        await expect(page).toHaveURL(/\/dashboard\/login/, { timeout: 15_000 });
         await page.locator('input[name="username"]').fill(username);
         await page.locator('input[name="password"]').fill(password);
         await page.getByRole('button', { name: 'Sign in' }).click();

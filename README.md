@@ -230,6 +230,8 @@ The file lands in `apps/core/src/migrations/`. Pending migrations run when the s
 
 The first migration, `<timestamp>-init.ts`, creates the whole schema and is committed. It was generated with `npm run migrate:generate -- init --from-empty`, which diffs against an empty temporary database.
 
+WooCommerce migration (Phases 21–22) uses Settings → WooCommerce migration. Set `WOO_IMPORT_KEYS` on server and worker and an HTTPS `STOREFRONT_URL` (or `WOO_PUBLIC_URL` for the helper endpoint). See the [Phase 21 plan](docs/roadmap/m5-implementation.md), [Phase 22 plan](docs/roadmap/phase-22-implementation.md), [test results](docs/runbooks/migration-test-results.md) and [cutover runbook](docs/runbooks/cutover.md). Build the installable helper with `python3 apps/wp-migrator/package.py`; source consumer keys remain an alternative. Migration password tests need PHP CLI to generate independent WordPress hash fixtures. Rehearse against an authorized store copy before a real domain switch.
+
 ## 8. Useful commands
 
 | Command (from the project root) | What it does |
@@ -250,6 +252,7 @@ The first migration, `<timestamp>-init.ts`, creates the whole schema and is comm
 | `npm test` | Unit tests (fast, no database) |
 | `npm run test:e2e` | End-to-end tests: a real Vendure server against the Docker PostgreSQL and cache Redis (`TEST_DB_*` and `TEST_REDIS_CACHE_*` override the connection) |
 | `npm run test:browser` | Browser tests with Playwright on a desktop and a phone (needs `npm run build` first, and `npx playwright install chromium` once) |
+| `npm run test:speed` | Disposable real-Varnish browser checks, size-limit and mobile Lighthouse gates; build first, with PostgreSQL, Redis and Docker running. `SPEED_ALL_BROWSERS=1` also runs all desktop/phone browser tests through Varnish |
 | `npm run test:visual` | Visual snapshots of every page section in both themes and languages, phone and desktop (`tests/visual`, baselines per platform; `-- --update-snapshots=all` after a deliberate design change, then review the images) |
 
 **Before pushing:** run `npm run lint`, `npm run typecheck`, `npm test` and `npm run test:e2e`. GitHub runs all of them, plus the build and browser tests, on every push and pull request (`.github/workflows/ci.yml`).

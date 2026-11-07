@@ -1,7 +1,8 @@
 // The storefront's Node server (roadmap phase 12): `npm run start -w @ecommbd/storefront` after
 // `npm run build`. Astro renders the pages (built in middleware mode); this file adds what a
 // production process needs around it:
-// - `/health` for the deploy agent and load checks (reports whether the core answers),
+// - `/health` for the deploy agent and load checks (503 when the core doesn't answer), and
+//   `/health/live` for Varnish's probe (200 whenever this process runs, see below),
 // - the built static files (`/_astro/…` cached for a year as immutable),
 // - with `PROXY_CORE` (on unless APP_ENV is staging or production), the core's paths passed through to
 //   it: `/img`, `/assets` and `/shop-api` for the pages, plus the merchant admin, the Dashboard, their
@@ -22,7 +23,19 @@ const host = process.env.HOST ?? '0.0.0.0';
 const coreUrl = new URL(process.env.CORE_URL ?? 'http://localhost:3000');
 const live = ['staging', 'production'].includes(process.env.APP_ENV ?? '');
 const proxyCore = (process.env.PROXY_CORE ?? (live ? 'false' : 'true')) === 'true';
-const CORE_PATHS = ['/img', '/assets', '/shop-api', '/admin', '/admin-api', '/dashboard', '/bd-geo'];
+// The core's own paths: images and uploads, the APIs, the merchant admin and Dashboard, bd-geo,
+// the WooCommerce helper's upload endpoint and the cache metrics.
+const CORE_PATHS = [
+    '/img',
+    '/assets',
+    '/shop-api',
+    '/admin',
+    '/admin-api',
+    '/dashboard',
+    '/bd-geo',
+    '/woo-migrate',
+    '/cache-metrics',
+];
 const isCorePath = pathname =>
     CORE_PATHS.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
 
@@ -86,13 +99,28 @@ function proxy(req, res) {
     req.pipe(upstream);
 }
 
+/** Whether the store can serve pages: this process and the core. 503 while the core is down. */
 async function health(res) {
     const core = await fetch(new URL('/health', coreUrl), { signal: AbortSignal.timeout(2000) }).then(
         response => (response.ok ? 'ok' : 'down'),
         () => 'down',
     );
+    res.writeHead(core === 'ok' ? 200 : 503, {
+        'content-type': 'application/json',
+        'cache-control': 'no-store',
+    });
+    res.end(JSON.stringify({ status: core === 'ok' ? 'ok' : 'unavailable', core }));
+}
+
+/**
+ * Whether this process answers at all: Varnish's health probe (infra/varnish). It must not depend
+ * on the core: with the core down this process still serves its own bilingual "unavailable" page
+ * (and cart and checkout say so properly), which a "sick" backend in Varnish would replace with
+ * Varnish's error page.
+ */
+function liveness(res) {
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
-    res.end(JSON.stringify({ status: 'ok', core }));
+    res.end(JSON.stringify({ status: 'ok' }));
 }
 
 /** The path for the log: no query string, and tracking tokens (`/t/<token>/`) masked. */
@@ -115,6 +143,7 @@ const server = http.createServer((req, res) => {
         });
     });
     if (pathname === '/health') return void health(res);
+    if (pathname === '/health/live') return liveness(res);
     if (proxyCore && isCorePath(pathname)) return proxy(req, res);
     if (
         (req.method === 'GET' || req.method === 'HEAD') &&

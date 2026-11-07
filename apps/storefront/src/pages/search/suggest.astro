@@ -18,6 +18,8 @@ const { lang, s, href, format } = pageContext(Astro);
 const query = cleanSearchQuery(Astro.url.searchParams.get('q') ?? '');
 Astro.response.headers.set('x-robots-tag', 'noindex');
 Astro.response.headers.set('cache-control', 'public, max-age=60');
+// Cache tags (phase 17): suggestions come from the search index, like every listing.
+Astro.response.headers.set('xkey', 'listing');
 
 let suggestions: ResultOf<typeof BD_SUGGEST>['bdSearchSuggestions'] = { productIds: [], collections: [], didYouMean: null };
 let products: Array<ResultOf<typeof ProductCardFields>> = [];

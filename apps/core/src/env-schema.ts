@@ -1,4 +1,4 @@
-import { envList, envPort, parseEnv } from '@ecommbd/shared';
+import { envList, envPort, parseEnv, parseKeyring } from '@ecommbd/shared';
 import { z } from 'zod';
 
 /**
@@ -17,6 +17,39 @@ export const envSchema = z
         COOKIE_SECRET: z
             .string()
             .min(32, 'must be at least 32 characters (generate one with: openssl rand -hex 32)'),
+        WOO_PUBLIC_URL: z
+            .url()
+            .refine(value => new URL(value).protocol === 'https:', 'must use HTTPS')
+            .optional(),
+        // Storefront cache (phase 17, docs/runbooks/storefront-cache.md). The cache tags' prefix, the
+        // same on core and storefront and unique per store (default: REDIS_KEY_PREFIX).
+        CACHE_STORE_ID: z
+            .string()
+            .regex(/^[a-zA-Z0-9_-]{1,48}$/)
+            .optional(),
+        // Varnish's purge listener, e.g. http://127.0.0.1:6082/. Without it only the data cache is purged.
+        CACHE_PURGE_URL: z.url().optional(),
+        // Shared with Varnish: 64 lowercase hex characters (openssl rand -hex 32).
+        CACHE_PURGE_SECRET: z
+            .string()
+            .regex(/^[a-f0-9]{64}$/, 'must be 64 lowercase hex characters (openssl rand -hex 32)')
+            .optional(),
+        // Request the top pages through STOREFRONT_URL after a purge-all or a Varnish restart.
+        CACHE_WARM_UP: z.enum(['true', 'false']).default('false'),
+        // Listings are refreshed a second time this long after a catalog change, once the search
+        // index has caught up (it is updated in the worker, after the change).
+        CACHE_LISTING_SETTLE_MS: z.coerce.number().int().min(1000).max(600_000).default(10_000),
+        WOO_IMPORT_KEYS: z
+            .string()
+            .refine(value => {
+                try {
+                    parseKeyring(value);
+                    return true;
+                } catch {
+                    return false;
+                }
+            }, 'must be versioned 32-byte base64 keys, e.g. v1:<key>')
+            .optional(),
         SUPERADMIN_USERNAME: z.string(),
         SUPERADMIN_PASSWORD: z.string(),
         CORS_ORIGINS: envList
@@ -68,8 +101,29 @@ export const envSchema = z
         RELEASE_VERSION: z.string().optional(),
     })
     .superRefine((value, context) => {
+        if (value.CACHE_PURGE_URL && !value.CACHE_PURGE_SECRET)
+            context.addIssue({
+                code: 'custom',
+                path: ['CACHE_PURGE_SECRET'],
+                message: 'is required with CACHE_PURGE_URL',
+            });
+        // Warming goes to the store's public address (the shoppers' cache keys) and notices a
+        // Varnish restart through the purge listener.
+        if (value.CACHE_WARM_UP === 'true' && (!value.STOREFRONT_URL || !value.CACHE_PURGE_URL))
+            context.addIssue({
+                code: 'custom',
+                path: ['CACHE_WARM_UP'],
+                message: 'needs STOREFRONT_URL and CACHE_PURGE_URL',
+            });
         if (!live(value.APP_ENV)) {
             return;
+        }
+        if (value.CACHE_PURGE_SECRET && /^0+$/.test(value.CACHE_PURGE_SECRET)) {
+            context.addIssue({
+                code: 'custom',
+                path: ['CACHE_PURGE_SECRET'],
+                message: 'must not be all zeros in staging and production (openssl rand -hex 32)',
+            });
         }
         if (value.SUPERADMIN_PASSWORD === 'superadmin' || value.SUPERADMIN_PASSWORD.length < 16) {
             context.addIssue({

@@ -216,6 +216,10 @@ export async function loadSectionData(Astro: AstroGlobal, sections: SectionData[
     });
     featured.forEach(product => tags.add(`product:${product.id}`));
     collections.forEach(collection => tags.add(`collection:${collection.id}`));
+    // A grid filled from search (newest, best selling, a category) can change with any catalog
+    // change, not just a change to the products it shows now; top categories with any category's.
+    if (grids.some(section => section.settings.source !== 'manual')) tags.add('listing');
+    if (wantsTopCollections) tags.add('collections');
     return {
         grids: gridMap,
         featured: new Map(featured.map(product => [product.id, product])),
@@ -258,10 +262,24 @@ export function linkHref(
     return href.startsWith('/') ? localePath(context.lang, context.defaultLang, href) : href;
 }
 
-/** `xkey` tags for a page with sections: the layout, then what it shows (at most 100). */
-export function setCacheTags(Astro: AstroGlobal, layout: LoadedLayout | null, data: SectionPageData) {
-    const tags = [layout?.layoutId ? `layout:${layout.layoutId}` : 'layout:default', 'theme', ...data.tags];
-    Astro.response.headers.set('xkey', tags.slice(0, 100).join(' '));
+/**
+ * `xkey` tags for a page with sections (phase 17): `layouts` (the core purges it when any layout
+ * is published), this layout, `extra` from the page itself, then what the sections show. The
+ * middleware adds the site-wide tags and keeps the header within its size (cache-policy.ts).
+ */
+export function setCacheTags(
+    Astro: AstroGlobal,
+    layout: LoadedLayout | null,
+    data: SectionPageData | null,
+    extra: string[] = [],
+) {
+    const tags = [
+        'layouts',
+        layout?.layoutId ? `layout:${layout.layoutId}` : 'layout:default',
+        ...extra,
+        ...(data?.tags ?? []),
+    ];
+    Astro.response.headers.set('xkey', [...new Set(tags)].join(' '));
 }
 
 /**

@@ -17,7 +17,7 @@ jobs:
   test:
     name: Lint, type-check, test and build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     # Same services as the root docker-compose.yml, on the same ports.
     services:
@@ -44,6 +44,8 @@ jobs:
       COOKIE_SECRET: ci-only-cookie-secret-not-used-anywhere-else
       SUPERADMIN_USERNAME: superadmin
       SUPERADMIN_PASSWORD: superadmin
+      WOO_IMPORT_KEYS: v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      WOO_PUBLIC_URL: https://destination.fixture.test
       DB_HOST: 127.0.0.1
       DB_PORT: '54320'
       DB_NAME: ecommbd
@@ -61,6 +63,13 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
+      - name: PHP runtime for independent WordPress password fixtures
+        run: |
+          if ! command -v php >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y php-cli
+          fi
+          php --version
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
@@ -69,6 +78,15 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
+      - run: npm run test:speed
+
+      - name: Upload speed measurements
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: speed-report
+          path: .performance
+          retention-days: 7
 
       - name: Upload the Playwright report when browser tests fail
         if: failure()

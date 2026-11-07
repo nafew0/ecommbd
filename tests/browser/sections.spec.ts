@@ -313,6 +313,7 @@ test.describe('sections and the page editor', () => {
         const trust = createSection('trust-badges');
         trust.blocks[0]!.settings.title = text(badge);
         await publishLayout(admin, 'product', { sections: [trust] });
+        await waitForStorefront(`${SITE}/en/product/${fixtures.panjabi.en}/`, html => html.includes(badge));
         await page.goto(`${SITE}/en/product/${fixtures.panjabi.en}/`);
         await expect(page.locator('.section-trust-badges')).toContainText(badge);
         // Still within the product page's JavaScript budget, with the template's sections.
@@ -326,6 +327,7 @@ test.describe('sections and the page editor', () => {
         );
         const faq = createSection('faq');
         await publishLayout(admin, 'page', { sections: [faq] }, about.id);
+        await waitForStorefront(`${SITE}/en/${fixtures.page.en}/`, html => html.includes('section-faq'));
         await page.goto(`${SITE}/en/${fixtures.page.en}/`);
         await expect(page.locator('.section-faq details').first()).toBeVisible();
         await page.locator('.section-faq summary').first().click();

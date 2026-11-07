@@ -1,0 +1,21 @@
+---
+/**
+ * The real-user speed beacon (roadmap phase 17): a sample of visits reports LCP, INP and CLS to
+ * the core (`VITALS_SAMPLE_RATE`, 10% by default) for the daily p75 per store.
+ *
+ * Off (rate 0, previews, order tracking and account pages): renders nothing, so the page ships no
+ * beacon script. On: a small loader (scripts/vitals.ts) that loads web-vitals only for sampled
+ * visits. A deliberate exception to "no JavaScript on pages with nothing to interact with"
+ * (docs/decisions.md, 2026-10-23).
+ */
+import { env } from '../env';
+import { routeKind } from '../lib/cache-policy';
+import VitalsBeacon from './VitalsBeacon.astro';
+
+const rate = env().VITALS_SAMPLE_RATE;
+// Order tracking links carry a private token, and account pages are personal: never measured.
+const excluded = /^\/(?:en\/|bn\/)?(?:t|track|account)(?:\/|$)/.test(Astro.url.pathname);
+const enabled = rate > 0 && !Astro.locals.preview && !excluded;
+---
+
+{enabled && <VitalsBeacon rate={rate} route={routeKind(Astro.url.pathname)} />}

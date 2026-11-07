@@ -1,0 +1,42 @@
+# Disposable WordPress + WooCommerce sites for the helper's tests. Start them with tests/run.sh.
+#
+# Every version is pinned here; run.sh reads WP_VERSION and WC_VERSION from these services.
+# - oldest: PHP 7.4, WordPress 5.8, WooCommerce 4.9 (the oldest versions the helper supports)
+# - latest: current PHP, WordPress and WooCommerce; run.sh tests it with HPOS on and off
+# The sites run in WP-CLI containers: the tests need WordPress and PHP, not a web server.
+# The database lives in memory and everything is deleted when run.sh ends.
+name: ecommbd-wp-tests
+
+x-site: &site
+  depends_on:
+    db:
+      condition: service_healthy
+  entrypoint: [tail, -f, /dev/null]
+  volumes:
+    - ../dist:/dist:ro # the built ZIP is what gets installed
+    - ./:/tests:ro
+    - ../:/plugin:ro # for php -l and the string check
+
+services:
+  db:
+    image: mariadb:10.11.19
+    environment:
+      MARIADB_ROOT_PASSWORD: fixture-only
+    tmpfs: [/var/lib/mysql]
+    healthcheck:
+      test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+  oldest:
+    <<: *site
+    image: wordpress:cli-2.6.0-php7.4 # PHP 7.4.32
+    environment:
+      WP_VERSION: 5.8.3
+      WC_VERSION: 4.9.5
+  latest:
+    <<: *site
+    image: wordpress:cli-2.12.0-php8.5 # PHP 8.5
+    environment:
+      WP_VERSION: 7.1.3
+      WC_VERSION: 11.2.1

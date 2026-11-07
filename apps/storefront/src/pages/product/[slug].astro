@@ -85,7 +85,17 @@ const orderLink =
 const template = product ? await loadLayout(Astro, 'product') : null;
 const templateSections = template ? visibleSections(template.document) : [];
 const templateData = template && templateSections.length ? await loadSectionData(Astro, templateSections) : null;
-if (template && templateData && !Astro.locals.preview) setCacheTags(Astro, template, templateData);
+// Cache tags (phase 17): this product and its categories (their names are in the breadcrumb), the
+// template and what its sections show. A missing product's page is refreshed by any catalog change
+// (`listing`), so a product created at this address shows at once.
+if (!Astro.locals.preview) {
+    if (product) {
+        const own = [`product:${product.id}`, ...product.collections.map(collection => `collection:${collection.id}`)];
+        setCacheTags(Astro, template, templateData, own);
+    } else {
+        Astro.response.headers.set('xkey', 'listing');
+    }
+}
 const css = template && templateData ? pageStyle(Astro, template.document) : '';
 ---
 

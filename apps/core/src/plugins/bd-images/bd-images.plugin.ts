@@ -42,6 +42,7 @@ export const imageSweepTask = new ScheduledTask({
     imports: [PluginCommonModule],
     entities: [BdImage],
     providers: [BdImageService, { provide: BD_IMAGES_OPTIONS, useFactory: () => BdImagesPlugin.options }],
+    exports: [BdImageService],
     shopApiExtensions: { schema: imageShopApiExtensions, resolvers: [BdImageResolver] },
     adminApiExtensions: {
         schema: imageAdminApiExtensions,

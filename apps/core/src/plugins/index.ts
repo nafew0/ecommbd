@@ -14,11 +14,13 @@ import { MerchantAdminPlugin } from './merchant-admin/merchant-admin.plugin';
 import { NotificationsPlugin, type SmsDriver } from './notifications';
 import { PaymentsBdPlugin } from './payments-bd';
 import { ShippingBdPlugin } from './shipping-bd';
+import { WooImportPlugin } from './woo-import';
 // Last: its store-defaults step runs after the others (the order files load in).
 import { BdSearchPlugin, type SearchRateLimits } from './bd-search';
 import { BdTrackingPlugin, type TrackingRateLimits } from './bd-tracking';
 import { BdSectionsPlugin } from './bd-sections';
 import { BdSalesPagesPlugin } from './bd-sales-pages';
+import { CachePurgePlugin } from './cache-purge';
 
 /** The built merchant admin (`npm run build -w @ecommbd/admin`), from `src/plugins` or `dist/plugins`. */
 export const ADMIN_APP_DIR = path.join(__dirname, '../../../admin/dist');
@@ -27,6 +29,18 @@ export const ADMIN_APP_DIR = path.join(__dirname, '../../../admin/dist');
 export const DEFAULT_IMAGES_DIR = path.join(__dirname, '../../static/images');
 
 export interface CustomPluginOptions {
+    /** WOO_IMPORT_KEYS: versioned encryption keys for source credentials. */
+    wooImportKeys?: string;
+    wooPublicUrl?: string;
+    /** Storefront cache (phase 17): CACHE_STORE_ID, CACHE_PURGE_URL, CACHE_PURGE_SECRET, CACHE_WARM_UP. */
+    cacheStoreId?: string;
+    cachePurgeUrl?: string;
+    cachePurgeSecret?: string;
+    cacheWarmUp?: boolean;
+    /** CACHE_LISTING_SETTLE_MS: when listings are refreshed again after a catalog change. */
+    cacheListingSettleMs?: number;
+    cacheBatchMs?: number;
+    cachePollMs?: number;
     /** STORE_DEFAULT_LANGUAGE: the storefront's default language for a new store. */
     defaultLanguage: StoreLanguage;
     /** Set up store defaults on start (default true). */
@@ -88,6 +102,7 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
         BdManualOrdersPlugin,
         NotificationsPlugin.init({ driver: options.smsDriver, storefrontUrl: options.storefrontUrl }),
         FraudGuardPlugin,
+        WooImportPlugin.init({ encryptionKeys: options.wooImportKeys, publicUrl: options.wooPublicUrl }),
         MerchantAdminPlugin.init({
             appDir: ADMIN_APP_DIR,
             imageOrigins: options.assetUrlPrefix ? [new URL(options.assetUrlPrefix).origin] : [],
@@ -115,5 +130,18 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
         }),
         // Uses bd-sections' layouts and bd-orders' permissions.
         BdSalesPagesPlugin.init({ storefrontUrl: options.previewStorefrontUrl ?? options.storefrontUrl }),
+        CachePurgePlugin.init({
+            storeId: options.cacheStoreId ?? options.redisKeyPrefix,
+            redis: options.cacheRedis,
+            redisKeyPrefix: options.redisKeyPrefix,
+            purgeUrl: options.cachePurgeUrl,
+            purgeSecret: options.cachePurgeSecret,
+            warmUp: options.cacheWarmUp,
+            storefrontUrl: options.previewStorefrontUrl ?? options.storefrontUrl,
+            batchMs: options.cacheBatchMs,
+            listingSettleMs: options.cacheListingSettleMs,
+            listingCacheMs: options.searchCatalogCacheMs,
+            pollMs: options.cachePollMs,
+        }),
     ];
 }
