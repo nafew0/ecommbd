@@ -207,15 +207,26 @@ export class SalesPageService {
         return new Map(rows.map(row => [row.page, Number(row.count)]));
     }
 
-    /** A free address like the one asked for: `chia-seed`, else `chia-seed-2`, `chia-seed-3`… */
+    /**
+     * A free address like the one asked for: `chia-seed`, else `chia-seed-2`, `chia-seed-3`… The
+     * numbered ones are cut to leave room for `-999`, so they never pass the 80-character limit.
+     */
     private async freeSlug(ctx: RequestContext, wanted: string, exceptId?: ID): Promise<string> {
-        const base = wanted.slice(0, SALES_LIMITS.slug - 4) || 'offer';
+        // Cut without a hyphen at the end, or the suggestion would be `…--2` (not a valid address).
+        const base = wanted.slice(0, SALES_LIMITS.slug - 4).replace(/-+$/, '') || 'offer';
+        // The address asked for is looked up on its own, not only through `base`: a long one (a
+        // Bangla title easily reaches 80 characters) is longer than `base`, so `slug = base` and
+        // `LIKE base-%` both miss it, and saving it again would hit the unique index.
+        const like = `${base.replace(/[\\%_]/g, char => `\\${char}`)}-%`;
         const taken = new Set(
             (
                 await this.repo(ctx)
                     .createQueryBuilder('page')
                     .select(['page.id', 'page.slug'])
-                    .where('page.slug = :base OR page.slug LIKE :like', { base, like: `${base}-%` })
+                    .where('page.slug IN (:...exact) OR page.slug LIKE :like', {
+                        exact: [wanted, base],
+                        like,
+                    })
                     .getMany()
             )
                 .filter(page => String(page.id) !== String(exceptId))
@@ -225,7 +236,8 @@ export class SalesPageService {
         for (let n = 2; n < 1000; n++) {
             if (!taken.has(`${base}-${n}`)) return `${base}-${n}`;
         }
-        return `${base}-${Date.now()}`;
+        // 13 digits of milliseconds and a hyphen, still within the limit.
+        return `${base.slice(0, SALES_LIMITS.slug - 14).replace(/-+$/, '')}-${Date.now()}`;
     }
 
     /** The slug as typed (or from the title), checked: invalid, or taken with a suggestion. */
@@ -366,7 +378,9 @@ export class SalesPageService {
     async duplicate(ctx: RequestContext, id: ID) {
         const source = await this.repo(ctx).findOne({ where: { id } });
         if (!source) return { page: null, errors: [{ field: 'id', code: 'notFound' }] };
-        const slug = await this.freeSlug(ctx, `${source.slug.slice(0, SALES_LIMITS.slug - 10)}-copy`);
+        // Cut without a hyphen at the end, so the copy's address is never `…--copy`.
+        const stem = source.slug.slice(0, SALES_LIMITS.slug - 10).replace(/-+$/, '');
+        const slug = await this.freeSlug(ctx, `${stem}-copy`);
         const page = await this.repo(ctx).save(
             new BdSalesPage({
                 title: `${source.title} (copy)`.slice(0, SALES_LIMITS.title),
@@ -485,7 +499,8 @@ export class SalesPageService {
     /**
      * Puts a sales page order in the shopper's (sales page) cart: the chosen variant, the pack's
      * quantity (or one to 20 without packs) and the add-on, replacing whatever was there. Prices
-     * come from the "Sales page offer" promotion, never from the browser.
+     * come from the "Sales page offer" promotion, never from the browser, and only an order made
+     * here gets them.
      */
     async setOrder(
         ctx: RequestContext,
@@ -522,8 +537,13 @@ export class SalesPageService {
             order = back;
         }
         if (order.state !== 'AddingItems') return fail('ORDER_LOCKED');
-        // The page first, so the offer applies as the items go in.
-        await this.orders.updateCustomFields(ctx, order.id, { salesPageId: String(page.id) });
+        // The page first, so the offer applies as the items go in. `salesPageOffer` is what turns
+        // the page's prices on (offer-promotion.ts); this is the only place that sets it.
+        // `salesPageId` records the page for reports, like the attribution cookie does elsewhere.
+        await this.orders.updateCustomFields(ctx, order.id, {
+            salesPageId: String(page.id),
+            salesPageOffer: String(page.id),
+        });
         await this.orders.removeAllItemsFromOrder(ctx, order.id);
         const added = await this.orders.addItemToOrder(ctx, order.id, variant.id, quantity);
         if (isGraphQlErrorResult(added)) {
@@ -551,7 +571,9 @@ export class SalesPageService {
 
     /**
      * Copies the shopper's attribution (the storefront's cookie) onto their active order. The sales
-     * page an ad led to counts for an order placed through the normal checkout too.
+     * page an ad led to counts for an order placed through the normal checkout too, in reports
+     * only: the cookie is the browser's to change, so it never touches `salesPageOffer` and never
+     * changes a price.
      */
     async setAttribution(ctx: RequestContext, input: unknown): Promise<boolean> {
         const order = await this.activeOrders.getActiveOrder(ctx, undefined);

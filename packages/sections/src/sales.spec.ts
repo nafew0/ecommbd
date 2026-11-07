@@ -266,5 +266,9 @@ describe('sales page settings', () => {
         expect(toSalesSlug('  Chia Seeds — Offer!! ')).toBe('chia-seeds-—-offer');
         expect(toSalesSlug('খাঁটি মধু।')).toBe('খাঁটি-মধু');
         expect(toSalesSlug('a'.repeat(100))).toHaveLength(SALES_LIMITS.slug);
+        // Cut at the limit right after a word: no hyphen left at the end.
+        expect(toSalesSlug(`${'a'.repeat(SALES_LIMITS.slug - 1)} more words`)).toBe(
+            'a'.repeat(SALES_LIMITS.slug - 1),
+        );
     });
 });

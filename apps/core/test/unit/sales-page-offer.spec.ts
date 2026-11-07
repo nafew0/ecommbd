@@ -54,6 +54,15 @@ describe('sales page offer prices', () => {
         expect(offerDiscount(noPrice, [line('10', 1, 55_000), bump])).toBe(0);
     });
 
+    it('gives the add-on its price only with the page’s product in the same order', () => {
+        const bump = line('30', 1, 35_000, '2');
+        expect(offerDiscount(page(), [bump])).toBe(0);
+        expect(offerDiscount(page(), [line('10', 0, 55_000), bump])).toBe(0);
+        expect(offerDiscount(page(), [line('99', 1, 55_000, '9'), bump])).toBe(0);
+        // Without packs too: one of the product is enough.
+        expect(offerDiscount(page({ packs: [] }), [line('10', 1, 55_000), bump])).toBe(15_000);
+    });
+
     it('never adds to the price, and ignores other products', () => {
         // A pack dearer than the normal price takes nothing off.
         expect(offerDiscount(page(), [line('10', 2, 40_000)])).toBe(0);

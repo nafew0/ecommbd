@@ -3,26 +3,25 @@ import CheckoutSummary from '../../components/CheckoutSummary.astro';
 import Icon from '../../components/Icon.astro';
 import Layout from '../../layouts/Layout.astro';
 import { shopperContext } from '../../lib/cart';
-import { ORDER_BY_CODE } from '../../lib/checkout-queries';
-import { shopQuery } from '../../lib/core';
+import { placedOrderByCode } from '../../lib/checkout';
 import { purchaseEvents } from '../../lib/meta';
 import { canonicalRedirect, pageContext, privatePage } from '../../lib/page';
 
 /**
- * After the order (roadmap phase 14). Only the session that placed it can read it (Vendure's
- * order-by-code rules); anyone else gets "track it with your number and phone".
+ * After the order (roadmap phase 14). Only the session that placed it can read it, for 2 hours
+ * (Vendure's order-by-code rules); anyone else, a mistyped code or a later visit gets "track it
+ * with your number and phone". `again=1`: the checkout found the order placed already (the back
+ * button, another tab, a retry), so the heading says so instead of thanking for a new one.
  */
 const redirect = canonicalRedirect(Astro, '/checkout/thank-you/');
 if (redirect) return redirect;
 privatePage(Astro);
-const { lang, settings, s, href, format } = pageContext(Astro);
+const { settings, s, href, format } = pageContext(Astro);
 const shopper = shopperContext(Astro);
 const code = Astro.url.searchParams.get('order') ?? '';
-const order = /^[A-Za-z0-9]{6,40}$/.test(code)
-    ? (await shopQuery(ORDER_BY_CODE, { code }, lang, shopper)).orderByCode
-    : null;
+const placed = await placedOrderByCode(shopper, code);
+const again = Astro.url.searchParams.get('again') === '1';
 shopper.session.apply(Astro.response.headers);
-const placed = order?.orderPlacedAt ? order : null;
 const number = placed?.customFields?.orderNumber ?? placed?.code ?? '';
 const cod = placed?.payments?.some(payment => payment.method === 'bd-cod') ?? false;
 const mfsPending = placed?.payments?.some(
@@ -42,7 +41,7 @@ const metaEvents = purchaseEvents(placed, Astro.locals.meta);
                     <p class="thank-you-mark" aria-hidden="true">
                         <Icon name="bag" size={32} />
                     </p>
-                    <h1>{s.thankYouTitle}</h1>
+                    <h1>{again ? s.alreadyPlaced : s.thankYouTitle}</h1>
                     <p class="thank-you-number">{s.orderNumberIs(number)}</p>
                     <p>{s.nextSteps}</p>
                     {mfsPending && <p>{s.mfsPending}</p>}

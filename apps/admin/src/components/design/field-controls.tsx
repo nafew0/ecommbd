@@ -17,6 +17,7 @@ import { cn } from '../../lib/cn';
 import { useI18n } from '../../lib/i18n';
 import { ImageUpload } from '../form/image-upload';
 import { RichTextEditor } from '../form/rich-text-editor';
+import { parseTakaInput, takaInputText } from '../form/values';
 import { Button } from '../ui/button';
 import { IconButton } from './icon-button';
 import { Input, Select, Textarea } from '../ui/input';
@@ -728,10 +729,54 @@ function DateTimeControl({ field, value, onChange, issue }: FieldControlProps) {
 function MoneyControl({ field, value, onChange }: FieldControlProps) {
     const { language: ui } = useI18n();
     const id = useId();
-    const poisha = value as number | null;
     return (
         <div>
             <Label htmlFor={id}>{field.label[ui]}</Label>
+            {/* At most ৳1 crore. */}
+            <PriceInput id={id} value={value as number | null} max={10_000_000 * 100} onChange={onChange} />
+            {field.hint && <Hint>{field.hint[ui]}</Hint>}
+        </div>
+    );
+}
+
+/**
+ * A price in whole taka with the ৳ sign in front (the page editor and sales page settings), stored
+ * in poisha. "990", "990.00" and "৯৯০" are all ৳990; "990.50" is refused with a message, since
+ * prices are whole taka. It keeps the merchant's own text while they type: showing the parsed
+ * amount after every key dropped the point, so "990.00" became ৳99,000. Empty is null.
+ */
+export function PriceInput({
+    id,
+    value,
+    max,
+    onChange,
+    invalid,
+}: {
+    id?: string;
+    value: number | null;
+    /** The most it takes, in poisha; more is cut to this. */
+    max: number;
+    onChange(poisha: number | null): void;
+    /** The server refused the value (its message is shown by the caller). */
+    invalid?: boolean;
+}) {
+    const { messages: m } = useI18n();
+    const hintId = useId();
+    const [text, setText] = useState(() => takaInputText('', value));
+    // A new value from outside (the saved settings, undo) replaces the text, unless the text
+    // already means that amount: then it's the merchant's own typing, and stays as it is.
+    useEffect(() => setText(current => takaInputText(current, value)), [value]);
+    const parsed = parseTakaInput(text);
+    // Negative prices aren't prices.
+    const problem = !parsed.ok
+        ? parsed.reason === 'fraction'
+            ? m.inputs.wholeTakaOnly
+            : m.inputs.takaNumbersOnly
+        : (parsed.minor ?? 0) < 0
+          ? m.inputs.takaNumbersOnly
+          : null;
+    return (
+        <>
             <div className="flex min-h-11 items-center rounded-md border border-slate-300 bg-white focus-within:outline-2 focus-within:outline-teal-600">
                 <span className="pl-3 text-slate-500" aria-hidden>
                     ৳
@@ -740,17 +785,28 @@ function MoneyControl({ field, value, onChange }: FieldControlProps) {
                     id={id}
                     inputMode="numeric"
                     className="min-w-0 flex-1 bg-transparent py-2 pr-3 pl-1 text-base outline-none"
-                    value={poisha == null ? '' : String(poisha / 100)}
+                    value={text}
+                    aria-invalid={problem || invalid ? true : undefined}
+                    aria-describedby={problem ? hintId : undefined}
                     onChange={event => {
-                        const digits = event.target.value
-                            .replace(/[০-৯]/g, digit => String('০১২৩৪৫৬৭৮৯'.indexOf(digit)))
-                            .replace(/[^\d]/g, '');
-                        onChange(digits ? Math.min(Number(digits), 10_000_000) * 100 : null);
+                        const next = parseTakaInput(event.target.value);
+                        setText(event.target.value);
+                        // Only whole taka (0 or more) change the price; anything else waits, with
+                        // the message below, and the last good price stays.
+                        if (next.ok && (next.minor ?? 0) >= 0) {
+                            onChange(next.minor == null ? null : Math.min(next.minor, max));
+                        }
                     }}
+                    // "990.00" reads back as "990" once the merchant moves on.
+                    onBlur={() => setText(current => (problem ? current : takaInputText('', value)))}
                 />
             </div>
-            {field.hint && <Hint>{field.hint[ui]}</Hint>}
-        </div>
+            {problem && (
+                <Hint tone="error" id={hintId}>
+                    {problem}
+                </Hint>
+            )}
+        </>
     );
 }
 

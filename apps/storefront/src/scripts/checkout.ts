@@ -7,7 +7,8 @@ import { parseBdMobile } from '@ecommbd/shared/phone';
  * - "Place order" is sent with fetch: success follows the server's redirect to the thank-you page;
  *   anything else swaps in the server's answer (errors next to their fields, the SMS code step);
  * - the same idempotency key goes with every retry, so a double tap or a retry on a slow
- *   connection never makes two orders; offline, nothing is lost and a message says so;
+ *   connection never makes two orders; offline, or when the server answers with an error page,
+ *   nothing is lost and a message says so;
  * - the phone number shows its operator as it's typed, and the checkout is saved for staff once
  *   the number is valid (phase 11's incomplete orders).
  */
@@ -17,10 +18,15 @@ const PARTS = ['thana', 'delivery', 'payment', 'summary'];
 const HIDDEN = ['expectedTotal', 'csrf', 'idempotencyKey', 'stamp'];
 const CHANGES = '[data-district], [data-thana], [data-shipping], [data-payment]';
 
+/** The server answered with an error page: a 5xx (the core timed out or failed), a 403 or a 429. */
+class ServerError extends Error {}
+
 export function enhanceCheckout(form: HTMLFormElement, options: { refreshOn?: string } = {}): void {
     const changes = options.refreshOn ? `${CHANGES}, ${options.refreshOn}` : CHANGES;
     const status = form.querySelector<HTMLElement>('[data-status]');
     const offline = status?.dataset.offline ?? '';
+    const server = status?.dataset.server ?? offline;
+    const problem = (error: unknown) => (error instanceof ServerError ? server : offline);
     let refresh: AbortController | undefined;
     let placing = false;
     for (const button of form.querySelectorAll<HTMLElement>('[data-refresh]')) button.hidden = true;
@@ -42,6 +48,10 @@ export function enhanceCheckout(form: HTMLFormElement, options: { refreshOn?: st
             location.assign(response.url);
             return null;
         }
+        // An error page must never replace the form: the shopper keeps their details and the same
+        // idempotency key, and the retry gets the order if the core placed it after all. A 404 is
+        // a real answer (a sales page switched off meanwhile): that page is shown.
+        if (!response.ok && response.status !== 404) throw new ServerError(`HTTP ${response.status}`);
         return new DOMParser().parseFromString(await response.text(), 'text/html');
     }
 
@@ -74,7 +84,7 @@ export function enhanceCheckout(form: HTMLFormElement, options: { refreshOn?: st
             if (page) swapParts(page);
             say('');
         } catch (error) {
-            if ((error as Error).name !== 'AbortError') say(offline);
+            if ((error as Error).name !== 'AbortError') say(problem(error));
         }
     }
 
@@ -120,13 +130,14 @@ export function enhanceCheckout(form: HTMLFormElement, options: { refreshOn?: st
                 (invalid ?? alert)?.focus();
                 alert?.scrollIntoView({ block: 'center' });
             })
-            .catch(() => {
-                // Offline or a timeout: keep everything, keep the key, let the shopper try again.
+            .catch(error => {
+                // Offline, a timeout or an error page: keep everything, keep the key, let the
+                // shopper try again.
                 if (button) {
                     button.disabled = false;
                     button.textContent = label;
                 }
-                say(offline);
+                say(problem(error));
             })
             .finally(() => {
                 placing = false;

@@ -189,8 +189,15 @@ const en = {
     updateTotal: 'Update total',
     checkTotal: 'The total has changed. Please check it, then place the order again.',
     checkoutFailed: 'Couldn’t place the order. Please check your details and try again.',
-    soldOutRemoved: (names: string) =>
-        `Sorry, just sold out: ${names}. We took it out of your cart; check the total and order again.`,
+    /** What a short stock changed in the cart (checkout.ts, fitToStock); quantity 0: taken out. */
+    stockChanged: (changes: ReadonlyArray<{ name: string; quantity: number }>) =>
+        `Sorry, stock ran short while you were ordering. ${changes
+            .map(({ name, quantity }) =>
+                quantity > 0
+                    ? `Only ${quantity} of ${name} left, so your cart now has ${quantity}.`
+                    : `${name} just sold out, so we took it out of your cart.`,
+            )
+            .join(' ')} Check the total and order again.`,
     fixFields: 'Please check the marked fields.',
     otpTitle: 'Verify your number',
     otpSent: 'We sent a 6-digit code by SMS to your number. Enter it to confirm your cash on delivery order.',
@@ -205,6 +212,7 @@ const en = {
     alreadyPlaced: 'Your order is already placed.',
     viewOrder: 'See your order',
     noConnection: 'No internet connection. Your details are still here: try again when you’re back online.',
+    serverTrouble: 'Something went wrong on our side. Your details are still here: please try again.',
     mfsNames: { bkash: 'bKash', nagad: 'Nagad', rocket: 'Rocket' } as Record<string, string>,
     // Online payments (phase 18)
     gatewayNames: {
@@ -495,8 +503,15 @@ const bn: Strings = {
     updateTotal: 'মোট হিসাব দেখুন',
     checkTotal: 'মোট টাকা বদলেছে। দেখে নিয়ে আবার অর্ডার করুন।',
     checkoutFailed: 'অর্ডার করা যায়নি। তথ্যগুলো দেখে আবার চেষ্টা করুন।',
-    soldOutRemoved: (names: string) =>
-        `দুঃখিত, এইমাত্র শেষ হয়ে গেছে: ${names}। এটি কার্ট থেকে সরানো হয়েছে; মোট দেখে আবার অর্ডার করুন।`,
+    stockChanged: (changes: ReadonlyArray<{ name: string; quantity: number }>) =>
+        `দুঃখিত, অর্ডারের সময় স্টক কমে গেছে। ${changes
+            .map(({ name, quantity }) => {
+                const n = asciiToBanglaDigits(String(quantity));
+                return quantity > 0
+                    ? `${name} আছে মাত্র ${n}টি, তাই কার্টে এখন ${n}টি।`
+                    : `${name} এইমাত্র শেষ হয়ে গেছে, তাই কার্ট থেকে সরানো হয়েছে।`;
+            })
+            .join(' ')} মোট দেখে আবার অর্ডার করুন।`,
     fixFields: 'চিহ্নিত ঘরগুলো দেখে নিন।',
     otpTitle: 'নম্বর যাচাই করুন',
     otpSent:
@@ -511,6 +526,7 @@ const bn: Strings = {
     alreadyPlaced: 'আপনার অর্ডার হয়ে গেছে।',
     viewOrder: 'অর্ডার দেখুন',
     noConnection: 'ইন্টারনেট সংযোগ নেই। আপনার তথ্য রাখা আছে: সংযোগ ফিরলে আবার চেষ্টা করুন।',
+    serverTrouble: 'আমাদের দিকে একটা সমস্যা হয়েছে। আপনার তথ্য রাখা আছে: আবার চেষ্টা করুন।',
     mfsNames: { bkash: 'বিকাশ', nagad: 'নগদ', rocket: 'রকেট' },
     // Online payments (phase 18)
     gatewayNames: {
@@ -603,7 +619,7 @@ const bn: Strings = {
     pieces: (n: string) => `${n}টি`,
     choosePack: 'প্যাক বেছে নিন',
     chooseVariant: 'বেছে নিন',
-    notEnoughStock: 'স্টকে নেই',
+    notEnoughStock: 'যথেষ্ট স্টক নেই',
     soldOutTitle: 'এই মুহূর্তে পাওয়া যাচ্ছে না',
     soldOutText: 'পণ্যটি এখন স্টকে নেই। মেসেজ দিন, আবার এলে জানিয়ে দেব।',
     addBump: 'হ্যাঁ, এটাও আমার অর্ডারে যোগ করুন',

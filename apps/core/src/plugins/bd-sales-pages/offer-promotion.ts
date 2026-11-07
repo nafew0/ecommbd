@@ -12,8 +12,8 @@ import { offerDiscount } from './offer';
 let connection: TransactionalConnection | undefined;
 
 /**
- * The order came from an active sales page whose packs or add-on apply to it. Passes the discount
- * to the action (worked out once, from the page's current settings).
+ * The order was built by an active sales page's order form, and the page's packs or add-on apply
+ * to it. Passes the discount to the action (worked out once, from the page's current settings).
  */
 export const salesPageOfferCondition = new PromotionCondition({
     code: OFFER_CONDITION_CODE,
@@ -32,7 +32,9 @@ export const salesPageOfferCondition = new PromotionCondition({
         connection = injector.get(TransactionalConnection);
     },
     async check(ctx, order) {
-        const pageId = (order.customFields as { salesPageId?: string | null }).salesPageId;
+        // The marker only the page's order form sets, never `salesPageId`: that one is attribution,
+        // copied from a cookie the browser controls, and would turn the offer on in a normal cart.
+        const pageId = (order.customFields as { salesPageOffer?: string | null }).salesPageOffer;
         if (!pageId || !connection || !/^\d+$/.test(pageId)) return false;
         const page = await connection.getRepository(ctx, BdSalesPage).findOne({ where: { id: pageId } });
         if (!page?.active || !page.productId) return false;
