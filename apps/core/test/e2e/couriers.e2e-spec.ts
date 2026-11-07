@@ -22,7 +22,7 @@ import {
 
 registerInitializer('postgres', new PostgresInitializer());
 
-const PORT = 3073;
+const PORT = 3081;
 const mock = new MockCouriers(4073);
 const config = createTestConfig(
     PORT,

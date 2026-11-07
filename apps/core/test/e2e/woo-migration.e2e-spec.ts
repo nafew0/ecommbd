@@ -51,6 +51,15 @@ const { server, adminClient, shopClient } = createTestEnvironment(config);
 const fixture = JSON.parse(
     fs.readFileSync(path.join(__dirname, '../fixtures/woo/wordpress-export.json'), 'utf8'),
 ) as Record<string, WooRecord[]>;
+// Only open orders from the last 14 days can become live orders, so the fixture's open orders are
+// dated yesterday (as WooCommerce writes GMT dates, without a zone): a fixed date stops working
+// two weeks after it was written.
+const yesterday = new Date(Date.now() - 86400_000).toISOString().slice(0, 19);
+for (const order of fixture.orders)
+    if (['pending', 'processing', 'on-hold'].includes(order.status)) {
+        order.date_created_gmt = yesterday;
+        order.date_modified_gmt = yesterday;
+    }
 let db: TransactionalConnection,
     ctx: RequestContext,
     migration: WooImportService,
