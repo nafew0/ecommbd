@@ -108,6 +108,8 @@ class FakeCore {
                         codFee: 0,
                         codOtpRequired: false,
                         mfs: [],
+                        // Online gateways (phase 18): none in these cash-on-delivery cases.
+                        online: [],
                     },
                     eligiblePaymentMethods: [],
                 });
