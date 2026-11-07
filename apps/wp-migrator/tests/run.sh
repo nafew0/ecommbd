@@ -94,6 +94,7 @@ PHP
 		wp eval-file /tests/security.php
 		wp eval-file /tests/upload.php
 		wp eval-file /tests/metadata.php
+		wp eval-file /tests/file.php
 
 		if grep -E "ecommbd-migrator|/tests/" /tmp/wp-debug.log; then
 			echo "FAIL: PHP notices, warnings or deprecations from the helper (above)"

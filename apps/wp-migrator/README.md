@@ -67,6 +67,19 @@ The page explains each error in the admin language and shows a code for support.
 | `RECORD_TOO_LARGE` | One record is over 1.9 MB. | Contact Ecomm BD development. |
 | `EXPORT_FAILED` | Something else stopped the upload. The code is followed by where it failed. | Click **Continue now**. If it repeats, send the code to development. |
 
+## Export to a file instead
+
+Use this when the site cannot reach Ecomm BD (a host or security plugin blocks outgoing requests, or the old site is very slow). No pairing is needed.
+
+1. In WordPress, open **WooCommerce → Move to Ecomm BD** and click **Create export file**. It reads the store in the background, like the upload; keep the page open, or click **Continue export** if it stops.
+2. When the page says **Export complete**, click **Download export file**. The file is `ecommbd-export-<site>-<date>.jsonl.gz`, usually a few MB.
+3. In the Ecomm BD admin, open the migration page, choose the file under **Or import an export file** and click **Import file**. Its source is then selected: dry run, then import, as after an upload.
+4. Click **Delete export file** in WordPress afterwards. Deactivating or deleting the plugin also deletes it.
+
+The file holds exactly what the upload sends, customers' password hashes included, so keep it private. It is saved in `wp-content/uploads/ecommbd-migrator/` under a random name, with web access denied on Apache.
+
+For the final catch-up sync just before the domain switch, create a new export file and import it again (or pair and upload).
+
 ## When it is finished
 
 1. The page says **Upload complete**. Go back to the Ecomm BD admin to check (dry run) and import.
@@ -86,6 +99,7 @@ The page explains each error in the admin language and shows a code for support.
 | `includes/class-ecommbd-migrator.php` | Constants, hooks, saved state, clean-up |
 | `includes/class-ecommbd-migrator-admin.php` | The admin page and its actions |
 | `includes/class-ecommbd-migrator-uploader.php` | Pairing, the upload loop, signing, retries |
+| `includes/class-ecommbd-migrator-file.php` | Export to a file, resuming, gzip, the download |
 | `includes/class-ecommbd-migrator-exporter.php` | Read-only exporters, and what is never exported |
 | `includes/class-ecommbd-migrator-budget.php` | Time and memory budget of one run |
 | `includes/class-ecommbd-migrator-lock.php` | The atomic lock |
@@ -98,7 +112,7 @@ The code explains the reason for each rule in comments.
 
 ### Protocol
 
-Unchanged; the receiving side is `apps/core/src/plugins/woo-import/helper.service.ts`. Records are WooCommerce REST shapes and the core ignores unknown fields. What changed in the records:
+Unchanged; the receiving side is `apps/core/src/plugins/woo-import/helper.service.ts`. The export file (0.3.0) is JSON Lines, gzip-compressed when PHP has zlib: a header line `{ format: "ecommbd-woo-export", version: 1, plugin, sourceUrl, createdAt }`, then one line per chunk, exactly the upload's `{ sequence, kind, payload }`, ending with `finish`. The core's `importFile` runs every line through the same checks as an upload. Records are WooCommerce REST shapes and the core ignores unknown fields. What changed in the records:
 
 - Page rows in `settings.redirects` have a new `slug` (the page's `post_name`) next to `id`, `path` and `target`.
 - `settings.shippingZones` is a list of `{ zone_id, zone_name, zone_order, zone_locations[{code, type}], shipping_methods[{method_id, instance_id, title, enabled, costs}] }`. The fields the core reads (`zone_id`, `zone_name`, `zone_locations`) keep their names.
@@ -132,7 +146,8 @@ Versions are pinned in `tests/compose.yml`. On each site it runs:
 - `fixture.php`: makes a small synthetic store, exports it, and checks that no admin hash, secret meta or courier key leaves; that ordinary meta, transaction IDs, refunds and shipping costs stay; and that page rows have their `slug`;
 - `security.php`: capability and nonce checks, the bilingual refusal, the destination confirmation (no request before it), encryption, TLS checks forced on, signatures, a resend after a timeout or lost answer, the lock, and clean-up;
 - `upload.php`: time and memory budgets, one run sending many parts, parts growing to 100, a part too big being split, the next run being scheduled straight away, and **Continue now** running the same loop;
-- `metadata.php`: Yoast, RankMath and PixelYourSite layouts, and the page in Bangla and English.
+- `metadata.php`: Yoast, RankMath and PixelYourSite layouts, and the page in Bangla and English;
+- `file.php`: the export file's buttons, format and counts, gzip, resuming after a half-written line, no admin hash, the download button, and deletion.
 
 It also runs `php -l` on every PHP file on PHP 7.4 and on PHP 8.5, and fails if WordPress logged any PHP notice from the helper. It prints `All WordPress helper tests passed` and exits 0, or stops at the first failure. It is not part of CI, on purpose: the project keeps tooling simple.
 

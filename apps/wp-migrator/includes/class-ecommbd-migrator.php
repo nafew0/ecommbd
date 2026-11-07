@@ -23,7 +23,7 @@ final class EcommBD_Migrator {
 	/**
 	 * Plugin version.
 	 */
-	const VERSION = '0.2.0';
+	const VERSION = '0.3.0';
 
 	/**
 	 * Option that holds the saved migration state.
@@ -65,6 +65,7 @@ final class EcommBD_Migrator {
 		EcommBD_Migrator_I18n::boot();
 		EcommBD_Migrator_Admin::boot();
 		add_action( self::CRON_HOOK, array( 'EcommBD_Migrator_Uploader', 'run_from_cron' ) );
+		add_action( EcommBD_Migrator_File::CRON_HOOK, array( 'EcommBD_Migrator_File', 'run_from_cron' ) );
 		add_action( 'before_woocommerce_init', array( __CLASS__, 'declare_hpos_compatibility' ) );
 	}
 
@@ -123,9 +124,20 @@ final class EcommBD_Migrator {
 	}
 
 	/**
+	 * Deactivation: forgets the connection and deletes the export file.
+	 *
+	 * @return void
+	 */
+	public static function deactivate() {
+		self::remove_site_state();
+		EcommBD_Migrator_File::remove();
+	}
+
+	/**
 	 * Removes everything this site stored: state, lock, cron event and the 0.1.0 transient.
 	 *
-	 * Used by "Remove saved connection", deactivation and uninstall.
+	 * Used by "Remove saved connection", deactivation and uninstall. An export file is separate
+	 * (EcommBD_Migrator_File::remove()): removing the connection keeps a file being downloaded.
 	 *
 	 * @return void
 	 */

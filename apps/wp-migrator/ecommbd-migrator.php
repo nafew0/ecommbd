@@ -2,7 +2,7 @@
 /**
  * Plugin Name:          Ecomm BD Migrator
  * Description:          Moves a WooCommerce store to Ecomm BD. It reads your store and sends it to the Ecomm BD store you confirm. It never changes your WordPress data.
- * Version:              0.2.0
+ * Version:              0.3.0
  * Requires at least:    5.8
  * Requires PHP:         7.4
  * Requires Plugins:     woocommerce
@@ -16,11 +16,14 @@
  * - The helper reads the store with WooCommerce's own APIs (classic and HPOS order storage).
  * - It PUSHES signed chunks to that one destination over HTTPS. It opens no inbound routes:
  *   nothing on this site accepts requests from Ecomm BD.
+ * - Or, when the site cannot reach Ecomm BD, it writes the same chunks to a file the merchant
+ *   downloads and imports in the Ecomm BD admin.
  *
  * Files:
  * - includes/class-ecommbd-migrator.php           constants, hooks, saved state, clean-up
  * - includes/class-ecommbd-migrator-admin.php     the WooCommerce → Move to Ecomm BD page
  * - includes/class-ecommbd-migrator-uploader.php  pairing, the upload loop, signing, retries
+ * - includes/class-ecommbd-migrator-file.php      export to a file to download (no connection needed)
  * - includes/class-ecommbd-migrator-exporter.php  read-only exporters and what is never exported
  * - includes/class-ecommbd-migrator-budget.php    time and memory budget for one run
  * - includes/class-ecommbd-migrator-lock.php      the atomic "one upload at a time" lock
@@ -41,9 +44,11 @@ require_once __DIR__ . '/includes/class-ecommbd-migrator-lock.php';
 require_once __DIR__ . '/includes/class-ecommbd-migrator-budget.php';
 require_once __DIR__ . '/includes/class-ecommbd-migrator-exporter.php';
 require_once __DIR__ . '/includes/class-ecommbd-migrator-uploader.php';
+require_once __DIR__ . '/includes/class-ecommbd-migrator-file.php';
 require_once __DIR__ . '/includes/class-ecommbd-migrator-admin.php';
 
 EcommBD_Migrator::boot();
 
-// Deactivating the helper forgets this site's saved connection, so a forgotten plugin holds no token.
-register_deactivation_hook( __FILE__, array( 'EcommBD_Migrator', 'remove_site_state' ) );
+// Deactivating the helper forgets this site's saved connection and deletes any export file, so a
+// forgotten plugin holds no token and no copy of the customers.
+register_deactivation_hook( __FILE__, array( 'EcommBD_Migrator', 'deactivate' ) );

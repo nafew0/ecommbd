@@ -34,6 +34,11 @@ final class EcommBD_Migrator_Admin {
 	const REVIEW_NONCE = 'ecommbd_migrate_review';
 
 	/**
+	 * The admin-post.php action (and nonce action) that downloads the export file.
+	 */
+	const DOWNLOAD_ACTION = 'ecommbd_migrate_download';
+
+	/**
 	 * After this long without progress, the page suggests clicking "Continue now".
 	 */
 	const STALLED_SECONDS = 600;
@@ -52,6 +57,7 @@ final class EcommBD_Migrator_Admin {
 	public static function boot() {
 		add_action( 'admin_menu', array( __CLASS__, 'add_menu' ) );
 		add_action( 'admin_post_' . self::ACTION, array( __CLASS__, 'handle_action' ) );
+		add_action( 'admin_post_' . self::DOWNLOAD_ACTION, array( __CLASS__, 'handle_download' ) );
 	}
 
 	/**
@@ -86,7 +92,9 @@ final class EcommBD_Migrator_Admin {
 		$state     = EcommBD_Migrator::get_state();
 		$is_get    = isset( $_SERVER['REQUEST_METHOD'] ) && 'GET' === $_SERVER['REQUEST_METHOD'];
 		$uploading = null !== $state && self::is_confirmed( $state ) && empty( $state['done'] ) && empty( $state['error'] );
-		if ( $is_get && $uploading && ! self::cron_disabled() ) {
+		$file      = EcommBD_Migrator_File::get_state();
+		$exporting = null !== $file && empty( $file['done'] ) && empty( $file['error'] );
+		if ( $is_get && ( $uploading || $exporting ) && ! self::cron_disabled() ) {
 			wp_print_inline_script_tag(
 				'setTimeout(function(){var t=document.getElementById("ecommbd-pairing");if(!t||""===t.value){window.location.replace(' . wp_json_encode( self::page_url() ) . ');}},' . ( self::REFRESH_SECONDS * 1000 ) . ');'
 			);
@@ -130,6 +138,7 @@ final class EcommBD_Migrator_Admin {
 			self::render_status( $state );
 		}
 		self::render_forms( $state, null !== $review && isset( $review['host'] ) );
+		self::render_export();
 		echo '</div>';
 	}
 
@@ -178,6 +187,16 @@ final class EcommBD_Migrator_Admin {
 				case 'resume':
 					$args['ecommbd-result'] = EcommBD_Migrator_Uploader::run( null, true );
 					break;
+				case 'export_start':
+					$args['ecommbd-result'] = 'export-' . EcommBD_Migrator_File::start( get_current_user_id() );
+					break;
+				case 'export_resume':
+					$args['ecommbd-result'] = 'export-' . EcommBD_Migrator_File::run( null, true );
+					break;
+				case 'export_delete':
+					EcommBD_Migrator_File::remove();
+					$args['ecommbd-result'] = 'export-deleted';
+					break;
 				default:
 					throw new RuntimeException( 'UNKNOWN_OPERATION' );
 			}
@@ -187,6 +206,22 @@ final class EcommBD_Migrator_Admin {
 
 		wp_safe_redirect( add_query_arg( $args, self::page_url() ) );
 		exit;
+	}
+
+	/**
+	 * Sends the finished export file. A GET link with its own nonce, so the browser downloads it.
+	 *
+	 * @return void
+	 */
+	public static function handle_download() {
+		self::require_capability();
+		check_admin_referer( self::DOWNLOAD_ACTION );
+		try {
+			EcommBD_Migrator_File::stream_download();
+		} catch ( Throwable $error ) {
+			wp_safe_redirect( add_query_arg( 'ecommbd-error', EcommBD_Migrator_Uploader::error_code( $error ), self::page_url() ) );
+			exit;
+		}
 	}
 
 	/**
@@ -282,10 +317,21 @@ final class EcommBD_Migrator_Admin {
 			'done'    => array( 'success', __( 'Upload complete. Go back to your Ecomm BD admin to check and import the data. Then remove this plugin.', 'ecommbd-migrator' ) ),
 			'more'    => array( 'info', __( 'Part of your store was sent. The rest continues in the background.', 'ecommbd-migrator' ) ),
 			'busy'    => array( 'warning', self::error_message( 'BUSY' ) ),
-			'removed' => array( 'success', __( 'The saved connection was removed from this site. Also revoke the helper upload token in your Ecomm BD admin.', 'ecommbd-migrator' ) ),
+			'removed'        => array( 'success', __( 'The saved connection was removed from this site. Also revoke the helper upload token in your Ecomm BD admin.', 'ecommbd-migrator' ) ),
+			'export-done'    => array( 'success', __( 'The export file is ready. Download it, then import it on the migration page of your Ecomm BD admin.', 'ecommbd-migrator' ) ),
+			'export-more'    => array( 'info', __( 'Part of your store was written to the export file. The rest continues in the background.', 'ecommbd-migrator' ) ),
+			'export-busy'    => array( 'warning', self::error_message( 'BUSY' ) ),
+			'export-deleted' => array( 'success', __( 'The export file was deleted from this site.', 'ecommbd-migrator' ) ),
 		);
 		if ( isset( $results[ $result ] ) ) {
 			self::notice( $results[ $result ][0], $results[ $result ][1] );
+		}
+
+		$file = EcommBD_Migrator_File::get_state();
+		if ( null !== $file && ! empty( $file['error'] ) ) {
+			$code   = (string) $file['error'];
+			$detail = isset( $file['error_detail'] ) ? (string) $file['error_detail'] : '';
+			self::notice( 'error', self::error_message( $code ), trim( $code . ' ' . $detail ) );
 		}
 
 		if ( null === $state ) {
@@ -460,6 +506,74 @@ final class EcommBD_Migrator_Admin {
 	}
 
 	/**
+	 * Shows the "Export to a file" section: create, continue, download or delete the file.
+	 *
+	 * @return void
+	 */
+	private static function render_export() {
+		$file    = EcommBD_Migrator_File::get_state();
+		$ready   = null !== $file && ! empty( $file['done'] ) ? EcommBD_Migrator_File::finished_path() : null;
+		$running = null !== $file && empty( $file['done'] );
+		$labels  = self::stage_labels();
+		?>
+		<h2><?php esc_html_e( 'Export to a file', 'ecommbd-migrator' ); ?></h2>
+		<p class="description"><?php esc_html_e( 'If this site cannot connect to Ecomm BD, export the store to a file instead. Download the file, then import it on the migration page of your Ecomm BD admin. The file contains your customers\' details and password hashes: keep it private and delete it when the move is finished.', 'ecommbd-migrator' ); ?></p>
+		<?php if ( null !== $file ) : ?>
+			<table class="widefat striped ecommbd-status" role="presentation">
+				<tbody>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Progress', 'ecommbd-migrator' ); ?></th>
+						<td>
+							<?php
+							if ( ! $running ) {
+								esc_html_e( 'Export complete', 'ecommbd-migrator' );
+							} else {
+								$stages = EcommBD_Migrator::STAGES;
+								$stage  = isset( $file['stage'] ) ? (int) $file['stage'] : 0;
+								$kind   = isset( $stages[ $stage ] ) ? $stages[ $stage ] : 'finish';
+								/* translators: 1: step number, 2: number of steps, 3: what is being sent, for example Products */
+								echo esc_html( sprintf( __( 'Step %1$s of %2$s: %3$s', 'ecommbd-migrator' ), number_format_i18n( $stage + 1 ), number_format_i18n( count( $stages ) + 1 ), $labels[ $kind ] ) );
+							}
+							?>
+						</td>
+					</tr>
+					<?php foreach ( EcommBD_Migrator::STAGES as $name ) : ?>
+						<tr>
+							<th scope="row"><?php echo esc_html( $labels[ $name ] ); ?></th>
+							<td><?php echo esc_html( number_format_i18n( isset( $file['counts'][ $name ] ) ? (int) $file['counts'][ $name ] : 0 ) ); ?></td>
+						</tr>
+					<?php endforeach; ?>
+					<?php if ( null !== $ready ) : ?>
+						<tr>
+							<th scope="row"><?php esc_html_e( 'File size', 'ecommbd-migrator' ); ?></th>
+							<td><?php echo esc_html( size_format( (int) filesize( $ready ), 1 ) ); ?></td>
+						</tr>
+					<?php endif; ?>
+				</tbody>
+			</table>
+		<?php endif; ?>
+		<?php if ( null !== $ready ) : ?>
+			<p>
+				<a class="button button-primary" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=' . self::DOWNLOAD_ACTION ), self::DOWNLOAD_ACTION ) ); ?>"><?php esc_html_e( 'Download export file', 'ecommbd-migrator' ); ?></a>
+			</p>
+		<?php endif; ?>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+			<input type="hidden" name="action" value="<?php echo esc_attr( self::ACTION ); ?>">
+			<?php wp_nonce_field( self::ACTION ); ?>
+			<p>
+				<?php if ( $running ) : ?>
+					<button type="submit" class="button button-primary" name="operation" value="export_resume"><?php esc_html_e( 'Continue export', 'ecommbd-migrator' ); ?></button>
+				<?php endif; ?>
+				<button type="submit" class="button<?php echo null === $file ? ' button-primary' : ''; ?>" name="operation" value="export_start"><?php echo esc_html( null === $file ? __( 'Create export file', 'ecommbd-migrator' ) : __( 'Create a new export file', 'ecommbd-migrator' ) ); ?></button>
+				<?php if ( null !== $file ) : ?>
+					<button type="submit" class="button" name="operation" value="export_delete"><?php esc_html_e( 'Delete export file', 'ecommbd-migrator' ); ?></button>
+				<?php endif; ?>
+			</p>
+		</form>
+		<?php
+	}
+
+	/**
 	 * Prints an admin notice.
 	 *
 	 * @param string $type    error, warning, success or info.
@@ -500,6 +614,8 @@ final class EcommBD_Migrator_Admin {
 			'INVALID_SECRET'            => __( 'The saved connection cannot be read, probably because the site\'s security keys changed. Remove it and pair again.', 'ecommbd-migrator' ),
 			'ENCRYPTION_FAILED'         => __( 'This server cannot encrypt the saved connection (PHP OpenSSL is missing). Ask your host to enable it.', 'ecommbd-migrator' ),
 			'WOOCOMMERCE_REQUIRED'      => __( 'WooCommerce 4.0 or later must be active.', 'ecommbd-migrator' ),
+			'FILE_WRITE_FAILED'         => __( 'The export file could not be written. Check that the uploads folder has free space and can be written to, then click "Continue export".', 'ecommbd-migrator' ),
+			'NO_EXPORT'                 => __( 'There is no finished export file. Create one first.', 'ecommbd-migrator' ),
 		);
 
 		return isset( $messages[ $code ] ) ? $messages[ $code ] : __( 'The upload stopped. Click "Continue now" to try again.', 'ecommbd-migrator' );
