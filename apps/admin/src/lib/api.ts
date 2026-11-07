@@ -125,11 +125,20 @@ export function adminApi<T>(query: string, variables?: Record<string, unknown>):
  * the server's CSRF protection requires for multipart requests. `onProgress` reports how much of
  * the file has been sent.
  */
-export function adminUpload<T>(query: string, file: File, onProgress?: UploadProgress): Promise<T> {
+export function adminUpload<T>(
+    query: string,
+    file: File,
+    onProgress?: UploadProgress,
+    /** Other variables of the mutation, next to `input`. */
+    variables: Record<string, unknown> = {},
+): Promise<T> {
     return request<T>(
         () => {
             const form = new FormData();
-            form.append('operations', JSON.stringify({ query, variables: { input: [{ file: null }] } }));
+            form.append(
+                'operations',
+                JSON.stringify({ query, variables: { ...variables, input: [{ file: null }] } }),
+            );
             form.append('map', JSON.stringify({ 0: ['variables.input.0.file'] }));
             form.append('0', file);
             return form;

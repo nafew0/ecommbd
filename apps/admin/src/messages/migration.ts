@@ -22,6 +22,14 @@ export const migrationEn = {
         'Install Ecomm BD Migrator in WordPress on a copy of the old store. Create pairing details here, paste them in WooCommerce → Move to Ecomm BD, and wait for upload completion. Select that source below to dry-run and import.',
     createPairing: 'Create one-use pairing',
     pairingDetails: 'Pairing details (valid for one hour)',
+    fileTitle: 'Or import an export file',
+    fileHint:
+        'If the old site cannot connect to this store, open WooCommerce → Move to Ecomm BD there, click Create export file, wait for "Export complete" and download the file. Choose it here. Then select its source below to dry-run and import.',
+    exportFile: 'Export file (.jsonl.gz or .jsonl)',
+    importFile: 'Import file',
+    fileUploading: (percent: number) => `Uploading the file: ${percent}%`,
+    fileImported: (products: number, customers: number, orders: number) =>
+        `File read: ${plural(products, 'product', 'products')}, ${plural(customers, 'customer', 'customers')} and ${plural(orders, 'order', 'orders')}. Its source is selected below: run a dry run, then import.`,
     revokeHelper: 'Revoke helper upload token',
     redirectTitle: 'Old URL mappings',
     oldPath: 'Old local path',
@@ -461,6 +469,14 @@ export const migrationBn: typeof migrationEn = {
         'পুরোনো স্টোরের কপির WordPress-এ Ecomm BD Migrator বসান। এখানে পেয়ারিং তথ্য বানিয়ে WooCommerce → Ecomm BD-তে নিন পাতায় দিন। আপলোড শেষ হলে নিচে স্টোর বেছে ড্রাই রান ও ইমপোর্ট করুন।',
     createPairing: 'একবারের পেয়ারিং তৈরি করুন',
     pairingDetails: 'পেয়ারিং তথ্য (এক ঘণ্টা চলবে)',
+    fileTitle: 'অথবা এক্সপোর্ট ফাইল ইমপোর্ট করুন',
+    fileHint:
+        'পুরোনো সাইট এই স্টোরের সাথে যুক্ত হতে না পারলে সেখানে WooCommerce → Ecomm BD-তে নিন পাতায় "এক্সপোর্ট ফাইল তৈরি করুন" চাপুন, "এক্সপোর্ট সম্পূর্ণ" দেখালে ফাইলটি ডাউনলোড করুন। ফাইলটি এখানে বেছে নিন। তারপর নিচে স্টোর বেছে ড্রাই রান ও ইমপোর্ট করুন।',
+    exportFile: 'এক্সপোর্ট ফাইল (.jsonl.gz বা .jsonl)',
+    importFile: 'ফাইল ইমপোর্ট করুন',
+    fileUploading: (percent: number) => `ফাইল আপলোড হচ্ছে: ${asciiToBanglaDigits(String(percent))}%`,
+    fileImported: (products: number, customers: number, orders: number) =>
+        `ফাইল পড়া হয়েছে: ${asciiToBanglaDigits(String(products))}টি পণ্য, ${asciiToBanglaDigits(String(customers))} জন কাস্টমার ও ${asciiToBanglaDigits(String(orders))}টি অর্ডার। নিচে এর স্টোর বেছে নেওয়া হয়েছে: আগে ড্রাই রান, তারপর ইমপোর্ট করুন।`,
     revokeHelper: 'হেল্পারের আপলোড টোকেন বাতিল করুন',
     redirectTitle: 'পুরোনো ঠিকানার নিয়ম',
     oldPath: 'পুরোনো লোকাল পাথ',

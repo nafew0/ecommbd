@@ -36,6 +36,11 @@ const en = {
     pairing: 'The pairing code or upload token is invalid, expired or revoked. Create a new pairing.',
     chunk: 'This upload was refused: check its signature, timestamp, sequence and size.',
     helperNotReady: 'Wait for the WordPress helper to finish uploading before starting an import.',
+    fileFormat:
+        'This is not an export file from the Ecomm BD WordPress helper, or it is damaged. Create a new export file and try again.',
+    fileLine: 'Line {line} of the export file could not be read. Create a new export file and try again.',
+    fileIncomplete:
+        'The export file stops before the end. Wait until the WordPress helper says "Export complete", then download it again.',
     redirectLoop: 'This rule creates a redirect loop. Choose a final page instead.',
     connection:
         'Could not read the WooCommerce API ({reason}). Check HTTPS, Read keys and security-plugin access.',
@@ -61,6 +66,12 @@ const bn: Record<keyof typeof en, string> = {
     pairing: 'পেয়ারিং কোড বা আপলোড টোকেন ভুল, মেয়াদ শেষ বা বাতিল হয়েছে। নতুন পেয়ারিং করুন।',
     chunk: 'আপলোড নেওয়া যায়নি। স্বাক্ষর, সময়, ক্রম ও আকার যাচাই করুন।',
     helperNotReady: 'ইমপোর্ট শুরুর আগে WordPress থেকে সব তথ্য আপলোড হওয়া পর্যন্ত অপেক্ষা করুন।',
+    fileFormat:
+        'এটি Ecomm BD WordPress হেল্পারের এক্সপোর্ট ফাইল নয়, অথবা ফাইলটি নষ্ট। নতুন এক্সপোর্ট ফাইল তৈরি করে আবার চেষ্টা করুন।',
+    fileLine:
+        'এক্সপোর্ট ফাইলের {line} নম্বর লাইন পড়া যায়নি। নতুন এক্সপোর্ট ফাইল তৈরি করে আবার চেষ্টা করুন।',
+    fileIncomplete:
+        'এক্সপোর্ট ফাইলটি শেষ পর্যন্ত নেই। WordPress হেল্পারে "এক্সপোর্ট সম্পূর্ণ" দেখানো পর্যন্ত অপেক্ষা করে আবার ডাউনলোড করুন।',
     redirectLoop: 'এই নিয়মে একই ঠিকানায় ঘুরে ফিরে আসে। শেষ পাতার ঠিকানা দিন।',
     connection:
         'WooCommerce API পড়া যায়নি ({reason})। HTTPS, Read অনুমতির কী এবং নিরাপত্তা প্লাগইনের অনুমতি দেখুন।',

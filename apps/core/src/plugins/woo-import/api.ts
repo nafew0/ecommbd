@@ -1,6 +1,7 @@
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { Allow, Ctx, ID, Permission, PermissionDefinition, RequestContext } from '@vendure/core';
 import gql from 'graphql-tag';
+import { Readable } from 'node:stream';
 import { WooImportService } from './woo-import.service';
 import { WooOpenOrderService } from './open-order.service';
 import { WooHelperService } from './helper.service';
@@ -24,8 +25,14 @@ export const schema = gql`
         wooUrlReview(sourceId: ID!): JSON!
         wooRollbackOrders(since: DateTime!, skip: Int): JSON!
     }
+    "An export file made by the WordPress helper's Export to a file (.jsonl or .jsonl.gz)."
+    input WooFileInput {
+        file: Upload!
+    }
     extend type Mutation {
         connectWooSource(input: JSON!): JSON!
+        "Imports a WordPress helper export file as a source, ready for a dry run. Returns { sourceId, counts }."
+        importWooFile(input: [WooFileInput!]!, imageHosts: [String!]): JSON!
         startWooImport(sourceId: ID!, mode: String!, acknowledge: Boolean): JSON!
         resumeWooImport(runId: ID!): JSON!
         completeWooMigration(sourceId: ID!): Boolean!
@@ -55,6 +62,21 @@ export class WooImportResolver {
         @Args('input') input: { url: string; imageHosts?: string[] },
     ) {
         return this.helper.createPairing(ctx, input);
+    }
+    @Mutation()
+    @Allow(runMigrationPermission.Permission)
+    async importWooFile(
+        @Ctx() ctx: RequestContext,
+        @Args()
+        args: {
+            input: Array<{ file: Promise<{ createReadStream: () => Readable }> }>;
+            imageHosts?: string[];
+        },
+    ) {
+        if (!Array.isArray(args.input) || args.input.length !== 1)
+            throw new UserInputError('error.woo-import.input');
+        const upload = await args.input[0].file;
+        return this.helper.importFile(ctx, upload.createReadStream(), args.imageHosts ?? []);
     }
     @Mutation()
     @Allow(runMigrationPermission.Permission)

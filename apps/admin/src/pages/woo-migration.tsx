@@ -192,6 +192,10 @@ export function WooMigrationPage() {
                     checked={selectedSource?.settings.cutover?.checked}
                     reference={selectedSource?.settings.reference}
                     lastCrawl={selectedSource?.settings.crawl}
+                    onImported={(id, message) => {
+                        setSourceId(id);
+                        setNotice(message);
+                    }}
                 />
                 <Card>
                     <CardHeader title={m.source} />

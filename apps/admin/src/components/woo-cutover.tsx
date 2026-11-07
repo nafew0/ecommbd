@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
-import { adminApi } from '../lib/api';
+import { adminApi, adminUpload } from '../lib/api';
 import { useConfirm } from '../lib/confirm';
 import { useFormat } from '../lib/format';
 import { useI18n } from '../lib/i18n';
@@ -21,12 +21,15 @@ const URL_REVIEW = 'query($id:ID!){wooUrlReview(sourceId:$id)}';
 const SAVE_REDIRECT =
     'mutation($id:ID!,$path:String!,$target:String!){saveWooRedirect(sourceId:$id,path:$path,target:$target)}';
 const DELETE_REDIRECT = 'mutation($id:ID!){wooDeleteRedirect(id:$id)}';
+const IMPORT_FILE =
+    'mutation($input:[WooFileInput!]!,$hosts:[String!]){importWooFile(input:$input,imageHosts:$hosts)}';
 
 /** How many failing URLs a sitemap check lists before "and N more" (one check covers up to 2,000). */
 const FAILING_SHOWN = 50;
 
 /**
- * The WordPress helper pairing and everything around the switch-over (roadmap phase 22): old
+ * The WordPress helper pairing, or its export file for sites that can't connect to us, and
+ * everything around the switch-over (roadmap phase 22): old
  * address rules and the most-visited missing pages, the sitemap check, the old store's settings
  * for reference, the cutover checklist and the rollback export.
  */
@@ -35,11 +38,14 @@ export function WooCutover({
     checked = [],
     reference,
     lastCrawl,
+    onImported,
 }: {
     sourceId: string;
     checked?: string[];
     reference?: SourceReference;
     lastCrawl?: CrawlResult;
+    /** An export file was read: the page selects its source and shows the message. */
+    onImported?: (sourceId: string, message: string) => void;
 }) {
     const { messages } = useI18n();
     const m = messages.migration;
@@ -48,6 +54,8 @@ export function WooCutover({
     const [pairing, setPairing] = useState('');
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
+    /** Share of the export file uploaded so far, while it uploads. */
+    const [progress, setProgress] = useState<number | null>(null);
     const [steps, setSteps] = useState(checked);
     const [crawl, setCrawl] = useState<CrawlResult | undefined>(lastCrawl);
     // The redirect form is controlled so a missing page's "Redirect" button can fill it in.
@@ -149,6 +157,53 @@ export function WooCutover({
                         />
                     </label>
                 )}
+                <form
+                    className="mt-5 space-y-3"
+                    onSubmit={e => {
+                        e.preventDefault();
+                        const data = new FormData(e.currentTarget);
+                        const file = data.get('file');
+                        if (!(file instanceof File) || file.size === 0) return;
+                        void action(async () => {
+                            try {
+                                const result = await adminUpload<{
+                                    importWooFile: { sourceId: string; counts: Record<string, number> };
+                                }>(IMPORT_FILE, file, setProgress, {
+                                    hosts: String(data.get('fileHosts') || '')
+                                        .split(',')
+                                        .map(h => h.trim())
+                                        .filter(Boolean),
+                                });
+                                const { sourceId: imported, counts } = result.importWooFile;
+                                onImported?.(
+                                    String(imported),
+                                    m.fileImported(
+                                        counts.products ?? 0,
+                                        counts.customers ?? 0,
+                                        counts.orders ?? 0,
+                                    ),
+                                );
+                            } finally {
+                                setProgress(null);
+                            }
+                        });
+                    }}
+                >
+                    <h3 className="font-medium">{m.fileTitle}</h3>
+                    <p>{m.fileHint}</p>
+                    <label>
+                        {m.exportFile}
+                        <Input name="file" type="file" accept=".jsonl,.gz,application/gzip" required />
+                    </label>
+                    <label>
+                        {m.hosts}
+                        <Input name="fileHosts" />
+                    </label>
+                    <Button type="submit" loading={busy}>
+                        {m.importFile}
+                    </Button>
+                    {progress !== null && <p role="status">{m.fileUploading(Math.round(progress * 100))}</p>}
+                </form>
                 {sourceId && (
                     <div className="mt-5 space-y-4">
                         <Button

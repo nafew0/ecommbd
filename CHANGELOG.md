@@ -50,6 +50,7 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Added
 
+- **WooCommerce migration by export file** (WordPress helper 0.3.0): for old sites that can't reach Ecomm BD, **Create export file** in WooCommerce → Move to Ecomm BD writes the store to a `.jsonl.gz` file in the background, and **Download export file** saves it. In the Ecomm BD admin, **Or import an export file** on the migration page reads it; then dry run and import as after an upload. The file holds the same chunks as the upload and passes the same checks; a bad or unfinished file is refused whole, naming the line.
 - **Phase 20, Meta Pixel and Conversions API** (plugin `meta-capi`, **Marketing → Meta tracking**):
   - Facebook and Instagram ads get PageView, ViewContent, AddToCart, InitiateCheckout and Purchase from the server (they arrive even with ad blockers) and, if the store wants, from Meta's Pixel in the browser too; each event has one ID, so Meta counts it once. Meta's script loads only after the page is ready, so it doesn't slow the store down.
   - **When to send Purchase**: when the order is placed, confirmed by staff (the default) or delivered, so ads learn from real buyers rather than fake COD orders. Customer details are hashed; placeholder emails are never sent; imported orders never count, phone and Messenger orders only if the store says so.
