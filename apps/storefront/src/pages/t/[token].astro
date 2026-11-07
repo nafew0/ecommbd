@@ -32,7 +32,12 @@ if (!order && Astro.response.status === 200) Astro.response.status = 404;
         <h1>{s.trackTitle}</h1>
         {
             order ? (
-                <TrackedOrder order={order} />
+                <TrackedOrder
+                    order={order}
+                    token={decodeURIComponent(token)}
+                    payment={Astro.url.searchParams.get('payment')}
+                    reason={Astro.url.searchParams.get('reason')}
+                />
             ) : (
                 <>
                     <p class="form-alert" role="alert">

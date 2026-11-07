@@ -1,10 +1,11 @@
 import { BD_ORDER_STATUSES, type BdOrderStatus } from '@ecommbd/shared/order-status';
 import { PRINT_DOCUMENTS, type PrintDocument } from '@ecommbd/shared/print-settings';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { Printer, ShoppingBag } from 'lucide-react';
+import { Printer, ShoppingBag, Truck } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { usePlaces } from '../components/address/district-thana-picker';
+import { BulkBookingProgress, type BulkRun, bulkStart } from '../components/couriers/bulk-booking';
 import { DistrictName } from '../components/address/place-name';
 import { type Column, ListPage, type ListTab } from '../components/list-page';
 import { PaymentBadge, StatusBadge } from '../components/orders/status';
@@ -15,6 +16,7 @@ import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useFormat } from '../lib/format';
 import { useI18n } from '../lib/i18n';
+import { useToast } from '../lib/toast';
 import { ORDER_FIELDS, type OrderRow } from '../lib/orders';
 import { openPrint } from '../lib/print';
 import { useDebounced } from '../lib/use-debounced';
@@ -93,6 +95,29 @@ export function OrdersPage() {
     const [pageSize, setPageSize] = useState(PAGE_SIZES[0]!);
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [printDocument, setPrintDocument] = useState<PrintDocument>('invoice');
+    const [booking, setBooking] = useState(false);
+    const [bulk, setBulk] = useState<BulkRun | null>(null);
+    const toast = useToast();
+    // Bulk booking (phase 19): each order is booked in the background with its default courier;
+    // the progress card shows each answer, and why an order wasn't booked.
+    const bookSelected = async () => {
+        setBooking(true);
+        try {
+            const orderIds = [...selected];
+            const before = await bulkStart(orderIds);
+            const result = await adminApi<{ bookBdCouriers: number }>(
+                'mutation ($orderIds: [ID!]!) { bookBdCouriers(orderIds: $orderIds) }',
+                { orderIds },
+            );
+            toast.success(m.couriers.bulk.queued(result.bookBdCouriers));
+            setBulk({ orderIds, before });
+            setSelected(new Set());
+        } catch {
+            toast.error(m.errors.generic);
+        } finally {
+            setBooking(false);
+        }
+    };
     const term = useDebounced(search.trim());
     const { districts } = usePlaces('');
     const query = useQuery({
@@ -198,6 +223,15 @@ export function OrdersPage() {
     return (
         <>
             <PageHeader title={m.orders.title} description={m.orders.description} />
+            {bulk && (
+                <BulkBookingProgress
+                    run={bulk}
+                    onClose={() => {
+                        setBulk(null);
+                        void query.refetch();
+                    }}
+                />
+            )}
             <ListPage
                 rows={query.data?.bdOrders.items ?? []}
                 rowId={row => row.id}
@@ -320,33 +354,48 @@ export function OrdersPage() {
                     </div>
                 }
                 selection={
-                    can('PrintOrders')
+                    can('PrintOrders') || can('BookCourier')
                         ? {
                               selected,
                               onChange: setSelected,
                               actions: (
                                   <span className="flex flex-wrap items-center gap-2">
-                                      <Select
-                                          aria-label={m.print.choose}
-                                          value={printDocument}
-                                          onChange={event =>
-                                              setPrintDocument(event.target.value as PrintDocument)
-                                          }
-                                          className="min-h-9 w-48 py-1 text-sm"
-                                      >
-                                          {PRINT_DOCUMENTS.map(document => (
-                                              <option key={document} value={document}>
-                                                  {m.print.documents[document]}
-                                              </option>
-                                          ))}
-                                      </Select>
-                                      <Button
-                                          size="sm"
-                                          onClick={() => openPrint(printDocument, [...selected])}
-                                      >
-                                          <Printer className="size-4" aria-hidden />
-                                          {m.print.selectedPrint}
-                                      </Button>
+                                      {can('BookCourier') && (
+                                          <Button
+                                              size="sm"
+                                              variant="secondary"
+                                              loading={booking}
+                                              onClick={() => void bookSelected()}
+                                          >
+                                              <Truck className="size-4" aria-hidden />
+                                              {m.couriers.bulk.button}
+                                          </Button>
+                                      )}
+                                      {can('PrintOrders') && (
+                                          <>
+                                              <Select
+                                                  aria-label={m.print.choose}
+                                                  value={printDocument}
+                                                  onChange={event =>
+                                                      setPrintDocument(event.target.value as PrintDocument)
+                                                  }
+                                                  className="min-h-9 w-48 py-1 text-sm"
+                                              >
+                                                  {PRINT_DOCUMENTS.map(document => (
+                                                      <option key={document} value={document}>
+                                                          {m.print.documents[document]}
+                                                      </option>
+                                                  ))}
+                                              </Select>
+                                              <Button
+                                                  size="sm"
+                                                  onClick={() => openPrint(printDocument, [...selected])}
+                                              >
+                                                  <Printer className="size-4" aria-hidden />
+                                                  {m.print.selectedPrint}
+                                              </Button>
+                                          </>
+                                      )}
                                   </span>
                               ),
                           }

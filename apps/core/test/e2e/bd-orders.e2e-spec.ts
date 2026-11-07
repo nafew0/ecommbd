@@ -1041,6 +1041,7 @@ describe('order lists and widgets', () => {
             bdOrderCounts.map((row: { status: string; count: number }) => [row.status, row.count]),
         );
         expect(Object.keys(counts)).toEqual([
+            'awaitingPayment',
             'new',
             'confirmed',
             'packed',

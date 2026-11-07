@@ -21,6 +21,7 @@ import { CHECKOUT_SETTINGS, DISTRICTS, THANAS } from '../lib/checkout-queries';
 import { shopQuery } from '../lib/core';
 import { csrfToken, formStamp, isSameSite, verifyCsrf } from '../lib/csrf';
 import { canonicalRedirect, pageContext, privatePage } from '../lib/page';
+import { initiateCheckoutEvent } from '../lib/meta';
 import { LAST_ORDER_COOKIE, lastOrderCookie, parseCookies } from '../lib/session';
 
 /**
@@ -70,6 +71,10 @@ if (Astro.request.method === 'POST') {
         if (outcome.kind === 'placed') {
             return go(thankYou(outcome.code), [lastOrderCookie(outcome.code), 'cart_count=0; Path=/; Max-Age=0; SameSite=Lax']);
         }
+        // Placed, waiting for an online payment (phase 18): on to the gateway through the pay page.
+        if (outcome.kind === 'pay') {
+            return go(href(`/checkout/pay/?to=${outcome.token}`), [lastOrderCookie(outcome.code), 'cart_count=0; Path=/; Max-Age=0; SameSite=Lax']);
+        }
         if (outcome.kind === 'empty') return go(lastOrder ? thankYou(lastOrder) : href('/cart/'));
         if (outcome.kind === 'invalid') errors = outcome.errors;
         if (outcome.kind === 'review') notice = outcome.message;
@@ -100,6 +105,9 @@ const deliveryKnown = !!values.districtId && !!values.thanaId && shipping.length
 const chosenShipping = order.shippingLines[0]?.shippingMethod.id;
 const cod = values.payment !== '' && !MFS_PROVIDERS.includes(values.payment as never);
 const free = order.bdDelivery.freeDeliveryRemaining;
+// Meta (phase 20): InitiateCheckout when the checkout opens (not on each re-render of the form), with
+// one ID per cart, so a reload or a return to the checkout doesn't count a new one.
+const metaEvents = Astro.request.method === 'GET' ? [initiateCheckoutEvent(order)] : [];
 ---
 
 {
@@ -118,7 +126,7 @@ const free = order.bdDelivery.freeDeliveryRemaining;
             </section>
         </Layout>
     ) : (
-<Layout title={s.checkoutTitle} noindex>
+<Layout title={s.checkoutTitle} noindex metaEvents={metaEvents}>
     <div class="checkout" data-checkout>
         <h1>{s.checkoutTitle}</h1>
         <form method="post" action={href('/checkout/')} class="checkout-form" novalidate data-checkout-form>

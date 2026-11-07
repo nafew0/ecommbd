@@ -13,3 +13,4 @@ export {
 } from './events';
 export { OrderActionsService, settledAmount } from './order-actions.service';
 export { CREATE_ORDER_NUMBER_SEQUENCE_SQL } from './order-number';
+export { registerShipmentInfo, type ShipmentInfo, shipmentInfo } from './shipment-info';

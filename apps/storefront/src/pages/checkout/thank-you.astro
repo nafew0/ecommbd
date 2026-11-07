@@ -5,6 +5,7 @@ import Layout from '../../layouts/Layout.astro';
 import { shopperContext } from '../../lib/cart';
 import { ORDER_BY_CODE } from '../../lib/checkout-queries';
 import { shopQuery } from '../../lib/core';
+import { purchaseEvents } from '../../lib/meta';
 import { canonicalRedirect, pageContext, privatePage } from '../../lib/page';
 
 /**
@@ -28,9 +29,12 @@ const mfsPending = placed?.payments?.some(
     payment => payment.method !== 'bd-cod' && payment.state === 'Authorized',
 );
 const whatsapp = settings.profile.whatsapp.replace(/\D/g, '');
+// Meta (phase 20): Purchase from the browser only when the store sends it on placing; its ID is the
+// server's too, so Meta keeps one. With "confirmed" or "delivered" this page sends no Purchase.
+const metaEvents = purchaseEvents(placed, Astro.locals.meta);
 ---
 
-<Layout title={s.thankYouTitle} noindex>
+<Layout title={s.thankYouTitle} noindex metaEvents={metaEvents}>
     <section class="thank-you">
         {
             placed ? (

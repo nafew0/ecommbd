@@ -58,8 +58,11 @@ export interface HttpClientOptions {
     urlPolicy?: UrlPolicy;
     /** For tests: replaces DNS resolution in the SSRF guard. */
     resolver?: Resolver;
-    /** `false` disables the breaker. */
-    circuitBreaker?: CircuitBreakerOptions | false;
+    /**
+     * `false` disables the breaker. Pass a `CircuitBreaker` to share it, e.g. so checkout can hide a
+     * payment gateway whose circuit is open.
+     */
+    circuitBreaker?: CircuitBreakerOptions | CircuitBreaker | false;
     onEvent?: (event: HttpEvent) => void;
     userAgent?: string;
     /** For tests. */
@@ -187,7 +190,12 @@ export function createHttpClient(options: HttpClientOptions = {}): HttpClient {
         sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)),
         random = Math.random,
     } = options;
-    const breaker = options.circuitBreaker === false ? undefined : new CircuitBreaker(options.circuitBreaker);
+    const breaker =
+        options.circuitBreaker === false
+            ? undefined
+            : options.circuitBreaker instanceof CircuitBreaker
+              ? options.circuitBreaker
+              : new CircuitBreaker(options.circuitBreaker);
     const agent = new Agent({
         connect: ssrfProtection
             ? { timeout: connectTimeoutMs, lookup: createGuardedLookup(resolver) }

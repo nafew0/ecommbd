@@ -161,7 +161,7 @@ Buying one only to study its features and screens is fine. Don't copy its code.
 | `bd-sections` | Page layouts (home page, product page template, phase 12's pages): autosaved drafts with a revision check, publishing with a version stamp, the last 20 versions, signed preview tokens, saved sections; theme settings; purges the storefront's data cache on publish. Section definitions are in `packages/sections` |
 | `payments-*` | COD, manual bKash/Nagad (TrxID), SSLCommerz, bKash tokenized, partial advance |
 | `shipping-bd` | Inside/outside Dhaka and per-district rates |
-| `couriers-*` | Steadfast, Pathao, RedX booking and status sync |
+| `couriers` | Steadfast and Pathao booking and status sync (one plugin; RedX and others are booked by hand) |
 | `meta-capi` | Pixel + Conversions API, Purchase trigger setting |
 | `images` | WebP generation (Decision 3) |
 | `woo-import` | WooCommerce migration |
@@ -270,7 +270,8 @@ The fastest route depends on how Bangladeshi ISPs reach the server, so we measur
 
 - **PM2** runs each store's processes, in cluster mode with one instance for zero-downtime reloads.
 - **Background jobs:** the BullMQ worker runs inside the core process. Image and import jobs use sharp's native threads, so they don't block shopper requests.
-- **Outbox:** anything that must reach an outside service (Meta, SMS, courier) is written to an `outbox` table in the **same database transaction** as the order change. A job drains it with retries, so a crash can't lose a Purchase event or an SMS.
+- **Outbox:** Meta events and SMS that must reach an outside service are written to their own table in the **same database transaction** as the order change. A job drains it with retries, so a crash can't lose a Purchase event or an SMS.
+- **Couriers have no outbox:** booking is something staff do and wait for. The booking row is written first (one live booking per order), then the courier is called; a call with no clear answer keeps the booking live as "unconfirmed", and it is checked with the courier (or by staff) before anything is booked again. The polling task retries those and moves orders that didn't follow their parcel (phase 19).
 
 ## Server baseline (scripted, identical on every server)
 
@@ -311,12 +312,11 @@ A separate app we build (TypeScript, its own database) on its own server. Stores
 - Gateway credentials are stored per store, encrypted.
 - One order can hold several payments: an online advance plus a COD remainder.
 
-### Couriers (Vendure `FulfillmentHandler`)
+### Couriers (plugin `couriers`, phase 19)
 
-- Booking a parcel creates a fulfilment with its tracking code.
-- Status webhooks and polling move the order along.
-- One table maps each courier's statuses to ours.
-- Pathao needs its own city, zone and area IDs, mapped from `packages/bd-geo`.
+- Booking a parcel writes a booking row (consignment ID, COD, the courier's status); when the courier picks it up, our order action marks the order shipped with a fulfilment carrying the consignment ID.
+- Status webhooks and polling move the order along. One table per courier maps its statuses to ours (`packages/shared/src/couriers.ts`).
+- Pathao needs its own city and zone IDs: a copy of Pathao's list, matched to `packages/bd-geo` by name or by staff. Pathao's areas aren't used (optional for Pathao).
 
 ### SMS
 
@@ -349,14 +349,14 @@ npm workspaces, Vendure's own tooling default. Add Turborepo once there are seve
 ```
 apps/
   core/          Vendure project from @vendure/create (one build, run per store)
-    src/plugins/ our Vendure plugins (bd-checkout, bd-orders, bd-sections, payments-*, couriers-*, meta-capi, images, woo-import, cache-purge, central-client)
+    src/plugins/ our Vendure plugins (bd-checkout, bd-orders, bd-sections, payments-*, couriers, meta-capi, images, woo-import, cache-purge, central-client)
   admin/         merchant admin: React + Vite, Bangla and English, served by the core at /admin
   storefront/    Astro SSR + Preact islands, themes and sections
   central/       central system: API + admin
   agent/         deploy agent for each CloudPanel server
   wp-migrator/   WordPress helper plugin (PHP)
 packages/
-  bd-geo/        divisions → districts → upazilas/thanas, courier area ID maps
+  bd-geo/        divisions → districts → upazilas/thanas (courier place IDs are matched in the core)
   sections/      section schemas, data migrations, themes and starter layouts, shared by the core, storefront and editor
 patches/         patch-package patches to Vendure, only if ever needed, each documented
 infra/

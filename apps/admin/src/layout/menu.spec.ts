@@ -12,6 +12,7 @@ describe('menu', () => {
             'customers',
             'salesPages',
             'onlineStore',
+            'marketing',
             'settings',
         ]);
         expect(menu[1]!.children!.map(child => child.to)).toEqual([
@@ -21,6 +22,8 @@ describe('menu', () => {
             '/orders/incomplete',
             '/orders/campaigns',
             '/orders/payments',
+            '/orders/payment-reviews',
+            '/orders/unmapped-addresses',
         ]);
         expect(menu[2]!.children!.map(child => child.to)).toEqual([
             '/products',
@@ -37,14 +40,17 @@ describe('menu', () => {
             '/store/pages',
             '/store/search',
         ]);
-        expect(menu[6]!.children!.map(child => child.to)).toEqual([
+        expect(menu[6]!.children!.map(child => child.to)).toEqual(['/marketing/tracking']);
+        expect(menu[7]!.children!.map(child => child.to)).toEqual([
             '/settings/store',
             '/settings/woocommerce',
             '/settings/orders',
             '/settings/delivery',
             '/settings/payments',
+            '/settings/online-payments',
             '/settings/sms',
             '/settings/fraud',
+            '/settings/couriers',
             '/settings/invoice',
         ]);
     });
@@ -65,6 +71,7 @@ describe('menu', () => {
                     'ReadProduct',
                     'ReadCatalog',
                     'EditStorefront',
+                    'BookCourier',
                 ].includes(permission),
         );
         expect(menu.map(group => group.label)).toEqual(['home']);
@@ -74,6 +81,7 @@ describe('menu', () => {
             '/orders',
             '/orders/incomplete',
             '/orders/campaigns',
+            '/orders/payment-reviews',
         ]);
     });
 

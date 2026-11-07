@@ -149,6 +149,41 @@ const router = createBrowserRouter(
                                 })),
                         },
                         {
+                            path: 'marketing/tracking',
+                            lazy: () =>
+                                import('./pages/meta-tracking').then(module => ({
+                                    Component: module.MetaTrackingPage,
+                                })),
+                        },
+                        {
+                            path: 'orders/unmapped-addresses',
+                            lazy: () =>
+                                import('./pages/unmapped-addresses').then(module => ({
+                                    Component: module.UnmappedAddressesPage,
+                                })),
+                        },
+                        {
+                            path: 'settings/couriers',
+                            lazy: () =>
+                                import('./pages/courier-settings').then(module => ({
+                                    Component: module.CourierSettingsPage,
+                                })),
+                        },
+                        {
+                            path: 'orders/payment-reviews',
+                            lazy: () =>
+                                import('./pages/payment-reviews').then(module => ({
+                                    Component: module.PaymentReviewsPage,
+                                })),
+                        },
+                        {
+                            path: 'settings/online-payments',
+                            lazy: () =>
+                                import('./pages/online-payment-settings').then(module => ({
+                                    Component: module.OnlinePaymentSettingsPage,
+                                })),
+                        },
+                        {
                             path: 'orders/:id',
                             lazy: () =>
                                 import('./pages/order-detail').then(module => ({

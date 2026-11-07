@@ -12,6 +12,7 @@ import {
     SET_ADDRESS,
     SET_ATTRIBUTION,
     SET_CUSTOMER,
+    SET_META_BROWSER,
     SET_PARTIAL_ADDRESS,
     SET_PAYMENT_CHOICE,
     SET_SHIPPING,
@@ -33,10 +34,15 @@ import { idempotencyStore } from './idempotency';
 
 export const MFS_PROVIDERS = ['bkash', 'nagad', 'rocket'] as const;
 export type MfsProvider = (typeof MFS_PROVIDERS)[number];
-export type PaymentValue = 'cod' | MfsProvider;
+/** An online gateway (phase 18) as a form value: `online-sslcommerz`, `online-bkash`. */
+export type OnlineChoice = `online-${string}`;
+export type PaymentValue = 'cod' | MfsProvider | OnlineChoice;
 
 const isProvider = (value: string): value is MfsProvider =>
     (MFS_PROVIDERS as readonly string[]).includes(value);
+const isOnlineChoice = (value: string): value is OnlineChoice => /^online-[a-z]{2,20}$/.test(value);
+/** The form value for a gateway. */
+export const onlineChoice = (gateway: string): OnlineChoice => `online-${gateway}`;
 
 export const CHECKOUT_FIELDS = [
     'name',
@@ -75,6 +81,8 @@ export type PlaceOutcome =
     | { kind: 'invalid'; errors: CheckoutErrors }
     /** The total isn't what the shopper saw (a price changed, or the delivery charge is new): show it again. */
     | { kind: 'review'; message: string }
+    /** Placed, waiting for an online payment: send the shopper to the pay page with this attempt key. */
+    | { kind: 'pay'; code: string; token: string }
     /** COD needs the SMS code first; the code was sent (or is on its way). */
     | { kind: 'otp'; message: string; error?: string }
     | { kind: 'empty' }
@@ -159,7 +167,7 @@ export async function quote(
         if (chosen) await shopQuery(SET_SHIPPING, { ids: [chosen.id] }, shopper.lang, shopper);
         await shopQuery(
             SET_PAYMENT_CHOICE,
-            { choice: isProvider(values.payment) ? 'prepaid' : 'cod' },
+            { choice: isProvider(values.payment) || isOnlineChoice(values.payment) ? 'prepaid' : 'cod' },
             shopper.lang,
             shopper,
         );
@@ -227,7 +235,7 @@ export async function placeOnce(shopper: ShopperContext, form: FormData, s: Stri
     }
     try {
         const outcome = await placeOrder(shopper, form, s);
-        if (outcome.kind !== 'placed') throw new NotPlaced(outcome);
+        if (outcome.kind !== 'placed' && outcome.kind !== 'pay') throw new NotPlaced(outcome);
         await store.set(
             storeKey,
             { fingerprint: 'place', status: 'completed', result: outcome },
@@ -257,6 +265,16 @@ async function placeOrder(shopper: ShopperContext, form: FormData, s: Strings): 
     // Where the shopper came from (phase 16). Never stops the order.
     if (shopper.attribution) {
         await ask(SET_ATTRIBUTION, { input: { ...shopper.attribution } }).catch(() => undefined);
+    }
+    // Meta (phase 20). Never stops the order either.
+    if (shopper.meta?.fbp || shopper.meta?.fbc) {
+        await ask(SET_META_BROWSER, {
+            input: {
+                fbp: shopper.meta.fbp,
+                fbc: shopper.meta.fbc,
+                userAgent: shopper.meta.userAgent?.slice(0, 400) ?? null,
+            },
+        }).catch(() => undefined);
     }
 
     const website = form.get('website');
@@ -301,7 +319,7 @@ async function placeOrder(shopper: ShopperContext, form: FormData, s: Strings): 
     await ask(SET_SHIPPING, { ids: [method.id] });
 
     const payment: PaymentValue | null =
-        v.payment === 'cod' ? 'cod' : isProvider(v.payment) ? v.payment : null;
+        v.payment === 'cod' || isProvider(v.payment) || isOnlineChoice(v.payment) ? v.payment : null;
     if (!payment) return { kind: 'invalid', errors: { payment: s.choosePayment } };
     await ask(SET_PAYMENT_CHOICE, { choice: payment === 'cod' ? 'cod' : 'prepaid' });
     const { bdPaymentOptions: options } = await ask(PAYMENT_OPTIONS, {});
@@ -311,6 +329,8 @@ async function placeOrder(shopper: ShopperContext, form: FormData, s: Strings): 
     if (expectedTotal(form) !== order.totalWithTax) return { kind: 'review', message: s.checkTotal };
 
     const account = (provider: string) => options.mfs.find(item => item.provider === provider);
+    const gateway = (value: string) => options.online.find(item => onlineChoice(item.gateway) === value);
+    const onlineAdvance = gateway(v.advanceProvider);
     const advanceDone = order.payments?.some(
         item =>
             item.state === 'Authorized' &&
@@ -323,7 +343,7 @@ async function placeOrder(shopper: ShopperContext, form: FormData, s: Strings): 
                 errors: { payment: options.codUnavailableMessage ?? s.codUnavailable },
             };
         }
-        if (options.advanceAmount > 0 && !advanceDone) {
+        if (options.advanceAmount > 0 && !advanceDone && !onlineAdvance) {
             const errors: CheckoutErrors = {};
             if (!account(v.advanceProvider)) errors.advanceProvider = s.chooseAdvanceProvider;
             if (!v.advanceSender) errors.advanceSender = s.enterSender;
@@ -334,6 +354,8 @@ async function placeOrder(shopper: ShopperContext, form: FormData, s: Strings): 
             const otp = await checkOtp(v, form, ask, s);
             if (otp) return otp;
         }
+    } else if (isOnlineChoice(payment)) {
+        if (!gateway(payment)) return { kind: 'invalid', errors: { payment: s.choosePayment } };
     } else {
         const errors: CheckoutErrors = {};
         if (!account(payment)) errors.payment = s.choosePayment;
@@ -352,10 +374,11 @@ async function placeOrder(shopper: ShopperContext, form: FormData, s: Strings): 
         };
     }
 
+    /** `fields`: where a bad sender number or transaction ID shows (manual payments only). */
     const pay = async (
         method: string,
         metadata: Record<string, unknown>,
-        fields: [CheckoutField, CheckoutField],
+        fields?: [CheckoutField, CheckoutField],
     ) => {
         const result = (await ask(ADD_PAYMENT, { input: { method, metadata } })).addPaymentToOrder;
         if (result.__typename === 'Order')
@@ -365,14 +388,24 @@ async function placeOrder(shopper: ShopperContext, form: FormData, s: Strings): 
     let outcome: Awaited<ReturnType<typeof pay>>;
     if (payment === 'cod') {
         if (options.advanceAmount > 0 && !advanceDone) {
-            outcome = await pay(
-                account(v.advanceProvider)!.methodCode,
-                { purpose: 'advance', senderNumber: v.advanceSender, transactionId: v.advanceTransactionId },
-                ['advanceSender', 'advanceTransactionId'],
-            );
+            // An online advance is paid on the gateway's page after the order is placed.
+            // Online: no sender or transaction ID to get wrong; a refusal shows by the payment choice.
+            outcome = onlineAdvance
+                ? await pay(onlineAdvance.methodCode, { purpose: 'advance' })
+                : await pay(
+                      account(v.advanceProvider)!.methodCode,
+                      {
+                          purpose: 'advance',
+                          senderNumber: v.advanceSender,
+                          transactionId: v.advanceTransactionId,
+                      },
+                      ['advanceSender', 'advanceTransactionId'],
+                  );
             if (outcome.refused) return outcome.refused;
         }
-        outcome = await pay('bd-cod', {}, ['payment', 'payment']);
+        outcome = await pay('bd-cod', {});
+    } else if (isOnlineChoice(payment)) {
+        outcome = await pay(gateway(payment)!.methodCode, { purpose: 'full' });
     } else {
         outcome = await pay(
             account(payment)!.methodCode,
@@ -382,7 +415,20 @@ async function placeOrder(shopper: ShopperContext, form: FormData, s: Strings): 
     }
     if (outcome.refused) return outcome.refused;
     if (!outcome.placed) return { kind: 'invalid', errors: { form: s.checkoutFailed } };
+    if (outcome.placed.state === 'AwaitingPayment') {
+        const token = payToken(outcome.placed.payments ?? []);
+        if (token) return { kind: 'pay', code: outcome.placed.code, token };
+    }
     return { kind: 'placed', code: outcome.placed.code };
+}
+
+/** The attempt key in the pending online payment's pay link (`…/bd-pay/start/<token>`). */
+export function payToken(payments: ReadonlyArray<{ state: string; metadata?: unknown }>): string | null {
+    const pending = payments.find(payment => payment.state === 'Pending');
+    // The Shop API shows only a payment's public metadata.
+    const metadata = pending?.metadata as { payUrl?: string; public?: { payUrl?: string } } | null;
+    const url = metadata?.payUrl ?? metadata?.public?.payUrl ?? '';
+    return /\/bd-pay\/start\/([a-f0-9]{30}(?:[a-f0-9]{2})?)$/.exec(url)?.[1] ?? null;
 }
 
 /** COD with an SMS code: checks a typed code, skips when asked (and allowed), else sends one. */
@@ -417,9 +463,11 @@ async function checkOtp(
 async function refused(
     shopper: ShopperContext,
     result: { __typename: string; message?: string; paymentErrorMessage?: string },
-    [sender, transaction]: [CheckoutField, CheckoutField],
+    fields: [CheckoutField, CheckoutField] | undefined,
     s: Strings,
 ): Promise<PlaceOutcome> {
+    // Without sender and transaction fields (cash on delivery, online), every refusal shows by the payment choice.
+    const [sender, transaction] = fields ?? ['payment', 'payment'];
     await shopQuery(TO_STATE, { state: 'AddingItems' }, shopper.lang, shopper).catch(() => undefined);
     const order = await activeOrder(shopper);
     const declined = [...(order?.payments ?? [])].reverse().find(item => item.state === 'Declined');

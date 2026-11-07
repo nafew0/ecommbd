@@ -3,9 +3,9 @@ import { formatBdPhone } from '@ecommbd/shared/phone';
 import type { CartOrder } from '../../lib/cart';
 import type { CheckoutErrors, CheckoutValues } from '../../lib/checkout';
 import { pageContext } from '../../lib/page';
-import type { PaymentOptions } from '../../lib/checkout';
+import { onlineChoice, type PaymentOptions } from '../../lib/checkout';
 
-/** Cash on delivery (with the advance when the store asks for one) and mobile banking. */
+/** Cash on delivery (with the advance when the store asks for one), mobile banking, and online gateways (phase 18). */
 interface Props {
     values: CheckoutValues;
     errors: CheckoutErrors;
@@ -18,6 +18,8 @@ interface Props {
 const { values, errors, options, order, cod } = Astro.props;
 const { s, format } = pageContext(Astro);
 const mfs = options?.mfs ?? [];
+const online = options?.online ?? [];
+const gatewayName = (gateway: string) => s.gatewayNames[gateway] ?? gateway;
 const providerName = (provider: string) => s.mfsNames[provider] ?? provider;
 const how = (accountType: string) => s.accountTypes[accountType] ?? s.accountTypes.personal!;
 const errorFor = (field: keyof CheckoutErrors) => errors[field];
@@ -48,6 +50,12 @@ const describedBy = (field: keyof CheckoutErrors) => (errors[field] ? `${field}-
                                             <input type="radio" name="advanceProvider" value={account.provider} checked={values.advanceProvider === account.provider} />
                                             <span class="choice-label">{providerName(account.provider)}</span>
                                             <span class="muted">{s.sendMoneyTo(format.price(options.advanceAmount), providerName(account.provider), formatBdPhone(account.number), how(account.accountType))}</span>
+                                        </label>
+                                    ))}
+                                    {online.map(option => (
+                                        <label class="choice">
+                                            <input type="radio" name="advanceProvider" value={onlineChoice(option.gateway)} checked={values.advanceProvider === onlineChoice(option.gateway)} />
+                                            <span class="choice-label">{s.advanceOnline(gatewayName(option.gateway))}</span>
                                         </label>
                                     ))}
                                 </div>
@@ -91,6 +99,20 @@ const describedBy = (field: keyof CheckoutErrors) => (errors[field] ? `${field}-
                                 {values.payment === account.provider && errorFor('transactionId') && <p class="field-error">{errorFor('transactionId')}</p>}
                             </div>
                         </div>
+                    </div>
+                </div>
+            ))
+        }
+        {
+            online.map(option => (
+                <div class="choice-block">
+                    <label class="choice">
+                        <input type="radio" name="payment" value={onlineChoice(option.gateway)} checked={values.payment === onlineChoice(option.gateway)} data-payment />
+                        <span class="choice-label">{s.payOnline(gatewayName(option.gateway))}</span>
+                    </label>
+                    <div class="choice-panel">
+                        <p class="field-hint">{s.payOnlineNote}</p>
+                        {option.mode === 'sandbox' && <p class="field-hint">{s.sandboxNote}</p>}
                     </div>
                 </div>
             ))

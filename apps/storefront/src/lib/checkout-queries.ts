@@ -230,6 +230,11 @@ export const PAYMENT_OPTIONS = graphql(`
                 number
                 accountType
             }
+            online {
+                gateway
+                methodCode
+                mode
+            }
         }
         eligiblePaymentMethods {
             code
@@ -433,6 +438,14 @@ export const TrackedOrderFields = graphql(`
         total
         codDue
         courierTrackingUrl
+        onlinePayment {
+            gateway
+            purpose
+            amount
+            expiresAt
+            lastFailure
+            lastFailureMessage
+        }
     }
 `);
 
@@ -457,3 +470,10 @@ export const TRACK_BY_TOKEN = graphql(
     `,
     [TrackedOrderFields],
 );
+
+/** Meta's cookies and the browser on the order (phase 20), for a Purchase sent on confirm or delivery. */
+export const SET_META_BROWSER = graphql(`
+    mutation SetMetaBrowser($input: BdMetaBrowserInput!) {
+        setBdMetaBrowser(input: $input)
+    }
+`);

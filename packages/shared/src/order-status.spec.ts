@@ -95,3 +95,18 @@ describe('BD order statuses', () => {
         expect(bdPaymentType(125000, 130000)).toBe('prepaid');
     });
 });
+
+describe('awaiting an online payment (phase 18)', () => {
+    it('is placed but never confirmed or packed until paid', () => {
+        expect(bdStatusOf('AwaitingPayment')).toBe('awaitingPayment');
+        expect(vendureStatesOf('awaitingPayment')).toEqual(['AwaitingPayment']);
+        expect(isBdTransitionAllowed('AwaitingPayment', 'PaymentSettled', rules)).toBe(true);
+        expect(isBdTransitionAllowed('AwaitingPayment', 'PaymentAuthorized', rules)).toBe(true);
+        expect(isBdTransitionAllowed('AwaitingPayment', 'Cancelled', rules)).toBe(true);
+        expect(isBdTransitionAllowed('AwaitingPayment', 'Confirmed', rules)).toBe(false);
+        expect(isBdTransitionAllowed('AwaitingPayment', 'Packed', rules)).toBe(false);
+        expect(isBdTransitionAllowed('AwaitingPayment', 'Modifying', rules)).toBe(false);
+        expect(bdActionsFor('awaitingPayment', { prepaid: false, ...rules })).toEqual(['cancel']);
+        expect(isBdCancelReason('paymentNotReceived')).toBe(true);
+    });
+});

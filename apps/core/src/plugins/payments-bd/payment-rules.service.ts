@@ -146,12 +146,29 @@ export class PaymentRulesService {
         return (await this.orderService.findOne(ctx, order.id)) ?? order;
     }
 
-    /** Mobile banking money already on the order (pending or verified), e.g. a paid advance. */
+    /**
+     * Advance money already on the order: mobile banking (pending or verified), and an online advance
+     * started at a gateway (phase 18, `Pending` until the gateway confirms it).
+     */
     async mfsCovered(ctx: RequestContext, order: Order): Promise<number> {
         const payments = await this.orderService.getOrderPayments(ctx, order.id);
-        return payments
+        const mfs = payments
             .filter(payment => isMfs(payment.method))
             .filter(payment => payment.state === 'Authorized' || payment.state === 'Settled')
+            .reduce((sum, payment) => sum + payment.amount, 0);
+        return mfs + (await this.pendingOnline(ctx, order));
+    }
+
+    /**
+     * Online payments waiting for the gateway (phase 18). Vendure already leaves them out of what's
+     * left to pay (only declined, cancelled and failed payments don't count), so a COD payment after
+     * an online advance takes only the rest.
+     */
+    async pendingOnline(ctx: RequestContext, order: Order): Promise<number> {
+        const payments = await this.orderService.getOrderPayments(ctx, order.id);
+        return payments
+            .filter(payment => (payment.metadata as { kind?: string } | null)?.kind === 'gateway')
+            .filter(payment => payment.state === 'Pending')
             .reduce((sum, payment) => sum + payment.amount, 0);
     }
 }

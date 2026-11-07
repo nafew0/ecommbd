@@ -6,6 +6,22 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Fixed
 
+- **Phase 18 review (online payments):**
+  - Cancelling an order that is waiting for its online payment cancels that payment, whoever cancels it. Money that arrives later is held in Payment reviews ("paid after the order was cancelled"), never settled on a cancelled order; the review screen offers only refund or resolve for it.
+  - Payments whose outcome was unclear (a bKash Execute that timed out) are checked again for up to a week, so a late success still pays the order.
+  - The pay link starts the gateway once, even when the page refresh and the button arrive together or the shopper reloads; bKash no longer rejects the callback.
+  - A refund whose answer was lost shows as "Refund processing" and is checked with the gateway, never as refused. SSLCommerz refund requests are never retried, and bKash never sends a second refund while one is in progress. Refund refusals and Test connection results are in Bangla and English.
+- **Phase 19 review (couriers):**
+  - A booking with no clear answer (timeout, dropped connection, 5xx, 429) stays live and is checked with the courier before booking again: never booked twice. Pathao has no lookup, so staff check its panel.
+  - "Booked by hand" accepts any courier name, including Bangla (it crashed past 16 characters).
+  - Steadfast "pending" no longer marks orders shipped; "cancelled" before the parcel leaves cancels the booking instead of returning the order.
+  - Bulk booking shows why each order wasn't booked; staff are warned when the cash to collect changes after booking; "waiting for <courier>" during outages; Pathao places reset when the mode changes; webhook secrets are made only from settings; order moves that fail are retried.
+- **Phase 20 review (Meta Pixel and Conversions API):**
+  - No secret addresses (tracking and payment links, order codes) go to Meta or the event log, and private pages aren't tracked. Shopper IP and browser are cleared from all orders after 90 days, placed or not.
+  - A refused token or Pixel holds that Pixel's events with a warning until a new token is saved (it used to fail every event, one request each). Purchase is sent before browser events, the queue is bounded, and sending runs can't overlap.
+  - Sales pages send ViewContent and Purchase; AddToCart fires only when the add worked, InitiateCheckout once per cart. The Meta script loads only on stores with a Pixel. "Send test event" needs a test code. The event log has paging and an order filter.
+- `packages/shared` meets its 100% coverage gate again (`npm test` failed on the M4 files).
+
 - The merchant admin's product, category and stock lists showed broken thumbnails (in development too): those lists returned an image's stored path (`preview/a3/photo.jpg`) instead of its address. They now get the full address the way Vendure gives its own images (`ASSET_URL_PREFIX` on live stores).
 - **Phases 21–22 review (WooCommerce migration):**
   - **Bangla addresses stay the same.** WordPress sends Bangla slugs percent-encoded; they were saved as `e0a6b2…`. They're now decoded, so `/product/লাল-শার্ট/` keeps its address, and old links point at it.
@@ -24,6 +40,26 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 - Status-only returns now require confirmation and explain that returned quantities, stock and payments are unchanged. Returned/cancelled order pages no longer show a delivery collection instruction. The stock, partial-return, refund and courier-payment contract is recorded in `docs/decisions/order-states.md` for the next implementation work.
 
 ### Added
+
+- **Phase 20, Meta Pixel and Conversions API** (plugin `meta-capi`, **Marketing → Meta tracking**):
+  - Facebook and Instagram ads get PageView, ViewContent, AddToCart, InitiateCheckout and Purchase from the server (they arrive even with ad blockers) and, if the store wants, from Meta's Pixel in the browser too; each event has one ID, so Meta counts it once. Meta's script loads only after the page is ready, so it doesn't slow the store down.
+  - **When to send Purchase**: when the order is placed, confirmed by staff (the default) or delivered, so ads learn from real buyers rather than fake COD orders. Customer details are hashed; placeholder emails are never sent; imported orders never count, phone and Messenger orders only if the store says so.
+  - Up to two Pixels, each with its Conversions API token (encrypted, never shown again), "Send test event", a test event code for Meta's Test Events tool, and an event log with what was sent and Meta's answer. A token Meta refuses shows a warning; events wait up to 7 days for a new one.
+
+- **Phase 19, couriers: Steadfast and Pathao** (plugin `couriers`):
+  - **Book courier** on the order page (with the store's courier for the delivery zone, or another), or for many selected orders at once from the order list. A confirmed order is packed first. Clicking twice never books twice.
+  - The courier's updates move orders: picked up → Shipped, delivered → Delivered (the COD payment is marked received), returned → Returned. By webhook (Settings → Couriers shows the address and secret to paste into each courier's panel) and every 30 minutes by asking the courier.
+  - Stickers print the courier's consignment barcode; the customer's tracking page links to the courier's tracking page; the home page shows parcels with couriers, delivered today and returned this week.
+  - Pathao's cities and zones are matched to our districts and thanas by name; **Orders → Unmapped addresses** lists the thanas it couldn't match, to choose once.
+  - When a courier is down: "Booked by hand" with the courier's name and tracking code. A booking cancelled in the courier's panel can be marked cancelled here before pickup; a booked order can't be edited or cancelled until then.
+
+- **Phase 18, online payments: SSLCommerz and bKash** (plugin `payments-online`):
+  - Shoppers can pay online at checkout (card, mobile banking or net banking through SSLCommerz, or bKash), in full or just the advance with cash on delivery for the rest. The order is placed at once, waiting for payment ("Awaiting payment"): it has its number and holds its stock, but isn't in the confirmation queue until the gateway confirms the money.
+  - Only the gateway's own server-to-server answer marks an order paid (SSLCommerz validation API with `val_id`, bKash execute and query); every unfinished payment is checked again every 5 minutes for a day, then hourly for a week, so a payment without a notification is still found.
+  - Unpaid online orders are cancelled after 45 minutes (a setting), releasing stock. The tracking page shows "Pay now" until then, and says why a bKash payment failed.
+  - **Orders → Payment reviews**: money paid late, paid twice, flagged as risky, or with the wrong amount waits for a person to accept, refund through the gateway, or mark resolved. Each order shows its online payment tries with "Check status now".
+  - **Settings → Online payments**: on/off, sandbox or live, credentials (encrypted with the new `SECRETS_KEYRING`, never shown again), Test connection, the time to pay. A gateway that keeps failing is hidden at checkout for a few minutes; cash on delivery still works.
+  - The "order placed" SMS for an online order is sent once it's paid.
 
 - **Stores on CloudPanel without a shell** (`ops/cloudpanel/ecommbd-stores`, runbook `docs/runbooks/cloudpanel-stores.md`): support creates a Node.js site with an App Port from 4301 to 4399 in CloudPanel, and within a minute the server sets it up (PostgreSQL database, settings, core, worker and storefront services, a login file in the site's File Manager). Admins install it once per server and update every store with `ecommbd-stores deploy` (database dump, restart, health check) or go back with `rollback`. Set up on host2 and tested with store1.ecomm.bd.
 - `ASSETS_DIR` setting for the uploads folder, so stores can share one build. The built storefront, with `PROXY_CORE=true`, also passes the merchant admin, the Dashboard, their APIs and `/bd-geo` to the core.

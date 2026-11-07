@@ -6,8 +6,9 @@
 // - the built static files (`/_astro/…` cached for a year as immutable),
 // - with `PROXY_CORE` (on unless APP_ENV is staging or production), the core's paths passed through to
 //   it: `/img`, `/assets` and `/shop-api` for the pages, plus the merchant admin, the Dashboard, their
-//   APIs and `/bd-geo`, so a whole store answers on this one port. Development uses it, and so do the
-//   CloudPanel stores (docs/runbooks/cloudpanel-stores.md) until Nginx routes them (roadmap 24),
+//   APIs, `/bd-geo` and the payment gateways' `/bd-pay`, so a whole store answers on this one port.
+//   Development uses it, and so do the CloudPanel stores (docs/runbooks/cloudpanel-stores.md) until
+//   Nginx routes them (roadmap 24),
 // - one JSON log line per request (no query strings, no tracking tokens),
 // - graceful shutdown: on SIGTERM it stops accepting connections and finishes open requests.
 import fs from 'node:fs';
@@ -24,7 +25,9 @@ const coreUrl = new URL(process.env.CORE_URL ?? 'http://localhost:3000');
 const live = ['staging', 'production'].includes(process.env.APP_ENV ?? '');
 const proxyCore = (process.env.PROXY_CORE ?? (live ? 'false' : 'true')) === 'true';
 // The core's own paths: images and uploads, the APIs, the merchant admin and Dashboard, bd-geo,
-// the WooCommerce helper's upload endpoint and the cache metrics.
+// the WooCommerce helper's upload endpoint and the cache metrics (phases 17 and 22), and
+// /bd-pay (gateways send shoppers back and notify the core, phase 18), /bd-courier (courier
+// status webhooks, phase 19) and /bd-events (Meta events, phase 20).
 const CORE_PATHS = [
     '/img',
     '/assets',
@@ -35,6 +38,9 @@ const CORE_PATHS = [
     '/bd-geo',
     '/woo-migrate',
     '/cache-metrics',
+    '/bd-pay',
+    '/bd-courier',
+    '/bd-events',
 ];
 const isCorePath = pathname =>
     CORE_PATHS.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -123,10 +129,16 @@ function liveness(res) {
     res.end(JSON.stringify({ status: 'ok' }));
 }
 
-/** The path for the log: no query string, and tracking tokens (`/t/<token>/`) masked. */
+/**
+ * The path for the log: no query string, and keys masked: tracking tokens (`/t/<token>/`), payment
+ * attempt keys and tracking tokens under `/bd-pay/` (phase 18), courier webhook secrets (phase 19).
+ */
 function logPath(url) {
     const pathname = url.split('?')[0];
-    return pathname.replace(/^((?:\/(?:en|bn))?\/t\/)[^/]+/, '$1…');
+    return pathname
+        .replace(/^((?:\/(?:en|bn))?\/t\/)[^/]+/, '$1…')
+        .replace(/^(\/bd-pay\/(?:start|again|sslcommerz\/return|bkash\/callback)\/)[^/]+/, '$1…')
+        .replace(/^(\/bd-courier\/webhook\/[a-z]+\/)[^/]+/, '$1…');
 }
 
 const server = http.createServer((req, res) => {

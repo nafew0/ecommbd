@@ -8,6 +8,7 @@ import Layout from '../../../layouts/Layout.astro';
 import { shopperContext } from '../../../lib/cart';
 import { ORDER_BY_CODE } from '../../../lib/checkout-queries';
 import { shopQuery } from '../../../lib/core';
+import { purchaseEvents } from '../../../lib/meta';
 import { pageContext, privatePage } from '../../../lib/page';
 import { loadSalesPage } from '../../../lib/sales';
 import { pageStyle } from '../../../lib/sections';
@@ -39,6 +40,9 @@ const message = (thankYou && pick(thankYou.message, lang)) || s.nextSteps;
 const redirect = thankYou?.redirect ? href(thankYou.redirect) : null;
 const css = loaded ? pageStyle(Astro, null, salesColoursCss(Astro.locals.theme, loaded.settings)) : '';
 if (!loaded) Astro.response.status = 404;
+// Meta (phase 20): the same browser Purchase as the store's own thank-you page (sales pages are where
+// ads land, so this matters most here). The server sends its copy with the same ID.
+const metaEvents = purchaseEvents(placed, Astro.locals.meta);
 ---
 
 {
@@ -55,6 +59,7 @@ if (!loaded) Astro.response.status = 404;
                 font: loaded.settings.font,
                 sticky: null,
             }}
+            metaEvents={metaEvents}
         >
             {placed && redirect && <meta http-equiv="refresh" content={`8;url=${redirect}`} slot="head" />}
             <section class="thank-you">

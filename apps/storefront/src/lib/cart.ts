@@ -19,6 +19,8 @@ export interface ShopperContext {
     clientIp?: string;
     /** Where the shopper came from (phase 16's cookie), copied onto the order when it's placed. */
     attribution?: Attribution | null;
+    /** Meta's cookies and the browser (phase 20), saved on the order for a Purchase sent later. */
+    meta?: { fbp: string | null; fbc: string | null; userAgent: string | null };
 }
 
 /** The attribution cookie (written by src/scripts/attribution.ts), read and checked. */
@@ -40,6 +42,11 @@ export function shopperContext(Astro: AstroGlobal, kind: 'cart' | 'sales' = 'car
         lang: Astro.locals.lang,
         clientIp: clientIpOf(Astro.request, () => Astro.clientAddress),
         attribution: attributionOf(cookies),
+        meta: {
+            fbp: parseCookies(cookies).get('_fbp') ?? null,
+            fbc: parseCookies(cookies).get('_fbc') ?? null,
+            userAgent: Astro.request.headers.get('user-agent'),
+        },
     };
 }
 

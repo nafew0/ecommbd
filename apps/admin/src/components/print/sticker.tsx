@@ -18,7 +18,7 @@ const STYLE: Record<
 /**
  * Courier stickers: one per page (4×6 in, 3×4 in) or an A4 sheet of 8 or 12. Name, phone and the
  * COD amount sit at the top and never shrink; the address shrinks to fit, then wraps; the barcode
- * of the order number is at the bottom (the courier's own barcode joins it in phase 19).
+ * of the order number is at the bottom, with the courier's consignment barcode under it once booked.
  */
 export function StickerDocuments(props: TemplateProps) {
     const size = props.settings.sticker.size;
@@ -124,6 +124,19 @@ function Sticker({
             <div className="mt-[0.3em] flex shrink-0 justify-center">
                 <Barcode value={order.orderNumber} heightMm={style.barcode} moduleMm={style.module} />
             </div>
+            {order.courierConsignment && (
+                // The courier's own barcode once booked (phase 19): their riders scan it.
+                <div className="mt-[0.3em] flex shrink-0 flex-col items-center">
+                    <Barcode
+                        value={order.courierConsignment}
+                        heightMm={style.barcode}
+                        moduleMm={style.module}
+                    />
+                    <p className="text-[0.75em]">
+                        {labels.consignment}: {order.courierConsignment}
+                    </p>
+                </div>
+            )}
         </article>
     );
 }

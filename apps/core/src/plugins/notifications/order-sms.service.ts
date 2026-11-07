@@ -53,14 +53,18 @@ export class OrderSmsService implements OnApplicationBootstrap {
             this.send(ctx, order.id, event, extraKey).catch(error =>
                 Logger.error(`Order SMS (${event}) failed: ${String(error)}`, loggerCtx),
             );
+        // Two rules for "order placed" (checked on the event's snapshot, before any reload):
+        // - an imported WooCommerce order's historical placement never sends a new SMS (phase 21);
+        // - an online order is placed unpaid (phase 18): its SMS goes once it's paid.
         this.eventBus.ofType(OrderPlacedEvent).subscribe(e => {
-            // Check the event snapshot before a reload: a reviewed imported COD order can be
-            // activated later, but its historical placement must never send a new SMS.
-            if (!e.order.customFields.imported) void on('placed')(e.ctx, e.order);
+            if (!e.order.customFields.imported && e.order.state !== 'AwaitingPayment')
+                void on('placed')(e.ctx, e.order);
         });
         this.eventBus.ofType(BdOrderConfirmedEvent).subscribe(e => on('confirmed')(e.ctx, e.order));
         this.eventBus.ofType(BdOrderCancelledWithReasonEvent).subscribe(e => on('cancelled')(e.ctx, e.order));
         this.eventBus.ofType(OrderStateTransitionEvent).subscribe(e => {
+            if (e.fromState === 'AwaitingPayment' && e.toState !== 'Cancelled')
+                void on('placed')(e.ctx, e.order);
             if (e.toState === 'Shipped') void on('shipped')(e.ctx, e.order);
             if (e.toState === 'Delivered') void on('delivered')(e.ctx, e.order);
         });

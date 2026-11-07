@@ -13,6 +13,9 @@ import { FraudGuardPlugin } from './fraud-guard';
 import { MerchantAdminPlugin } from './merchant-admin/merchant-admin.plugin';
 import { NotificationsPlugin, type SmsDriver } from './notifications';
 import { PaymentsBdPlugin } from './payments-bd';
+import { PaymentsOnlinePlugin } from './payments-online';
+import { CouriersPlugin } from './couriers';
+import { MetaCapiPlugin } from './meta-capi';
 import { ShippingBdPlugin } from './shipping-bd';
 import { WooImportPlugin } from './woo-import';
 // Last: its store-defaults step runs after the others (the order files load in).
@@ -59,8 +62,16 @@ export interface CustomPluginOptions {
     checkoutRateLimits?: BdCheckoutPluginOptions['rateLimits'];
     /** SMS_DRIVER: the SMS provider (the log driver records instead of sending). */
     smsDriver: SmsDriver;
-    /** STOREFRONT_URL, for SMS tracking links. */
+    /** STOREFRONT_URL, for SMS tracking links and where payment gateways send shoppers back. */
     storefrontUrl?: string;
+    /** SECRETS_KEYRING: encrypts payment gateway (and later courier) credentials. */
+    secretsKeyring?: string;
+    /** Tests only: payment gateways at a mock server. */
+    gatewayBaseUrls?: Partial<Record<'sslcommerz' | 'bkash', string>>;
+    /** Tests only: couriers at a mock server. */
+    courierBaseUrls?: Partial<Record<'steadfast' | 'pathao', string>>;
+    /** Tests only: Meta's Graph API at a mock server. */
+    metaGraphUrl?: string;
     /** Rate limits for search (tests set high ones). */
     searchRateLimits?: Partial<SearchRateLimits>;
     /** How long search reuses a loaded catalog, in ms (tests use 0). */
@@ -103,6 +114,23 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
         NotificationsPlugin.init({ driver: options.smsDriver, storefrontUrl: options.storefrontUrl }),
         FraudGuardPlugin,
         WooImportPlugin.init({ encryptionKeys: options.wooImportKeys, publicUrl: options.wooPublicUrl }),
+        PaymentsOnlinePlugin.init({
+            publicUrl: options.storefrontUrl,
+            keyring: options.secretsKeyring,
+            baseUrls: options.gatewayBaseUrls,
+            redis: options.cacheRedis,
+            redisKeyPrefix: options.redisKeyPrefix,
+        }),
+        CouriersPlugin.init({
+            publicUrl: options.storefrontUrl,
+            keyring: options.secretsKeyring,
+            baseUrls: options.courierBaseUrls,
+        }),
+        MetaCapiPlugin.init({
+            publicUrl: options.storefrontUrl,
+            keyring: options.secretsKeyring,
+            graphUrl: options.metaGraphUrl,
+        }),
         MerchantAdminPlugin.init({
             appDir: ADMIN_APP_DIR,
             imageOrigins: options.assetUrlPrefix ? [new URL(options.assetUrlPrefix).origin] : [],

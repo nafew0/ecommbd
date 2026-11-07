@@ -1,0 +1,188 @@
+import gql from 'graphql-tag';
+
+export const onlineShopApiExtensions = gql`
+    type BdOnlinePaymentOption {
+        "sslcommerz or bkash"
+        gateway: String!
+        "The payment method code for addPaymentToOrder (metadata: { purpose: full | advance })"
+        methodCode: String!
+        "sandbox or live: in sandbox no real money moves"
+        mode: String!
+    }
+
+    extend type BdPaymentOptions {
+        "Gateways the order can be paid with now (on, set up, not paused after failures)"
+        online: [BdOnlinePaymentOption!]!
+    }
+
+    type BdTrackedOnlinePayment {
+        gateway: String!
+        "advance or full"
+        purpose: String!
+        amount: Money!
+        "When the order is cancelled if still unpaid"
+        expiresAt: DateTime!
+        "Why the last try failed, e.g. insufficientBalance, unavailable"
+        lastFailure: String
+        "The gateway's own words on why it failed (bKash), in the request's language"
+        lastFailureMessage: String
+    }
+
+    extend type BdTrackedOrder {
+        "Set while the order waits for its online payment: show 'Pay now' (POST /bd-pay/again/<token>)"
+        onlinePayment: BdTrackedOnlinePayment
+    }
+`;
+
+export const onlineAdminApiExtensions = gql`
+    extend enum HistoryEntryType {
+        BD_ONLINE_PAYMENT
+    }
+
+    type BdGatewayCredentialField {
+        name: String!
+        saved: Boolean!
+        "Only for non-secret fields (store ID, username)"
+        value: String
+    }
+
+    type BdGatewayCredentials {
+        gateway: String!
+        mode: String!
+        complete: Boolean!
+        fields: [BdGatewayCredentialField!]!
+    }
+
+    type BdGatewayHealth {
+        gateway: String!
+        "Failed repeatedly and hidden at checkout for a few minutes"
+        paused: Boolean!
+    }
+
+    type BdOnlinePaymentSetup {
+        "OnlinePaymentSettings from @ecommbd/shared"
+        settings: JSON!
+        credentials: [BdGatewayCredentials!]!
+        health: [BdGatewayHealth!]!
+        "SECRETS_KEYRING is set: credentials can be saved"
+        keyringConfigured: Boolean!
+        "STOREFRONT_URL is set: gateways can send shoppers back"
+        publicUrlConfigured: Boolean!
+        "Where SSLCommerz sends payment notifications (set it in the SSLCommerz panel too)"
+        ipnUrl: String
+    }
+
+    type BdUpdateOnlinePaymentSettingsResult {
+        settings: JSON
+        errors: [BdSettingsFieldError!]!
+    }
+
+    type BdSaveGatewayCredentialsResult {
+        credentials: BdGatewayCredentials
+        errors: [BdSettingsFieldError!]!
+    }
+
+    type BdGatewayTestResult {
+        ok: Boolean!
+        "Why it failed: missingCredentials, refused or unreachable (the admin translates it)"
+        reason: String
+        "The gateway's own words, when it said anything"
+        message: String
+    }
+
+    type BdPaymentAttemptEvent {
+        at: DateTime!
+        source: String!
+        status: String!
+    }
+
+    type BdPaymentAttempt {
+        id: ID!
+        createdAt: DateTime!
+        orderId: ID!
+        paymentId: ID!
+        gateway: String!
+        mode: String!
+        amount: Money!
+        "created, started, paid, failed, cancelled or expired"
+        status: String!
+        "What to search for in the gateway's panel"
+        gatewayTransactionId: String
+        "The payer's wallet, last 3 digits only (bKash)"
+        payerAccount: String
+        "What bKash can still refund"
+        maxRefundableAmount: Money
+        paidAmount: Money
+        paidAt: DateTime
+        failureCode: String
+        lastCheckedAt: DateTime
+        nextCheckAt: DateTime
+        "late, duplicate, risky or mismatch"
+        reviewReason: String
+        "Why the gateway flagged it as risky, in its own words (SSLCommerz risk_title)"
+        riskTitle: String
+        "open, accepted, refunding (the gateway is still processing the refund), refunded or resolved"
+        reviewState: String
+        reviewNote: String
+        reviewedBy: String
+        reviewedAt: DateTime
+        refundReference: String
+        events: [BdPaymentAttemptEvent!]!
+        orderCode: String
+        orderNumber: String
+        "The order was cancelled: its money can only be refunded or resolved, not accepted (lists only)"
+        orderCancelled: Boolean
+    }
+
+    "An online payment action was refused. message is in the request's language."
+    type BdOnlinePaymentError implements ErrorResult {
+        errorCode: ErrorCode!
+        message: String!
+        "NOT_FOUND, NOT_OPEN, NOT_RISKY, NOTE_REQUIRED, REFUND_FAILED, REFUND_UNKNOWN, REFUND_NO_TRANSACTION, REFUND_TOO_LATE, REFUND_TOO_MUCH, REFUND_TOO_SOON, REFUND_LIMIT, UNAVAILABLE or NO_TRANSACTION"
+        reason: String!
+        "The gateway's own words (REFUND_FAILED, REFUND_UNKNOWN) or the amount bKash can still refund (REFUND_TOO_MUCH)"
+        detail: String
+    }
+
+    union BdPaymentReviewResult = BdPaymentAttempt | BdOnlinePaymentError
+
+    "What bKash's Search Transaction says about an attempt's trxId"
+    type BdBkashTransaction {
+        trxId: String!
+        "Completed, Initiated, Cancelled… or bKash's error code"
+        status: String!
+        amount: Money
+        "Last 3 digits only"
+        payerAccount: String
+        completedTime: String
+        "bKash's error, when it refused the search"
+        error: String
+    }
+
+    union BdBkashLookupResult = BdBkashTransaction | BdOnlinePaymentError
+
+    extend type Query {
+        bdOnlinePaymentSetup: BdOnlinePaymentSetup!
+        "Every try at paying the order online, oldest first"
+        bdPaymentAttempts(orderId: ID!): [BdPaymentAttempt!]!
+        "Online payments held for staff (late, duplicate, risky, wrong amount) and refunds still processing"
+        bdPaymentReviews: [BdPaymentAttempt!]!
+        "Look up an attempt's bKash transaction (Search Transaction), for support calls"
+        bdLookupBkashTransaction(attemptId: ID!): BdBkashLookupResult!
+    }
+
+    extend type Mutation {
+        updateBdOnlinePaymentSettings(input: JSON!): BdUpdateOnlinePaymentSettingsResult!
+        "Empty fields keep what's saved. Secrets are never sent back."
+        saveBdGatewayCredentials(
+            gateway: String!
+            mode: String!
+            input: JSON!
+        ): BdSaveGatewayCredentialsResult!
+        testBdGatewayConnection(gateway: String!, mode: String!): BdGatewayTestResult!
+        "Ask the gateway now what happened to this attempt"
+        checkBdPaymentAttempt(id: ID!): BdPaymentAttempt
+        "accept (risky only), refund (through the gateway) or resolve (handled outside; needs a note)"
+        reviewBdPayment(id: ID!, action: String!, note: String): BdPaymentReviewResult!
+    }
+`;

@@ -1,3 +1,4 @@
+import { CircuitBreaker } from './circuit-breaker';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -287,6 +288,17 @@ describe('circuit breaker', () => {
         for (let i = 0; i < 6; i += 1) {
             expect((await unguarded.request(`${base}/status?code=500`)).status).toBe(500);
         }
+    });
+
+    it('shares one breaker between clients when given an instance', async () => {
+        // Couriers and gateways pass one breaker to every client they make, so an outage seen by
+        // one request pauses the others too.
+        const shared = new CircuitBreaker({ failureThreshold: 2, cooldownMs: 60_000 });
+        const { http: first } = client({ maxRetries: 0, circuitBreaker: shared });
+        const { http: second } = client({ maxRetries: 0, circuitBreaker: shared });
+        await first.request(`${base}/status?code=500`);
+        await first.request(`${base}/status?code=500`);
+        await expect(second.request(`${base}/ok`)).rejects.toMatchObject({ kind: 'circuit_open' });
     });
 });
 

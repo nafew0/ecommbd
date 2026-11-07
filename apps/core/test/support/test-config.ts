@@ -56,6 +56,8 @@ export function createTestConfig(
             smsDriver: new LogSmsDriver(),
             storefrontUrl: 'https://shop.example.com',
             previewSecret: 'test-preview-secret-0123456789abcdef',
+            // A fixed test key (32 zero bytes): encrypts gateway credentials in tests only.
+            secretsKeyring: `v1:${Buffer.alloc(32).toString('base64')}`,
             ...pluginOptions,
         }),
     });

@@ -165,15 +165,21 @@ export class OrderInfoResolver {
     async bd(@Ctx() ctx: RequestContext, @Parent() order: Order) {
         const payments = order.payments ?? (await this.orderService.getOrderPayments(ctx, order.id));
         const paidAmount = settledAmount({ payments });
+        // An online payment still at the gateway (phase 18) is expected online, not collected on delivery.
+        const pendingOnline = payments
+            .filter(payment => payment.state === 'Pending')
+            .reduce((sum, payment) => sum + payment.amount, 0);
+        const codDue = Math.max(0, order.totalWithTax - paidAmount - pendingOnline);
         const fields = order.customFields;
         const status = bdStatusOf(order.state);
         const { autoCancel } = await this.settings.get(ctx);
         const claimed = fields.claimedUntil && fields.claimedUntil > new Date();
         return {
             status,
-            paymentType: bdPaymentType(order.totalWithTax, paidAmount),
+            paymentType:
+                pendingOnline > 0 && codDue === 0 ? 'prepaid' : bdPaymentType(order.totalWithTax, paidAmount),
             paidAmount,
-            codDue: Math.max(0, order.totalWithTax - paidAmount),
+            codDue,
             cancelReason: fields.cancelReason ?? null,
             cancelNote: fields.cancelNote ?? null,
             callAttempts: fields.callAttempts ?? 0,

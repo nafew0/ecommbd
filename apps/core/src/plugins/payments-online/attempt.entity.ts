@@ -1,0 +1,182 @@
+import type {
+    AttemptStatus,
+    GatewayMode,
+    OnlineGateway,
+    PaymentReviewReason,
+    PaymentReviewState,
+} from '@ecommbd/shared';
+import { type DeepPartial, type ID, VendureEntity } from '@vendure/core';
+import { Column, Entity, Index } from 'typeorm';
+
+/** One gateway event, kept for support with secrets removed. */
+export interface AttemptEvent {
+    at: string;
+    /** start, ipn, return, callback, execute, query, refund */
+    source: string;
+    /** The gateway's own status words, e.g. VALID, Completed, 2023. */
+    status: string;
+    /** JSON of the gateway's answer, secrets and personal data removed. */
+    data: string;
+}
+
+/**
+ * One try at paying an online payment (phase 18). A Vendure payment can have several (the shopper
+ * pays again after a failure); only one can settle it. Money from any other attempt (a second tab,
+ * after the order was cancelled) goes to the review queue for a refund, never silently dropped.
+ */
+@Entity('bd_payment_attempt')
+export class BdPaymentAttempt extends VendureEntity {
+    constructor(input?: DeepPartial<BdPaymentAttempt>) {
+        super(input);
+    }
+
+    /**
+     * Random hex: our `tran_id` / invoice number, and the key in the shopper's pay link. 30 characters
+     * (SSLCommerz's limit); attempts made before October 2026 have 32.
+     */
+    @Index({ unique: true })
+    @Column({ type: 'varchar', length: 40 })
+    token: string;
+
+    @Index()
+    @Column({ type: 'int' })
+    orderId: ID;
+
+    @Index()
+    @Column({ type: 'int' })
+    paymentId: ID;
+
+    @Column({ type: 'varchar', length: 16 })
+    gateway: OnlineGateway;
+
+    /** Sandbox or live, as when the attempt was made: its checks and refunds use the same credentials. */
+    @Column({ type: 'varchar', length: 8 })
+    mode: GatewayMode;
+
+    /** Poisha, the amount this attempt must pay. */
+    @Column({ type: 'int' })
+    amount: number;
+
+    @Index()
+    @Column({ type: 'varchar', length: 12 })
+    status: AttemptStatus;
+
+    /** The gateway's session or payment ID (SSLCommerz sessionkey, bKash paymentID). */
+    @Index()
+    @Column({ type: 'varchar', length: 100, nullable: true })
+    gatewaySessionId: string | null;
+
+    /**
+     * The gateway's own proof of payment, `gateway:id` (SSLCommerz val_id, bKash trxID). Unique, so the
+     * same payment is applied once however many notifications arrive.
+     */
+    @Index({ unique: true })
+    @Column({ type: 'varchar', length: 120, nullable: true })
+    gatewayReference: string | null;
+
+    /** What staff look up in the gateway's panel (SSLCommerz bank_tran_id, bKash trxID). */
+    @Column({ type: 'varchar', length: 100, nullable: true })
+    gatewayTransactionId: string | null;
+
+    /**
+     * When this attempt was claimed for starting at the gateway (created → started). A second
+     * `/bd-pay/start` meanwhile (the pay page's refresh plus its button, a reload) waits for that
+     * start instead of starting the gateway again.
+     */
+    @Column({ type: 'timestamp', precision: 6, nullable: true })
+    startedAt: Date | null;
+
+    /**
+     * The gateway's payment page for this attempt, as the gateway gave it: a reload of the pay link
+     * soon after goes back to the same page instead of opening a new attempt.
+     */
+    @Column({ type: 'text', nullable: true })
+    gatewayRedirectUrl: string | null;
+
+    /** bKash's `signature` from Create Payment: its callback must bring the same one. */
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    gatewaySignature: string | null;
+
+    /** When bKash's Execute was sent: at most once per paymentId; afterwards only Query. */
+    @Column({ type: 'timestamp', precision: 6, nullable: true })
+    executeSentAt: Date | null;
+
+    /** Poisha bKash can still refund (maxRefundableAmount). */
+    @Column({ type: 'int', nullable: true })
+    maxRefundableAmount: number | null;
+
+    /** The payer's wallet, masked to its last 3 digits (bKash). */
+    @Column({ type: 'varchar', length: 20, nullable: true })
+    payerAccount: string | null;
+
+    /** Why the gateway flagged the payment as risky, in its own words (SSLCommerz risk_title). */
+    @Column({ type: 'varchar', length: 100, nullable: true })
+    riskTitle: string | null;
+
+    /** Poisha the gateway says was paid (may differ: then it's a mismatch). */
+    @Column({ type: 'int', nullable: true })
+    paidAmount: number | null;
+
+    @Column({ type: 'timestamp', precision: 6, nullable: true })
+    paidAt: Date | null;
+
+    /** Why the shopper's last try failed, as a code for the storefront (e.g. insufficientBalance). */
+    @Column({ type: 'varchar', length: 40, nullable: true })
+    failureCode: string | null;
+
+    /** The gateway's own words on why the last try failed, shown to the shopper (bKash). */
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    failureMessageEn: string | null;
+
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    failureMessageBn: string | null;
+
+    /**
+     * When the reconciliation task next asks the gateway; null when finished or given up. A `failed`
+     * attempt keeps one while its failure was ambiguous (no clear refusal from the gateway).
+     */
+    @Index()
+    @Column({ type: 'timestamp', precision: 6, nullable: true })
+    nextCheckAt: Date | null;
+
+    @Column({ type: 'int', default: 0 })
+    checks: number;
+
+    @Column({ type: 'timestamp', precision: 6, nullable: true })
+    lastCheckedAt: Date | null;
+
+    @Column({ type: 'varchar', length: 12, nullable: true })
+    reviewReason: PaymentReviewReason | null;
+
+    @Index()
+    @Column({ type: 'varchar', length: 12, nullable: true })
+    reviewState: PaymentReviewState | null;
+
+    @Column({ type: 'varchar', length: 500, nullable: true })
+    reviewNote: string | null;
+
+    @Column({ type: 'varchar', length: 120, nullable: true })
+    reviewedBy: string | null;
+
+    @Column({ type: 'timestamp', precision: 6, nullable: true })
+    reviewedAt: Date | null;
+
+    /** The gateway's refund reference, once refunded through the API. */
+    @Column({ type: 'varchar', length: 100, nullable: true })
+    refundReference: string | null;
+
+    /**
+     * Our ID for the latest refund request (SSLCommerz refund_trans_id). Kept when the answer never
+     * came, so trying again can't refund twice; a new one after the gateway refused.
+     */
+    @Column({ type: 'varchar', length: 30, nullable: true })
+    refundTransId: string | null;
+
+    /** When our last refund request was sent: bKash's answer may never have come (Refund Status first). */
+    @Column({ type: 'timestamp', precision: 6, nullable: true })
+    refundRequestedAt: Date | null;
+
+    /** Gateway responses with secrets removed, oldest first (at most 30). */
+    @Column({ type: 'jsonb', default: () => "'[]'" })
+    events: AttemptEvent[];
+}

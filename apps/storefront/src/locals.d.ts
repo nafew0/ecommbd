@@ -6,6 +6,8 @@ declare namespace App {
         lang: import('./lib/i18n').Lang;
         defaultLang: import('./lib/i18n').Lang;
         settings: import('./lib/store').StoreSettings;
+        /** Meta tracking (phase 20): Pixels, browser script, Purchase trigger. */
+        meta: import('./lib/store').MetaConfig;
         /** The path exactly as requested (with the language prefix), to compare with the canonical one. */
         requestPath: string;
         /** The store's theme (phase 15), read by the middleware for every page. */

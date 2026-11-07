@@ -19,6 +19,7 @@ import { jsonLd } from '../lib/seo';
 import { storeName } from '../lib/store';
 import { sameOriginAssetUrl } from '../lib/urls';
 import { env } from '../env';
+import { isPrivateMetaPath } from '@ecommbd/shared/meta-url';
 
 interface Props {
     /** The page's own title; the store name is added after it. */
@@ -48,6 +49,8 @@ interface Props {
         /** The sticky order bar on phones: the price it shows. */
         sticky: string | null;
     };
+    /** Meta events of this page besides PageView (phase 20): ViewContent, InitiateCheckout, Purchase. */
+    metaEvents?: import('../scripts/meta').MetaEvent[];
 }
 
 const {
@@ -63,6 +66,7 @@ const {
     fullWidth = false,
     css: pageCss = '',
     sales,
+    metaEvents = [],
 } = Astro.props;
 const { lang, settings, s, href, absolute } = pageContext(Astro);
 const name = storeName(settings, lang);
@@ -75,6 +79,10 @@ const phone = settings.profile.phones[0];
 // The theme (phase 15): data attributes switch its look; custom colours come in a small stylesheet.
 const theme = Astro.locals.theme;
 const preview = Astro.locals.preview;
+// Previews (the page editor) are never tracked, nor private pages (tracking and payment links carry
+// secrets in their address; the account is the shopper's own): no Meta script or Pixel there at all.
+const trackMeta =
+    !preview && (Astro.locals.meta?.pixelIds.length ?? 0) > 0 && !isPrivateMetaPath(Astro.url.pathname);
 const editorOrigin = preview?.mode === 'editor' ? (env().EDITOR_ORIGIN ?? undefined) : undefined;
 const htmlAttributes = { ...themeAttributes(theme), ...(sales?.font ? { 'data-font': sales.font } : {}) };
 const header = sales?.header ?? 'store';
@@ -125,7 +133,14 @@ const header = sales?.header ?? 'store';
         {structuredData.map(data => <script type="application/ld+json" set:html={jsonLd(data)} />)}
         <slot name="head" />
     </head>
-    <body data-preview={preview?.mode} data-editor-origin={editorOrigin} data-sales-page={sales?.pageId}>
+    <body
+        data-preview={preview?.mode}
+        data-editor-origin={editorOrigin}
+        data-sales-page={sales?.pageId}
+        data-meta-pixels={trackMeta ? Astro.locals.meta.pixelIds.join(',') : undefined}
+        data-meta-browser={trackMeta && Astro.locals.meta.browserPixel ? '1' : undefined}
+        data-meta-events={trackMeta && metaEvents.length ? JSON.stringify(metaEvents) : undefined}
+    >
         <a class="skip-link" href="#main">{s.skipToContent}</a>
         {header === 'store' && <Header switchHref={switchHref} />}
         {header === 'slim' && <SalesHeader switchHref={switchHref} />}
@@ -150,10 +165,14 @@ const header = sales?.header ?? 'store';
         <PreviewBar />
         {preview?.mode === 'editor' && <PreviewTools />}
         <script>
-            // Where the shopper came from (phase 16): a tiny script, on every page.
+            // One script on every page, always a file (Astro inlines a small script without imports; its
+            // dynamic import keeps this one a file, and the CSP allows no inline scripts): where the
+            // shopper came from (phase 16), and Meta tracking (phase 20), a file of its own loaded only
+            // on pages of a store with a Pixel, so stores without one carry none of its code.
             import { recordVisit } from '../scripts/attribution';
 
             recordVisit();
+            if (document.body.dataset.metaPixels) void import('../scripts/meta').then(meta => meta.initMeta());
         </script>
         {/* The sampled speed beacon (phase 17); nothing at all when it's off. */}
         <Vitals />

@@ -5,6 +5,8 @@
  */
 
 export const BD_ORDER_STATUSES = [
+    // Placed, waiting for an online payment (phase 18): holds stock, not in the confirmation queue.
+    'awaitingPayment',
     'new',
     'confirmed',
     'packed',
@@ -18,9 +20,10 @@ export const BD_ORDER_STATUSES = [
 export type BdOrderStatus = (typeof BD_ORDER_STATUSES)[number];
 
 /** The states our order process adds to Vendure's. */
-export const BD_CUSTOM_ORDER_STATES = ['Confirmed', 'Packed', 'Returned'] as const;
+export const BD_CUSTOM_ORDER_STATES = ['AwaitingPayment', 'Confirmed', 'Packed', 'Returned'] as const;
 
 const STATUS_OF_STATE: Record<string, BdOrderStatus> = {
+    AwaitingPayment: 'awaitingPayment',
     PaymentAuthorized: 'new',
     PaymentSettled: 'new',
     Confirmed: 'confirmed',
@@ -49,6 +52,9 @@ export function vendureStatesOf(status: BdOrderStatus): string[] {
  * keep Vendure's own rules.
  */
 export const BD_TRANSITIONS: Readonly<Record<string, readonly string[]>> = {
+    // Paid in full (PaymentSettled), an online advance paid with COD for the rest (PaymentAuthorized),
+    // or not paid in time (Cancelled, by the expiry task or staff).
+    AwaitingPayment: ['PaymentSettled', 'PaymentAuthorized', 'Cancelled'],
     PaymentAuthorized: [
         'Confirmed',
         'Cancelled',
@@ -87,6 +93,7 @@ export function isBdTransitionAllowed(from: string, to: string, rules: Transitio
 
 /** States from which cancelling needs a reason (placed, not yet shipped). */
 export const CANCEL_NEEDS_REASON_FROM: readonly string[] = [
+    'AwaitingPayment',
     'PaymentAuthorized',
     'PaymentSettled',
     'Confirmed',
@@ -101,6 +108,8 @@ export function bdActionsFor(
     options: { prepaid: boolean } & TransitionRules,
 ): BdOrderAction[] {
     switch (status) {
+        case 'awaitingPayment':
+            return ['cancel'];
         case 'new':
             return options.prepaid && options.skipConfirmationForPrepaid
                 ? ['confirm', 'pack', 'cancel']
@@ -124,6 +133,8 @@ export const BD_CANCEL_REASONS = [
     'duplicate',
     'outOfStock',
     'priceIssue',
+    // The online payment didn't arrive in time (phase 18's expiry task).
+    'paymentNotReceived',
     'other',
 ] as const;
 
@@ -143,10 +154,11 @@ export function bdPaymentType(totalWithTax: number, settledAmount: number): BdPa
     return settledAmount >= totalWithTax ? 'prepaid' : 'advance';
 }
 
-export type BdStatusTone = 'amber' | 'sky' | 'violet' | 'indigo' | 'teal' | 'green' | 'orange' | 'red';
+export type BdStatusTone = 'slate' | 'amber' | 'sky' | 'violet' | 'indigo' | 'teal' | 'green' | 'orange' | 'red';
 
 /** Badge colours, the same in every screen. */
 export const BD_STATUS_TONES: Record<BdOrderStatus, BdStatusTone> = {
+    awaitingPayment: 'slate',
     new: 'amber',
     confirmed: 'sky',
     packed: 'violet',

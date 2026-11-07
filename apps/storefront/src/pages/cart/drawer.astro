@@ -3,6 +3,7 @@ import CartContents from '../../components/CartContents.astro';
 import { activeOrder, applyCartCookies, cartAction, type CartActionResult, shopperContext } from '../../lib/cart';
 import { isSameSite } from '../../lib/csrf';
 import { pageContext } from '../../lib/page';
+import { metaAddedCookie, metaAddedValue } from '../../lib/meta';
 
 /**
  * The cart drawer's contents (roadmap phase 14): an HTML fragment for src/scripts/cart.ts, which
@@ -17,7 +18,11 @@ const shopper = shopperContext(Astro);
 let result: CartActionResult | null = null;
 if (Astro.request.method === 'POST') {
     if (!isSameSite(Astro.request)) return new Response(null, { status: 403 });
-    result = await cartAction(shopper, await Astro.request.formData(), s);
+    const form = await Astro.request.formData();
+    result = await cartAction(shopper, form, s);
+    // Meta (phase 20): the tracker sends AddToCart when the drawer shows this answer.
+    const added = metaAddedValue(Astro.locals.meta, result, form);
+    if (added) Astro.response.headers.append('set-cookie', metaAddedCookie(added));
 }
 const order = result ? result.order : await activeOrder(shopper);
 applyCartCookies(Astro.response.headers, shopper, order);

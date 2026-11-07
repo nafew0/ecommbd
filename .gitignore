@@ -24,3 +24,6 @@ test-results
 .vendure/
 .performance/
 .lighthouseci/
+
+# Working plans (kept locally, not in the repo)
+/docs/plans/
