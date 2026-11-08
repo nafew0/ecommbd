@@ -137,6 +137,35 @@ describe('WooCommerce export file (WordPress helper "Export to a file")', () => 
         expect(result.counts.orders).toBe(fixture.orders.length);
     });
 
+    it('continues a run that a restart stopped, once its lease has run out', async () => {
+        const { sourceId } = await helper.importFile(
+            ctx,
+            fromLines(exportLines('https://restart.fixture.test')),
+        );
+        const created = await migration.start(ctx, Number(sourceId), 'dryRun', true);
+        const runs = db.rawConnection.getRepository(WooRun);
+        // A deploy killed the worker mid-run: still "running", lease left to expire.
+        await runs.update(created.id, {
+            status: 'running',
+            leaseOwner: 'dead-worker',
+            leaseUntil: new Date(Date.now() + 60_000),
+        });
+        const queued: Array<{ runId: number; ctx: ReturnType<RequestContext['serialize']> }> = [];
+        const add = migration['queue'].add;
+        migration['queue'].add = (async (data: (typeof queued)[number]) => void queued.push(data)) as never;
+        try {
+            await migration.resumeStalled();
+            expect(queued).toHaveLength(0); // the lease is still live: it may be working
+            await runs.update(created.id, { leaseUntil: new Date(Date.now() - 1000) });
+            await migration.resumeStalled();
+        } finally {
+            migration['queue'].add = add;
+        }
+        expect(queued.map(job => job.runId)).toEqual([Number(created.id)]);
+        await migration.process(queued[0].runId, RequestContext.deserialize(queued[0].ctx));
+        expect((await runs.findOneByOrFail({ id: created.id })).status).toBe('completed');
+    });
+
     it('refuses a file that is not an export, or that stops early, and leaves nothing behind', async () => {
         const before = await db.rawConnection.getRepository(WooPairing).count();
         await expect(

@@ -132,6 +132,12 @@ const bn: Record<keyof typeof en, string> = {
                 schedule: '19 3 * * *',
                 execute: ({ injector }) => injector.get(WooHelperService).cleanup(),
             }),
+            new ScheduledTask({
+                id: 'woo-import-resume',
+                description: 'Continue WooCommerce imports that a restart or deploy stopped',
+                schedule: '*/5 * * * *',
+                execute: ({ injector }) => injector.get(WooImportService).resumeStalled(),
+            }),
         ];
         config.authOptions.passwordHashingStrategy = new WooPasswordHashingStrategy(
             WooImportPlugin.options.encryptionKeys,

@@ -2,10 +2,13 @@ import { decryptSecret, encryptSecret, parseKeyring, type Keyring, dhakaParts } 
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import {
     Asset,
+    Channel,
     EventBus,
     JobQueue,
     JobQueueService,
+    Logger,
     RequestContext,
+    RequestContextService,
     SearchService,
     SubscribableJob,
     TransactionalConnection,
@@ -13,7 +16,7 @@ import {
 } from '@vendure/core';
 import { randomUUID } from 'node:crypto';
 import { lastValueFrom } from 'rxjs';
-import { In, IsNull } from 'typeorm';
+import { In, IsNull, LessThan } from 'typeorm';
 import { z } from 'zod';
 import { LegacyOrder, WooIssue, WooMapping, WooRun, WooSource } from './entities';
 import { arrays, digest, gmt, minor, text, WooRecord } from './helpers';
@@ -96,6 +99,7 @@ export class WooImportService implements OnModuleInit {
         private events: EventBus,
         private helper: WooHelperService,
         private extras: WooExtrasService,
+        private contexts: RequestContextService,
         @Inject(WOO_OPTIONS) options: WooImportOptions,
     ) {
         if (options.encryptionKeys) this.keyring = parseKeyring(options.encryptionKeys);
@@ -321,6 +325,33 @@ export class WooImportService implements OnModuleInit {
         });
         await this.enqueue(ctx, run);
         return this.run(ctx, id);
+    }
+    /**
+     * Picks up imports that a restart or deploy stopped. A working run renews its lease every few
+     * minutes, so a run still marked running with an expired lease has nobody working on it: it
+     * goes back on the queue and continues from its saved cursor. A scheduled task calls this every
+     * few minutes; process() claims a run atomically, so a second job for the same run does nothing.
+     */
+    async resumeStalled() {
+        const db = this.connection.rawConnection;
+        const stalled = await db
+            .getRepository(WooRun)
+            .find({ where: { status: 'running', leaseUntil: LessThan(new Date()) }, take: 20 });
+        for (const run of stalled) {
+            try {
+                const source = await db.getRepository(WooSource).findOneByOrFail({ id: run.sourceId });
+                const channel = await db.getRepository(Channel).findOneByOrFail({ id: source.channelId });
+                const ctx = await this.contexts.create({ apiType: 'admin', channelOrToken: channel });
+                await this.queue.add({ runId: Number(run.id), ctx: ctx.serialize() }, { retries: 0 });
+                Logger.info(`Resuming stopped WooCommerce import run ${run.id}`, 'WooImport');
+            } catch (error) {
+                Logger.warn(
+                    `Could not resume WooCommerce import run ${run.id}: ${safeError(error)}`,
+                    'WooImport',
+                );
+            }
+        }
+        return { resumed: stalled.length };
     }
     async complete(ctx: RequestContext, sourceId: number) {
         return this.connection.withTransaction(ctx, async txCtx => {
