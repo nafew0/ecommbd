@@ -59,6 +59,7 @@ export const MENU: MenuGroup[] = [
             link('verifyPayments', '/orders/payments', '08', true, 'VerifyPayment'),
             link('paymentReviews', '/orders/payment-reviews', '18', true, 'ReadOrder'),
             link('unmappedAddresses', '/orders/unmapped-addresses', '19', true, 'BookCourier'),
+            link('wooOrders', '/orders/woocommerce', '21', true, 'ReadOrder'),
         ],
     },
     {

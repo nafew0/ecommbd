@@ -24,6 +24,7 @@ describe('menu', () => {
             '/orders/payments',
             '/orders/payment-reviews',
             '/orders/unmapped-addresses',
+            '/orders/woocommerce',
         ]);
         expect(menu[2]!.children!.map(child => child.to)).toEqual([
             '/products',
@@ -82,6 +83,7 @@ describe('menu', () => {
             '/orders/incomplete',
             '/orders/campaigns',
             '/orders/payment-reviews',
+            '/orders/woocommerce',
         ]);
     });
 

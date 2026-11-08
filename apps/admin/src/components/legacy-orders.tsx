@@ -28,6 +28,9 @@ interface Legacy {
     refunded?: string;
     placedAt?: string | null;
     liveOrderId?: string | null;
+    /** The billing name and phone (lists only). */
+    name?: string;
+    phone?: string | null;
     /** The WooCommerce order as it was imported (only on `wooLegacyOrder`). */
     snapshot?: Record<string, unknown>;
 }
@@ -41,7 +44,18 @@ const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
  * Orders imported from WooCommerce, kept as read-only history (roadmap phase 21), on the
  * migration page and a customer's page. A recent unpaid COD order can be turned into a live one.
  */
-export function LegacyOrders({ sourceId, customerId }: { sourceId?: string; customerId?: string }) {
+export function LegacyOrders({
+    sourceId,
+    customerId,
+    pageSize = 10,
+    showHeader = true,
+}: {
+    sourceId?: string;
+    customerId?: string;
+    pageSize?: number;
+    /** False on the WooCommerce orders page, whose page header already says what this is. */
+    showHeader?: boolean;
+}) {
     const { messages, language } = useI18n();
     const m = messages.migration;
     const format = useFormat();
@@ -56,11 +70,11 @@ export function LegacyOrders({ sourceId, customerId }: { sourceId?: string; cust
     const [busy, setBusy] = useState(false);
     const [live, setLive] = useState('');
     const query = useQuery({
-        queryKey: ['woo', 'history', sourceId, customerId, search, skip],
+        queryKey: ['woo', 'history', sourceId, customerId, search, skip, pageSize],
         queryFn: () =>
             adminApi<{ wooLegacyOrders: { items: Legacy[]; totalItems: number } }>(
-                'query($sourceId:ID,$customerId:ID,$search:String,$skip:Int){wooLegacyOrders(sourceId:$sourceId,customerId:$customerId,search:$search,skip:$skip,take:10)}',
-                { sourceId, customerId, search, skip },
+                'query($sourceId:ID,$customerId:ID,$search:String,$skip:Int,$take:Int){wooLegacyOrders(sourceId:$sourceId,customerId:$customerId,search:$search,skip:$skip,take:$take)}',
+                { sourceId, customerId, search, skip, take: pageSize },
             ).then(r => r.wooLegacyOrders),
     });
     const detail = useQuery({
@@ -90,9 +104,9 @@ export function LegacyOrders({ sourceId, customerId }: { sourceId?: string; cust
     }
     return (
         <Card>
-            <CardHeader title={m.legacyTitle} />
+            {showHeader && <CardHeader title={m.legacyTitle} />}
             <CardBody>
-                <p className="text-sm text-slate-600">{m.legacyIntro}</p>
+                {showHeader && <p className="text-sm text-slate-600">{m.legacyIntro}</p>}
                 <Input
                     aria-label={m.search}
                     placeholder={m.search}
@@ -111,6 +125,14 @@ export function LegacyOrders({ sourceId, customerId }: { sourceId?: string; cust
                                     #{order.number} ·{' '}
                                     {formatMinor(order.total, order.currency, language === 'bn')}
                                 </p>
+                                {/* Not on a customer's own page: it's always them. */}
+                                {!customerId && (order.name || order.phone) && (
+                                    <p className="text-sm break-words">
+                                        {[order.name, order.phone && format.phone(order.phone)]
+                                            .filter(Boolean)
+                                            .join(' · ')}
+                                    </p>
+                                )}
                                 <p className="flex flex-wrap items-center gap-x-2 text-sm text-slate-600">
                                     {[format.date(order.placedAt), wooStatusLabel(m, order.status)]
                                         .filter(Boolean)
@@ -138,14 +160,14 @@ export function LegacyOrders({ sourceId, customerId }: { sourceId?: string; cust
                     <Button
                         variant="secondary"
                         disabled={skip === 0}
-                        onClick={() => setSkip(Math.max(0, skip - 10))}
+                        onClick={() => setSkip(Math.max(0, skip - pageSize))}
                     >
                         {m.previous}
                     </Button>
                     <Button
                         variant="secondary"
-                        disabled={skip + 10 >= (query.data?.totalItems ?? 0)}
-                        onClick={() => setSkip(skip + 10)}
+                        disabled={skip + pageSize >= (query.data?.totalItems ?? 0)}
+                        onClick={() => setSkip(skip + pageSize)}
                     >
                         {m.next}
                     </Button>

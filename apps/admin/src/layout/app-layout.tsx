@@ -144,6 +144,8 @@ export function AppLayout() {
 }
 
 function MenuList({ menu, collapsed }: { menu: MenuGroup[]; collapsed: boolean }) {
+    const { pathname } = useLocation();
+    const within = (to: string) => pathname === to || pathname.startsWith(`${to}/`);
     const { messages: m } = useI18n();
     const linkClass = ({ isActive }: { isActive: boolean }) =>
         cn(
@@ -194,11 +196,16 @@ function MenuList({ menu, collapsed }: { menu: MenuGroup[]; collapsed: boolean }
                         <ul className="space-y-1">
                             {group.children?.map(child => {
                                 const label = m.nav[child.label];
+                                // The closest link wins: /orders/woocommerce marks only "WooCommerce
+                                // orders", while an order's own page (/orders/123) still marks "All orders".
+                                const closest = group
+                                    .children!.filter(other => within(other.to))
+                                    .sort((a, b) => b.to.length - a.to.length)[0];
                                 return (
                                     <li key={child.to}>
                                         <NavLink
                                             to={child.to}
-                                            className={linkClass}
+                                            className={() => linkClass({ isActive: closest === child })}
                                             title={collapsed ? label : undefined}
                                         >
                                             {collapsed ? (

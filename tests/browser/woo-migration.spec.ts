@@ -18,7 +18,13 @@ test('migrates a signed helper upload, reviews reports/history and manages redir
     await signIn(page, 'en');
     await page.goto('/admin/settings/woocommerce');
     await expect(page.getByRole('heading', { name: 'WooCommerce migration', exact: true })).toBeVisible();
-    await page.getByLabel('WooCommerce store URL (HTTPS)').first().fill('https://woo.fixture.test');
+    // With a store already connected, the page opens on that store's step: add another.
+    const another = page.getByRole('button', { name: 'Connect another store', exact: true });
+    await expect(
+        page.getByRole('heading', { name: 'Connect your old WooCommerce store', exact: true }).or(another),
+    ).toBeVisible();
+    if (await another.isVisible()) await another.click();
+    await page.getByLabel('WooCommerce store URL (HTTPS)').fill('https://woo.fixture.test');
     await page.getByRole('button', { name: 'Create one-use pairing', exact: true }).click();
     const details = page.getByLabel('Pairing details (valid for one hour)');
     await expect(details).toHaveValue(/"code"/);
@@ -63,33 +69,20 @@ test('migrates a signed helper upload, reviews reports/history and manages redir
     await page
         .getByLabel('Source store', { exact: true })
         .selectOption({ label: 'https://woo.fixture.test' });
+    // Step 2, check (dry run); then step 3, import.
     await page.getByRole('button', { name: 'Run dry run', exact: true }).click();
     await expect(page.getByText('Status: Completed', { exact: false })).toBeVisible({ timeout: 60000 });
+    await page.getByRole('button', { name: 'Next step', exact: true }).click();
     await page.getByLabel('I reviewed the dry-run issues and accept the reported exclusions.').check();
     await page.getByRole('button', { name: 'Import reviewed data', exact: true }).click();
     await expect(page.getByText('Status: Completed', { exact: false })).toBeVisible({ timeout: 60000 });
     await expect(page.getByText('Fixture', { exact: true })).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'WooCommerce order history' })).toBeVisible();
-    await page.getByRole('button', { name: 'Details', exact: true }).first().click();
-    await expect(page.getByText(/Original order snapshot/)).toBeVisible();
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Download HTML report' }).click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe('migration-report.html');
-    await page.getByText('Imported source settings', { exact: true }).click();
-    await expect(page.getByText('Imported Meta Pixel ID: ' + fixture.settings[0].pixelId)).toBeVisible();
-    await page
-        .getByLabel('Orders placed since (your local time)', { exact: true })
-        .fill(new Date(Date.now() - 86400_000).toISOString().slice(0, 16));
-    const rollbackPromise = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Export private rollback orders', exact: true }).click();
-    const rollback = await rollbackPromise;
-    expect(rollback.suggestedFilename()).toBe('private-rollback-orders.json');
-    const exported = JSON.parse(fs.readFileSync((await rollback.path())!, 'utf8'));
-    expect(exported.orders).toBeInstanceOf(Array);
-    expect(JSON.stringify(exported)).not.toMatch(
-        /passwordHash|_password_hash|verificationToken|trackingToken/,
-    );
+    // Step 4, old links.
+    await page.getByRole('button', { name: 'Next step', exact: true }).click();
     const old = `/browser-old-${testInfo.project.name}-${randomBytes(4).toString('hex')}/`;
     await page.getByLabel('Old local path', { exact: true }).fill(old);
     await page.getByLabel('Final local path', { exact: true }).fill('/product/fixture-panjabi/');
@@ -114,13 +107,35 @@ test('migrates a signed helper upload, reviews reports/history and manages redir
     await rule.getByRole('button', { name: `Delete redirect ${old}`, exact: true }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(rule).toHaveCount(0);
+    // Step 5, go live: the old store's settings, the rollback export and the checklist.
+    await page.getByRole('button', { name: 'Next step', exact: true }).click();
+    await page.getByText('Imported source settings', { exact: true }).click();
+    await expect(page.getByText('Imported Meta Pixel ID: ' + fixture.settings[0].pixelId)).toBeVisible();
+    await page
+        .getByLabel('Orders placed since (your local time)', { exact: true })
+        .fill(new Date(Date.now() - 86400_000).toISOString().slice(0, 16));
+    const rollbackPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Export private rollback orders', exact: true }).click();
+    const rollback = await rollbackPromise;
+    expect(rollback.suggestedFilename()).toBe('private-rollback-orders.json');
+    const exported = JSON.parse(fs.readFileSync((await rollback.path())!, 'utf8'));
+    expect(exported.orders).toBeInstanceOf(Array);
+    expect(JSON.stringify(exported)).not.toMatch(
+        /passwordHash|_password_hash|verificationToken|trackingToken/,
+    );
     await page.getByLabel('Backups and permission recorded', { exact: true }).check();
     await page.getByRole('button', { name: 'Save checklist', exact: true }).click();
     await page.reload();
     await page
         .getByLabel('Source store', { exact: true })
         .selectOption({ label: 'https://woo.fixture.test' });
+    await page.getByRole('button', { name: /Go live/ }).click();
     await expect(page.getByLabel('Backups and permission recorded', { exact: true })).toBeChecked();
+    // The imported orders have their own page under Orders.
+    await page.goto('/admin/orders/woocommerce');
+    await expect(page.getByRole('heading', { name: 'WooCommerce orders', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Details', exact: true }).first().click();
+    await expect(page.getByText(/Original order snapshot/)).toBeVisible();
     if (testInfo.project.name === 'phone') {
         const overflow = await page.evaluate(
             () => document.documentElement.scrollWidth > window.innerWidth + 1,
@@ -131,14 +146,12 @@ test('migrates a signed helper upload, reviews reports/history and manages redir
     expect(errors).toEqual([]);
 });
 
-test('shows Bangla helper, history and cutover controls without script errors', async ({ page }) => {
+test('shows the Bangla migration page and WooCommerce orders without script errors', async ({ page }) => {
     const errors = watchForErrors(page);
     await signIn(page, 'bn');
     await page.goto('/admin/settings/woocommerce');
     await expect(page.getByRole('heading', { name: 'WooCommerce মাইগ্রেশন', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'একবারের পেয়ারিং তৈরি করুন', exact: true })).toBeVisible();
-    await expect(
-        page.getByRole('heading', { name: 'WooCommerce অর্ডারের ইতিহাস', exact: true }),
-    ).toBeVisible();
+    await page.goto('/admin/orders/woocommerce');
+    await expect(page.getByRole('heading', { name: 'WooCommerce অর্ডার', exact: true })).toBeVisible();
     expect(errors).toEqual([]);
 });

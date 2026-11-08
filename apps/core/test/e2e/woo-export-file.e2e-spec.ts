@@ -130,6 +130,25 @@ describe('WooCommerce export file (WordPress helper "Export to a file")', () => 
         // The next new order is numbered after the highest WooCommerce number, in one step.
         const [next] = await db.rawConnection.query("SELECT nextval('bd_order_number_seq')::text AS number");
         expect(next.number).toBe('1001103');
+
+        // The imported orders count in each customer's stats (the customer list), and the
+        // WooCommerce orders page lists them with the buyer's name.
+        const [history] = await db.rawConnection.query(
+            `SELECT "customerId", count(*)::int AS orders,
+                count(*) FILTER (WHERE status NOT IN ('checkout-draft', 'trash'))::int AS counted
+             FROM woo_legacy_order WHERE "customerId" IS NOT NULL
+             GROUP BY "customerId" ORDER BY count(*) DESC LIMIT 1`,
+        );
+        const customer = await db.rawConnection
+            .getRepository(Customer)
+            .findOneByOrFail({ id: history.customerId });
+        expect((customer.customFields as { orderCount: number }).orderCount).toBe(history.counted);
+        const listed = await migration.legacyOrders(ctx, { take: 100 });
+        expect(listed.totalItems).toBe(fixture.orders.length);
+        const named = fixture.orders.find(o => o.billing?.first_name);
+        expect(listed.items.some(o => o.name.startsWith(String(named!.billing.first_name)))).toBe(true);
+        const found = await migration.legacyOrders(ctx, { search: String(named!.billing.first_name) });
+        expect(found.totalItems).toBeGreaterThan(0);
     });
 
     it('accepts a plain (not gzipped) file and an http address of the old site', async () => {

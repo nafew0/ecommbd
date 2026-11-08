@@ -62,6 +62,7 @@ export const en = {
         verifyPayments: 'Verify payments',
         paymentReviews: 'Payment reviews',
         unmappedAddresses: 'Unmapped addresses',
+        wooOrders: 'WooCommerce orders',
         products: 'Products',
         allProducts: 'All products',
         categories: 'Categories',

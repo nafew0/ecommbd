@@ -251,6 +251,13 @@ const router = createBrowserRouter(
                                 })),
                         },
                         {
+                            path: 'orders/woocommerce',
+                            lazy: () =>
+                                import('./pages/woo-orders').then(module => ({
+                                    Component: module.WooOrdersPage,
+                                })),
+                        },
+                        {
                             path: 'orders/incomplete',
                             lazy: () =>
                                 import('./pages/incomplete-orders').then(module => ({

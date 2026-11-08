@@ -65,6 +65,7 @@ export const bn: Messages = {
         verifyPayments: 'পেমেন্ট যাচাই',
         paymentReviews: 'পেমেন্ট যাচাই',
         unmappedAddresses: 'না-মেলা ঠিকানা',
+        wooOrders: 'WooCommerce অর্ডার',
         products: 'পণ্য',
         allProducts: 'সব পণ্য',
         categories: 'ক্যাটাগরি',

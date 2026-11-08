@@ -11,7 +11,7 @@ import { type Column, ListPage, type ListTab } from '../components/list-page';
 import { PaymentBadge, StatusBadge } from '../components/orders/status';
 import { Button } from '../components/ui/button';
 import { Input, Select } from '../components/ui/input';
-import { EmptyState, PageHeader } from '../components/ui/misc';
+import { Alert, EmptyState, PageHeader } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useFormat } from '../lib/format';
@@ -219,10 +219,27 @@ export function OrdersPage() {
         },
         { key: 'date', header: c.date, hideOnMobile: true, cell: row => format.dateTime(row.orderPlacedAt) },
     ];
+    const wooOrders = useQuery({
+        queryKey: ['woo', 'history', 'count'],
+        staleTime: 300_000,
+        queryFn: () =>
+            adminApi<{ wooLegacyOrders: { totalItems: number } }>('{wooLegacyOrders(take:1)}').then(
+                r => r.wooLegacyOrders.totalItems,
+            ),
+    });
     const filtered = JSON.stringify(filters) !== JSON.stringify(NO_FILTERS);
     return (
         <>
             <PageHeader title={m.orders.title} description={m.orders.description} />
+            {/* Orders imported from WooCommerce are history kept on their own page: say where. */}
+            {!!wooOrders.data && (
+                <Alert>
+                    {m.migration.flow.ordersBanner(m.common.number(wooOrders.data))}{' '}
+                    <Link className="font-medium underline" to="/orders/woocommerce">
+                        {m.migration.flow.ordersBannerLink}
+                    </Link>
+                </Alert>
+            )}
             {bulk && (
                 <BulkBookingProgress
                     run={bulk}

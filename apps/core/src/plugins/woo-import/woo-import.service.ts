@@ -1,5 +1,6 @@
 import { decryptSecret, encryptSecret, parseKeyring, type Keyring, dhakaParts } from '@ecommbd/shared';
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import {
     Asset,
     Channel,
@@ -26,6 +27,7 @@ import { WooHelperService } from './helper.service';
 import { WooExtrasService } from './extras.service';
 import { markWooImportContext, WooImportCompletedEvent } from './context';
 
+import { CustomerStatsService } from '../bd-checkout/customer-stats.service';
 import { WOO_OPTIONS, WooImportOptions } from './options';
 export { WOO_OPTIONS, WooImportOptions } from './options';
 const sourceInput = z.object({
@@ -100,6 +102,7 @@ export class WooImportService implements OnModuleInit {
         private helper: WooHelperService,
         private extras: WooExtrasService,
         private contexts: RequestContextService,
+        private moduleRef: ModuleRef,
         @Inject(WOO_OPTIONS) options: WooImportOptions,
     ) {
         if (options.encryptionKeys) this.keyring = parseKeyring(options.encryptionKeys);
@@ -352,6 +355,20 @@ export class WooImportService implements OnModuleInit {
             }
         }
         return { resumed: stalled.length };
+    }
+    /**
+     * Recounts the orders and spending of every customer with imported WooCommerce orders, so the
+     * customer list shows their old store's orders too. Runs after each import and sync.
+     */
+    private async refreshCustomerStats(ctx: RequestContext, sourceId: number) {
+        const stats = this.moduleRef.get(CustomerStatsService, { strict: false });
+        const rows = await this.connection
+            .getRepository(ctx, LegacyOrder)
+            .createQueryBuilder('o')
+            .select('DISTINCT o.customerId', 'id')
+            .where('o.sourceId = :sourceId AND o.customerId IS NOT NULL', { sourceId })
+            .getRawMany<{ id: number }>();
+        for (const row of rows) await stats.refresh(row.id);
     }
     async complete(ctx: RequestContext, sourceId: number) {
         return this.connection.withTransaction(ctx, async txCtx => {
@@ -617,6 +634,7 @@ export class WooImportService implements OnModuleInit {
                         .getRepository(txCtx, WooRun)
                         .update(run.id, { leaseUntil: new Date(Date.now() + 300_000) });
                 });
+                await this.refreshCustomerStats(ctx, Number(source.id));
                 // Announce the finished import only once the search index has been rebuilt: the
                 // cache purges everything and warms the top pages on this event, and listings come
                 // from the index. (The event used to fire before the rebuild started.)
@@ -759,17 +777,31 @@ export class WooImportService implements OnModuleInit {
         if (input.sourceId) qb.andWhere('o.sourceId = :sourceId', { sourceId: input.sourceId });
         if (input.customerId) qb.andWhere('o.customerId = :customerId', { customerId: input.customerId });
         if (input.search)
-            qb.andWhere('(o.number = :search OR o.phone LIKE :phone)', {
-                search: text(input.search, 100),
-                phone: `%${text(input.search, 30).replace(/[\\%_]/g, '\\$&')}%`,
-            });
+            qb.andWhere(
+                `(o.number = :search OR o.phone LIKE :phone OR concat_ws(' ', o.snapshot->'billing'->>'first_name', o.snapshot->'billing'->>'last_name') ILIKE :name)`,
+                {
+                    search: text(input.search, 100),
+                    phone: `%${text(input.search, 30).replace(/[\\%_]/g, '\\$&')}%`,
+                    name: `%${text(input.search, 100).replace(/[\\%_]/g, '\\$&')}%`,
+                },
+            );
         const [items, totalItems] = await qb
             .orderBy('o.placedAt', 'DESC')
             .addOrderBy('o.id', 'DESC')
             .skip(Math.max(0, input.skip ?? 0))
             .take(Math.min(100, Math.max(1, input.take ?? 25)))
             .getManyAndCount();
-        return { items: items.map(({ snapshot: _snapshot, ...row }) => row), totalItems };
+        // The list shows who ordered: the billing name, without sending the whole snapshot.
+        return {
+            items: items.map(({ snapshot, ...row }) => {
+                const billing = (snapshot?.billing ?? {}) as Record<string, unknown>;
+                return {
+                    ...row,
+                    name: text(`${text(billing.first_name, 100)} ${text(billing.last_name, 100)}`, 200),
+                };
+            }),
+            totalItems,
+        };
     }
     async legacyOrder(ctx: RequestContext, id: number) {
         return this.connection

@@ -27,7 +27,7 @@ interface StatsRow {
 /**
  * Keeps each customer's order stats current (roadmap phase 03). They're recomputed from the orders
  * table whenever a placed order changes state, rather than incremented, so they stay correct after
- * retried or out-of-order events and imported history. Total spent counts delivered orders: for
+ * retried or out-of-order events, and they include orders imported from WooCommerce. Total spent counts delivered orders: for
  * cash on delivery that's when the money is received.
  */
 @Injectable()
@@ -50,16 +50,34 @@ export class CustomerStatsService implements OnApplicationBootstrap {
     }
 
     async refresh(customerId: ID): Promise<void> {
+        // Live orders, plus the orders imported from WooCommerce (woo_legacy_order, read-only
+        // history) so a migrated customer's counts include their old store's orders. A legacy
+        // order already turned into a live one is counted once, as the live order.
         const [row] = (await this.connection.rawConnection.query(
-            `SELECT COUNT(*)::int AS "orderCount",
+            `WITH orders AS (
+                SELECT "state", ("subTotalWithTax" + "shippingWithTax")::bigint AS "spent", "orderPlacedAt" AS "placedAt"
+                FROM "order"
+                WHERE "customerId" = $1 AND "orderPlacedAt" IS NOT NULL
+                UNION ALL
+                SELECT CASE
+                           WHEN "status" = 'completed' THEN 'Delivered'
+                           WHEN "status" IN ('refunded', 'returned') THEN 'Returned'
+                           WHEN "status" IN ('cancelled', 'failed') THEN 'Cancelled'
+                           ELSE "status"
+                       END,
+                       CASE WHEN "currency" = 'BDT' THEN "total" - "refunded" ELSE 0 END,
+                       "placedAt"
+                FROM "woo_legacy_order"
+                WHERE "customerId" = $1 AND "liveOrderId" IS NULL
+                    AND "status" NOT IN ('checkout-draft', 'trash')
+            )
+            SELECT COUNT(*)::int AS "orderCount",
                 COUNT(*) FILTER (WHERE "state" = 'Delivered')::int AS "deliveredCount",
                 COUNT(*) FILTER (WHERE "state" = 'Returned')::int AS "returnedCount",
                 COUNT(*) FILTER (WHERE "state" = 'Cancelled')::int AS "cancelledCount",
-                COALESCE(SUM("subTotalWithTax" + "shippingWithTax") FILTER (WHERE "state" = 'Delivered'), 0)::text
-                    AS "totalSpent",
-                MAX("orderPlacedAt") AS "lastOrderAt"
-             FROM "order"
-             WHERE "customerId" = $1 AND "orderPlacedAt" IS NOT NULL`,
+                COALESCE(SUM("spent") FILTER (WHERE "state" = 'Delivered'), 0)::text AS "totalSpent",
+                MAX("placedAt") AS "lastOrderAt"
+             FROM orders`,
             [customerId],
         )) as StatsRow[];
         await this.connection.rawConnection.getRepository(Customer).update(customerId, {
