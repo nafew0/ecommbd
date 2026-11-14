@@ -15,6 +15,7 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
   - **Order list:** a "Create order" button (phone orders moved here from the menu), and the date, district, payment and campaign filters behind one "Filters" button.
   - **Unsaved changes** show a bar at the bottom with Discard and Save (product form, delivery settings).
   - **Subtle animation** (Motion, in its light build) for menus, cards and pages; off for people who ask their device for reduced motion.
+  - **Every other screen (phase 63b)** now uses the same widths and the same save bar. Rarely used groups start closed and show their current value: courier default parcel values, unanswered-call rules, advance payment, SMS quiet hours and limits, print language, the Meta event log, store social links. The customer page has a side column for contact, block status and SMS opt-out.
   - No web addresses, permissions or saved data changed.
 
 ### Fixed

@@ -3,13 +3,16 @@ import { banglaToAsciiDigits } from '@ecommbd/shared/text';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Field } from '../components/form/field';
-import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { SaveBar } from '../components/ui/save-bar';
+import { CollapsibleCard } from '../components/ui/disclosure';
+import { Page } from '../components/ui/layout';
 import { Alert, Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { Switch } from '../components/ui/switch';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { errorMap } from '../lib/form';
+import { useDraft } from '../lib/use-draft';
 import { useI18n } from '../lib/i18n';
 import { useToast } from '../lib/toast';
 
@@ -31,10 +34,10 @@ export function OrderSettingsPage() {
         queryFn: () =>
             adminApi<{ bdOrderSettings: OrderSettings }>('{ bdOrderSettings }').then(r => r.bdOrderSettings),
     });
-    const [draft, setDraft] = useState<OrderSettings | null>(null);
+    const { draft, setDraft, load, dirty, discard } = useDraft<OrderSettings>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     useEffect(() => {
-        if (query.data && !draft) setDraft(query.data);
+        if (query.data && !draft) load(query.data);
     }, [query.data, draft]);
     const save = useMutation({
         mutationFn: (input: OrderSettings) =>
@@ -47,7 +50,7 @@ export function OrderSettingsPage() {
         onSuccess: result => {
             setErrors(errorMap(result.errors));
             if (result.settings) {
-                setDraft(result.settings);
+                load(result.settings);
                 toast.success(m.orderSettings.saved);
                 void queryClient.invalidateQueries({ queryKey: ['orderSettings'] });
             } else {
@@ -63,7 +66,7 @@ export function OrderSettingsPage() {
     /** Bangla digits are fine; anything else is refused by the server's check. */
     const number = (value: string) => Number(banglaToAsciiDigits(value.trim()) || 0);
     return (
-        <>
+        <Page width="narrow">
             <PageHeader title={s.title} description={s.description} />
             {!canEdit && (
                 <div className="mb-4">
@@ -107,58 +110,64 @@ export function OrderSettingsPage() {
                         />
                     </CardBody>
                 </Card>
-                <Card>
-                    <CardHeader title={s.unanswered} />
-                    <CardBody>
-                        <Switch
-                            label={s.suggest}
-                            checked={draft.autoCancel.suggest}
-                            disabled={!canEdit}
-                            onChange={checked => autoCancel({ suggest: checked })}
-                        />
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <Field label={s.afterDays} error={errors['autoCancel.afterDays']}>
-                                {control => (
-                                    <Input
-                                        {...control}
-                                        inputMode="numeric"
-                                        value={String(draft.autoCancel.afterDays)}
-                                        disabled={!canEdit}
-                                        onChange={event =>
-                                            autoCancel({ afterDays: number(event.target.value) })
-                                        }
-                                    />
-                                )}
-                            </Field>
-                            <Field label={s.minFailedCalls} error={errors['autoCancel.minFailedCalls']}>
-                                {control => (
-                                    <Input
-                                        {...control}
-                                        inputMode="numeric"
-                                        value={String(draft.autoCancel.minFailedCalls)}
-                                        disabled={!canEdit}
-                                        onChange={event =>
-                                            autoCancel({ minFailedCalls: number(event.target.value) })
-                                        }
-                                    />
-                                )}
-                            </Field>
-                        </div>
-                        <Switch
-                            label={s.cancelAutomatically}
-                            description={s.cancelAutomaticallyHint}
-                            checked={draft.autoCancel.cancelAutomatically}
-                            disabled={!canEdit}
-                            onChange={checked => autoCancel({ cancelAutomatically: checked })}
-                        />
-                    </CardBody>
-                </Card>
+                <CollapsibleCard
+                    title={s.unanswered}
+                    summary={
+                        draft.autoCancel.suggest || draft.autoCancel.cancelAutomatically
+                            ? m.common.on
+                            : m.common.off
+                    }
+                    forceOpen={draft.autoCancel.suggest || draft.autoCancel.cancelAutomatically}
+                >
+                    <Switch
+                        label={s.suggest}
+                        checked={draft.autoCancel.suggest}
+                        disabled={!canEdit}
+                        onChange={checked => autoCancel({ suggest: checked })}
+                    />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label={s.afterDays} error={errors['autoCancel.afterDays']}>
+                            {control => (
+                                <Input
+                                    {...control}
+                                    inputMode="numeric"
+                                    value={String(draft.autoCancel.afterDays)}
+                                    disabled={!canEdit}
+                                    onChange={event => autoCancel({ afterDays: number(event.target.value) })}
+                                />
+                            )}
+                        </Field>
+                        <Field label={s.minFailedCalls} error={errors['autoCancel.minFailedCalls']}>
+                            {control => (
+                                <Input
+                                    {...control}
+                                    inputMode="numeric"
+                                    value={String(draft.autoCancel.minFailedCalls)}
+                                    disabled={!canEdit}
+                                    onChange={event =>
+                                        autoCancel({ minFailedCalls: number(event.target.value) })
+                                    }
+                                />
+                            )}
+                        </Field>
+                    </div>
+                    <Switch
+                        label={s.cancelAutomatically}
+                        description={s.cancelAutomaticallyHint}
+                        checked={draft.autoCancel.cancelAutomatically}
+                        disabled={!canEdit}
+                        onChange={checked => autoCancel({ cancelAutomatically: checked })}
+                    />
+                </CollapsibleCard>
                 {canEdit && (
-                    <Button type="submit" loading={save.isPending}>
-                        {m.settings.save}
-                    </Button>
+                    <SaveBar
+                        dirty={dirty}
+                        saving={save.isPending}
+                        saveLabel={m.settings.save}
+                        onDiscard={discard}
+                    />
                 )}
             </form>
-        </>
+        </Page>
     );
 }

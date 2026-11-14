@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Field } from '../components/form/field';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { Page } from '../components/ui/layout';
 import {
     Alert,
     Card,
@@ -107,7 +108,7 @@ export function SearchSettingsPage() {
     };
 
     return (
-        <>
+        <Page width="narrow">
             <PageHeader title={s.title} description={s.description} />
             {!canEdit && (
                 <div className="mb-4">
@@ -231,6 +232,6 @@ export function SearchSettingsPage() {
                     )}
                 </Card>
             </div>
-        </>
+        </Page>
     );
 }

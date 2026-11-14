@@ -7,6 +7,7 @@ import { DhakaDateTimeInput } from '../components/form/inputs';
 import { type Column, ListPage } from '../components/list-page';
 import { Button } from '../components/ui/button';
 import { Input, Select, Textarea } from '../components/ui/input';
+import { Page } from '../components/ui/layout';
 import { Alert, Card, CardBody, CardHeader, EmptyState, PageHeader } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -124,7 +125,7 @@ export function BlockListPage() {
         },
     ];
     return (
-        <>
+        <Page width="full">
             <PageHeader title={t.title} description={t.description} />
             {canEdit && (
                 <Card className="mb-4">
@@ -235,6 +236,6 @@ export function BlockListPage() {
                     }
                 }}
             />
-        </>
+        </Page>
     );
 }

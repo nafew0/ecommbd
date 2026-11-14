@@ -5,7 +5,8 @@ import { Button } from './button';
 interface SaveBarProps {
     dirty: boolean;
     saving?: boolean;
-    onSave(): void;
+    /** Leave out inside a <form>: the button then submits the form. */
+    onSave?(): void;
     onDiscard?(): void;
     saveLabel?: string;
 }
@@ -41,6 +42,7 @@ export function SaveBar({ dirty, saving, onSave, onDiscard, saveLabel }: SaveBar
                         )}
                         <Button
                             size="sm"
+                            type={onSave ? 'button' : 'submit'}
                             loading={saving}
                             onClick={onSave}
                             className="bg-white text-ink hover:bg-white/90 disabled:bg-white/60"

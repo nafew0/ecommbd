@@ -13,11 +13,14 @@ import { Field } from '../components/form/field';
 import { useDigits } from '../components/form/inputs';
 import { Button } from '../components/ui/button';
 import { Input, Select } from '../components/ui/input';
+import { SaveBar } from '../components/ui/save-bar';
+import { Page } from '../components/ui/layout';
 import { Alert, Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { Switch } from '../components/ui/switch';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { errorMap } from '../lib/form';
+import { useDraft } from '../lib/use-draft';
 import { useI18n } from '../lib/i18n';
 import { useToast } from '../lib/toast';
 
@@ -91,10 +94,10 @@ export function OnlinePaymentSettingsPage() {
         queryKey: ['onlinePaymentSetup'],
         queryFn: () => adminApi<{ bdOnlinePaymentSetup: Setup }>(SETUP).then(r => r.bdOnlinePaymentSetup),
     });
-    const [draft, setDraft] = useState<OnlinePaymentSettings | null>(null);
+    const { draft, setDraft, load, dirty, discard } = useDraft<OnlinePaymentSettings>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     useEffect(() => {
-        if (query.data && !draft) setDraft(query.data.settings);
+        if (query.data && !draft) load(query.data.settings);
     }, [query.data, draft]);
     const save = useMutation({
         mutationFn: (input: OnlinePaymentSettings) =>
@@ -107,7 +110,7 @@ export function OnlinePaymentSettingsPage() {
         onSuccess: result => {
             setErrors(errorMap(result.errors));
             if (result.settings) {
-                setDraft(result.settings);
+                load(result.settings);
                 toast.success(o.settingsSaved);
                 void queryClient.invalidateQueries({ queryKey: ['onlinePaymentSetup'] });
             } else {
@@ -122,7 +125,7 @@ export function OnlinePaymentSettingsPage() {
         setDraft({ ...draft, [gateway]: { ...draft[gateway], ...patch } });
 
     return (
-        <>
+        <Page width="narrow">
             <PageHeader title={o.title} description={o.description} />
             <div className="mb-4 space-y-2">
                 {!canEdit && <Alert>{m.payments.settings.readOnly}</Alert>}
@@ -227,9 +230,12 @@ export function OnlinePaymentSettingsPage() {
                 </Card>
 
                 {canEdit && (
-                    <Button type="submit" loading={save.isPending}>
-                        {m.settings.save}
-                    </Button>
+                    <SaveBar
+                        dirty={dirty}
+                        saving={save.isPending}
+                        saveLabel={m.settings.save}
+                        onDiscard={discard}
+                    />
                 )}
             </form>
 
@@ -252,7 +258,7 @@ export function OnlinePaymentSettingsPage() {
                     )}
                 </div>
             )}
-        </>
+        </Page>
     );
 }
 

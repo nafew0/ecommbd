@@ -15,11 +15,15 @@ import { Field } from '../components/form/field';
 import { useDigits } from '../components/form/inputs';
 import { Button } from '../components/ui/button';
 import { Input, Select } from '../components/ui/input';
+import { SaveBar } from '../components/ui/save-bar';
+import { CollapsibleCard } from '../components/ui/disclosure';
+import { Page } from '../components/ui/layout';
 import { Alert, Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { Switch } from '../components/ui/switch';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { errorMap } from '../lib/form';
+import { useDraft } from '../lib/use-draft';
 import { useI18n } from '../lib/i18n';
 import { useToast } from '../lib/toast';
 
@@ -81,10 +85,10 @@ export function CourierSettingsPage() {
             ),
         enabled: pathaoReady,
     });
-    const [draft, setDraft] = useState<CourierSettings | null>(null);
+    const { draft, setDraft, load, dirty, discard } = useDraft<CourierSettings>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     useEffect(() => {
-        if (query.data && !draft) setDraft(query.data.settings);
+        if (query.data && !draft) load(query.data.settings);
     }, [query.data, draft]);
     const save = useMutation({
         mutationFn: (input: CourierSettings) =>
@@ -97,7 +101,7 @@ export function CourierSettingsPage() {
         onSuccess: result => {
             setErrors(errorMap(result.errors));
             if (result.settings) {
-                setDraft(result.settings);
+                load(result.settings);
                 toast.success(c.settingsSaved);
                 void queryClient.invalidateQueries({ queryKey: ['courierSetup'] });
             } else {
@@ -122,7 +126,7 @@ export function CourierSettingsPage() {
     const name = (courier: string) => m.couriers.names[courier] ?? courier;
 
     return (
-        <>
+        <Page width="narrow">
             <PageHeader title={c.title} description={c.description} />
             <div className="mb-4 space-y-2">
                 {!canEdit && <Alert>{m.payments.settings.readOnly}</Alert>}
@@ -290,9 +294,9 @@ export function CourierSettingsPage() {
                         </div>
                     </CardBody>
                 </Card>
-                <Card>
-                    <CardHeader title={c.defaults} description={c.defaultsHint} />
-                    <CardBody className="grid gap-4 sm:grid-cols-2">
+                <CollapsibleCard title={c.defaults} forceOpen={Object.keys(errors).length > 0}>
+                    <p className="text-[13px] text-ink-muted">{c.defaultsHint}</p>
+                    <div className="grid gap-4 sm:grid-cols-2">
                         {SHIPPING_ZONES.map(zone => (
                             <Field key={zone} label={m.delivery.zones[zone]}>
                                 {control => (
@@ -343,12 +347,15 @@ export function CourierSettingsPage() {
                                 </div>
                             )}
                         </Field>
-                    </CardBody>
-                </Card>
+                    </div>
+                </CollapsibleCard>
                 {canEdit && (
-                    <Button type="submit" loading={save.isPending}>
-                        {m.settings.save}
-                    </Button>
+                    <SaveBar
+                        dirty={dirty}
+                        saving={save.isPending}
+                        saveLabel={m.settings.save}
+                        onDiscard={discard}
+                    />
                 )}
             </form>
 
@@ -383,7 +390,7 @@ export function CourierSettingsPage() {
                         ))}
                 </div>
             )}
-        </>
+        </Page>
     );
 }
 

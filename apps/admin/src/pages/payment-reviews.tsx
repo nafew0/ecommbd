@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 import { Field } from '../components/form/field';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/input';
+import { Page } from '../components/ui/layout';
 import { Badge, Card, CardBody, EmptyState, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -102,7 +103,7 @@ export function PaymentReviewsPage() {
     if (query.isPending) return <PageSkeleton />;
     const items = query.data ?? [];
     return (
-        <>
+        <Page width="full">
             <PageHeader title={r.title} description={r.description} />
             {items.length === 0 ? (
                 <EmptyState icon={<ShieldCheck className="size-6" aria-hidden />} title={r.empty} body="" />
@@ -235,6 +236,6 @@ export function PaymentReviewsPage() {
                     })}
                 </ul>
             )}
-        </>
+        </Page>
     );
 }

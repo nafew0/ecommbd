@@ -13,13 +13,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Field } from '../components/form/field';
 import { PhoneInput, TakaInput, useDigits } from '../components/form/inputs';
-import { Button } from '../components/ui/button';
 import { Input, Select } from '../components/ui/input';
+import { SaveBar } from '../components/ui/save-bar';
+import { CollapsibleCard } from '../components/ui/disclosure';
+import { Page } from '../components/ui/layout';
 import { Alert, Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { Switch } from '../components/ui/switch';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { errorMap } from '../lib/form';
+import { useDraft } from '../lib/use-draft';
 import { useI18n } from '../lib/i18n';
 import { useToast } from '../lib/toast';
 
@@ -44,10 +47,10 @@ export function PaymentSettingsPage() {
                 r => r.bdPaymentSettings,
             ),
     });
-    const [draft, setDraft] = useState<PaymentSettings | null>(null);
+    const { draft, setDraft, load, dirty, discard } = useDraft<PaymentSettings>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     useEffect(() => {
-        if (query.data && !draft) setDraft(query.data);
+        if (query.data && !draft) load(query.data);
     }, [query.data, draft]);
     const save = useMutation({
         mutationFn: (input: PaymentSettings) =>
@@ -60,7 +63,7 @@ export function PaymentSettingsPage() {
         onSuccess: result => {
             setErrors(errorMap(result.errors));
             if (result.settings) {
-                setDraft(result.settings);
+                load(result.settings);
                 toast.success(m.payments.settings.saved);
                 void queryClient.invalidateQueries({ queryKey: ['paymentSettings'] });
             } else {
@@ -78,7 +81,7 @@ export function PaymentSettingsPage() {
         set({ advance: { ...draft.advance, ...patch } });
 
     return (
-        <>
+        <Page width="narrow">
             <PageHeader title={s.title} description={s.description} />
             {!canEdit && (
                 <div className="mb-4">
@@ -213,100 +216,101 @@ export function PaymentSettingsPage() {
                     </CardBody>
                 </Card>
 
-                <Card>
-                    <CardHeader title={s.advance} description={s.advanceHint} />
-                    <CardBody>
-                        <Switch
-                            label={s.advanceOn}
-                            checked={draft.advance.enabled}
-                            disabled={!canEdit}
-                            onChange={checked => advance({ enabled: checked })}
-                        />
-                        {draft.advance.enabled && (
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <Field label={s.rule}>
+                <CollapsibleCard
+                    title={s.advance}
+                    summary={draft.advance.enabled ? m.common.on : m.common.off}
+                    forceOpen={
+                        draft.advance.enabled || Object.keys(errors).some(key => key.startsWith('advance'))
+                    }
+                >
+                    <p className="text-[13px] text-ink-muted">{s.advanceHint}</p>
+                    <Switch
+                        label={s.advanceOn}
+                        checked={draft.advance.enabled}
+                        disabled={!canEdit}
+                        onChange={checked => advance({ enabled: checked })}
+                    />
+                    {draft.advance.enabled && (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <Field label={s.rule}>
+                                {control => (
+                                    <Select
+                                        {...control}
+                                        value={draft.advance.rule}
+                                        disabled={!canEdit}
+                                        onChange={event =>
+                                            advance({
+                                                rule: event.target
+                                                    .value as PaymentSettings['advance']['rule'],
+                                            })
+                                        }
+                                    >
+                                        {ADVANCE_RULES.map(rule => (
+                                            <option key={rule} value={rule}>
+                                                {s.rules[rule]}
+                                            </option>
+                                        ))}
+                                    </Select>
+                                )}
+                            </Field>
+                            {draft.advance.rule === 'fixed' && (
+                                <Field label={s.fixed} error={errors['advance.fixed']}>
                                     {control => (
-                                        <Select
+                                        <TakaInput
                                             {...control}
-                                            value={draft.advance.rule}
+                                            value={draft.advance.fixed}
+                                            disabled={!canEdit}
+                                            onChange={value => advance({ fixed: value ?? 0 })}
+                                        />
+                                    )}
+                                </Field>
+                            )}
+                            {draft.advance.rule === 'percent' && (
+                                <Field label={s.percent} error={errors['advance.percent']}>
+                                    {control => (
+                                        <Input
+                                            {...control}
+                                            inputMode="decimal"
+                                            value={digits(draft.advance.percent)}
                                             disabled={!canEdit}
                                             onChange={event =>
                                                 advance({
-                                                    rule: event.target
-                                                        .value as PaymentSettings['advance']['rule'],
+                                                    percent: Number(
+                                                        banglaToAsciiDigits(event.target.value.trim()) || 0,
+                                                    ),
                                                 })
                                             }
-                                        >
-                                            {ADVANCE_RULES.map(rule => (
-                                                <option key={rule} value={rule}>
-                                                    {s.rules[rule]}
-                                                </option>
-                                            ))}
-                                        </Select>
+                                        />
                                     )}
                                 </Field>
-                                {draft.advance.rule === 'fixed' && (
-                                    <Field label={s.fixed} error={errors['advance.fixed']}>
-                                        {control => (
-                                            <TakaInput
-                                                {...control}
-                                                value={draft.advance.fixed}
-                                                disabled={!canEdit}
-                                                onChange={value => advance({ fixed: value ?? 0 })}
-                                            />
-                                        )}
-                                    </Field>
+                            )}
+                            <Field
+                                label={s.scope}
+                                hint={draft.advance.scope === 'products' ? s.scopeProductsHint : undefined}
+                            >
+                                {control => (
+                                    <Select
+                                        {...control}
+                                        value={draft.advance.scope}
+                                        disabled={!canEdit}
+                                        onChange={event =>
+                                            advance({
+                                                scope: event.target
+                                                    .value as PaymentSettings['advance']['scope'],
+                                            })
+                                        }
+                                    >
+                                        {ADVANCE_SCOPES.map(scope => (
+                                            <option key={scope} value={scope}>
+                                                {s.scopes[scope]}
+                                            </option>
+                                        ))}
+                                    </Select>
                                 )}
-                                {draft.advance.rule === 'percent' && (
-                                    <Field label={s.percent} error={errors['advance.percent']}>
-                                        {control => (
-                                            <Input
-                                                {...control}
-                                                inputMode="decimal"
-                                                value={digits(draft.advance.percent)}
-                                                disabled={!canEdit}
-                                                onChange={event =>
-                                                    advance({
-                                                        percent: Number(
-                                                            banglaToAsciiDigits(event.target.value.trim()) ||
-                                                                0,
-                                                        ),
-                                                    })
-                                                }
-                                            />
-                                        )}
-                                    </Field>
-                                )}
-                                <Field
-                                    label={s.scope}
-                                    hint={
-                                        draft.advance.scope === 'products' ? s.scopeProductsHint : undefined
-                                    }
-                                >
-                                    {control => (
-                                        <Select
-                                            {...control}
-                                            value={draft.advance.scope}
-                                            disabled={!canEdit}
-                                            onChange={event =>
-                                                advance({
-                                                    scope: event.target
-                                                        .value as PaymentSettings['advance']['scope'],
-                                                })
-                                            }
-                                        >
-                                            {ADVANCE_SCOPES.map(scope => (
-                                                <option key={scope} value={scope}>
-                                                    {s.scopes[scope]}
-                                                </option>
-                                            ))}
-                                        </Select>
-                                    )}
-                                </Field>
-                            </div>
-                        )}
-                    </CardBody>
-                </Card>
+                            </Field>
+                        </div>
+                    )}
+                </CollapsibleCard>
 
                 <Card>
                     <CardBody>
@@ -332,11 +336,14 @@ export function PaymentSettingsPage() {
                 </Card>
 
                 {canEdit && (
-                    <Button type="submit" loading={save.isPending}>
-                        {m.settings.save}
-                    </Button>
+                    <SaveBar
+                        dirty={dirty}
+                        saving={save.isPending}
+                        saveLabel={m.settings.save}
+                        onDiscard={discard}
+                    />
                 )}
             </form>
-        </>
+        </Page>
     );
 }

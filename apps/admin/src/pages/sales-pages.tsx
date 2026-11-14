@@ -29,6 +29,7 @@ import { type Column, ListPage } from '../components/list-page';
 import { Button } from '../components/ui/button';
 import { Dialog } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
+import { Page } from '../components/ui/layout';
 import { Badge, type BadgeTone, EmptyState, PageHeader } from '../components/ui/misc';
 import { useAuth } from '../lib/auth';
 import { cn } from '../lib/cn';
@@ -224,7 +225,7 @@ export function SalesPagesPage() {
     );
 
     return (
-        <>
+        <Page width="full">
             <PageHeader title={t.title} description={t.description} actions={newButton} />
             <ListPage
                 rows={rows}
@@ -255,7 +256,7 @@ export function SalesPagesPage() {
                 onClose={() => setCreating(false)}
                 onCreated={created => navigate(`/store/design/landing/${created.id}`)}
             />
-        </>
+        </Page>
     );
 }
 

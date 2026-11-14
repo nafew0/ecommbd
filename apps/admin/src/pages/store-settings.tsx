@@ -18,6 +18,9 @@ import { ImageUpload, type UploadedImage } from '../components/form/image-upload
 import { PhoneInput } from '../components/form/inputs';
 import { Button } from '../components/ui/button';
 import { Input, Textarea } from '../components/ui/input';
+import { SaveBar } from '../components/ui/save-bar';
+import { CollapsibleCard } from '../components/ui/disclosure';
+import { Page } from '../components/ui/layout';
 import { Alert, Badge, Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { Switch } from '../components/ui/switch';
 import { adminApi, ApiError } from '../lib/api';
@@ -212,7 +215,7 @@ export function StoreSettingsPage() {
     const lastChange = history[0];
 
     return (
-        <>
+        <Page width="narrow">
             <PageHeader title={m.settings.title} description={m.settings.description} />
             <div className="space-y-4">
                 {warnings.map(warning => (
@@ -310,22 +313,16 @@ export function StoreSettingsPage() {
                     )}
 
                     {canEdit && (
-                        <div className="sticky bottom-0 z-20 -mx-4 mt-4 flex flex-wrap items-center justify-end gap-3 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
-                            {dirty && (
-                                <span className="mr-auto text-sm text-warn">{m.common.unsavedChanges}</span>
-                            )}
-                            <Button
-                                type="submit"
-                                loading={mutation.isPending}
-                                className="w-full justify-center sm:w-auto"
-                            >
-                                {mutation.isPending ? m.common.saving : m.settings.save}
-                            </Button>
-                        </div>
+                        <SaveBar
+                            dirty={dirty}
+                            saving={mutation.isPending}
+                            saveLabel={m.settings.save}
+                            onDiscard={saved ? () => setDraft(saved) : undefined}
+                        />
                     )}
                 </form>
             </div>
-        </>
+        </Page>
     );
 }
 
@@ -333,14 +330,21 @@ function Section({
     title,
     description,
     badge,
+    collapsed,
     children,
 }: {
     title: string;
     description?: string;
     badge?: ReactNode;
+    /** Starts closed (design guide, section 6); opens by itself when `forceOpen` is true. */
+    collapsed?: { forceOpen: boolean };
     children: ReactNode;
 }) {
-    return (
+    return collapsed ? (
+        <CollapsibleCard title={title} forceOpen={collapsed.forceOpen}>
+            {children}
+        </CollapsibleCard>
+    ) : (
         <Card>
             <CardHeader title={title} description={description} actions={badge} />
             <CardBody>{children}</CardBody>
@@ -561,7 +565,16 @@ function ProfileTab({
                 />
             </Section>
 
-            <Section title={m.settings.sections.social}>
+            <Section
+                title={m.settings.sections.social}
+                collapsed={{
+                    forceOpen: (['facebook', 'instagram', 'youtube', 'tiktok'] as const).some(
+                        network =>
+                            !!editor.draft.profile.social[network] ||
+                            !!editor.error(`profile.social.${network}`),
+                    ),
+                }}
+            >
                 <div className="grid gap-4 sm:grid-cols-2">
                     {(['facebook', 'instagram', 'youtube', 'tiktok'] as const).map(network => (
                         <TextField

@@ -10,6 +10,7 @@ import { type Column, ListPage } from '../components/list-page';
 import { Button } from '../components/ui/button';
 import { Dialog } from '../components/ui/dialog';
 import { Input, Select, Textarea } from '../components/ui/input';
+import { Page } from '../components/ui/layout';
 import { Badge, EmptyState, PageHeader } from '../components/ui/misc';
 import { Switch } from '../components/ui/switch';
 import { adminApi, ApiError } from '../lib/api';
@@ -177,7 +178,7 @@ export function StockPage() {
     ];
 
     return (
-        <>
+        <Page width="full">
             <PageHeader title={s.title} description={s.description} />
             <ListPage
                 rows={query.data ?? []}
@@ -267,6 +268,6 @@ export function StockPage() {
                     )}
                 </div>
             </Dialog>
-        </>
+        </Page>
     );
 }

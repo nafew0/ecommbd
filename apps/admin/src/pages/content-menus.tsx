@@ -6,9 +6,12 @@ import { useEffect, useState } from 'react';
 import { Field } from '../components/form/field';
 import { Button } from '../components/ui/button';
 import { Input, Select } from '../components/ui/input';
+import { SaveBar } from '../components/ui/save-bar';
+import { Page } from '../components/ui/layout';
 import { Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
 import { errorMap } from '../lib/form';
+import { useDraft } from '../lib/use-draft';
 import { useI18n } from '../lib/i18n';
 import { useToast } from '../lib/toast';
 import { type ContentPage, pick } from './content-pages';
@@ -78,10 +81,10 @@ export function ContentMenusPage() {
                 pages: result.bdPages.items,
             })),
     });
-    const [draft, setDraft] = useState<Menus | null>(null);
+    const { draft, setDraft, load, dirty, discard } = useDraft<Menus>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     useEffect(() => {
-        if (menus.data && !draft) setDraft(menus.data);
+        if (menus.data && !draft) load(menus.data);
     }, [menus.data, draft]);
     const save = useMutation({
         mutationFn: (input: Menus) =>
@@ -93,6 +96,7 @@ export function ContentMenusPage() {
         onSuccess: result => {
             setErrors(errorMap(result.errors));
             if (result.menus) {
+                load(result.menus);
                 toast.success(c.menusSaved);
                 void queryClient.invalidateQueries({ queryKey: ['contentMenus'] });
             } else {
@@ -393,7 +397,7 @@ export function ContentMenusPage() {
     };
 
     return (
-        <>
+        <Page width="wide">
             <PageHeader title={c.menusTitle} description={c.menusDescription} />
             <form
                 className="space-y-4"
@@ -404,10 +408,13 @@ export function ContentMenusPage() {
             >
                 {section('header')}
                 {section('footer')}
-                <Button type="submit" loading={save.isPending}>
-                    {m.settings.save}
-                </Button>
+                <SaveBar
+                    dirty={dirty}
+                    saving={save.isPending}
+                    saveLabel={m.settings.save}
+                    onDiscard={discard}
+                />
             </form>
-        </>
+        </Page>
     );
 }

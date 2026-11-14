@@ -15,7 +15,7 @@
 - Every string still goes in `src/messages/en.ts` and `bn.ts`.
 - One new npm package: `motion`, in its light form (section 3.7). Icons stay `lucide-react`.
 
-**Status:** 63a was built on 2026-11-14. Where the build differs from the first plan, this guide says what was built.
+**Status:** 63a and 63b were built on 2026-11-14. Where the build differs from the first plan, this guide says what was built.
 
 ---
 
@@ -256,7 +256,7 @@ All live in `apps/admin/src/components/ui/` (form parts in `components/form/`). 
 Build notes:
 - `MoreFields` and `CollapsibleCard` use a real `<button aria-expanded>` and keep their children mounted while closed (height 0 and `inert`), so form state and validation still work.
 - `ActionMenu` draws its list in a portal at a fixed position under its button, so a card or table never cuts it off. It closes on Escape, an outside click, a scroll or a resize. Arrow keys move between items.
-- `SaveBar` needs to know whether the form changed: keep a `baseline` (the JSON of what was last loaded or saved) and pass `dirty={JSON.stringify(draft) !== baseline}`. See `pages/product-form.tsx`.
+- `SaveBar` needs to know whether the form changed. Use `useDraft` (`lib/use-draft.ts`): it gives `draft`, `setDraft` (the merchant's edits), `load` (call it with what the server returned, on first load and after each save), `dirty` and `discard`. Inside a `<form>`, leave out `onSave`: the bar's button then submits the form. See `pages/order-settings.tsx` for the shortest example.
 - Several pages already have their own sticky save row. Replace each with `SaveBar`.
 
 ---
@@ -440,7 +440,14 @@ One commit per step. After each: `npm run lint && npm run typecheck && npm test`
 8. **Browser tests.** Fix `tests/browser/*.spec.ts` where a selector moved (menu items under "More", buttons inside an `ActionMenu`). Tests should find things by role and name, so most keep passing.
 9. **Docs.** Update this guide where the build differed from it, set phase 63a to Review in the roadmap, add a `CHANGELOG.md` line.
 
-**Phase 63b** then moves every other screen in section 7 to its template. Each screen is a small, separate task that copies a reference screen, which is why it can be given to another model.
+**Phase 63b** then moved every other screen in section 7 to its template (built 2026-11-14):
+
+- every screen sets its width with `Page`
+- every settings form, the menus screen and the content page editor use `useDraft` and `SaveBar`
+- collapsed by default: courier default parcel values, unanswered-call rules, advance payment, SMS quiet hours and limits, print language, the Meta event log, store social links, a customer's SMS opt-out
+- the customer page and the content page editor follow template B (back link in the header, side column, delete under "More")
+
+**Left as they were, on purpose:** the list screens already matched template A. Customers and Sales pages still show seven columns on desktop (one over the limit). Store settings and the confirmation queue keep their own tab rows. Small "details" rows inside logs (Meta events, settings history) stay native.
 
 ---
 

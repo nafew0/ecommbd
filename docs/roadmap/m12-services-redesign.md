@@ -52,6 +52,8 @@ Each remaining screen in the guide's [screen table](../design/admin-design-guide
 
 Done when: every existing screen follows its template, and no screen shows more than 7 fields in a card or more than one main button.
 
+**Built 2026-11-14 (status: Review).** What changed and what was left alone is listed in the guide's [build order section](../design/admin-design-guide.md#8-build-order-for-phase-63a). Not done: a field-by-field count on every card, so a few cards may still show more than 7 fields.
+
 ### 63c — New functions (L)
 
 These need server work.

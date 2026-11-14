@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FileText, Palette, Plus } from 'lucide-react';
 import { Link } from 'react-router';
 import { type Column, ListPage } from '../components/list-page';
+import { Page } from '../components/ui/layout';
 import { Badge, EmptyState, PageHeader } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -103,7 +104,7 @@ export function ContentPagesPage() {
         </Link>
     );
     return (
-        <>
+        <Page width="full">
             <PageHeader title={c.pagesTitle} description={c.pagesDescription} actions={newPage} />
             <ListPage
                 rows={query.data?.items ?? []}
@@ -119,6 +120,6 @@ export function ContentPagesPage() {
                     />
                 }
             />
-        </>
+        </Page>
     );
 }

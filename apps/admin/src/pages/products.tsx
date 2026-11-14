@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router';
 import { useDigits } from '../components/form/inputs';
 import { type Column, ListPage } from '../components/list-page';
 import { Button } from '../components/ui/button';
+import { Page } from '../components/ui/layout';
 import { Badge, EmptyState, PageHeader } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -212,7 +213,7 @@ export function ProductsPage() {
     ];
 
     return (
-        <>
+        <Page width="full">
             <PageHeader
                 title={p.title}
                 description={p.description}
@@ -244,6 +245,6 @@ export function ProductsPage() {
                     <EmptyState icon={<Package className="size-6" aria-hidden />} title={p.empty} body="" />
                 }
             />
-        </>
+        </Page>
     );
 }

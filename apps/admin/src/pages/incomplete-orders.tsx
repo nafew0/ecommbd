@@ -14,6 +14,7 @@ import { type Column, ListPage } from '../components/list-page';
 import { Button } from '../components/ui/button';
 import { Dialog } from '../components/ui/dialog';
 import { Select } from '../components/ui/input';
+import { Page } from '../components/ui/layout';
 import { EmptyState, PageHeader } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -192,7 +193,7 @@ export function IncompleteOrdersPage() {
     ];
     const counts = query.data?.bdIncompleteCheckoutCounts;
     return (
-        <>
+        <Page width="full">
             <PageHeader title={t.title} description={t.description} />
             {status === 'open' && (
                 <p className="mb-4 rounded-md bg-info-soft px-4 py-3 text-sm text-info">{t.callScript}</p>
@@ -247,7 +248,7 @@ export function IncompleteOrdersPage() {
                     }
                 }}
             />
-        </>
+        </Page>
     );
 }
 

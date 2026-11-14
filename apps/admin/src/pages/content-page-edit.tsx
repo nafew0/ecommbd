@@ -1,17 +1,19 @@
 import { CONTENT_LIMITS } from '@ecommbd/shared/content';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { Field } from '../components/form/field';
 import { RichTextEditor } from '../components/form/rich-text-editor';
-import { Button } from '../components/ui/button';
 import { Input, Textarea } from '../components/ui/input';
+import { MoreFields } from '../components/ui/disclosure';
+import { SaveBar } from '../components/ui/save-bar';
+import { Page } from '../components/ui/layout';
 import { Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { Switch } from '../components/ui/switch';
 import { adminApi } from '../lib/api';
 import { useConfirm } from '../lib/confirm';
 import { errorMap } from '../lib/form';
+import { useDraft } from '../lib/use-draft';
 import { useI18n } from '../lib/i18n';
 import { useToast } from '../lib/toast';
 import { type ContentPage, PAGE_FIELDS } from './content-pages';
@@ -66,10 +68,10 @@ export function ContentPageEditPage() {
                 },
             ).then(result => result.bdPage),
     });
-    const [draft, setDraft] = useState<Draft | null>(isNew ? toDraft(null) : null);
+    const { draft, setDraft, load, dirty, discard } = useDraft<Draft>(isNew ? toDraft(null) : null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     useEffect(() => {
-        if (!isNew && query.data !== undefined && !draft) setDraft(toDraft(query.data));
+        if (!isNew && query.data !== undefined && !draft) load(toDraft(query.data));
     }, [isNew, query.data, draft]);
 
     const save = useMutation({
@@ -88,7 +90,7 @@ export function ContentPageEditPage() {
             }
             toast.success(c.saved);
             void queryClient.invalidateQueries({ queryKey: ['contentPages'] });
-            setDraft(toDraft(result.page));
+            load(toDraft(result.page));
             if (isNew) void navigate(`/store/pages/${result.page.id}`, { replace: true });
         },
         onError: () => toast.error(m.errors.generic),
@@ -115,15 +117,33 @@ export function ContentPageEditPage() {
     const error = (language: Lang, field: keyof Text) => errors[`translations.${language}.${field}`];
 
     return (
-        <>
-            <Link
-                to="/store/pages"
-                className="mb-3 inline-flex items-center gap-1 text-sm text-accent hover:underline"
-            >
-                <ArrowLeft className="size-4" aria-hidden />
-                {c.back}
-            </Link>
-            <PageHeader title={isNew ? c.newPage : c.editPage} description={c.languageHint} />
+        <Page width="wide">
+            <PageHeader
+                back={{ to: '/store/pages', label: c.back }}
+                title={isNew ? c.newPage : c.editPage}
+                description={c.languageHint}
+                menu={
+                    isNew
+                        ? undefined
+                        : [
+                              {
+                                  label: c.delete,
+                                  tone: 'danger',
+                                  onSelect: async () => {
+                                      if (
+                                          await confirm({
+                                              title: c.deleteConfirm,
+                                              confirmLabel: c.delete,
+                                              danger: true,
+                                          })
+                                      ) {
+                                          remove.mutate();
+                                      }
+                                  },
+                              },
+                          ]
+                }
+            />
             <form
                 className="space-y-4"
                 onSubmit={event => {
@@ -184,9 +204,18 @@ export function ContentPageEditPage() {
                                         />
                                     )}
                                 </Field>
-                                <details className="rounded-md border border-line p-3">
-                                    <summary className="cursor-pointer font-medium">{c.seo}</summary>
-                                    <div className="mt-3 space-y-4">
+                                <MoreFields
+                                    label={c.seo}
+                                    forceOpen={
+                                        !!(
+                                            draft.translations[language].seoTitle ||
+                                            draft.translations[language].seoDescription ||
+                                            error(language, 'seoTitle') ||
+                                            error(language, 'seoDescription')
+                                        )
+                                    }
+                                >
+                                    <div className="space-y-4">
                                         <Field
                                             label={c.seoTitle}
                                             hint={c.seoTitleHint}
@@ -225,36 +254,18 @@ export function ContentPageEditPage() {
                                             )}
                                         </Field>
                                     </div>
-                                </details>
+                                </MoreFields>
                             </CardBody>
                         </Card>
                     );
                 })}
-                <div className="flex flex-wrap justify-between gap-3">
-                    <Button type="submit" loading={save.isPending}>
-                        {m.settings.save}
-                    </Button>
-                    {!isNew && (
-                        <Button
-                            variant="danger"
-                            loading={remove.isPending}
-                            onClick={async () => {
-                                if (
-                                    await confirm({
-                                        title: c.deleteConfirm,
-                                        confirmLabel: c.delete,
-                                        danger: true,
-                                    })
-                                ) {
-                                    remove.mutate();
-                                }
-                            }}
-                        >
-                            {c.delete}
-                        </Button>
-                    )}
-                </div>
+                <SaveBar
+                    dirty={dirty}
+                    saving={save.isPending}
+                    saveLabel={m.settings.save}
+                    onDiscard={discard}
+                />
             </form>
-        </>
+        </Page>
     );
 }

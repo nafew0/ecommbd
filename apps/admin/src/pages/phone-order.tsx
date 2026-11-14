@@ -18,6 +18,7 @@ import { PhoneInput, TakaInput } from '../components/form/inputs';
 import { type PickedVariant, ProductPicker } from '../components/orders/product-picker';
 import { Button } from '../components/ui/button';
 import { Input, Select, Textarea } from '../components/ui/input';
+import { Page } from '../components/ui/layout';
 import { Alert, Card, CardBody, CardHeader, PageHeader } from '../components/ui/misc';
 import { Switch } from '../components/ui/switch';
 import { adminApi } from '../lib/api';
@@ -256,7 +257,7 @@ export function PhoneOrderPage() {
     };
 
     return (
-        <>
+        <Page width="wide">
             <PageHeader title={o.title} description={o.description} />
             {fromIncomplete.data && (
                 <div className="mb-4 space-y-2">
@@ -609,7 +610,7 @@ export function PhoneOrderPage() {
                     </Card>
                 </div>
             </div>
-        </>
+        </Page>
     );
 }
 

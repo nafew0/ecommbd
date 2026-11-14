@@ -4,6 +4,7 @@ import { Users } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { type Column, ListPage } from '../components/list-page';
+import { Page } from '../components/ui/layout';
 import { EmptyState, PageHeader } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
 import { useFormat } from '../lib/format';
@@ -120,7 +121,7 @@ export function CustomersPage() {
         },
     ];
     return (
-        <>
+        <Page width="full">
             <PageHeader title={m.customers.title} description={m.customers.description} />
             <ListPage
                 rows={query.data?.items ?? []}
@@ -153,6 +154,6 @@ export function CustomersPage() {
                     )
                 }
             />
-        </>
+        </Page>
     );
 }

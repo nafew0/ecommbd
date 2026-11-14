@@ -4,13 +4,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Field } from '../components/form/field';
 import { useDigits } from '../components/form/inputs';
-import { Button } from '../components/ui/button';
 import { Input, Select, Textarea } from '../components/ui/input';
+import { SaveBar } from '../components/ui/save-bar';
+import { Page } from '../components/ui/layout';
 import { Alert, Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { Switch } from '../components/ui/switch';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { errorMap } from '../lib/form';
+import { useDraft } from '../lib/use-draft';
 import { useI18n } from '../lib/i18n';
 import { useToast } from '../lib/toast';
 
@@ -34,10 +36,10 @@ export function FraudSettingsPage() {
         queryFn: () =>
             adminApi<{ bdFraudSettings: FraudSettings }>('{ bdFraudSettings }').then(r => r.bdFraudSettings),
     });
-    const [draft, setDraft] = useState<FraudSettings | null>(null);
+    const { draft, setDraft, load, dirty, discard } = useDraft<FraudSettings>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     useEffect(() => {
-        if (query.data && !draft) setDraft(query.data);
+        if (query.data && !draft) load(query.data);
     }, [query.data, draft]);
     const save = useMutation({
         mutationFn: (input: FraudSettings) =>
@@ -50,7 +52,7 @@ export function FraudSettingsPage() {
         onSuccess: result => {
             setErrors(errorMap(result.errors));
             if (result.settings) {
-                setDraft(result.settings);
+                load(result.settings);
                 toast.success(s.saved);
                 void queryClient.invalidateQueries({ queryKey: ['fraudSettings'] });
             } else {
@@ -67,7 +69,7 @@ export function FraudSettingsPage() {
     const number = (text: string) => Number(banglaToAsciiDigits(text.trim()) || 0);
 
     return (
-        <>
+        <Page width="narrow">
             <PageHeader title={s.title} description={s.description} />
             {!canEdit && (
                 <div className="mb-4">
@@ -204,11 +206,14 @@ export function FraudSettingsPage() {
                 </Card>
 
                 {canEdit && (
-                    <Button type="submit" loading={save.isPending}>
-                        {m.settings.save}
-                    </Button>
+                    <SaveBar
+                        dirty={dirty}
+                        saving={save.isPending}
+                        saveLabel={m.settings.save}
+                        onDiscard={discard}
+                    />
                 )}
             </form>
-        </>
+        </Page>
     );
 }

@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 import { type Column, ListPage } from '../components/list-page';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { Page } from '../components/ui/layout';
 import { EmptyState, PageHeader } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -118,7 +119,7 @@ export function OrderCampaignsPage() {
     ];
     if (!can('ReadOrder')) return <p className="p-10 text-center text-ink-muted">{m.errors.forbidden}</p>;
     return (
-        <>
+        <Page width="full">
             <PageHeader title={c.title} description={c.description} />
             <ListPage
                 rows={rows}
@@ -167,7 +168,7 @@ export function OrderCampaignsPage() {
                     />
                 }
             />
-        </>
+        </Page>
     );
 }
 

@@ -1,13 +1,15 @@
 import { visibleEmail } from '@ecommbd/shared/placeholder-email';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Phone } from 'lucide-react';
+import { Phone } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { BLOCK, UNBLOCK, UnblockDialog } from '../components/block-dialogs';
 import { Field } from '../components/form/field';
 import { Button } from '../components/ui/button';
 import { LegacyOrders } from '../components/legacy-orders';
 import { Textarea } from '../components/ui/input';
+import { CollapsibleCard } from '../components/ui/disclosure';
+import { Page, TwoColumn } from '../components/ui/layout';
 import { Alert, Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { Switch } from '../components/ui/switch';
 import { adminApi } from '../lib/api';
@@ -153,10 +155,10 @@ export function CustomerDetailPage() {
     if (query.isPending) return <PageSkeleton />;
     if (!customer) {
         return (
-            <>
-                <BackLink />
+            <Page width="wide">
+                <PageHeader back={{ to: '/customers', label: m.customers.back }} title={m.customers.title} />
                 <Alert tone="warning">{m.customers.notFound}</Alert>
-            </>
+            </Page>
         );
     }
     const f = customer.customFields;
@@ -166,15 +168,15 @@ export function CustomerDetailPage() {
     const email = visibleEmail(customer.emailAddress);
 
     return (
-        <>
-            <BackLink />
+        <Page width="wide">
             <PageHeader
+                back={{ to: '/customers', label: m.customers.back }}
                 title={name}
                 actions={
                     f.phone && (
                         <a
                             href={`tel:${f.phone}`}
-                            className="inline-flex min-h-11 items-center gap-2 rounded-md bg-accent px-4 font-medium text-white hover:bg-accent"
+                            className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover sm:min-h-10"
                         >
                             <Phone className="size-4" aria-hidden />
                             {m.customers.call(format.phone(f.phone))}
@@ -182,181 +184,191 @@ export function CustomerDetailPage() {
                     )
                 }
             />
-            <div className="grid gap-4 lg:grid-cols-2">
-                <Card>
-                    <CardHeader title={m.customers.contact} />
-                    <CardBody>
-                        <dl className="grid gap-3 sm:grid-cols-2">
-                            <Item label={m.customers.phone}>
-                                {f.phone ? <a href={`tel:${f.phone}`}>{format.phone(f.phone)}</a> : '—'}
-                            </Item>
-                            <Item label={m.customers.alternatePhone}>
-                                {f.alternatePhone ? (
-                                    <a href={`tel:${f.alternatePhone}`}>{format.phone(f.alternatePhone)}</a>
-                                ) : (
-                                    '—'
-                                )}
-                            </Item>
-                            <Item label={m.customers.email}>{email ?? m.customers.noEmail}</Item>
-                            <Item label={m.customers.source}>
-                                {m.customers.sources[f.source] ?? f.source}
-                            </Item>
-                            <Item label={m.customers.since}>{format.date(customer.createdAt)}</Item>
-                        </dl>
-                    </CardBody>
-                </Card>
-                <Card>
-                    <CardHeader
-                        title={m.customers.stats}
-                        description={
-                            finished > 0
-                                ? m.customers.deliveryRate(Math.round((f.deliveredCount / finished) * 100))
-                                : undefined
-                        }
-                    />
-                    <CardBody>
-                        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                            <Item label={m.customers.orderCount}>{n(f.orderCount)}</Item>
-                            <Item label={m.customers.delivered}>{n(f.deliveredCount)}</Item>
-                            <Item label={m.customers.returned}>{n(f.returnedCount)}</Item>
-                            <Item label={m.customers.cancelled}>{n(f.cancelledCount)}</Item>
-                            <Item label={m.customers.totalSpent} hint={m.customers.totalSpentHint}>
-                                {format.money(f.totalSpent)}
-                            </Item>
-                            <Item label={m.customers.lastOrder}>{format.date(f.lastOrderAt) || '—'}</Item>
-                        </dl>
-                    </CardBody>
-                </Card>
-                <Card>
-                    <CardHeader title={m.customers.notes} />
-                    <CardBody>
-                        <Field label={m.customers.notes} hint={m.customers.notesHint}>
-                            {control => (
-                                <Textarea
-                                    {...control}
-                                    value={notes}
-                                    maxLength={2000}
-                                    readOnly={!can('UpdateCustomer')}
-                                    onChange={event => setNotes(event.target.value)}
-                                />
+            <TwoColumn
+                main={
+                    <>
+                        <Card>
+                            <CardHeader
+                                title={m.customers.stats}
+                                description={
+                                    finished > 0
+                                        ? m.customers.deliveryRate(
+                                              Math.round((f.deliveredCount / finished) * 100),
+                                          )
+                                        : undefined
+                                }
+                            />
+                            <CardBody>
+                                <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                    <Item label={m.customers.orderCount}>{n(f.orderCount)}</Item>
+                                    <Item label={m.customers.delivered}>{n(f.deliveredCount)}</Item>
+                                    <Item label={m.customers.returned}>{n(f.returnedCount)}</Item>
+                                    <Item label={m.customers.cancelled}>{n(f.cancelledCount)}</Item>
+                                    <Item label={m.customers.totalSpent} hint={m.customers.totalSpentHint}>
+                                        {format.money(f.totalSpent)}
+                                    </Item>
+                                    <Item label={m.customers.lastOrder}>
+                                        {format.date(f.lastOrderAt) || '—'}
+                                    </Item>
+                                </dl>
+                            </CardBody>
+                        </Card>
+                        <Card>
+                            <CardHeader title={m.customers.recentOrders} />
+                            {customer.orders.items.length === 0 ? (
+                                <CardBody>
+                                    <p className="text-ink-muted">{m.customers.noOrders}</p>
+                                </CardBody>
+                            ) : (
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-surface-muted text-ink-muted">
+                                        <tr>
+                                            <th className="px-4 py-2 font-medium">
+                                                {m.customers.orderColumns.order}
+                                            </th>
+                                            <th className="px-4 py-2 font-medium">
+                                                {m.customers.orderColumns.date}
+                                            </th>
+                                            <th className="px-4 py-2 text-right font-medium">
+                                                {m.customers.orderColumns.total}
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-line">
+                                        {customer.orders.items.map(order => (
+                                            <tr key={order.id}>
+                                                <td className="px-4 py-2 font-medium">{order.code}</td>
+                                                <td className="px-4 py-2">
+                                                    {format.date(order.orderPlacedAt)}
+                                                </td>
+                                                <td className="px-4 py-2 text-right tabular-nums">
+                                                    {format.money(order.totalWithTax)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             )}
-                        </Field>
-                        {can('UpdateCustomer') && (
-                            <Button
-                                onClick={() => save.mutate()}
-                                loading={save.isPending}
-                                disabled={notes === (f.internalNotes ?? '')}
-                            >
-                                {m.customers.saveNotes}
-                            </Button>
-                        )}
-                    </CardBody>
-                </Card>
-                {f.phone && (
-                    <Card>
-                        <CardHeader title={m.blockList.customerCard} />
-                        <CardBody>
-                            <p className="text-sm">
-                                {customer.bdBlock
-                                    ? m.blockList.customerBlocked(
-                                          customer.bdBlock.expiresAt
-                                              ? format.dateTime(customer.bdBlock.expiresAt)
-                                              : m.blockList.forever,
-                                      )
-                                    : m.blockList.customerNotBlocked}
-                            </p>
-                            {can('UpdateCustomer') &&
-                                (customer.bdBlock ? (
-                                    <Button variant="secondary" onClick={() => setUnblocking(true)}>
-                                        {m.blockList.unblock}
-                                    </Button>
-                                ) : (
+                        </Card>
+                        <Card>
+                            <CardHeader title={m.customers.notes} />
+                            <CardBody>
+                                <Field label={m.customers.notes} hint={m.customers.notesHint}>
+                                    {control => (
+                                        <Textarea
+                                            {...control}
+                                            value={notes}
+                                            maxLength={2000}
+                                            readOnly={!can('UpdateCustomer')}
+                                            onChange={event => setNotes(event.target.value)}
+                                        />
+                                    )}
+                                </Field>
+                                {can('UpdateCustomer') && (
                                     <Button
-                                        variant="danger"
-                                        loading={blockPhone.isPending}
-                                        onClick={() => blockPhone.mutate(f.phone!)}
+                                        onClick={() => save.mutate()}
+                                        loading={save.isPending}
+                                        disabled={notes === (f.internalNotes ?? '')}
                                     >
-                                        {m.blockList.blockCustomer}
+                                        {m.customers.saveNotes}
                                     </Button>
-                                ))}
-                        </CardBody>
-                    </Card>
-                )}
-                <UnblockDialog
-                    open={unblocking}
-                    onClose={() => setUnblocking(false)}
-                    onUnblock={async reason => {
-                        try {
-                            await adminApi(UNBLOCK, { id: customer.bdBlock!.id, reason });
-                            toast.success(m.blockList.unblocked);
-                            setUnblocking(false);
-                            void queryClient.invalidateQueries({ queryKey: ['customer', id] });
-                        } catch {
-                            toast.error(m.errors.generic);
-                        }
-                    }}
-                />
-                <Card>
-                    <CardHeader title={m.sms.optOut} />
-                    <CardBody>
-                        <Switch
-                            label={m.sms.optOutLabel}
-                            description={m.sms.optOutHint}
-                            checked={f.smsOptOut}
-                            disabled={!can('UpdateCustomer') || saveOptOut.isPending}
-                            onChange={checked => saveOptOut.mutate(checked)}
-                        />
-                    </CardBody>
-                </Card>
-                <Card>
-                    <CardHeader title={m.customers.recentOrders} />
-                    {customer.orders.items.length === 0 ? (
-                        <CardBody>
-                            <p className="text-ink-muted">{m.customers.noOrders}</p>
-                        </CardBody>
-                    ) : (
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-surface-muted text-ink-muted">
-                                <tr>
-                                    <th className="px-4 py-2 font-medium">
-                                        {m.customers.orderColumns.order}
-                                    </th>
-                                    <th className="px-4 py-2 font-medium">{m.customers.orderColumns.date}</th>
-                                    <th className="px-4 py-2 text-right font-medium">
-                                        {m.customers.orderColumns.total}
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-line">
-                                {customer.orders.items.map(order => (
-                                    <tr key={order.id}>
-                                        <td className="px-4 py-2 font-medium">{order.code}</td>
-                                        <td className="px-4 py-2">{format.date(order.orderPlacedAt)}</td>
-                                        <td className="px-4 py-2 text-right tabular-nums">
-                                            {format.money(order.totalWithTax)}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    )}
-                </Card>
-            </div>
-            {can('ReadOrder') && <LegacyOrders key={id} customerId={id} />}
-        </>
-    );
-}
-
-function BackLink() {
-    const { messages: m } = useI18n();
-    return (
-        <Link
-            to="/customers"
-            className="mb-3 inline-flex items-center gap-1 text-sm text-accent hover:underline"
-        >
-            <ArrowLeft className="size-4" aria-hidden />
-            {m.customers.back}
-        </Link>
+                                )}
+                            </CardBody>
+                        </Card>
+                        {can('ReadOrder') && <LegacyOrders key={id} customerId={id} />}
+                    </>
+                }
+                side={
+                    <>
+                        <Card>
+                            <CardHeader title={m.customers.contact} />
+                            <CardBody>
+                                <dl className="grid gap-3">
+                                    <Item label={m.customers.phone}>
+                                        {f.phone ? (
+                                            <a href={`tel:${f.phone}`}>{format.phone(f.phone)}</a>
+                                        ) : (
+                                            '—'
+                                        )}
+                                    </Item>
+                                    <Item label={m.customers.alternatePhone}>
+                                        {f.alternatePhone ? (
+                                            <a href={`tel:${f.alternatePhone}`}>
+                                                {format.phone(f.alternatePhone)}
+                                            </a>
+                                        ) : (
+                                            '—'
+                                        )}
+                                    </Item>
+                                    <Item label={m.customers.email}>{email ?? m.customers.noEmail}</Item>
+                                    <Item label={m.customers.source}>
+                                        {m.customers.sources[f.source] ?? f.source}
+                                    </Item>
+                                    <Item label={m.customers.since}>{format.date(customer.createdAt)}</Item>
+                                </dl>
+                            </CardBody>
+                        </Card>
+                        {f.phone && (
+                            <Card>
+                                <CardHeader title={m.blockList.customerCard} />
+                                <CardBody>
+                                    <p className="text-sm">
+                                        {customer.bdBlock
+                                            ? m.blockList.customerBlocked(
+                                                  customer.bdBlock.expiresAt
+                                                      ? format.dateTime(customer.bdBlock.expiresAt)
+                                                      : m.blockList.forever,
+                                              )
+                                            : m.blockList.customerNotBlocked}
+                                    </p>
+                                    {can('UpdateCustomer') &&
+                                        (customer.bdBlock ? (
+                                            <Button variant="secondary" onClick={() => setUnblocking(true)}>
+                                                {m.blockList.unblock}
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                variant="danger"
+                                                loading={blockPhone.isPending}
+                                                onClick={() => blockPhone.mutate(f.phone!)}
+                                            >
+                                                {m.blockList.blockCustomer}
+                                            </Button>
+                                        ))}
+                                </CardBody>
+                            </Card>
+                        )}
+                        <CollapsibleCard
+                            title={m.sms.optOut}
+                            summary={f.smsOptOut ? m.common.on : m.common.off}
+                            forceOpen={f.smsOptOut}
+                        >
+                            <Switch
+                                label={m.sms.optOutLabel}
+                                description={m.sms.optOutHint}
+                                checked={f.smsOptOut}
+                                disabled={!can('UpdateCustomer') || saveOptOut.isPending}
+                                onChange={checked => saveOptOut.mutate(checked)}
+                            />
+                        </CollapsibleCard>
+                    </>
+                }
+            />
+            <UnblockDialog
+                open={unblocking}
+                onClose={() => setUnblocking(false)}
+                onUnblock={async reason => {
+                    try {
+                        await adminApi(UNBLOCK, { id: customer.bdBlock!.id, reason });
+                        toast.success(m.blockList.unblocked);
+                        setUnblocking(false);
+                        void queryClient.invalidateQueries({ queryKey: ['customer', id] });
+                    } catch {
+                        toast.error(m.errors.generic);
+                    }
+                }}
+            />
+        </Page>
     );
 }
 

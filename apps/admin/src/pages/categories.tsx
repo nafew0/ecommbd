@@ -7,6 +7,7 @@ import { useDigits } from '../components/form/inputs';
 import { Button } from '../components/ui/button';
 import { Dialog } from '../components/ui/dialog';
 import { Input, Select } from '../components/ui/input';
+import { Page } from '../components/ui/layout';
 import { Badge, Card, CardBody, EmptyState, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { Switch } from '../components/ui/switch';
 import { adminApi, ApiError } from '../lib/api';
@@ -118,7 +119,7 @@ export function CategoriesPage() {
     };
 
     return (
-        <>
+        <Page width="full">
             <PageHeader
                 title={c.title}
                 description={c.description}
@@ -311,6 +312,6 @@ export function CategoriesPage() {
                     </div>
                 )}
             </Dialog>
-        </>
+        </Page>
     );
 }

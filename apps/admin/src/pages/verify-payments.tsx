@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { RejectPaymentDialog, VerifyPaymentDialog } from '../components/payments/payment-dialogs';
 import { Button } from '../components/ui/button';
+import { Page } from '../components/ui/layout';
 import { Badge, Card, CardBody, EmptyState, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
 import { useFormat } from '../lib/format';
@@ -75,7 +76,7 @@ export function VerifyPaymentsPage() {
     if (query.isPending) return <PageSkeleton />;
     const items = query.data ?? [];
     return (
-        <>
+        <Page width="full">
             <PageHeader title={v.title} description={v.description} />
             {items.length === 0 ? (
                 <EmptyState icon={<Wallet className="size-6" aria-hidden />} title={v.empty} body="" />
@@ -180,6 +181,6 @@ export function VerifyPaymentsPage() {
                     finish(result.rejectBdPayment, v.rejected);
                 }}
             />
-        </>
+        </Page>
     );
 }

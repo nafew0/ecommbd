@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import { Field } from '../components/form/field';
 import { Button } from '../components/ui/button';
 import { Input, Select } from '../components/ui/input';
+import { SaveBar } from '../components/ui/save-bar';
+import { CollapsibleCard } from '../components/ui/disclosure';
+import { Page } from '../components/ui/layout';
 import {
     Alert,
     Badge,
@@ -18,6 +21,7 @@ import { Switch } from '../components/ui/switch';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { errorMap } from '../lib/form';
+import { useDraft } from '../lib/use-draft';
 import { useI18n } from '../lib/i18n';
 import { useAgo } from '../lib/orders';
 import { useToast } from '../lib/toast';
@@ -74,10 +78,10 @@ export function MetaTrackingPage() {
         queryKey: ['metaSetup'],
         queryFn: () => adminApi<{ bdMetaSetup: Setup }>(SETUP).then(r => r.bdMetaSetup),
     });
-    const [draft, setDraft] = useState<MetaSettings | null>(null);
+    const { draft, setDraft, load, dirty, discard } = useDraft<MetaSettings>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     useEffect(() => {
-        if (query.data && !draft) setDraft(query.data.settings);
+        if (query.data && !draft) load(query.data.settings);
     }, [query.data, draft]);
     const save = useMutation({
         mutationFn: (input: MetaSettings) =>
@@ -92,7 +96,7 @@ export function MetaTrackingPage() {
         onSuccess: result => {
             setErrors(errorMap(result.errors));
             if (result.settings) {
-                setDraft(result.settings);
+                load(result.settings);
                 toast.success(t.saved);
                 void queryClient.invalidateQueries({ queryKey: ['metaSetup'] });
             } else {
@@ -111,7 +115,7 @@ export function MetaTrackingPage() {
     };
 
     return (
-        <>
+        <Page width="narrow">
             <PageHeader title={t.title} description={t.description} />
             <div className="mb-4 space-y-2">
                 {!canEdit && <Alert>{m.payments.settings.readOnly}</Alert>}
@@ -237,9 +241,12 @@ export function MetaTrackingPage() {
                     </CardBody>
                 </Card>
                 {canEdit && (
-                    <Button type="submit" loading={save.isPending}>
-                        {m.settings.save}
-                    </Button>
+                    <SaveBar
+                        dirty={dirty}
+                        saving={save.isPending}
+                        saveLabel={m.settings.save}
+                        onDiscard={discard}
+                    />
                 )}
             </form>
 
@@ -258,7 +265,7 @@ export function MetaTrackingPage() {
             )}
             <EventLog />
             <p className="mt-4 text-sm text-ink-muted">{t.version(setup.graphVersion)}</p>
-        </>
+        </Page>
     );
 }
 
@@ -393,118 +400,121 @@ function EventLog() {
         setSkip(0);
     };
     return (
-        <Card className="mt-6">
-            <CardHeader title={l.title} description={l.kept} />
-            <CardBody className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                    <Select
-                        aria-label={l.event}
-                        className="w-48"
-                        value={eventName}
-                        onChange={event => filter(setEventName)(event.target.value)}
-                    >
-                        <option value="">{l.all}</option>
-                        {[...BROWSER_EVENTS, 'Purchase'].map(name => (
-                            <option key={name} value={name}>
-                                {name}
-                            </option>
-                        ))}
-                    </Select>
-                    <Select
-                        aria-label={l.status}
-                        className="w-48"
-                        value={status}
-                        onChange={event => filter(setStatus)(event.target.value)}
-                    >
-                        <option value="">{l.allStatuses}</option>
-                        {Object.entries(l.statuses).map(([key, label]) => (
-                            <option key={key} value={key}>
-                                {label}
-                            </option>
-                        ))}
-                    </Select>
-                    <Input
-                        aria-label={l.order}
-                        placeholder={l.order}
-                        className="w-48"
-                        maxLength={40}
-                        value={order}
-                        onChange={event => filter(setOrder)(event.target.value)}
-                    />
-                </div>
-                {items.length === 0 ? (
-                    <p className="text-sm text-ink-muted">{l.empty}</p>
-                ) : (
-                    <ul className="divide-y divide-line">
-                        {items.map(event => (
-                            <li key={event.id} className="py-2 text-sm">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <span className="font-medium">{event.eventName}</span>
-                                    <Badge tone={TONES[event.status] ?? 'slate'}>
-                                        {l.statuses[event.status] ?? event.status}
-                                    </Badge>
-                                    <span className="text-ink-muted">
-                                        {l.sources[event.source] ?? event.source}
-                                    </span>
-                                    <span className="font-mono text-ink-muted">{event.pixelId}</span>
-                                    <span className="text-ink-muted">{ago(event.createdAt)}</span>
-                                    {event.response?.events_received !== undefined && (
-                                        <span className="text-ok">
-                                            {l.received(
-                                                event.response.events_received,
-                                                event.response.batch_size ?? 1,
-                                            )}
-                                        </span>
-                                    )}
-                                    {event.error && (
-                                        <span className="text-danger">
-                                            {l.errors[event.error] ?? event.error}
-                                        </span>
-                                    )}
-                                </div>
-                                <details className="mt-1">
-                                    <summary className="cursor-pointer text-ink-muted">{l.details}</summary>
-                                    <p className="mt-2 font-medium">{l.payload}</p>
-                                    <pre className="max-h-64 overflow-auto rounded bg-surface-muted p-2 text-xs">
-                                        {JSON.stringify(event.payload, null, 2)}
-                                    </pre>
-                                    {event.response && (
-                                        <>
-                                            <p className="mt-2 font-medium">{l.response}</p>
-                                            <pre className="overflow-auto rounded bg-surface-muted p-2 text-xs">
-                                                {JSON.stringify(event.response, null, 2)}
-                                            </pre>
-                                        </>
-                                    )}
-                                </details>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-                {total > PAGE_SIZE && (
-                    <div className="flex items-center gap-2 text-sm">
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            disabled={skip === 0}
-                            onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}
+        <div className="mt-4">
+            <CollapsibleCard title={l.title} summary={l.kept}>
+                <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                        <Select
+                            aria-label={l.event}
+                            className="w-48"
+                            value={eventName}
+                            onChange={event => filter(setEventName)(event.target.value)}
                         >
-                            {l.previous}
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            disabled={skip + PAGE_SIZE >= total}
-                            onClick={() => setSkip(skip + PAGE_SIZE)}
+                            <option value="">{l.all}</option>
+                            {[...BROWSER_EVENTS, 'Purchase'].map(name => (
+                                <option key={name} value={name}>
+                                    {name}
+                                </option>
+                            ))}
+                        </Select>
+                        <Select
+                            aria-label={l.status}
+                            className="w-48"
+                            value={status}
+                            onChange={event => filter(setStatus)(event.target.value)}
                         >
-                            {l.next}
-                        </Button>
-                        <span className="text-ink-muted">
-                            {l.range(skip + 1, Math.min(skip + PAGE_SIZE, total), total)}
-                        </span>
+                            <option value="">{l.allStatuses}</option>
+                            {Object.entries(l.statuses).map(([key, label]) => (
+                                <option key={key} value={key}>
+                                    {label}
+                                </option>
+                            ))}
+                        </Select>
+                        <Input
+                            aria-label={l.order}
+                            placeholder={l.order}
+                            className="w-48"
+                            maxLength={40}
+                            value={order}
+                            onChange={event => filter(setOrder)(event.target.value)}
+                        />
                     </div>
-                )}
-            </CardBody>
-        </Card>
+                    {items.length === 0 ? (
+                        <p className="text-sm text-ink-muted">{l.empty}</p>
+                    ) : (
+                        <ul className="divide-y divide-line">
+                            {items.map(event => (
+                                <li key={event.id} className="py-2 text-sm">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="font-medium">{event.eventName}</span>
+                                        <Badge tone={TONES[event.status] ?? 'slate'}>
+                                            {l.statuses[event.status] ?? event.status}
+                                        </Badge>
+                                        <span className="text-ink-muted">
+                                            {l.sources[event.source] ?? event.source}
+                                        </span>
+                                        <span className="font-mono text-ink-muted">{event.pixelId}</span>
+                                        <span className="text-ink-muted">{ago(event.createdAt)}</span>
+                                        {event.response?.events_received !== undefined && (
+                                            <span className="text-ok">
+                                                {l.received(
+                                                    event.response.events_received,
+                                                    event.response.batch_size ?? 1,
+                                                )}
+                                            </span>
+                                        )}
+                                        {event.error && (
+                                            <span className="text-danger">
+                                                {l.errors[event.error] ?? event.error}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <details className="mt-1">
+                                        <summary className="cursor-pointer text-ink-muted">
+                                            {l.details}
+                                        </summary>
+                                        <p className="mt-2 font-medium">{l.payload}</p>
+                                        <pre className="max-h-64 overflow-auto rounded bg-surface-muted p-2 text-xs">
+                                            {JSON.stringify(event.payload, null, 2)}
+                                        </pre>
+                                        {event.response && (
+                                            <>
+                                                <p className="mt-2 font-medium">{l.response}</p>
+                                                <pre className="overflow-auto rounded bg-surface-muted p-2 text-xs">
+                                                    {JSON.stringify(event.response, null, 2)}
+                                                </pre>
+                                            </>
+                                        )}
+                                    </details>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    {total > PAGE_SIZE && (
+                        <div className="flex items-center gap-2 text-sm">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                disabled={skip === 0}
+                                onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}
+                            >
+                                {l.previous}
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                disabled={skip + PAGE_SIZE >= total}
+                                onClick={() => setSkip(skip + PAGE_SIZE)}
+                            >
+                                {l.next}
+                            </Button>
+                            <span className="text-ink-muted">
+                                {l.range(skip + 1, Math.min(skip + PAGE_SIZE, total), total)}
+                            </span>
+                        </div>
+                    )}
+                </div>
+            </CollapsibleCard>
+        </div>
     );
 }

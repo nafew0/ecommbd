@@ -8,6 +8,7 @@ import { CallLaterDialog, CancelDialog, StockDialog } from '../components/orders
 import { RiskBadge } from '../components/orders/risk-badge';
 import { PaymentBadge } from '../components/orders/status';
 import { Button } from '../components/ui/button';
+import { Page } from '../components/ui/layout';
 import { Badge, EmptyState, PageHeader, Skeleton } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -140,7 +141,7 @@ export function ConfirmOrdersPage() {
 
     const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     return (
-        <>
+        <Page width="wide">
             <PageHeader
                 title={m.queue.title}
                 description={m.queue.description}
@@ -292,7 +293,7 @@ export function ConfirmOrdersPage() {
                     />
                 </>
             )}
-        </>
+        </Page>
     );
 }
 

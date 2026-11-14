@@ -1,4 +1,5 @@
 import { LegacyOrders } from '../components/legacy-orders';
+import { Page } from '../components/ui/layout';
 import { PageHeader } from '../components/ui/misc';
 import { useI18n } from '../lib/i18n';
 
@@ -11,9 +12,9 @@ export function WooOrdersPage() {
     const { messages } = useI18n();
     const f = messages.migration.flow;
     return (
-        <>
+        <Page width="full">
             <PageHeader title={f.ordersTitle} description={f.ordersIntro} />
             <LegacyOrders pageSize={25} showHeader={false} />
-        </>
+        </Page>
     );
 }

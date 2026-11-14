@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 import { Field } from '../components/form/field';
 import { Button } from '../components/ui/button';
 import { Select } from '../components/ui/input';
+import { Page } from '../components/ui/layout';
 import { Alert, Card, CardBody, EmptyState, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -51,7 +52,7 @@ export function UnmappedAddressesPage() {
     if (query.isPending || cities.isPending) return <PageSkeleton />;
     const items = query.data ?? [];
     return (
-        <>
+        <Page width="full">
             <PageHeader title={u.title} description={u.description} />
             {cities.data?.length === 0 && (
                 <div className="mb-4">
@@ -73,7 +74,7 @@ export function UnmappedAddressesPage() {
                     ))}
                 </ul>
             )}
-        </>
+        </Page>
     );
 }
 

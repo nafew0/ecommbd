@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Button } from '../components/ui/button';
 import { Select } from '../components/ui/input';
+import { Page } from '../components/ui/layout';
 import { Alert, Card, CardBody, CardHeader, PageHeader } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
 import { useConfirm } from '../lib/confirm';
@@ -145,7 +146,7 @@ export function WooMigrationPage() {
         </label>
     );
     return (
-        <>
+        <Page width="wide">
             <PageHeader title={m.title} description={m.intro} />
             <div className="space-y-4">
                 {(errorMessage || sources.isError || runs.isError) && (
@@ -339,7 +340,7 @@ export function WooMigrationPage() {
                     </Card>
                 )}
             </div>
-        </>
+        </Page>
     );
 }
 

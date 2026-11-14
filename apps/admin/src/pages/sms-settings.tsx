@@ -14,14 +14,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Field } from '../components/form/field';
 import { TakaInput, useDigits } from '../components/form/inputs';
-import { Button } from '../components/ui/button';
 import { Input, Select, Textarea } from '../components/ui/input';
+import { SaveBar } from '../components/ui/save-bar';
+import { CollapsibleCard } from '../components/ui/disclosure';
+import { Page } from '../components/ui/layout';
 import { Alert, Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { Switch } from '../components/ui/switch';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { errorMap } from '../lib/form';
 import { useFormat } from '../lib/format';
+import { useDraft } from '../lib/use-draft';
 import { useI18n } from '../lib/i18n';
 import { useToast } from '../lib/toast';
 
@@ -93,10 +96,10 @@ export function SmsSettingsPage() {
                 r => r.bdSmsUsage,
             ),
     });
-    const [draft, setDraft] = useState<SmsSettings | null>(null);
+    const { draft, setDraft, load, dirty, discard } = useDraft<SmsSettings>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     useEffect(() => {
-        if (query.data && !draft) setDraft(query.data);
+        if (query.data && !draft) load(query.data);
     }, [query.data, draft]);
     const save = useMutation({
         mutationFn: (input: SmsSettings) =>
@@ -109,7 +112,7 @@ export function SmsSettingsPage() {
         onSuccess: result => {
             setErrors(errorMap(result.errors));
             if (result.settings) {
-                setDraft(result.settings);
+                load(result.settings);
                 toast.success(m.sms.saved);
                 void queryClient.invalidateQueries({ queryKey: ['smsSettings'] });
             } else {
@@ -137,7 +140,7 @@ export function SmsSettingsPage() {
         value ? s.usageLine(digits(value.messages), digits(value.segments)) : '…';
 
     return (
-        <>
+        <Page width="narrow">
             <PageHeader title={s.title} description={s.description} />
             <div className="mb-4 space-y-3">
                 {(usage.data?.provider === 'none' || usage.data?.provider === 'log') && (
@@ -248,101 +251,106 @@ export function SmsSettingsPage() {
                 })}
                 <p className="text-sm text-ink-muted">{s.segmentsHint}</p>
 
-                <Card>
-                    <CardHeader title={s.quietHours} description={s.quietHoursHint} />
-                    <CardBody>
-                        <Switch
-                            label={s.quietHoursOn}
-                            checked={draft.quietHours.enabled}
-                            disabled={!canEdit}
-                            onChange={checked =>
-                                set({ quietHours: { ...draft.quietHours, enabled: checked } })
-                            }
-                        />
-                        {draft.quietHours.enabled && (
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                {(['startHour', 'endHour'] as const).map(key => (
-                                    <Field key={key} label={key === 'startHour' ? s.from : s.until}>
-                                        {control => (
-                                            <Select
-                                                {...control}
-                                                value={draft.quietHours[key]}
-                                                disabled={!canEdit}
-                                                onChange={change =>
-                                                    set({
-                                                        quietHours: {
-                                                            ...draft.quietHours,
-                                                            [key]: Number(change.target.value),
-                                                        },
-                                                    })
-                                                }
-                                            >
-                                                {HOURS.map(hour => (
-                                                    <option key={hour} value={hour}>
-                                                        {s.hour(digits(String(hour).padStart(2, '0')))}
-                                                    </option>
-                                                ))}
-                                            </Select>
-                                        )}
-                                    </Field>
-                                ))}
-                            </div>
-                        )}
-                    </CardBody>
-                </Card>
-
-                <Card>
-                    <CardHeader title={s.limits} />
-                    <CardBody>
+                <CollapsibleCard
+                    title={s.quietHours}
+                    summary={draft.quietHours.enabled ? m.common.on : m.common.off}
+                    forceOpen={
+                        draft.quietHours.enabled ||
+                        Object.keys(errors).some(key => key.startsWith('quietHours'))
+                    }
+                >
+                    <p className="text-[13px] text-ink-muted">{s.quietHoursHint}</p>
+                    <Switch
+                        label={s.quietHoursOn}
+                        checked={draft.quietHours.enabled}
+                        disabled={!canEdit}
+                        onChange={checked => set({ quietHours: { ...draft.quietHours, enabled: checked } })}
+                    />
+                    {draft.quietHours.enabled && (
                         <div className="grid gap-4 sm:grid-cols-2">
-                            {(['perPhonePerDay', 'perStorePerDay'] as const).map(key => (
-                                <Field
-                                    key={key}
-                                    label={key === 'perPhonePerDay' ? s.perPhone : s.perStore}
-                                    error={errors[`caps.${key}`]}
-                                >
+                            {(['startHour', 'endHour'] as const).map(key => (
+                                <Field key={key} label={key === 'startHour' ? s.from : s.until}>
                                     {control => (
-                                        <Input
+                                        <Select
                                             {...control}
-                                            inputMode="numeric"
-                                            className="w-32"
-                                            value={digits(draft.caps[key])}
+                                            value={draft.quietHours[key]}
                                             disabled={!canEdit}
                                             onChange={change =>
                                                 set({
-                                                    caps: {
-                                                        ...draft.caps,
-                                                        [key]: Number(
-                                                            banglaToAsciiDigits(change.target.value.trim()) ||
-                                                                0,
-                                                        ),
+                                                    quietHours: {
+                                                        ...draft.quietHours,
+                                                        [key]: Number(change.target.value),
                                                     },
                                                 })
                                             }
-                                        />
+                                        >
+                                            {HOURS.map(hour => (
+                                                <option key={hour} value={hour}>
+                                                    {s.hour(digits(String(hour).padStart(2, '0')))}
+                                                </option>
+                                            ))}
+                                        </Select>
                                     )}
                                 </Field>
                             ))}
-                            <Field label={s.cost} hint={s.costHint} error={errors.costPerSegment}>
+                        </div>
+                    )}
+                </CollapsibleCard>
+
+                <CollapsibleCard
+                    title={s.limits}
+                    forceOpen={Object.keys(errors).some(key => key.startsWith('limits'))}
+                >
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        {(['perPhonePerDay', 'perStorePerDay'] as const).map(key => (
+                            <Field
+                                key={key}
+                                label={key === 'perPhonePerDay' ? s.perPhone : s.perStore}
+                                error={errors[`caps.${key}`]}
+                            >
                                 {control => (
-                                    <TakaInput
+                                    <Input
                                         {...control}
-                                        value={draft.costPerSegment}
+                                        inputMode="numeric"
+                                        className="w-32"
+                                        value={digits(draft.caps[key])}
                                         disabled={!canEdit}
-                                        onChange={value => set({ costPerSegment: value ?? 0 })}
+                                        onChange={change =>
+                                            set({
+                                                caps: {
+                                                    ...draft.caps,
+                                                    [key]: Number(
+                                                        banglaToAsciiDigits(change.target.value.trim()) || 0,
+                                                    ),
+                                                },
+                                            })
+                                        }
                                     />
                                 )}
                             </Field>
-                        </div>
-                    </CardBody>
-                </Card>
+                        ))}
+                        <Field label={s.cost} hint={s.costHint} error={errors.costPerSegment}>
+                            {control => (
+                                <TakaInput
+                                    {...control}
+                                    value={draft.costPerSegment}
+                                    disabled={!canEdit}
+                                    onChange={value => set({ costPerSegment: value ?? 0 })}
+                                />
+                            )}
+                        </Field>
+                    </div>
+                </CollapsibleCard>
 
                 {canEdit && (
-                    <Button type="submit" loading={save.isPending}>
-                        {m.settings.save}
-                    </Button>
+                    <SaveBar
+                        dirty={dirty}
+                        saving={save.isPending}
+                        saveLabel={m.settings.save}
+                        onDiscard={discard}
+                    />
                 )}
             </form>
-        </>
+        </Page>
     );
 }

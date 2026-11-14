@@ -7,13 +7,16 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Field } from '../components/form/field';
-import { Button } from '../components/ui/button';
 import { Input, Select } from '../components/ui/input';
+import { SaveBar } from '../components/ui/save-bar';
+import { CollapsibleCard } from '../components/ui/disclosure';
+import { Page } from '../components/ui/layout';
 import { Alert, Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { Switch } from '../components/ui/switch';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { errorMap } from '../lib/form';
+import { useDraft } from '../lib/use-draft';
 import { useI18n } from '../lib/i18n';
 import { useToast } from '../lib/toast';
 
@@ -35,10 +38,10 @@ export function PrintSettingsPage() {
         queryFn: () =>
             adminApi<{ bdPrintSettings: PrintSettings }>('{ bdPrintSettings }').then(r => r.bdPrintSettings),
     });
-    const [draft, setDraft] = useState<PrintSettings | null>(null);
+    const { draft, setDraft, load, dirty, discard } = useDraft<PrintSettings>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     useEffect(() => {
-        if (query.data && !draft) setDraft(query.data);
+        if (query.data && !draft) load(query.data);
     }, [query.data, draft]);
     const save = useMutation({
         mutationFn: (input: PrintSettings) =>
@@ -51,7 +54,7 @@ export function PrintSettingsPage() {
         onSuccess: result => {
             setErrors(errorMap(result.errors));
             if (result.settings) {
-                setDraft(result.settings);
+                load(result.settings);
                 toast.success(m.printSettings.saved);
                 void queryClient.invalidateQueries({ queryKey: ['printSettings'] });
             } else {
@@ -67,7 +70,7 @@ export function PrintSettingsPage() {
     const sticker = (patch: Partial<PrintSettings['sticker']>) =>
         setDraft({ ...draft, sticker: { ...draft.sticker, ...patch } });
     return (
-        <>
+        <Page width="narrow">
             <PageHeader title={s.title} description={s.description} />
             {!canEdit && (
                 <div className="mb-4">
@@ -175,75 +178,75 @@ export function PrintSettingsPage() {
                         />
                     </CardBody>
                 </Card>
-                <Card>
-                    <CardHeader title={s.language} />
-                    <CardBody>
-                        <Field label={s.language}>
-                            {control => (
-                                <Select
-                                    {...control}
-                                    value={draft.language}
-                                    disabled={!canEdit}
-                                    onChange={event =>
-                                        setDraft({
-                                            ...draft,
-                                            language: event.target.value as PrintSettings['language'],
-                                        })
-                                    }
-                                    className="w-48"
-                                >
-                                    {PRINT_LANGUAGES.map(language => (
-                                        <option key={language} value={language}>
-                                            {s.languages[language]}
-                                        </option>
-                                    ))}
-                                </Select>
-                            )}
-                        </Field>
-                        <Switch
-                            label={s.banglaDigits}
-                            description={s.banglaDigitsHint}
-                            checked={draft.banglaDigits}
-                            disabled={!canEdit}
-                            onChange={value => setDraft({ ...draft, banglaDigits: value })}
-                        />
-                        <p className="text-sm text-ink-muted">{s.footerHint}</p>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            {(['bn', 'en'] as const).map(language => (
-                                <Field
-                                    key={language}
-                                    label={language === 'bn' ? s.footerBn : s.footerEn}
-                                    error={errors[`footerText.${language}`]}
-                                    optional
-                                >
-                                    {control => (
-                                        <Input
-                                            {...control}
-                                            value={draft.footerText[language]}
-                                            maxLength={300}
-                                            disabled={!canEdit}
-                                            onChange={event =>
-                                                setDraft({
-                                                    ...draft,
-                                                    footerText: {
-                                                        ...draft.footerText,
-                                                        [language]: event.target.value,
-                                                    },
-                                                })
-                                            }
-                                        />
-                                    )}
-                                </Field>
-                            ))}
-                        </div>
-                    </CardBody>
-                </Card>
+                <CollapsibleCard title={s.language} forceOpen={Object.keys(errors).length > 0}>
+                    <Field label={s.language}>
+                        {control => (
+                            <Select
+                                {...control}
+                                value={draft.language}
+                                disabled={!canEdit}
+                                onChange={event =>
+                                    setDraft({
+                                        ...draft,
+                                        language: event.target.value as PrintSettings['language'],
+                                    })
+                                }
+                                className="w-48"
+                            >
+                                {PRINT_LANGUAGES.map(language => (
+                                    <option key={language} value={language}>
+                                        {s.languages[language]}
+                                    </option>
+                                ))}
+                            </Select>
+                        )}
+                    </Field>
+                    <Switch
+                        label={s.banglaDigits}
+                        description={s.banglaDigitsHint}
+                        checked={draft.banglaDigits}
+                        disabled={!canEdit}
+                        onChange={value => setDraft({ ...draft, banglaDigits: value })}
+                    />
+                    <p className="text-sm text-ink-muted">{s.footerHint}</p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        {(['bn', 'en'] as const).map(language => (
+                            <Field
+                                key={language}
+                                label={language === 'bn' ? s.footerBn : s.footerEn}
+                                error={errors[`footerText.${language}`]}
+                                optional
+                            >
+                                {control => (
+                                    <Input
+                                        {...control}
+                                        value={draft.footerText[language]}
+                                        maxLength={300}
+                                        disabled={!canEdit}
+                                        onChange={event =>
+                                            setDraft({
+                                                ...draft,
+                                                footerText: {
+                                                    ...draft.footerText,
+                                                    [language]: event.target.value,
+                                                },
+                                            })
+                                        }
+                                    />
+                                )}
+                            </Field>
+                        ))}
+                    </div>
+                </CollapsibleCard>
                 {canEdit && (
-                    <Button type="submit" loading={save.isPending}>
-                        {m.settings.save}
-                    </Button>
+                    <SaveBar
+                        dirty={dirty}
+                        saving={save.isPending}
+                        saveLabel={m.settings.save}
+                        onDiscard={discard}
+                    />
                 )}
             </form>
-        </>
+        </Page>
     );
 }
