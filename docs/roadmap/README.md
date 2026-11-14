@@ -1,6 +1,6 @@
 # Ecomm BD product roadmap
 
-> Plan v1 · 2026-10-20 · 50 phases in 9 milestones
+> Plan v1 · 2026-10-20 · 50 phases in 9 milestones · extended 2026-11-14 to 66 phases in 12 milestones (after the [Boneek competitor check](../research/competitor-boneek.md))
 > Companion to [mvp-spec.md](../mvp-spec.md), [architecture.md](../architecture.md) and the [setup guide](../../README.md)
 
 This is the build plan for a **product**, not a one-off project. Hundreds of merchants will run their businesses on it, and their customers will trust it with their money and personal details. So every phase ships production-quality work:
@@ -40,6 +40,9 @@ Milestone files:
 7. [M7 · Pilot](m7-pilot.md) (30–31)
 8. [M8 · Public launch](m8-launch.md) (32–43)
 9. [M9 · Growth](m9-growth.md) (44–50)
+10. [M10 · Back office](m10-back-office.md) (51–55)
+11. [M11 · Page builder v2](m11-page-builder.md) (56–62)
+12. [M12 · Services and admin redesign](m12-services-redesign.md) (63–66)
 
 ## How each phase is written
 
@@ -101,6 +104,9 @@ A phase is never marked done with failing tests, open high-severity security fin
 | **M7 · Pilot** | 30–31 | One migrated merchant live for 30 days, meeting the MVP success criteria | 1 — Pilot |
 | **M8 · Public launch** | 32–43 | All P1 features; a new merchant goes from signup to first order without help | 2 — Public launch |
 | **M9 · Growth** | 44–50 | P2 features, public API, mobile admin, platform payments, scale-out | 3 — Growth |
+| **M10 · Back office** | 51–55 | Owners record purchases and expenses and see a true monthly profit and loss; stock across branches; deeper products | Added 2026-11-14 |
+| **M11 · Page builder v2** | 56–62 | Templates first, every element unlockable: nested flex/grid containers, per-device styles, canvas editing, every store page designable, budgets still met | Added 2026-11-14 |
+| **M12 · Services and admin redesign** | 63–66 | New admin layout with search, notifications and dashboard; store controls; paid AI-call and call-centre confirmation | Added 2026-11-14 |
 
 ```mermaid
 flowchart LR
@@ -116,6 +122,9 @@ flowchart LR
   M6 --> M7
   M7 --> M8[M8 Public launch]
   M8 --> M9[M9 Growth]
+  M8 --> M10[M10 Back office]
+  M3 --> M11[M11 Page builder v2]
+  M8 --> M12[M12 Services and redesign]
 ```
 
 ## Phase map and status
@@ -175,6 +184,22 @@ Status values: **Not started** · **In progress** · **Review** · **Done**.
 | [48](m9-growth.md#phase-48--mobile-admin-app-and-push-notifications) | Mobile admin app and push notifications | M9 | Mobile admin (Growth) | 43 | L | Not started |
 | [49](m9-growth.md#phase-49--platform-payments) | Platform payments | M9 | Platform-level payments (Later) | 39, 42 | XL | Not started |
 | [50](m9-growth.md#phase-50--scale-and-performance-ii) | Scale and performance II | M9 | AVIF, scale-out, Banglish search | 29 | L | Not started |
+| [51](m10-back-office.md#phase-51--cost-and-profit) | Cost and profit | M10 | Cost per item, profit per order | 05, 21 | M | Not started |
+| [52](m10-back-office.md#phase-52--purchases-and-suppliers) | Purchases and suppliers | M10 | Suppliers, purchases, purchase returns | 51 | L | Not started |
+| [53](m10-back-office.md#phase-53--accounts-expenses-and-profit-and-loss) | Accounts, expenses and profit and loss | M10 | Accounts, expenses, P&L report | 51, 52, 41 | L | Not started |
+| [54](m10-back-office.md#phase-54--branches-and-stock-transfers) | Branches and stock transfers | M10 | Several stock locations, transfers | 05, 19, 52 | L | Not started |
+| [55](m10-back-office.md#phase-55--product-depth) | Product depth | M10 | Multi-kind variations, units, brands, shipping classes, media library | 05, 07, 09, 13, 21 | L | Not started |
+| [56](m11-page-builder.md#phase-56--element-tree-and-containers) | Element tree and containers | M11 | Nested flex/grid containers, basic elements, migration | 15, 16 | XL (56a, 56b) | Not started |
+| [57](m11-page-builder.md#phase-57--responsive-style-system) | Responsive style system | M11 | Desktop/tablet/phone styles, full style groups | 56 | L | Not started |
+| [58](m11-page-builder.md#phase-58--canvas-editing) | Canvas editing | M11 | Select and edit on canvas, drag and drop, Navigator | 56 | L | Not started |
+| [59](m11-page-builder.md#phase-59--library-and-templates) | Library and templates | M11 | 60+ ready sections, store/page/sales designs, global widgets | 15, 16 | L | Not started |
+| [60](m11-page-builder.md#phase-60--system-pages-in-the-builder) | System pages in the builder | M11 | Header, footer, product, category, cart, checkout, thank-you layouts | 56, 13, 14 | XL | Not started |
+| [61](m11-page-builder.md#phase-61--element-library-to-70) | Element library to 70+ | M11 | Promotion, product, media and trust elements | 56, 57 | L | Not started |
+| [62](m11-page-builder.md#phase-62--publish-quality) | Publish quality | M11 | Pre-publish checklist, guided tour, saved styles | 57, 58 | M | Not started |
+| [63](m12-services-redesign.md#phase-63--admin-redesign) | Admin redesign | M12 | New layout, global search, notifications, dashboard, order screens | 02b, 04 | L | Not started |
+| [64](m12-services-redesign.md#phase-64--store-controls) | Store controls | M12 | Maintenance mode, noindex, VAT, prefixes, invoice logo | 12, 06, 17 | M | Not started |
+| [65](m12-services-redesign.md#phase-65--order-confirmation-services-i) | Order confirmation services I | M12 | Device order limit, address clean-up | 11, 21 | M | Not started |
+| [66](m12-services-redesign.md#phase-66--order-confirmation-services-ii-paid) | Order confirmation services II (paid) | M12 | AI voice calls in Bangla, call centre (ours or partner) | 04, 38, 39, 65 | L | Not started |
 
 ## Critical path to the pilot
 
@@ -188,6 +213,23 @@ The pilot needs every P0 feature **and** the platform to run it. There are two t
 Both tracks meet at **30** (security hardening), then **31** (pilot).
 
 If only one session works at a time, the recommended order is the numeric order, with **23–24 pulled forward to just after 11**. That gives a real staging server early, so later phases are tested on CloudPanel rather than only locally.
+
+### Changes after the Boneek competitor check (2026-11-14)
+
+The [Boneek check](../research/competitor-boneek.md) and the [page builder check](../research/competitor-boneek-page-builder.md) added three milestones (M10–M12, phases 51–66) and extra items to phases 32, 33, 35, 37, 41 and 48. Each item is marked "Added after the Boneek check" in its phase.
+
+**Scope decisions:**
+- **Dropshipping is out of scope.**
+- **The back office is in** (M10).
+- **Paid confirmation services** are offered by us or partners (phase 66).
+- **There is no add-on store or marketplace:** each feature is built in as a normal setting.
+
+**Suggested pulls ahead of the pilot**, if there's time:
+- **63 (admin redesign)**
+- **phase 37's courier score**
+- the content work of **59 (templates)**
+
+All three are cheap and change how the product feels in a demo. M11 changes the phase 15 decision of "fixed sections, no free-form layout": layouts become trees of elements that the merchant can open up, but pages stay plain HTML and CSS within the speed budgets.
 
 ## Who builds what
 

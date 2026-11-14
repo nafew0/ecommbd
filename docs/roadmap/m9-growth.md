@@ -197,6 +197,8 @@ These phases are further away, so they're planned at a slightly higher level. **
    - per-user settings and quiet hours
 3. **Works with weak connections:** recent orders cached for viewing; actions queue offline and send when back online, with conflict handling (an order already confirmed by someone else).
 
+**Added after the Boneek check (2026-11-14):** "install this store" for shoppers (a storefront PWA: manifest and icons, no service worker that could serve stale prices), alongside the mobile admin.
+
 ### Edge cases
 
 - **Push problems:** permission denied (fall back to SMS digest for owners); delivery blocked by aggressive battery savers on some Android brands (documented guidance).

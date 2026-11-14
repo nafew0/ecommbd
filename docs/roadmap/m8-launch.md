@@ -52,6 +52,11 @@ The pilot (M7) will reshuffle priorities. Re-read each phase against the pilot r
    - filters and export; retention 1 year
    - **Append-only**, even for the owner. Optionally, each entry stores a hash of the previous one, so tampering is detectable.
 
+**Added after the Boneek check (2026-11-14):**
+
+- **Call-staff queues:** a staff member "picks" new orders to call, with a pick limit per person (a store setting), an optional "unpick", and "My tasks" showing picked and new orders.
+- **Staff report:** follow-ups done and pending per staff member.
+
 ### Edge cases
 
 - **An owner loses their 2FA device without recovery codes:** support-assisted recovery through central with identity checks (registered phone OTP plus business documents). It's a slow, logged process, because this is the classic social-engineering target.
@@ -128,6 +133,8 @@ Single sign-on (not planned); our own staff's support access (43).
 6. **Help links** on each screen (pointing to the Bangla help center, phase 43), and "What's new" from phase 26.
 7. **Bangla digits** option for numbers, money and dates in tables and charts.
 8. **"Coming from WooCommerce?"** help page that maps WooCommerce menus and words to ours.
+
+**Added after the Boneek check (2026-11-14):** a learning centre of short Bangla tutorial videos, and a "How to" video slot on empty screens (orders, products, couriers, sales pages).
 
 ### Edge cases
 
@@ -281,6 +288,17 @@ Social login (later), wishlists and loyalty (later).
    - **Safe mode:** one switch disables all custom scripts instantly.
    - **Where scripts run:** never in the Dashboard. On checkout only if the merchant explicitly allows it, with a warning.
 
+**Added after the Boneek check (2026-11-14):**
+
+- **Customer tags:** Fraud, New, Regular, VIP and custom tags, shown on orders and usable as a filter.
+- **Orders:** draft orders, and duplicating an order.
+- **Volume offers on the product page (quantity breaks):**
+  - options like "1 piece / 2 pieces / 4 pieces" with a price, a badge and a default choice
+  - a variation choice per piece
+  - applies to one product, some categories or all products, with active dates
+  - reuses the sales-page packs (phase 16)
+- **Stock alert quantity** per product, and "continue selling when out of stock".
+
 ### Edge cases
 
 - **Coupons:**
@@ -408,6 +426,12 @@ More ad networks (later, on demand).
    - **COD payments are settled when the payout is received** (or on delivery, per store setting).
    - Net revenue per order goes to reports (41).
 5. **Default courier per zone** using simple rules (cheapest, or best delivery rate for that district from history). Full smart assignment is phase 46.
+
+**Added after the Boneek check (2026-11-14):**
+
+- **Courier score card on every order page:** the phone's total orders and delivery success rate. **Consider pulling it ahead of the pilot.**
+- **Returns and replacements:** an order return screen with a return window (phase 64's setting), and replacements.
+- **More couriers:** Forces Courier, and a "your own courier" option with its own charges per area (inside Dhaka, outside, suburbs; regular and express) and a pickup branch.
 
 ### Edge cases
 
@@ -678,6 +702,8 @@ Paid ads and growth marketing (outside the product), a partner/agency programme 
    - **Finance:** net COD after courier charges (from phase 37).
 3. **Light charts,** loaded only on report pages.
 4. **Toggle** to include or exclude imported legacy orders.
+
+**Added after the Boneek check (2026-11-14):** the profit and loss report comes from phase 53, so it needs cost per item (51). If 41 ships first, it shows sales only and adds profit later.
 
 ### Edge cases
 
