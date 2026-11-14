@@ -88,7 +88,7 @@ export function VerifyPaymentsPage() {
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                         <Link
                                             to={`/orders/${payment.orderId}`}
-                                            className="font-semibold text-teal-800 underline-offset-2 hover:underline"
+                                            className="font-semibold text-accent underline-offset-2 hover:underline"
                                         >
                                             {v.order(payment.orderNumber ?? payment.orderCode)}
                                         </Link>
@@ -109,7 +109,7 @@ export function VerifyPaymentsPage() {
                                             )}
                                         </div>
                                     </div>
-                                    <p className="text-sm text-slate-600">
+                                    <p className="text-sm text-ink-muted">
                                         {payment.customerName} ·{' '}
                                         <a className="underline" href={`tel:${payment.customerPhone}`}>
                                             {format.phone(payment.customerPhone)}
@@ -117,26 +117,26 @@ export function VerifyPaymentsPage() {
                                     </p>
                                     <dl className="grid gap-3 sm:grid-cols-3">
                                         <div>
-                                            <dt className="text-sm text-slate-600">{v.transactionId}</dt>
+                                            <dt className="text-sm text-ink-muted">{v.transactionId}</dt>
                                             <dd className="font-mono text-lg font-semibold tracking-wider break-all">
                                                 {payment.transactionId}
                                             </dd>
                                         </div>
                                         <div>
-                                            <dt className="text-sm text-slate-600">{v.sender}</dt>
+                                            <dt className="text-sm text-ink-muted">{v.sender}</dt>
                                             <dd className="font-medium">
                                                 {format.phone(payment.senderNumber)}
                                             </dd>
                                         </div>
                                         <div>
-                                            <dt className="text-sm text-slate-600">{v.expected}</dt>
+                                            <dt className="text-sm text-ink-muted">{v.expected}</dt>
                                             <dd className="text-lg font-semibold tabular-nums">
                                                 {format.money(payment.amount)}
                                             </dd>
                                         </div>
                                     </dl>
                                     {payment.lookalikes.length > 0 && (
-                                        <p className="text-sm text-amber-800">
+                                        <p className="text-sm text-warn">
                                             {v.lookalikes(payment.lookalikes.join(' '))}
                                         </p>
                                     )}

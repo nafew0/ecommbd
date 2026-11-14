@@ -4,6 +4,19 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+### Changed
+
+- **Merchant admin redesign, part one (phase 63a).** See [the design guide](docs/design/admin-design-guide.md).
+  - **New look:** a calm, neutral admin with a dark top bar, light grey page, white cards and near-black main buttons. Colour is kept for statuses.
+  - **Shorter menu:** about ten top-level items with one group open at a time. Less-used screens sit under "More". **Online store** and **Settings** open as their own areas with a "Back" link, and settings are grouped under headings.
+  - **Search (Ctrl K / ⌘ K)** finds any screen or action in Bangla or English, including the ones under "More".
+  - **A guided tour** of the menu greets a first visit. It can be skipped at any step and started again from the account menu.
+  - **Essentials first:** the product form, order page and delivery settings show what is used every week; the rest opens under "More options" or a collapsed card that shows its current value. Each screen has one main button, with other actions under "More".
+  - **Order list:** a "Create order" button (phone orders moved here from the menu), and the date, district, payment and campaign filters behind one "Filters" button.
+  - **Unsaved changes** show a bar at the bottom with Discard and Save (product form, delivery settings).
+  - **Subtle animation** (Motion, in its light build) for menus, cards and pages; off for people who ask their device for reduced motion.
+  - No web addresses, permissions or saved data changed.
+
 ### Fixed
 
 - **WooCommerce import:**

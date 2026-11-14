@@ -7,13 +7,13 @@ import {
 import { cn } from '../../lib/cn';
 
 const control =
-    'block w-full rounded-md border bg-white px-3 text-base text-slate-900 placeholder:text-slate-400 focus:outline-2 focus:outline-offset-0 focus:outline-teal-600 disabled:bg-slate-100 disabled:text-slate-500 aria-[invalid=true]:border-red-500';
+    'block w-full rounded-md border border-line-strong bg-surface px-3 text-base text-ink placeholder:text-ink-faint focus:outline-2 focus:outline-offset-0 focus:outline-accent disabled:bg-surface-muted disabled:text-ink-muted aria-[invalid=true]:border-danger sm:text-sm';
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input(
     { className, ...props },
     ref,
 ) {
-    return <input ref={ref} className={cn(control, 'min-h-11 border-slate-300', className)} {...props} />;
+    return <input ref={ref} className={cn(control, 'min-h-11 sm:min-h-10', className)} {...props} />;
 });
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
@@ -21,7 +21,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
         return (
             <textarea
                 ref={ref}
-                className={cn(control, 'min-h-24 border-slate-300 py-2 leading-relaxed', className)}
+                className={cn(control, 'min-h-24 py-2 leading-relaxed', className)}
                 {...props}
             />
         );
@@ -34,7 +34,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
     ref,
 ) {
     return (
-        <select ref={ref} className={cn(control, 'min-h-11 border-slate-300 pr-8', className)} {...props}>
+        <select ref={ref} className={cn(control, 'min-h-11 pr-8 sm:min-h-10', className)} {...props}>
             {children}
         </select>
     );

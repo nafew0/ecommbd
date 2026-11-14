@@ -38,19 +38,19 @@ export function Field({ label, hint, error, optional, badge, children }: FieldPr
                 <label htmlFor={id} className="font-medium">
                     {label}
                     {optional && (
-                        <span className="ml-1 text-sm font-normal text-slate-500">({m.common.optional})</span>
+                        <span className="ml-1 text-sm font-normal text-ink-muted">({m.common.optional})</span>
                     )}
                 </label>
                 {badge}
             </div>
             {children({ id, 'aria-describedby': describedBy, 'aria-invalid': message ? true : undefined })}
             {hint && (
-                <p id={hintId} className="text-sm text-slate-600">
+                <p id={hintId} className="text-sm text-ink-muted">
                     {hint}
                 </p>
             )}
             {message && (
-                <p id={errorId} className="text-sm text-red-700">
+                <p id={errorId} className="text-sm text-danger">
                     {message}
                 </p>
             )}

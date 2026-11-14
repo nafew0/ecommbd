@@ -1,27 +1,25 @@
-import { ChevronsLeft, ChevronsRight, LogOut, Menu as MenuIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigation } from 'react-router';
-import { Button } from '../components/ui/button';
+import { useQuery } from '@tanstack/react-query';
+import { Compass, LogOut, Menu as MenuIcon, Search } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Outlet, useLocation, useNavigation } from 'react-router';
+import { ActionMenu } from '../components/ui/action-menu';
 import { Dialog } from '../components/ui/dialog';
+import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { cn } from '../lib/cn';
 import { useI18n } from '../lib/i18n';
+import { m as motion } from '../lib/motion';
+import { CommandSearch } from './command-search';
 import { LanguageSwitch } from './language-switch';
-import { MENU, type MenuGroup, visibleMenu } from './menu';
+import { areaOf, MENU, visibleMenu } from './menu';
+import { type MenuCounts, Sidebar } from './sidebar';
+import { markTourDone, shouldStartTour, Tour, TOUR_STEPS, type TourStep } from './tour';
 
-const COLLAPSED_KEY = 'ecommbd-admin-sidebar-collapsed';
-
-function readCollapsed(): boolean {
-    try {
-        return localStorage.getItem(COLLAPSED_KEY) === '1';
-    } catch {
-        return false;
-    }
-}
+const COUNTS = `query MenuCounts { bdOrderStats { waitingConfirmation } }`;
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
 /**
- * The signed-in shell: a left sidebar with icons that collapses on desktop and becomes a drawer on
- * phones, a top bar with the language switch and sign-out, and the page.
+ * The signed-in shell (design guide, section 3): a dark top bar with search and the account menu,
+ * a left menu that becomes a drawer on phones, and the page. A first visit starts a short tour.
  */
 export function AppLayout() {
     const { messages: m } = useI18n();
@@ -29,198 +27,172 @@ export function AppLayout() {
     const navigation = useNavigation();
     const location = useLocation();
     const [drawerOpen, setDrawerOpen] = useState(false);
-    const [collapsed, setCollapsed] = useState(readCollapsed);
-    const menu = visibleMenu(MENU, can);
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [tourOpen, setTourOpen] = useState(false);
+    const [tourStep, setTourStep] = useState<TourStep>();
+    const menu = useMemo(() => visibleMenu(MENU, can), [can]);
+    const area = areaOf(location.pathname);
+
+    const counts = useQuery({
+        queryKey: ['menu', 'counts'],
+        queryFn: () => adminApi<{ bdOrderStats: MenuCounts }>(COUNTS).then(result => result.bdOrderStats),
+        enabled: can('ReadOrder'),
+        refetchInterval: 60_000,
+    });
 
     useEffect(() => setDrawerOpen(false), [location.pathname]);
 
-    const toggleCollapsed = () => {
-        setCollapsed(value => {
-            try {
-                localStorage.setItem(COLLAPSED_KEY, value ? '0' : '1');
-            } catch {
-                // Not remembered: fine.
+    useEffect(() => {
+        const onKey = (event: KeyboardEvent) => {
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+                event.preventDefault();
+                setSearchOpen(true);
             }
-            return !value;
-        });
-    };
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, []);
+
+    // The tour greets a first visit on the home screen only, never in the middle of other work.
+    useEffect(() => {
+        if (location.pathname === '/' && shouldStartTour()) setTourOpen(true);
+        // Once, when the shell first shows.
+    }, []);
+
+    const startTour = useCallback(() => {
+        setSearchOpen(false);
+        setDrawerOpen(false);
+        setTourOpen(true);
+    }, []);
+    const closeTour = useCallback(() => {
+        markTourDone();
+        setTourOpen(false);
+    }, []);
+    const tourSteps = useMemo(
+        () =>
+            TOUR_STEPS.filter(
+                step => step === 'welcome' || step === 'search' || menu.some(group => group.label === step),
+            ),
+        [menu],
+    );
+    // While the tour points at a group, the menu opens it to show what's inside.
+    const tourGroup = tourOpen && area === 'main' ? tourStep : undefined;
+
+    const sidebar = (
+        <Sidebar
+            menu={menu}
+            area={tourOpen ? 'main' : area}
+            counts={counts.data ?? {}}
+            tourGroup={tourGroup}
+        />
+    );
+    const initial = (user?.name ?? user?.identifier ?? '?').trim().charAt(0).toUpperCase();
 
     return (
-        <div className="min-h-dvh lg:flex">
+        <div className="min-h-dvh">
             <a
                 href="#main"
-                className="sr-only rounded bg-white px-3 py-2 focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50"
+                className="sr-only rounded bg-surface px-3 py-2 focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50"
             >
                 {m.nav.skipToContent}
             </a>
             {navigation.state === 'loading' && (
                 <div
-                    className="fixed inset-x-0 top-0 z-50 h-0.5 animate-pulse bg-teal-600"
+                    className="fixed inset-x-0 top-0 z-50 h-0.5 animate-pulse bg-accent"
                     role="progressbar"
                     aria-label={m.common.loading}
                 />
             )}
 
-            {/* Desktop sidebar */}
-            <aside
-                className={cn(
-                    'sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-slate-200 bg-white lg:flex',
-                    collapsed ? 'w-16' : 'w-64',
-                )}
-            >
-                <div
-                    className={cn(
-                        'flex h-14 items-center border-b border-slate-100',
-                        collapsed ? 'justify-center' : 'px-4',
-                    )}
-                >
-                    {!collapsed && <span className="truncate font-semibold text-teal-800">{m.appName}</span>}
-                </div>
-                <nav aria-label={m.nav.menu} className="flex-1 overflow-y-auto p-2">
-                    <MenuList menu={menu} collapsed={collapsed} />
-                </nav>
+            <header className="sticky top-0 z-30 flex h-14 items-center gap-2 bg-bar px-2 text-white sm:px-4">
                 <button
                     type="button"
-                    onClick={toggleCollapsed}
-                    className="flex h-11 items-center gap-2 border-t border-slate-100 px-4 text-sm text-slate-600 hover:bg-slate-50"
-                    aria-label={collapsed ? m.nav.expand : m.nav.collapse}
-                    title={collapsed ? m.nav.expand : m.nav.collapse}
+                    className="inline-flex size-10 items-center justify-center rounded-md hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white lg:hidden"
+                    aria-label={m.nav.openMenu}
+                    aria-expanded={drawerOpen}
+                    onClick={() => setDrawerOpen(true)}
                 >
-                    {collapsed ? (
-                        <ChevronsRight className="size-4" aria-hidden />
-                    ) : (
-                        <ChevronsLeft className="size-4" aria-hidden />
-                    )}
-                    {!collapsed && m.nav.collapse}
+                    <MenuIcon className="size-5" aria-hidden />
                 </button>
-            </aside>
+                <span className="min-w-0 shrink truncate font-semibold lg:w-56 lg:shrink-0">{m.appName}</span>
+                <div className="flex flex-1 justify-end lg:min-w-0 lg:justify-center">
+                    <button
+                        type="button"
+                        data-tour="search"
+                        onClick={() => setSearchOpen(true)}
+                        aria-label={m.finder.open}
+                        aria-keyshortcuts="Control+K Meta+K"
+                        className="inline-flex size-10 items-center justify-center gap-2 rounded-md text-white/70 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-2 focus-visible:outline-white lg:h-9 lg:w-full lg:max-w-md lg:justify-start lg:bg-white/10 lg:px-3"
+                    >
+                        <Search className="size-5 shrink-0 lg:size-4" aria-hidden />
+                        <span className="hidden min-w-0 flex-1 truncate text-left text-sm lg:block">
+                            {m.finder.placeholder}
+                        </span>
+                        <kbd className="hidden rounded border border-white/20 px-1.5 font-sans text-xs lg:block">
+                            {isMac ? '⌘ K' : 'Ctrl K'}
+                        </kbd>
+                    </button>
+                </div>
+                <LanguageSwitch tone="dark" />
+                <ActionMenu
+                    label={m.nav.account}
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full hover:bg-white/10"
+                    trigger={
+                        <span
+                            className="flex size-8 items-center justify-center rounded-full bg-white/15 text-sm font-semibold text-white"
+                            title={user?.name}
+                        >
+                            {initial}
+                        </span>
+                    }
+                    items={[
+                        {
+                            label: m.tour.again,
+                            icon: <Compass className="size-4" aria-hidden />,
+                            onSelect: startTour,
+                        },
+                        {
+                            label: m.login.signOut,
+                            icon: <LogOut className="size-4" aria-hidden />,
+                            onSelect: () => void signOut(),
+                        },
+                    ]}
+                />
+            </header>
 
-            {/* Phone drawer */}
-            <Dialog open={drawerOpen} onClose={() => setDrawerOpen(false)} title={m.appName} variant="drawer">
-                <nav aria-label={m.nav.menu}>
-                    <MenuList menu={menu} collapsed={false} />
-                </nav>
-            </Dialog>
+            <div className="lg:flex">
+                <aside className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] w-60 shrink-0 overflow-y-auto border-r border-line p-3 lg:block">
+                    <nav aria-label={m.nav.menu}>{sidebar}</nav>
+                </aside>
 
-            <div className="min-w-0 flex-1">
-                <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-slate-200 bg-white/95 px-2 backdrop-blur sm:px-4">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="lg:hidden"
-                        aria-label={m.nav.openMenu}
-                        aria-expanded={drawerOpen}
-                        onClick={() => setDrawerOpen(true)}
+                {/* Phone drawer */}
+                <Dialog
+                    open={drawerOpen}
+                    onClose={() => setDrawerOpen(false)}
+                    title={m.appName}
+                    variant="drawer"
+                >
+                    <nav aria-label={m.nav.menu}>{sidebar}</nav>
+                </Dialog>
+
+                <main id="main" tabIndex={-1} className="min-w-0 flex-1 px-4 py-5 pb-28 outline-none sm:px-6">
+                    {/* Screens set their own width with <Page>. One that doesn't yet (before phase
+                        63b reaches it) gets the middle width. */}
+                    <motion.div
+                        key={location.pathname}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mx-auto w-full max-w-[1120px] has-[[data-page]]:max-w-none"
                     >
-                        <MenuIcon className="size-5" aria-hidden />
-                    </Button>
-                    <span className="min-w-0 flex-1 truncate font-semibold text-teal-800 lg:hidden">
-                        {m.appName}
-                    </span>
-                    <div className="hidden flex-1 lg:block" />
-                    <LanguageSwitch />
-                    <span
-                        className="hidden max-w-48 truncate text-sm text-slate-600 md:inline"
-                        title={user?.identifier}
-                    >
-                        {user?.name}
-                    </span>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => void signOut()}
-                        aria-label={m.login.signOut}
-                    >
-                        <LogOut className="size-4" aria-hidden />
-                        <span className="hidden sm:inline">{m.login.signOut}</span>
-                    </Button>
-                </header>
-                <main id="main" tabIndex={-1} className="mx-auto w-full max-w-5xl px-4 py-6 pb-28 sm:px-6">
-                    <Outlet />
+                        <Outlet />
+                    </motion.div>
                 </main>
             </div>
-        </div>
-    );
-}
 
-function MenuList({ menu, collapsed }: { menu: MenuGroup[]; collapsed: boolean }) {
-    const { pathname } = useLocation();
-    const within = (to: string) => pathname === to || pathname.startsWith(`${to}/`);
-    const { messages: m } = useI18n();
-    const linkClass = ({ isActive }: { isActive: boolean }) =>
-        cn(
-            'flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm',
-            isActive ? 'bg-teal-50 font-medium text-teal-900' : 'text-slate-700 hover:bg-slate-100',
-            collapsed && 'justify-center px-0',
-        );
-    return (
-        <ul className="space-y-1">
-            {menu.map(group => {
-                const Icon = group.icon;
-                if (group.link) {
-                    const label = m.nav[group.link.label];
-                    return (
-                        <li key={group.label}>
-                            <NavLink
-                                to={group.link.to}
-                                end
-                                className={linkClass}
-                                title={collapsed ? label : undefined}
-                            >
-                                <Icon className="size-5 shrink-0" aria-hidden />
-                                {collapsed ? (
-                                    <span className="sr-only">{label}</span>
-                                ) : (
-                                    <span className="min-w-0">{label}</span>
-                                )}
-                            </NavLink>
-                        </li>
-                    );
-                }
-                return (
-                    <li key={group.label}>
-                        <div
-                            className={cn(
-                                'flex items-center gap-3 px-3 pt-3 pb-1 text-xs font-semibold text-slate-500',
-                                collapsed && 'justify-center px-0',
-                            )}
-                            title={collapsed ? m.nav[group.label] : undefined}
-                        >
-                            <Icon className="size-4 shrink-0" aria-hidden />
-                            {collapsed ? (
-                                <span className="sr-only">{m.nav[group.label]}</span>
-                            ) : (
-                                m.nav[group.label]
-                            )}
-                        </div>
-                        <ul className="space-y-1">
-                            {group.children?.map(child => {
-                                const label = m.nav[child.label];
-                                // The closest link wins: /orders/woocommerce marks only "WooCommerce
-                                // orders", while an order's own page (/orders/123) still marks "All orders".
-                                const closest = group
-                                    .children!.filter(other => within(other.to))
-                                    .sort((a, b) => b.to.length - a.to.length)[0];
-                                return (
-                                    <li key={child.to}>
-                                        <NavLink
-                                            to={child.to}
-                                            className={() => linkClass({ isActive: closest === child })}
-                                            title={collapsed ? label : undefined}
-                                        >
-                                            {collapsed ? (
-                                                <span className="text-xs">{label.slice(0, 2)}</span>
-                                            ) : (
-                                                <span className="min-w-0 pl-8">{label}</span>
-                                            )}
-                                        </NavLink>
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    </li>
-                );
-            })}
-        </ul>
+            <CommandSearch open={searchOpen} onClose={() => setSearchOpen(false)} onStartTour={startTour} />
+            <Tour open={tourOpen} steps={tourSteps} onStep={setTourStep} onClose={closeTour} />
+        </div>
     );
 }

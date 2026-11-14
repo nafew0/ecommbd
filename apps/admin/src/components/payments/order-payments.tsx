@@ -74,9 +74,9 @@ export function OrderPayments({ payments, onChanged }: { payments: OrderPayment[
             <CardHeader title={p.order.title} />
             <CardBody>
                 {shown.length === 0 ? (
-                    <p className="text-sm text-slate-600">{p.order.none}</p>
+                    <p className="text-sm text-ink-muted">{p.order.none}</p>
                 ) : (
-                    <ul className="divide-y divide-slate-100">
+                    <ul className="divide-y divide-line">
                         {shown.map(payment => {
                             const pending =
                                 payment.metadata?.verification === 'pending' &&
@@ -108,23 +108,20 @@ export function OrderPayments({ payments, onChanged }: { payments: OrderPayment[
                                             </span>
                                         )}
                                         {refunded > 0 && (
-                                            <span className="text-slate-600">
+                                            <span className="text-ink-muted">
                                                 {p.order.refunded(format.money(refunded))}
                                             </span>
                                         )}
                                     </div>
                                     {pending && can('VerifyPayment') && (
-                                        <Link
-                                            to="/orders/payments"
-                                            className="text-sm text-teal-800 underline"
-                                        >
+                                        <Link to="/orders/payments" className="text-sm text-accent underline">
                                             {p.order.checkInQueue}
                                         </Link>
                                     )}
                                     {due.map(refund => (
                                         <div
                                             key={refund.id}
-                                            className="flex flex-wrap items-center gap-2 rounded bg-amber-50 px-2 py-1 text-sm text-amber-950"
+                                            className="flex flex-wrap items-center gap-2 rounded bg-warn-soft px-2 py-1 text-sm text-warn"
                                         >
                                             <span>{p.order.refundDue(format.money(refund.total))}</span>
                                             {can('VerifyPayment') && (

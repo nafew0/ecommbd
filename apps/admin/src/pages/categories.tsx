@@ -145,7 +145,7 @@ export function CategoriesPage() {
             ) : (
                 <Card>
                     <CardBody className="p-0 sm:p-0">
-                        <ul className="divide-y divide-slate-100">
+                        <ul className="divide-y divide-line">
                             {ordered.map(category => (
                                 <li
                                     key={category.id}
@@ -158,11 +158,11 @@ export function CategoriesPage() {
                                             className="size-10 rounded object-cover"
                                         />
                                     ) : (
-                                        <div className="size-10 rounded bg-slate-100" />
+                                        <div className="size-10 rounded bg-surface-muted" />
                                     )}
                                     <div className="min-w-0 flex-1">
                                         <p className="font-medium">{nameOf(category)}</p>
-                                        <p className="text-sm text-slate-600">
+                                        <p className="text-sm text-ink-muted">
                                             {c.products(digits(category.productCount))}
                                             {category.freeDelivery && (
                                                 <Badge tone="green" className="ml-2">
@@ -217,7 +217,7 @@ export function CategoriesPage() {
                                                 aria-label={m.common.delete}
                                                 onClick={() => void remove(category)}
                                             >
-                                                <Trash2 className="size-4 text-red-700" aria-hidden />
+                                                <Trash2 className="size-4 text-danger" aria-hidden />
                                             </Button>
                                         </div>
                                     )}

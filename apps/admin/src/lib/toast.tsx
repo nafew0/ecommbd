@@ -56,20 +56,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                         className={cn(
                             'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg',
                             toast.kind === 'error'
-                                ? 'border-red-200 bg-red-50 text-red-900'
-                                : 'border-slate-200 bg-white text-slate-900',
+                                ? 'border-danger/30 bg-danger-soft text-danger'
+                                : 'border-line bg-surface text-ink',
                         )}
                     >
                         {toast.kind === 'error' ? (
-                            <CircleAlert className="mt-0.5 size-4 shrink-0 text-red-600" aria-hidden />
+                            <CircleAlert className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden />
                         ) : (
-                            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-teal-600" aria-hidden />
+                            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
                         )}
                         <p className="min-w-0 flex-1">{toast.message}</p>
                         <button
                             type="button"
                             onClick={() => dismiss(toast.id)}
-                            className="-m-1 rounded p-1 text-slate-500 hover:text-slate-900"
+                            className="-m-1 rounded p-1 text-ink-muted hover:text-ink"
                             aria-label={m.common.close}
                         >
                             <X className="size-4" aria-hidden />

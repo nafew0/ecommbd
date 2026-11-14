@@ -22,6 +22,7 @@ To build a phase, ask: **"Complete phase NN."**
 - [Phase map and status](#phase-map-and-status)
 - [Critical path to the pilot](#critical-path-to-the-pilot)
 - [Who builds what](#who-builds-what)
+- [Which AI model builds what](#which-ai-model-builds-what)
 - [Product standards (apply to every phase)](#product-standards-apply-to-every-phase)
 - [Spec coverage](#spec-coverage)
 - [Candidate features (not in the spec yet)](#candidate-features-not-in-the-spec-yet)
@@ -196,7 +197,7 @@ Status values: **Not started** · **In progress** · **Review** · **Done**.
 | [60](m11-page-builder.md#phase-60--system-pages-in-the-builder) | System pages in the builder | M11 | Header, footer, product, category, cart, checkout, thank-you layouts | 56, 13, 14 | XL | Not started |
 | [61](m11-page-builder.md#phase-61--element-library-to-70) | Element library to 70+ | M11 | Promotion, product, media and trust elements | 56, 57 | L | Not started |
 | [62](m11-page-builder.md#phase-62--publish-quality) | Publish quality | M11 | Pre-publish checklist, guided tour, saved styles | 57, 58 | M | Not started |
-| [63](m12-services-redesign.md#phase-63--admin-redesign) | Admin redesign | M12 | New layout, global search, notifications, dashboard, order screens | 02b, 04 | L | Not started |
+| [63](m12-services-redesign.md#phase-63--admin-redesign) | Admin redesign | M12 | 63a: new look, menu, essentials-first screens ([design guide](../design/admin-design-guide.md)). 63b: every other screen. 63c: global search, notifications, dashboard, order screens | 02b, 04 | L (63a, 63b, 63c) | **63a: Review** (built 2026-11-14, with Motion and a guided tour). 63b, 63c: not started |
 | [64](m12-services-redesign.md#phase-64--store-controls) | Store controls | M12 | Maintenance mode, noindex, VAT, prefixes, invoice logo | 12, 06, 17 | M | Not started |
 | [65](m12-services-redesign.md#phase-65--order-confirmation-services-i) | Order confirmation services I | M12 | Device order limit, address clean-up | 11, 21 | M | Not started |
 | [66](m12-services-redesign.md#phase-66--order-confirmation-services-ii-paid) | Order confirmation services II (paid) | M12 | AI voice calls in Bangla, call centre (ours or partner) | 04, 38, 39, 65 | L | Not started |
@@ -225,7 +226,7 @@ The [Boneek check](../research/competitor-boneek.md) and the [page builder check
 - **There is no add-on store or marketplace:** each feature is built in as a normal setting.
 
 **Suggested pulls ahead of the pilot**, if there's time:
-- **63 (admin redesign)**
+- **63a and 63b (admin redesign)**: decided 2026-11-14, 63a is built next, before any other new admin screen
 - **phase 37's courier score**
 - the content work of **59 (templates)**
 
@@ -252,6 +253,32 @@ From 2026-10-22 three developers work in parallel, each on their own branch, mer
 - **Test data for M5:** a WooCommerce test store (WordPress + WooCommerce in Docker with sample products, variations, customers and orders), and later a copy of the pilot merchant's store (see the lead-time items).
 - **Files every track touches:** the admin's `messages/en.ts` and `bn.ts`, `menu.ts` and `main.tsx`; `apps/core/src/plugins/index.ts`; `packages/shared/src/index.ts`; the store-defaults step list in `store-defaults.e2e-spec.ts`; `docs/decisions.md`, `CHANGELOG.md` and the status table. Add new entries at the end of each list.
 - **Migrations and test ports:** each developer generates their own migrations and never edits the others'; after merging `main`, run `npm run migrate:run`, then `npm run migrate:generate -- check` should report no changes. Each end-to-end test file uses its own port: check `const PORT` in `apps/core/test/e2e` before picking one.
+
+## Which AI model builds what
+
+Added 2026-11-14. Claude usage is limited, so some phases go to a second model (Grok in Cursor). It is weaker at designing screens, but can follow a pattern that already exists. So:
+
+- **Claude (Opus or Fable) builds anything that sets a pattern or designs a screen from nothing.**
+- **The second model builds server work, and screens that copy a reference screen.** Give it the phase text plus [section 10 of the admin design guide](../design/admin-design-guide.md#10-rules-for-any-session-adding-an-admin-screen).
+- **Claude reviews every phase the second model builds** (`/code-review`) before it merges to `main`. Look hardest at `@Allow` on every method, migrations, money maths and Bangla strings.
+
+| Phases | Who | Why |
+|---|---|---|
+| **63a** | Claude | Sets the design every later screen copies |
+| **63b** | Second model | One screen at a time, copying 63a's reference screens |
+| **63c** | Claude | New dashboard, search and order page design |
+| **51, 52, 53, 54** (back office) | Second model, after 63a | Mostly entities, services and list/form screens |
+| **55** (product depth) | Split: second model for units, brands, shipping classes, statuses, prefixes; Claude for the variation matrix editor and media library | The matrix editor is a new kind of screen |
+| **64, 65** (store controls, device limit, address clean-up) | Second model | Small settings and server rules. Claude builds the storefront maintenance page |
+| **35, 36, 37, 45, 46** (coupons, reviews, bulk edit, feeds, more couriers and gateways) | Second model | They follow phases 18–20's patterns. Storefront parts (reviews on the product page) go to Claude |
+| **41** (reports) | Split: second model for the queries and exports; Claude for the report screens and charts | |
+| **38, 39** (SMS gateway, billing) | Second model for the server, Claude for review | Money: review carefully |
+| **56–62** (page builder v2) | Claude | Design-heavy, and bound by the storefront speed budget. The second model can add elements in **61** once the first ten exist as examples |
+| **Any storefront work** (`apps/storefront`): 34, 44, 60 | Claude | The [storefront design standard](../../CLAUDE.md) is strict |
+| **30, 32, 42** (security, staff roles) | Claude | A mistake here is costly |
+| **33, 40** (onboarding, signup) | Claude | First impressions |
+| **23–29** (servers) | Claude, with a person at the keyboard | Real servers |
+| **66** (paid calls) | Decide when it starts | Depends on the provider chosen |
 
 ## Product standards (apply to every phase)
 

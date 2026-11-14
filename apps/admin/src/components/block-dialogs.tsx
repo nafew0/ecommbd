@@ -14,7 +14,11 @@ export const BLOCK = `
 export const UNBLOCK = `mutation Unblock($id: ID!, $reason: String!) { unblockBdContact(id: $id, reason: $reason) { id } }`;
 
 /** Asks why before unblocking; the reason stays with the record. Also used on the customer page. */
-export function UnblockDialog(props: { open: boolean; onClose(): void; onUnblock(reason: string): Promise<void> }) {
+export function UnblockDialog(props: {
+    open: boolean;
+    onClose(): void;
+    onUnblock(reason: string): Promise<void>;
+}) {
     const { messages: m } = useI18n();
     const t = m.blockList;
     const [reason, setReason] = useState('');

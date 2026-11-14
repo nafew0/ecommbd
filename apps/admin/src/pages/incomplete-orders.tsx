@@ -1,4 +1,9 @@
-import { DISMISS_REASONS, type DismissReason, INCOMPLETE_STATUSES, type IncompleteStatus } from '@ecommbd/shared/fraud';
+import {
+    DISMISS_REASONS,
+    type DismissReason,
+    INCOMPLETE_STATUSES,
+    type IncompleteStatus,
+} from '@ecommbd/shared/fraud';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MessageSquare, Phone, ShoppingCart } from 'lucide-react';
 import { useState } from 'react';
@@ -104,7 +109,7 @@ export function IncompleteOrdersPage() {
                     {row.phone && (
                         <a
                             href={`tel:${row.phone}`}
-                            className="inline-flex items-center gap-1 text-teal-800 tabular-nums"
+                            className="inline-flex items-center gap-1 text-accent tabular-nums"
                             aria-label={t.call(format.phone(row.phone))}
                         >
                             <Phone className="size-3.5" aria-hidden />
@@ -112,7 +117,7 @@ export function IncompleteOrdersPage() {
                         </a>
                     )}
                     {row.districtId && (
-                        <div className="text-sm text-slate-600">
+                        <div className="text-sm text-ink-muted">
                             <PlaceName districtId={row.districtId} thanaId={row.thanaId} />
                         </div>
                     )}
@@ -129,14 +134,14 @@ export function IncompleteOrdersPage() {
                         <div className="font-medium">{format.money(row.cartTotal)}</div>
                     </div>
                 ) : (
-                    <span className="text-sm text-slate-500">{t.noCart}</span>
+                    <span className="text-sm text-ink-muted">{t.noCart}</span>
                 ),
         },
         {
             key: 'when',
             header: t.columns.when,
             cell: row => (
-                <span className="text-sm text-slate-600" title={format.dateTime(row.updatedAt)}>
+                <span className="text-sm text-ink-muted" title={format.dateTime(row.updatedAt)}>
                     {ago(row.updatedAt)}
                 </span>
             ),
@@ -151,7 +156,7 @@ export function IncompleteOrdersPage() {
                         {can('CreateManualOrder') && (
                             <Link
                                 to={`/orders/phone?incomplete=${row.id}`}
-                                className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-medium text-white hover:bg-teal-800"
+                                className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-accent px-3 text-sm font-medium text-white hover:bg-accent"
                             >
                                 <ShoppingCart className="size-4" aria-hidden />
                                 {t.convert}
@@ -176,7 +181,10 @@ export function IncompleteOrdersPage() {
                         )}
                     </div>
                 ) : row.orderId && row.orderNumber ? (
-                    <Link to={`/orders/${row.orderId}`} className="text-teal-800 underline-offset-2 hover:underline">
+                    <Link
+                        to={`/orders/${row.orderId}`}
+                        className="text-accent underline-offset-2 hover:underline"
+                    >
                         {t.order(row.orderNumber)}
                     </Link>
                 ) : null,
@@ -187,7 +195,7 @@ export function IncompleteOrdersPage() {
         <>
             <PageHeader title={t.title} description={t.description} />
             {status === 'open' && (
-                <p className="mb-4 rounded-md bg-sky-50 px-4 py-3 text-sm text-sky-900">{t.callScript}</p>
+                <p className="mb-4 rounded-md bg-info-soft px-4 py-3 text-sm text-info">{t.callScript}</p>
             )}
             <ListPage
                 rows={query.data?.bdIncompleteCheckouts.items ?? []}
@@ -195,7 +203,11 @@ export function IncompleteOrdersPage() {
                 columns={columns}
                 loading={query.isPending}
                 tabs={{
-                    items: INCOMPLETE_STATUSES.map(key => ({ key, label: t.tabs[key], count: counts?.[key] })),
+                    items: INCOMPLETE_STATUSES.map(key => ({
+                        key,
+                        label: t.tabs[key],
+                        count: counts?.[key],
+                    })),
                     active: status,
                     onChange: key => {
                         setStatus(key as IncompleteStatus);
@@ -216,9 +228,11 @@ export function IncompleteOrdersPage() {
                     total: query.data?.bdIncompleteCheckouts.totalItems ?? 0,
                     onChange: setPage,
                 }}
-                empty={<EmptyState icon={<ShoppingCart aria-hidden />} title={t.emptyTitle} body={t.emptyBody} />}
+                empty={
+                    <EmptyState icon={<ShoppingCart aria-hidden />} title={t.emptyTitle} body={t.emptyBody} />
+                }
             />
-            <p className="mt-3 text-sm text-slate-500">{t.expiresNote}</p>
+            <p className="mt-3 text-sm text-ink-muted">{t.expiresNote}</p>
             <DismissDialog
                 row={dismissing}
                 onClose={() => setDismissing(null)}
@@ -237,7 +251,11 @@ export function IncompleteOrdersPage() {
     );
 }
 
-function DismissDialog(props: { row: IncompleteRow | null; onClose(): void; onDismiss(reason: DismissReason): Promise<void> }) {
+function DismissDialog(props: {
+    row: IncompleteRow | null;
+    onClose(): void;
+    onDismiss(reason: DismissReason): Promise<void>;
+}) {
     const { messages: m } = useI18n();
     const t = m.incomplete;
     const [reason, setReason] = useState<DismissReason>('wrongNumber');
@@ -268,7 +286,11 @@ function DismissDialog(props: { row: IncompleteRow | null; onClose(): void; onDi
         >
             <Field label={t.dismissReason}>
                 {control => (
-                    <Select {...control} value={reason} onChange={event => setReason(event.target.value as DismissReason)}>
+                    <Select
+                        {...control}
+                        value={reason}
+                        onChange={event => setReason(event.target.value as DismissReason)}
+                    >
                         {DISMISS_REASONS.map(key => (
                             <option key={key} value={key}>
                                 {t.dismissReasons[key]}

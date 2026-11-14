@@ -5,6 +5,30 @@
    weights (400, 600) keep the download small; `font-medium` uses the 400 file. */
 @theme {
     --font-sans: 'Hind Siliguri', ui-sans-serif, system-ui, sans-serif;
+
+    /* The admin's colours (docs/design/admin-design-guide.md, section 2). Screens use only these
+       names (bg-surface, text-ink-muted, border-line…), never Tailwind's raw palette. */
+    --color-page: #f4f4f3;
+    --color-surface: #ffffff;
+    --color-surface-muted: #f8f8f7;
+    --color-line: #e4e4e2;
+    --color-line-strong: #c9c9c5;
+    --color-ink: #1a1a19;
+    --color-ink-muted: #5c5c58;
+    --color-ink-faint: #9b9b96;
+    --color-primary: #1a1a19;
+    --color-primary-hover: #3a3a37;
+    --color-bar: #1a1a19;
+    --color-accent: #0f766e;
+    --color-accent-soft: #effaf8;
+    --color-ok: #17663a;
+    --color-ok-soft: #e6f4ea;
+    --color-warn: #8a5300;
+    --color-warn-soft: #fdf1d8;
+    --color-danger: #b42318;
+    --color-danger-soft: #fde8e6;
+    --color-info: #1d5fa8;
+    --color-info-soft: #e6f0fb;
 }
 
 html {
@@ -12,8 +36,8 @@ html {
 }
 
 body {
-    background-color: var(--color-slate-50);
-    color: var(--color-slate-900);
+    background-color: var(--color-page);
+    color: var(--color-ink);
     line-height: 1.6;
 }
 
@@ -25,5 +49,14 @@ dialog[open] {
 @keyframes fade-in {
     from {
         opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
     }
 }

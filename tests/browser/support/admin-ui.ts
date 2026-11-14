@@ -22,3 +22,9 @@ export async function signIn(page: Page, language: 'bn' | 'en', user = username,
         language === 'bn' ? 'স্বাগতম' : 'Welcome',
     );
 }
+
+/** Signs out through the account menu in the top bar. */
+export async function signOut(page: Page, language: 'bn' | 'en') {
+    await page.getByRole('button', { name: language === 'bn' ? 'আপনার অ্যাকাউন্ট' : 'Your account' }).click();
+    await page.getByRole('menuitem', { name: language === 'bn' ? 'সাইন আউট' : 'Sign out' }).click();
+}

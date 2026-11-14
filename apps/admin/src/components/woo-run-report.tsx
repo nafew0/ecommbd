@@ -38,7 +38,7 @@ export function CodeText({ code }: { code: string }) {
         <>
             <span className="block">{codeMessage(m, code)}</span>
             {isKnownCode(m, code) && (
-                <span className="block text-xs text-slate-500">{m.codeLabel(code)}</span>
+                <span className="block text-xs text-ink-muted">{m.codeLabel(code)}</span>
             )}
         </>
     );
@@ -48,11 +48,11 @@ export function CodeText({ code }: { code: string }) {
 export function TechnicalDetails({ data }: { data: unknown }) {
     const { messages } = useI18n();
     return (
-        <details className="rounded-md border border-slate-200 text-sm">
-            <summary className="cursor-pointer px-3 py-2 text-slate-600">
+        <details className="rounded-md border border-line text-sm">
+            <summary className="cursor-pointer px-3 py-2 text-ink-muted">
                 {messages.migration.report.technical}
             </summary>
-            <pre className="max-h-64 overflow-auto border-t border-slate-200 p-3 text-xs break-all whitespace-pre-wrap">
+            <pre className="max-h-64 overflow-auto border-t border-line p-3 text-xs break-all whitespace-pre-wrap">
                 {JSON.stringify(data, null, 2)}
             </pre>
         </details>
@@ -99,7 +99,7 @@ export function RunCounts({ counts }: { counts: Record<string, number> }) {
         <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
             {entries.map(([key, value]) => (
                 <div className="flex justify-between gap-3" key={key}>
-                    <dt className="text-slate-600">{kindLabel(m, key)}</dt>
+                    <dt className="text-ink-muted">{kindLabel(m, key)}</dt>
                     <dd className="tabular-nums">{messages.common.number(value)}</dd>
                 </div>
             ))}
@@ -122,7 +122,7 @@ export function RunError({ code }: { code: string }) {
 function Result({ matches }: { matches?: boolean }) {
     const { messages } = useI18n();
     const r = messages.migration.report;
-    if (matches === undefined) return <span className="text-slate-400">—</span>;
+    if (matches === undefined) return <span className="text-ink-faint">—</span>;
     return matches ? <Badge tone="green">{r.same}</Badge> : <Badge tone="red">{r.different}</Badge>;
 }
 
@@ -168,15 +168,15 @@ export function VerificationReport({ run }: { run: WooRun }) {
                 <dl className="grid gap-3 sm:grid-cols-2">
                     {v.estimatedRecords != null && (
                         <div>
-                            <dt className="text-sm text-slate-600">{r.recordsFound}</dt>
+                            <dt className="text-sm text-ink-muted">{r.recordsFound}</dt>
                             <dd className="font-medium">{n(v.estimatedRecords)}</dd>
                         </div>
                     )}
                     {duration && (
                         <div>
-                            <dt className="text-sm text-slate-600">{r.estimatedTime}</dt>
+                            <dt className="text-sm text-ink-muted">{r.estimatedTime}</dt>
                             <dd className="font-medium">{duration}</dd>
-                            <dd className="text-xs text-slate-500">{r.estimateHint}</dd>
+                            <dd className="text-xs text-ink-muted">{r.estimateHint}</dd>
                         </div>
                     )}
                 </dl>
@@ -187,7 +187,7 @@ export function VerificationReport({ run }: { run: WooRun }) {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
                         <caption className="pb-1 text-left font-medium">{r.counts}</caption>
-                        <thead className="bg-slate-50 text-slate-600">
+                        <thead className="bg-surface-muted text-ink-muted">
                             <tr>
                                 <th className={HEAD}>{r.kind}</th>
                                 <th className={`${HEAD} text-right`}>{r.oldStore}</th>
@@ -196,7 +196,7 @@ export function VerificationReport({ run }: { run: WooRun }) {
                                 <th className={HEAD}>{r.result}</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-line">
                             {counts.map(row => (
                                 <tr key={row.kind}>
                                     <Cell>{kindLabel(m, row.kind)}</Cell>
@@ -217,13 +217,13 @@ export function VerificationReport({ run }: { run: WooRun }) {
 
             {totals.length > 0 && (
                 // Folded by default: a store with years of orders has a row per month.
-                <details className="rounded-md border border-slate-200 text-sm">
+                <details className="rounded-md border border-line text-sm">
                     <summary className="cursor-pointer px-3 py-2">
                         {r.totals} · {r.totalsSummary(totals.length, differentMonths)}
                     </summary>
-                    <div className="overflow-x-auto border-t border-slate-200">
+                    <div className="overflow-x-auto border-t border-line">
                         <table className="w-full text-left">
-                            <thead className="bg-slate-50 text-slate-600">
+                            <thead className="bg-surface-muted text-ink-muted">
                                 <tr>
                                     <th className={HEAD}>{r.month}</th>
                                     <th className={`${HEAD} text-right`}>{r.oldStore}</th>
@@ -231,7 +231,7 @@ export function VerificationReport({ run }: { run: WooRun }) {
                                     {!dryRun && <th className={HEAD}>{r.result}</th>}
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-line">
                                 {totals.map(row => (
                                     <tr key={`${row.currency}:${row.month}`}>
                                         <Cell>{monthLabel(m, row.month, bangla)}</Cell>
@@ -265,7 +265,7 @@ export function VerificationReport({ run }: { run: WooRun }) {
                     <h4 className="font-medium">{r.samples}</h4>
                     <p>{r.samplesResult(samples.passed, samples.total)}</p>
                     {samples.failed.length > 0 && (
-                        <ul className="mt-1 list-disc space-y-0.5 pl-5 text-slate-700">
+                        <ul className="mt-1 list-disc space-y-0.5 pl-5 text-ink-muted">
                             {samples.failed.map(sample => (
                                 <li key={sample.order}>
                                     {/* "sourceKey" among the differences means the order wasn't saved here at all. */}
@@ -320,25 +320,25 @@ export function RunIssues({ issues }: { issues: WooIssue[] }) {
         <section className="space-y-2">
             <h3 className="font-medium">{m.issues}</h3>
             {issues.length === 0 ? (
-                <p className="text-sm text-slate-600">{m.noIssues}</p>
+                <p className="text-sm text-ink-muted">{m.noIssues}</p>
             ) : (
-                <ul className="divide-y divide-slate-100 text-sm">
+                <ul className="divide-y divide-line text-sm">
                     {groupIssues(issues).map(group => (
                         <li key={`${group.severity}:${group.code}`} className="space-y-1 py-3">
                             <p className="flex flex-wrap items-center gap-2">
                                 <Badge tone={group.severity === 'error' ? 'red' : 'amber'}>
                                     {group.severity === 'error' ? m.severities.error : m.severities.warning}
                                 </Badge>
-                                <span className="text-slate-600">{m.affected(group.issues.length)}</span>
+                                <span className="text-ink-muted">{m.affected(group.issues.length)}</span>
                             </p>
                             <p>{codeMessage(m, group.code)}</p>
                             {issueRecords(m, group.issues).map(line => (
-                                <p key={line} className="break-words text-slate-600">
+                                <p key={line} className="break-words text-ink-muted">
                                     {line}
                                 </p>
                             ))}
                             {isKnownCode(m, group.code) && (
-                                <p className="text-xs text-slate-500">{m.codeLabel(group.code)}</p>
+                                <p className="text-xs text-ink-muted">{m.codeLabel(group.code)}</p>
                             )}
                         </li>
                     ))}

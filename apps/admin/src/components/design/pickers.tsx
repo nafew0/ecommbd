@@ -21,7 +21,7 @@ export function ProductThumb({ product, size = 'size-10' }: { product?: ProductO
     return (
         <span
             className={cn(
-                'flex shrink-0 items-center justify-center overflow-hidden rounded bg-slate-100',
+                'flex shrink-0 items-center justify-center overflow-hidden rounded bg-surface-muted',
                 size,
             )}
         >
@@ -32,7 +32,7 @@ export function ProductThumb({ product, size = 'size-10' }: { product?: ProductO
                     className="size-full object-cover"
                 />
             ) : (
-                <ImageOff className="size-4 text-slate-400" aria-hidden />
+                <ImageOff className="size-4 text-ink-faint" aria-hidden />
             )}
         </span>
     );
@@ -99,7 +99,7 @@ export function ProductPickerDialog({
             footer={
                 !single && (
                     <>
-                        <span className="mr-auto self-center text-sm text-slate-600">
+                        <span className="mr-auto self-center text-sm text-ink-muted">
                             {d.blockCount(String(picked.length), String(max))}
                         </span>
                         <Button variant="secondary" onClick={onClose}>
@@ -119,7 +119,7 @@ export function ProductPickerDialog({
         >
             <div className="relative mb-3">
                 <Search
-                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400"
+                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint"
                     aria-hidden
                 />
                 <Input
@@ -131,9 +131,9 @@ export function ProductPickerDialog({
                     onChange={event => setSearch(event.target.value)}
                 />
             </div>
-            <ul className="max-h-[50vh] divide-y divide-slate-100 overflow-y-auto rounded-md border border-slate-200">
+            <ul className="max-h-[50vh] divide-y divide-line overflow-y-auto rounded-md border border-line">
                 {results.data?.length === 0 && (
-                    <li className="px-3 py-6 text-center text-sm text-slate-600">{d.noProductsFound}</li>
+                    <li className="px-3 py-6 text-center text-sm text-ink-muted">{d.noProductsFound}</li>
                 )}
                 {results.data?.map(product => {
                     const on = picked.includes(product.id);
@@ -144,18 +144,18 @@ export function ProductPickerDialog({
                                 onClick={() => toggle(product.id)}
                                 aria-pressed={single ? undefined : on}
                                 className={cn(
-                                    'flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-slate-50',
-                                    on && 'bg-teal-50 hover:bg-teal-50',
+                                    'flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-surface-muted',
+                                    on && 'bg-accent-soft hover:bg-accent-soft',
                                 )}
                             >
                                 <ProductThumb product={product} />
                                 <span className="min-w-0 flex-1">
                                     <span className="block truncate">{product.name}</span>
                                     {!product.enabled && (
-                                        <span className="text-xs text-amber-700">{d.hiddenProduct}</span>
+                                        <span className="text-xs text-warn">{d.hiddenProduct}</span>
                                     )}
                                 </span>
-                                {on && <Check className="size-5 text-teal-700" aria-hidden />}
+                                {on && <Check className="size-5 text-accent" aria-hidden />}
                             </button>
                         </li>
                     );
@@ -209,7 +209,7 @@ export function CollectionPickerDialog({
             footer={
                 !single && (
                     <>
-                        <span className="mr-auto self-center text-sm text-slate-600">
+                        <span className="mr-auto self-center text-sm text-ink-muted">
                             {d.blockCount(String(picked.length), String(max))}
                         </span>
                         <Button variant="secondary" onClick={onClose}>
@@ -235,9 +235,9 @@ export function CollectionPickerDialog({
                 onChange={event => setFilter(event.target.value)}
             />
             {collections.data && shown.length === 0 && (
-                <p className="py-6 text-center text-sm text-slate-600">{d.noCategories}</p>
+                <p className="py-6 text-center text-sm text-ink-muted">{d.noCategories}</p>
             )}
-            <ul className="max-h-[50vh] divide-y divide-slate-100 overflow-y-auto rounded-md border border-slate-200">
+            <ul className="max-h-[50vh] divide-y divide-line overflow-y-auto rounded-md border border-line">
                 {shown.map(collection => {
                     const on = picked.includes(collection.id);
                     const order = picked.indexOf(collection.id);
@@ -248,20 +248,20 @@ export function CollectionPickerDialog({
                                 onClick={() => toggle(collection.id)}
                                 aria-pressed={single ? undefined : on}
                                 className={cn(
-                                    'flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-slate-50',
-                                    on && 'bg-teal-50 hover:bg-teal-50',
+                                    'flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-surface-muted',
+                                    on && 'bg-accent-soft hover:bg-accent-soft',
                                 )}
                             >
                                 <span className="min-w-0 flex-1 truncate">
                                     {collection.path.slice(0, -1).map(part => (
-                                        <span key={part} className="text-slate-500">
+                                        <span key={part} className="text-ink-muted">
                                             {part} /{' '}
                                         </span>
                                     ))}
                                     {collection.name}
                                 </span>
                                 {on && !single && (
-                                    <span className="flex size-6 items-center justify-center rounded bg-teal-700 text-xs font-semibold text-white">
+                                    <span className="flex size-6 items-center justify-center rounded bg-accent text-xs font-semibold text-white">
                                         {order + 1}
                                     </span>
                                 )}

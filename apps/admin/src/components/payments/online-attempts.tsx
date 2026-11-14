@@ -114,14 +114,14 @@ export function OnlineAttempts({ orderId, onChanged }: { orderId: string; onChan
         <Card>
             <CardHeader title={o.attempts.title} />
             <CardBody>
-                <ul className="divide-y divide-slate-100">
+                <ul className="divide-y divide-line">
                     {attempts.map(attempt => (
                         <li key={attempt.id} className="space-y-1 py-2">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                                 <span className="font-medium">
                                     {o.gateways[attempt.gateway] ?? attempt.gateway}
                                     {attempt.mode === 'sandbox' && (
-                                        <span className="ml-2 text-sm font-normal text-slate-500">
+                                        <span className="ml-2 text-sm font-normal text-ink-muted">
                                             ({o.modes.sandbox})
                                         </span>
                                     )}
@@ -143,17 +143,17 @@ export function OnlineAttempts({ orderId, onChanged }: { orderId: string; onChan
                                     <span className="font-mono">{attempt.gatewayTransactionId}</span>
                                 )}
                                 {attempt.payerAccount && (
-                                    <span className="text-slate-600">
+                                    <span className="text-ink-muted">
                                         {o.attempts.payer(attempt.payerAccount)}
                                     </span>
                                 )}
                                 {attempt.failureCode && (
-                                    <span className="text-slate-600">
+                                    <span className="text-ink-muted">
                                         {o.attempts.failure(attempt.failureCode)}
                                     </span>
                                 )}
                                 {attempt.lastCheckedAt && (
-                                    <span className="text-slate-500">
+                                    <span className="text-ink-muted">
                                         {o.attempts.lastChecked(ago(attempt.lastCheckedAt))}
                                     </span>
                                 )}
@@ -183,14 +183,14 @@ export function OnlineAttempts({ orderId, onChanged }: { orderId: string; onChan
                                 {attempt.reviewState === 'open' && (
                                     <Link
                                         to="/orders/payment-reviews"
-                                        className="text-sm text-teal-800 underline"
+                                        className="text-sm text-accent underline"
                                     >
                                         {o.attempts.inReview}
                                     </Link>
                                 )}
                             </div>
                             {lookedUp[attempt.id] && (
-                                <p className="text-sm text-slate-700" role="status">
+                                <p className="text-sm text-ink-muted" role="status">
                                     {lookedUp[attempt.id]}
                                 </p>
                             )}

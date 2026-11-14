@@ -122,16 +122,16 @@ export function StockPage() {
                             className="size-10 rounded object-cover"
                         />
                     ) : (
-                        <div className="size-10 rounded bg-slate-100" />
+                        <div className="size-10 rounded bg-surface-muted" />
                     )}
                     <div className="min-w-0">
                         <Link
                             to={`/products/${row.productId}`}
-                            className="font-medium text-teal-800 hover:underline"
+                            className="font-medium text-accent hover:underline"
                         >
                             {row.name}
                         </Link>
-                        <p className="text-sm text-slate-600">{row.sku}</p>
+                        <p className="text-sm text-ink-muted">{row.sku}</p>
                     </div>
                 </div>
             ),
@@ -141,7 +141,7 @@ export function StockPage() {
             header: s.columns.available,
             cell: row => (
                 <span className="flex flex-wrap items-center gap-2">
-                    <span className={row.low ? 'font-semibold text-red-700' : 'font-medium'}>
+                    <span className={row.low ? 'font-semibold text-danger' : 'font-medium'}>
                         {digits(row.available)}
                     </span>
                     {row.low && <Badge tone="red">{s.low}</Badge>}
@@ -250,18 +250,14 @@ export function StockPage() {
                                 {history.data.map(item => (
                                     <li key={item.id} className="flex flex-wrap justify-between gap-2">
                                         <span>
-                                            <span
-                                                className={
-                                                    item.change > 0 ? 'text-green-700' : 'text-red-700'
-                                                }
-                                            >
+                                            <span className={item.change > 0 ? 'text-ok' : 'text-danger'}>
                                                 {item.change > 0 ? '+' : ''}
                                                 {digits(item.change)}
                                             </span>{' '}
                                             {s.reasons[item.reason] ?? item.reason}
                                             {item.note && ` · ${item.note}`}
                                         </span>
-                                        <span className="text-slate-500">
+                                        <span className="text-ink-muted">
                                             {item.staffName} · {format.dateTime(item.createdAt)}
                                         </span>
                                     </li>

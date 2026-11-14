@@ -1,9 +1,9 @@
 import { BD_ORDER_STATUSES, type BdOrderStatus } from '@ecommbd/shared/order-status';
 import { PRINT_DOCUMENTS, type PrintDocument } from '@ecommbd/shared/print-settings';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { Printer, ShoppingBag, Truck } from 'lucide-react';
+import { Plus, Printer, ShoppingBag, Truck } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { usePlaces } from '../components/address/district-thana-picker';
 import { BulkBookingProgress, type BulkRun, bulkStart } from '../components/couriers/bulk-booking';
 import { DistrictName } from '../components/address/place-name';
@@ -11,6 +11,7 @@ import { type Column, ListPage, type ListTab } from '../components/list-page';
 import { PaymentBadge, StatusBadge } from '../components/orders/status';
 import { Button } from '../components/ui/button';
 import { Input, Select } from '../components/ui/input';
+import { Page } from '../components/ui/layout';
 import { Alert, EmptyState, PageHeader } from '../components/ui/misc';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -76,6 +77,7 @@ export function OrdersPage() {
     const { messages: m } = useI18n();
     const format = useFormat();
     const [params, setParams] = useSearchParams();
+    const navigate = useNavigate();
     const { can } = useAuth();
     const status = (params.get('status') as BdOrderStatus | null) ?? 'all';
     const [search, setSearch] = useState('');
@@ -165,12 +167,12 @@ export function OrdersPage() {
             cell: row => (
                 <Link
                     to={`/orders/${row.id}`}
-                    className="font-semibold text-teal-800 underline-offset-2 hover:underline"
+                    className="font-semibold text-accent underline-offset-2 hover:underline"
                 >
                     {m.orders.number(row.customFields.orderNumber ?? row.code)}
                     {(row.bdPrint.invoicePrintedAt || row.bdPrint.stickerPrintedAt) && (
                         <Printer
-                            className="ml-1 inline size-3.5 text-slate-500"
+                            className="ml-1 inline size-3.5 text-ink-muted"
                             aria-label={m.print.printed}
                         />
                     )}
@@ -229,8 +231,19 @@ export function OrdersPage() {
     });
     const filtered = JSON.stringify(filters) !== JSON.stringify(NO_FILTERS);
     return (
-        <>
-            <PageHeader title={m.orders.title} description={m.orders.description} />
+        <Page width="full">
+            <PageHeader
+                title={m.orders.title}
+                description={m.orders.description}
+                actions={
+                    can('CreateManualOrder') && (
+                        <Button onClick={() => void navigate('/orders/phone')}>
+                            <Plus className="size-4" aria-hidden />
+                            {m.finder.createOrder}
+                        </Button>
+                    )
+                }
+            />
             {/* Orders imported from WooCommerce are history kept on their own page: say where. */}
             {!!wooOrders.data && (
                 <Alert>
@@ -270,106 +283,92 @@ export function OrdersPage() {
                     },
                     placeholder: m.orders.searchPlaceholder,
                 }}
-                filters={
-                    <div className="flex w-full flex-wrap items-end gap-2">
-                        <label className="text-sm">
-                            <span className="block text-slate-600">{m.orders.filters.from}</span>
-                            <Input
-                                type="date"
-                                value={filters.dateFrom}
-                                onChange={event => setFilter('dateFrom', event.target.value)}
-                                className="w-40"
-                            />
-                        </label>
-                        <label className="text-sm">
-                            <span className="block text-slate-600">{m.orders.filters.to}</span>
-                            <Input
-                                type="date"
-                                value={filters.dateTo}
-                                onChange={event => setFilter('dateTo', event.target.value)}
-                                className="w-40"
-                            />
-                        </label>
-                        <label className="text-sm">
-                            <span className="block text-slate-600">{m.orders.filters.district}</span>
-                            <Select
-                                value={filters.districtId}
-                                onChange={event => setFilter('districtId', event.target.value)}
-                                className="w-44"
-                            >
-                                <option value="">{m.orders.filters.anyDistrict}</option>
-                                {districts.data?.map(district => (
-                                    <option key={district.id} value={district.id}>
-                                        {district.name}
-                                    </option>
-                                ))}
-                            </Select>
-                        </label>
-                        <label className="text-sm">
-                            <span className="block text-slate-600">{m.orders.filters.payment}</span>
-                            <Select
-                                value={filters.paymentType}
-                                onChange={event => setFilter('paymentType', event.target.value)}
-                                className="w-44"
-                            >
-                                <option value="">{m.orders.filters.anyPayment}</option>
-                                {(['cod', 'advance', 'prepaid'] as const).map(type => (
-                                    <option key={type} value={type}>
-                                        {m.orders.paymentTypes[type]}
-                                    </option>
-                                ))}
-                            </Select>
-                        </label>
-                        <label className="text-sm">
-                            <span className="block text-slate-600">{m.orders.filters.campaign}</span>
-                            <Input
-                                value={filters.campaign}
-                                onChange={event => setFilter('campaign', event.target.value)}
-                                placeholder="utm_campaign"
-                                className="w-44"
-                            />
-                        </label>
-                        {(salesPages.data?.items.length ?? 0) > 0 && (
+                moreFilters={{
+                    active: Object.values(filters).filter(Boolean).length,
+                    content: (
+                        <div className="flex w-full flex-wrap items-end gap-2">
                             <label className="text-sm">
-                                <span className="block text-slate-600">{m.orders.filters.salesPage}</span>
+                                <span className="block text-ink-muted">{m.orders.filters.from}</span>
+                                <Input
+                                    type="date"
+                                    value={filters.dateFrom}
+                                    onChange={event => setFilter('dateFrom', event.target.value)}
+                                    className="w-40"
+                                />
+                            </label>
+                            <label className="text-sm">
+                                <span className="block text-ink-muted">{m.orders.filters.to}</span>
+                                <Input
+                                    type="date"
+                                    value={filters.dateTo}
+                                    onChange={event => setFilter('dateTo', event.target.value)}
+                                    className="w-40"
+                                />
+                            </label>
+                            <label className="text-sm">
+                                <span className="block text-ink-muted">{m.orders.filters.district}</span>
                                 <Select
-                                    value={filters.salesPageId}
-                                    onChange={event => setFilter('salesPageId', event.target.value)}
-                                    className="w-48"
+                                    value={filters.districtId}
+                                    onChange={event => setFilter('districtId', event.target.value)}
+                                    className="w-44"
                                 >
-                                    <option value="">{m.orders.filters.anySalesPage}</option>
-                                    {salesPages.data!.items.map(item => (
-                                        <option key={item.id} value={item.id}>
-                                            {item.title}
+                                    <option value="">{m.orders.filters.anyDistrict}</option>
+                                    {districts.data?.map(district => (
+                                        <option key={district.id} value={district.id}>
+                                            {district.name}
                                         </option>
                                     ))}
                                 </Select>
                             </label>
-                        )}
-                        <label className="text-sm">
-                            <span className="block text-slate-600">{m.list.perPage}</span>
-                            <Select
-                                value={String(pageSize)}
-                                onChange={event => {
-                                    setPageSize(Number(event.target.value));
-                                    setPage(1);
-                                }}
-                                className="w-24"
-                            >
-                                {PAGE_SIZES.map(size => (
-                                    <option key={size} value={size}>
-                                        {m.common.number(size)}
-                                    </option>
-                                ))}
-                            </Select>
-                        </label>
-                        {filtered && (
-                            <Button variant="ghost" size="sm" onClick={() => setFilters(NO_FILTERS)}>
-                                {m.orders.filters.clear}
-                            </Button>
-                        )}
-                    </div>
-                }
+                            <label className="text-sm">
+                                <span className="block text-ink-muted">{m.orders.filters.payment}</span>
+                                <Select
+                                    value={filters.paymentType}
+                                    onChange={event => setFilter('paymentType', event.target.value)}
+                                    className="w-44"
+                                >
+                                    <option value="">{m.orders.filters.anyPayment}</option>
+                                    {(['cod', 'advance', 'prepaid'] as const).map(type => (
+                                        <option key={type} value={type}>
+                                            {m.orders.paymentTypes[type]}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </label>
+                            <label className="text-sm">
+                                <span className="block text-ink-muted">{m.orders.filters.campaign}</span>
+                                <Input
+                                    value={filters.campaign}
+                                    onChange={event => setFilter('campaign', event.target.value)}
+                                    placeholder="utm_campaign"
+                                    className="w-44"
+                                />
+                            </label>
+                            {(salesPages.data?.items.length ?? 0) > 0 && (
+                                <label className="text-sm">
+                                    <span className="block text-ink-muted">{m.orders.filters.salesPage}</span>
+                                    <Select
+                                        value={filters.salesPageId}
+                                        onChange={event => setFilter('salesPageId', event.target.value)}
+                                        className="w-48"
+                                    >
+                                        <option value="">{m.orders.filters.anySalesPage}</option>
+                                        {salesPages.data!.items.map(item => (
+                                            <option key={item.id} value={item.id}>
+                                                {item.title}
+                                            </option>
+                                        ))}
+                                    </Select>
+                                </label>
+                            )}
+                            {filtered && (
+                                <Button variant="ghost" size="sm" onClick={() => setFilters(NO_FILTERS)}>
+                                    {m.orders.filters.clear}
+                                </Button>
+                            )}
+                        </div>
+                    ),
+                }}
                 selection={
                     can('PrintOrders') || can('BookCourier')
                         ? {
@@ -423,10 +422,15 @@ export function OrdersPage() {
                     pageSize,
                     total: query.data?.bdOrders.totalItems ?? 0,
                     onChange: setPage,
+                    sizes: PAGE_SIZES,
+                    onSizeChange: size => {
+                        setPageSize(size);
+                        setPage(1);
+                    },
                 }}
                 empty={
                     term || filtered || status !== 'all' ? (
-                        <p className="px-6 py-10 text-center text-slate-600">{m.list.noResults}</p>
+                        <p className="px-6 py-10 text-center text-ink-muted">{m.list.noResults}</p>
                     ) : (
                         <EmptyState
                             icon={<ShoppingBag className="size-6" aria-hidden />}
@@ -436,6 +440,6 @@ export function OrdersPage() {
                     )
                 }
             />
-        </>
+        </Page>
     );
 }

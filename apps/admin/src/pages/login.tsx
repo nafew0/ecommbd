@@ -38,13 +38,13 @@ export function LoginPage() {
     };
 
     return (
-        <div className="flex min-h-dvh flex-col items-center justify-center bg-slate-50 px-4 py-10">
+        <div className="flex min-h-dvh flex-col items-center justify-center bg-surface-muted px-4 py-10">
             <div className="mb-6 flex w-full max-w-sm justify-end">
                 <LanguageSwitch />
             </div>
-            <main className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+            <main className="w-full max-w-sm rounded-lg border border-line bg-surface p-6 shadow-sm">
                 <h1 className="text-xl font-semibold">{m.login.title}</h1>
-                <p className="mt-1 mb-6 text-slate-600">{m.login.subtitle}</p>
+                <p className="mt-1 mb-6 text-ink-muted">{m.login.subtitle}</p>
                 <form onSubmit={submit} className="space-y-4" noValidate>
                     <label className="block space-y-1.5">
                         <span className="font-medium">{m.login.username}</span>
@@ -74,7 +74,7 @@ export function LoginPage() {
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(value => !value)}
-                                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500"
+                                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-ink-muted"
                                 aria-label={showPassword ? m.login.hidePassword : m.login.showPassword}
                             >
                                 {showPassword ? (

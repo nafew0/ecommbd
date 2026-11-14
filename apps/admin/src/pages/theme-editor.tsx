@@ -55,7 +55,7 @@ export function ThemeEditorPage() {
     const { can } = useAuth();
     const theme = useQuery({ queryKey: ['themeSettings'], queryFn: fetchTheme, staleTime: 0 });
     if (!can('EditStorefront')) {
-        return <p className="p-10 text-center text-slate-700">{m.errors.forbidden}</p>;
+        return <p className="p-10 text-center text-ink-muted">{m.errors.forbidden}</p>;
     }
     if (theme.isPending || !theme.data) {
         return (
@@ -156,21 +156,21 @@ function ThemeEditor({ saved }: { saved: ThemeSettings }) {
     };
 
     return (
-        <div className="flex h-dvh flex-col bg-slate-100 text-slate-900">
-            <header className="flex h-14 shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-2 sm:px-3">
+        <div className="flex h-dvh flex-col bg-surface-muted text-ink">
+            <header className="flex h-14 shrink-0 items-center gap-2 border-b border-line bg-surface px-2 sm:px-3">
                 <Link
                     to="/"
-                    className="flex size-10 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    className="flex size-10 items-center justify-center rounded-md text-ink-muted hover:bg-surface-muted hover:text-ink"
                     aria-label={d.back}
                     title={d.back}
                 >
                     <ArrowLeft className="size-5" aria-hidden />
                 </Link>
                 <h1 className="font-semibold">{t.title}</h1>
-                {dirty && <span className="hidden text-xs text-amber-700 sm:inline">{t.unsaved}</span>}
+                {dirty && <span className="hidden text-xs text-warn sm:inline">{t.unsaved}</span>}
                 <div className="ml-auto flex items-center gap-1">
                     <div
-                        className="hidden rounded-md bg-slate-100 p-0.5 lg:flex"
+                        className="hidden rounded-md bg-surface-muted p-0.5 lg:flex"
                         role="radiogroup"
                         aria-label={d.previewSize}
                     >
@@ -191,8 +191,8 @@ function ThemeEditor({ saved }: { saved: ThemeSettings }) {
                                 className={cn(
                                     'flex size-8 items-center justify-center rounded',
                                     device === item.key
-                                        ? 'bg-white text-teal-800 shadow-sm'
-                                        : 'text-slate-500 hover:text-slate-900',
+                                        ? 'bg-surface text-accent shadow-sm'
+                                        : 'text-ink-muted hover:text-ink',
                                 )}
                             >
                                 <item.icon className="size-4" aria-hidden />
@@ -213,13 +213,11 @@ function ThemeEditor({ saved }: { saved: ThemeSettings }) {
             <div className="flex min-h-0 flex-1">
                 <aside
                     className={cn(
-                        'relative w-full min-w-0 overflow-y-auto border-r border-slate-200 bg-white lg:w-[380px] lg:shrink-0',
+                        'relative w-full min-w-0 overflow-y-auto border-r border-line bg-surface lg:w-[380px] lg:shrink-0',
                         mobileTab === 'preview' && 'max-lg:hidden',
                     )}
                 >
-                    <p className="border-b border-slate-100 px-4 py-3 text-sm text-slate-600">
-                        {t.description}
-                    </p>
+                    <p className="border-b border-line px-4 py-3 text-sm text-ink-muted">{t.description}</p>
 
                     <Group title={t.theme}>
                         <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={t.theme}>
@@ -233,18 +231,18 @@ function ThemeEditor({ saved }: { saved: ThemeSettings }) {
                                     className={cn(
                                         'overflow-hidden rounded-lg border text-left transition',
                                         settings.theme === name
-                                            ? 'border-teal-700 ring-2 ring-teal-700/20'
-                                            : 'border-slate-200 hover:border-slate-400',
+                                            ? 'border-accent ring-2 ring-accent/20'
+                                            : 'border-line hover:border-line-strong',
                                     )}
                                 >
                                     <ThemeSwatch name={name} />
                                     <span className="flex items-center justify-between gap-2 px-3 pt-2 font-medium">
                                         {pick(THEME_INFO[name].name, ui)}
                                         {settings.theme === name && (
-                                            <Check className="size-4 text-teal-700" aria-hidden />
+                                            <Check className="size-4 text-accent" aria-hidden />
                                         )}
                                     </span>
-                                    <span className="block px-3 pt-0.5 pb-3 text-xs leading-snug text-slate-600">
+                                    <span className="block px-3 pt-0.5 pb-3 text-xs leading-snug text-ink-muted">
                                         {pick(THEME_INFO[name].description, ui)}
                                     </span>
                                 </button>
@@ -257,7 +255,7 @@ function ThemeEditor({ saved }: { saved: ThemeSettings }) {
                         action={
                             <button
                                 type="button"
-                                className="inline-flex items-center gap-1 text-xs font-medium text-teal-800 hover:underline"
+                                className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
                                 onClick={() => {
                                     set({ colours: defaultThemeSettings(settings.theme).colours });
                                     setDrafts({});
@@ -292,7 +290,7 @@ function ThemeEditor({ saved }: { saved: ThemeSettings }) {
                                                 value={value}
                                                 aria-label={t.colourLabels[key]}
                                                 onChange={event => setColour(key, event.target.value)}
-                                                className="h-11 w-12 shrink-0 cursor-pointer rounded-md border border-slate-300 bg-white p-1"
+                                                className="h-11 w-12 shrink-0 cursor-pointer rounded-md border border-line-strong bg-surface p-1"
                                             />
                                             <Input
                                                 id={id}
@@ -308,7 +306,7 @@ function ThemeEditor({ saved }: { saved: ThemeSettings }) {
                                             />
                                         </div>
                                         {invalid ? (
-                                            <p className="mt-1 text-xs text-red-700">{t.invalidColour}</p>
+                                            <p className="mt-1 text-xs text-danger">{t.invalidColour}</p>
                                         ) : error && key === 'text' ? (
                                             <Note tone="error">{t.contrastLow(ratioText)}</Note>
                                         ) : warning ? (
@@ -336,12 +334,12 @@ function ThemeEditor({ saved }: { saved: ThemeSettings }) {
                                     className={cn(
                                         'flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-left',
                                         settings.font === font
-                                            ? 'border-teal-700 bg-teal-50/60'
-                                            : 'border-slate-200 hover:border-slate-400',
+                                            ? 'border-accent bg-accent-soft/60'
+                                            : 'border-line hover:border-line-strong',
                                     )}
                                 >
                                     <span className="min-w-0">
-                                        <span className="block text-xs text-slate-500">
+                                        <span className="block text-xs text-ink-muted">
                                             {pick(FONT_INFO[font].name, ui)}
                                         </span>
                                         <span
@@ -352,7 +350,7 @@ function ThemeEditor({ saved }: { saved: ThemeSettings }) {
                                         </span>
                                     </span>
                                     {settings.font === font && (
-                                        <Check className="size-4 shrink-0 text-teal-700" aria-hidden />
+                                        <Check className="size-4 shrink-0 text-accent" aria-hidden />
                                     )}
                                 </button>
                             ))}
@@ -419,7 +417,7 @@ function ThemeEditor({ saved }: { saved: ThemeSettings }) {
 
                     <Group title={t.logo}>
                         <div className="mb-3 flex items-center gap-3">
-                            <span className="flex h-14 w-28 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50 px-2">
+                            <span className="flex h-14 w-28 items-center justify-center overflow-hidden rounded-md border border-line bg-surface-muted px-2">
                                 {store.data?.logo ? (
                                     <img
                                         src={`${store.data.logo.preview}?preset=small`}
@@ -433,10 +431,10 @@ function ThemeEditor({ saved }: { saved: ThemeSettings }) {
                                 )}
                             </span>
                             <div className="min-w-0 text-sm">
-                                {!store.data?.logo && <p className="text-slate-600">{t.noLogo}</p>}
+                                {!store.data?.logo && <p className="text-ink-muted">{t.noLogo}</p>}
                                 <Link
                                     to="/settings/store"
-                                    className="font-medium text-teal-800 hover:underline"
+                                    className="font-medium text-accent hover:underline"
                                 >
                                     {t.changeLogo}
                                 </Link>
@@ -468,7 +466,7 @@ function ThemeEditor({ saved }: { saved: ThemeSettings }) {
                                             className="mb-1.5 flex items-center justify-between text-sm font-medium"
                                         >
                                             {t.announcementText}
-                                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+                                            <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[11px] font-medium text-ink-muted">
                                                 {code === 'bn' ? 'বাংলা' : 'English'}
                                             </span>
                                         </label>
@@ -509,7 +507,7 @@ function ThemeEditor({ saved }: { saved: ThemeSettings }) {
                 </main>
             </div>
 
-            <nav className="flex shrink-0 border-t border-slate-200 bg-white lg:hidden">
+            <nav className="flex shrink-0 border-t border-line bg-surface lg:hidden">
                 {(
                     [
                         { key: 'settings', label: t.title },
@@ -524,8 +522,8 @@ function ThemeEditor({ saved }: { saved: ThemeSettings }) {
                         className={cn(
                             'flex min-h-12 flex-1 items-center justify-center text-sm font-medium',
                             mobileTab === item.key
-                                ? 'text-teal-800 shadow-[inset_0_2px_0_0_#0f766e]'
-                                : 'text-slate-600',
+                                ? 'text-accent shadow-[inset_0_2px_0_0_#0f766e]'
+                                : 'text-ink-muted',
                         )}
                     >
                         {item.label}
@@ -538,7 +536,7 @@ function ThemeEditor({ saved }: { saved: ThemeSettings }) {
 
 function Group({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
     return (
-        <section className="border-b border-slate-100 px-4 py-5">
+        <section className="border-b border-line px-4 py-5">
             <div className="mb-3 flex items-center justify-between gap-2">
                 <h2 className="text-sm font-semibold">{title}</h2>
                 {action}
@@ -554,10 +552,10 @@ function Note({ tone, children }: { tone: 'ok' | 'warning' | 'error'; children: 
         <p
             className={cn(
                 'mt-1.5 flex items-start gap-1.5 text-xs',
-                tone === 'ok' ? 'text-slate-600' : tone === 'warning' ? 'text-amber-700' : 'text-red-700',
+                tone === 'ok' ? 'text-ink-muted' : tone === 'warning' ? 'text-warn' : 'text-danger',
             )}
         >
-            <Icon className={cn('mt-px size-3.5 shrink-0', tone === 'ok' && 'text-teal-700')} aria-hidden />
+            <Icon className={cn('mt-px size-3.5 shrink-0', tone === 'ok' && 'text-accent')} aria-hidden />
             {children}
         </p>
     );
@@ -584,11 +582,11 @@ function OptionCards<T extends string>({
                     className={cn(
                         'rounded-lg border p-2 text-left transition',
                         value === option.value
-                            ? 'border-teal-700 ring-2 ring-teal-700/20'
-                            : 'border-slate-200 hover:border-slate-400',
+                            ? 'border-accent ring-2 ring-accent/20'
+                            : 'border-line hover:border-line-strong',
                     )}
                 >
-                    <span className="block overflow-hidden rounded border border-slate-100 bg-white">
+                    <span className="block overflow-hidden rounded border border-line bg-surface">
                         {option.drawing}
                     </span>
                     <span className="mt-2 block text-sm font-medium">{option.label}</span>
@@ -603,7 +601,7 @@ function ThemeSwatch({ name }: { name: ThemeName }) {
     const { colours, cards } = defaultThemeSettings(name);
     const bazaar = name === 'bazaar';
     return (
-        <svg viewBox="0 0 160 96" className="block w-full border-b border-slate-100" aria-hidden>
+        <svg viewBox="0 0 160 96" className="block w-full border-b border-line" aria-hidden>
             <rect width={160} height={96} fill={colours.background} />
             <rect width={160} height={16} fill={bazaar ? colours.accent : colours.background} />
             <rect

@@ -177,7 +177,7 @@ export function ContentMenusPage() {
     };
 
     const row = (item: Child, path: string, onChange: (item: Child) => void, tools: React.ReactNode) => (
-        <div className="space-y-3 rounded-md border border-slate-200 p-3">
+        <div className="space-y-3 rounded-md border border-line p-3">
             <div className="grid gap-3 sm:grid-cols-2">
                 <Field label={c.labelBn} error={errors[`${path}.label`]}>
                     {control => (
@@ -317,7 +317,7 @@ export function ContentMenusPage() {
                                 </>,
                             )}
                             {item.children.length > 0 && (
-                                <div className="space-y-2 border-l-2 border-slate-200 pl-4 sm:ml-6">
+                                <div className="space-y-2 border-l-2 border-line pl-4 sm:ml-6">
                                     {item.children.map((child, childIndex) => {
                                         const setChildren = (children: Child[]) =>
                                             update(

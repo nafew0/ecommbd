@@ -8,7 +8,12 @@ import { DhakaDateTimeInput, PhoneInput, TakaInput } from '../components/form/in
 import { type Column, ListPage } from '../components/list-page';
 import { Button } from '../components/ui/button';
 import { Dialog } from '../components/ui/dialog';
-import { Card, CardBody, CardHeader, EmptyState, PageHeader } from '../components/ui/misc';
+import { ActionMenu } from '../components/ui/action-menu';
+import { CollapsibleCard, MoreFields } from '../components/ui/disclosure';
+import { Badge, Card, CardBody, CardHeader, EmptyState, PageHeader } from '../components/ui/misc';
+import { SaveBar } from '../components/ui/save-bar';
+import { CopyButton, KeyValue, StatTile } from '../components/ui/stat';
+import { Tabs } from '../components/ui/tabs';
 import { adminApi } from '../lib/api';
 import { useConfirm } from '../lib/confirm';
 import { useI18n } from '../lib/i18n';
@@ -39,6 +44,8 @@ export function UiKitPage() {
     const toast = useToast();
     const confirm = useConfirm();
     const u = m.uiKit;
+    const [tab, setTab] = useState('basic');
+    const [dirty, setDirty] = useState(false);
 
     // List page, using the district list as sample data.
     const districts = useQuery({
@@ -71,7 +78,7 @@ export function UiKitPage() {
         {
             key: 'id',
             header: 'ID',
-            cell: row => <code className="text-xs text-slate-500">{row.id}</code>,
+            cell: row => <code className="text-xs text-ink-muted">{row.id}</code>,
             hideOnMobile: true,
         },
     ];
@@ -229,12 +236,122 @@ export function UiKitPage() {
                 </Card>
 
                 <Card>
+                    <CardHeader title={u.tabsTitle} description={u.tabsHint} />
+                    <CardBody>
+                        <Tabs
+                            label={u.tabsTitle}
+                            active={tab}
+                            onChange={setTab}
+                            items={[
+                                { key: 'basic', label: u.tabBasic },
+                                { key: 'waiting', label: u.tabWaiting, count: 3 },
+                                { key: 'advanced', label: u.tabAdvanced },
+                            ]}
+                        />
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Badge>{u.tabBasic}</Badge>
+                            <Badge tone="amber">{u.tabWaiting}</Badge>
+                            <Badge tone="green">{m.common.on}</Badge>
+                            <Badge tone="red">{m.common.off}</Badge>
+                            <Badge tone="sky">{u.tabAdvanced}</Badge>
+                        </div>
+                    </CardBody>
+                </Card>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                    <Card>
+                        <CardHeader title={u.moreTitle} description={u.moreHint} />
+                        <CardBody>
+                            <Field label={u.price}>
+                                {control => <TakaInput {...control} value={price} onChange={setPrice} />}
+                            </Field>
+                            <MoreFields summary={u.startsAt}>
+                                <Field label={u.startsAt} hint={m.inputs.dhakaTimeHint}>
+                                    {control => (
+                                        <DhakaDateTimeInput
+                                            {...control}
+                                            value={startsAt}
+                                            onChange={setStartsAt}
+                                        />
+                                    )}
+                                </Field>
+                            </MoreFields>
+                        </CardBody>
+                    </Card>
+                    <div className="space-y-4">
+                        <CollapsibleCard title={u.collapsedTitle} summary={m.common.off}>
+                            <p className="text-sm text-ink-muted">{u.collapsedBody}</p>
+                        </CollapsibleCard>
+                        <Card>
+                            <CardHeader
+                                title={u.actionsTitle}
+                                actions={
+                                    <ActionMenu
+                                        size="sm"
+                                        items={[
+                                            {
+                                                label: u.showToast,
+                                                onSelect: () => toast.success(u.toastMessage),
+                                            },
+                                            {
+                                                label: m.common.delete,
+                                                tone: 'danger',
+                                                onSelect: () => toast.error(u.cancelled),
+                                            },
+                                        ]}
+                                    />
+                                }
+                            />
+                            <CardBody>
+                                <KeyValue
+                                    rows={[
+                                        {
+                                            label: m.settings.fields.phones,
+                                            value: (
+                                                <span className="inline-flex items-center gap-1 tabular-nums">
+                                                    +8801700000000
+                                                    <CopyButton
+                                                        value="+8801700000000"
+                                                        label={m.settings.fields.phones}
+                                                    />
+                                                </span>
+                                            ),
+                                        },
+                                        { label: u.price, value: price ?? '—' },
+                                    ]}
+                                />
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => setDirty(value => !value)}
+                                >
+                                    {u.saveBarToggle}
+                                </Button>
+                            </CardBody>
+                        </Card>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    <StatTile label={u.tabBasic} value={m.common.number(12)} />
+                    <StatTile
+                        label={u.tabWaiting}
+                        value={m.common.number(3)}
+                        to="/orders/confirm"
+                        tone="attention"
+                    />
+                    <StatTile label={u.tabAdvanced} value={null} loading />
+                </div>
+
+                <Card>
                     <CardHeader title={u.addressTitle} />
                     <CardBody>
                         <AddressForm value={address} onChange={setAddress} />
                     </CardBody>
                 </Card>
             </div>
+
+            <SaveBar dirty={dirty} onSave={() => setDirty(false)} onDiscard={() => setDirty(false)} />
 
             <Dialog
                 open={dialogOpen}

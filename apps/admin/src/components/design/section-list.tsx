@@ -114,8 +114,8 @@ export function SectionList(props: SectionListProps) {
     return (
         <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex items-center justify-between px-4 pt-4 pb-2">
-                <h2 className="text-sm font-semibold tracking-wide text-slate-900">{d.sections}</h2>
-                <span className="text-xs text-slate-500">
+                <h2 className="text-sm font-semibold tracking-wide text-ink">{d.sections}</h2>
+                <span className="text-xs text-ink-muted">
                     {d.sectionCount(digits(document.sections.length), digits(LAYOUT_LIMITS.sections))}
                 </span>
             </div>
@@ -133,9 +133,9 @@ export function SectionList(props: SectionListProps) {
                             className={cn(
                                 'group relative flex items-center gap-1 rounded-md border pr-1',
                                 !dragging && drag && 'transition-transform duration-150',
-                                dragging ? 'z-10 border-teal-600 bg-white shadow-lg' : 'border-transparent',
-                                isSelected && !dragging && 'border-teal-600 bg-teal-50',
-                                !isSelected && !dragging && 'hover:bg-slate-100',
+                                dragging ? 'z-10 border-accent bg-surface shadow-lg' : 'border-transparent',
+                                isSelected && !dragging && 'border-accent bg-accent-soft',
+                                !isSelected && !dragging && 'hover:bg-surface-muted',
                             )}
                         >
                             <button
@@ -148,7 +148,7 @@ export function SectionList(props: SectionListProps) {
                                 onPointerUp={endDrag}
                                 onPointerCancel={() => setDrag(null)}
                                 onKeyDown={event => keyMove(event, index)}
-                                className="flex h-11 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded text-slate-400 hover:text-slate-700 active:cursor-grabbing"
+                                className="flex h-11 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded text-ink-faint hover:text-ink-muted active:cursor-grabbing"
                             >
                                 <GripVertical className="size-4" aria-hidden />
                             </button>
@@ -161,26 +161,25 @@ export function SectionList(props: SectionListProps) {
                                 <span
                                     className={cn(
                                         'flex size-8 shrink-0 items-center justify-center rounded-md',
-                                        isSelected ? 'bg-teal-700 text-white' : 'bg-slate-100 text-slate-600',
+                                        isSelected
+                                            ? 'bg-accent text-white'
+                                            : 'bg-surface-muted text-ink-muted',
                                         section.hidden && 'opacity-50',
                                     )}
                                 >
                                     <SectionIcon type={section.type} className="size-4" />
                                 </span>
-                                <span className={cn('min-w-0 flex-1', section.hidden && 'text-slate-400')}>
+                                <span className={cn('min-w-0 flex-1', section.hidden && 'text-ink-faint')}>
                                     <span className="block truncate text-sm font-medium">{label.name}</span>
                                     {(label.detail || section.hidden) && (
-                                        <span className="block truncate text-xs text-slate-500">
+                                        <span className="block truncate text-xs text-ink-muted">
                                             {section.hidden ? d.hidden : label.detail}
                                         </span>
                                     )}
                                 </span>
                                 {sectionWarnings.length > 0 && (
                                     <CircleAlert
-                                        className={cn(
-                                            'size-4 shrink-0',
-                                            error ? 'text-red-600' : 'text-amber-500',
-                                        )}
+                                        className={cn('size-4 shrink-0', error ? 'text-danger' : 'text-warn')}
                                         aria-label={sectionWarnings
                                             .map(item => d.issues[item.code] ?? item.code)
                                             .join(' ')}
@@ -193,7 +192,7 @@ export function SectionList(props: SectionListProps) {
                                 aria-label={`${section.hidden ? d.show : d.hide}: ${label.name}`}
                                 title={section.hidden ? d.show : d.hide}
                                 className={cn(
-                                    'flex size-8 shrink-0 items-center justify-center rounded text-slate-500 hover:bg-white hover:text-slate-900',
+                                    'flex size-8 shrink-0 items-center justify-center rounded text-ink-muted hover:bg-surface hover:text-ink',
                                     !section.hidden &&
                                         'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 max-lg:opacity-100',
                                 )}
@@ -249,18 +248,18 @@ export function SectionList(props: SectionListProps) {
                     );
                 })}
             </ul>
-            <div className="border-t border-slate-200 p-3">
+            <div className="border-t border-line p-3">
                 <button
                     type="button"
                     onClick={onAdd}
                     disabled={full}
-                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-dashed border-teal-600/60 text-sm font-medium text-teal-800 transition-colors hover:border-teal-700 hover:bg-teal-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
+                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-dashed border-accent/60 text-sm font-medium text-accent transition-colors hover:border-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:border-line-strong disabled:text-ink-faint"
                 >
                     <Plus className="size-4" aria-hidden />
                     {d.addSection}
                 </button>
                 {full && (
-                    <p className="mt-2 text-center text-xs text-slate-500">
+                    <p className="mt-2 text-center text-xs text-ink-muted">
                         {d.tooMany(digits(LAYOUT_LIMITS.sections))}
                     </p>
                 )}
@@ -323,7 +322,7 @@ export function RowMenu({ label, items }: { label: string; items: MenuItem[] }) 
                 aria-haspopup="menu"
                 aria-expanded={open}
                 onClick={event => toggle(event.currentTarget)}
-                className="flex size-8 shrink-0 items-center justify-center rounded text-slate-500 hover:bg-white hover:text-slate-900"
+                className="flex size-8 shrink-0 items-center justify-center rounded text-ink-muted hover:bg-surface hover:text-ink"
             >
                 <Ellipsis className="size-4" aria-hidden />
             </button>
@@ -331,7 +330,7 @@ export function RowMenu({ label, items }: { label: string; items: MenuItem[] }) 
                 <div
                     role="menu"
                     style={position}
-                    className="fixed z-50 min-w-48 rounded-md border border-slate-200 bg-white py-1 shadow-lg"
+                    className="fixed z-50 min-w-48 rounded-md border border-line bg-surface py-1 shadow-lg"
                 >
                     {items.map(item => (
                         <button
@@ -344,8 +343,8 @@ export function RowMenu({ label, items }: { label: string; items: MenuItem[] }) 
                                 item.run();
                             }}
                             className={cn(
-                                'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent',
-                                item.danger ? 'text-red-700' : 'text-slate-800',
+                                'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-surface-muted disabled:cursor-not-allowed disabled:text-ink-faint disabled:hover:bg-transparent',
+                                item.danger ? 'text-danger' : 'text-ink',
                             )}
                         >
                             <item.icon className="size-4" aria-hidden />

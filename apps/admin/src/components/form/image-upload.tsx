@@ -121,7 +121,7 @@ export function ImageUpload({
     return (
         <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-3">
-                <div className="flex size-20 items-center justify-center overflow-hidden rounded-md border border-dashed border-slate-300 bg-slate-50">
+                <div className="flex size-20 items-center justify-center overflow-hidden rounded-md border border-dashed border-line-strong bg-surface-muted">
                     {value ? (
                         <img
                             src={`${value.preview}?preset=thumb`}
@@ -129,7 +129,7 @@ export function ImageUpload({
                             className="size-full object-contain"
                         />
                     ) : (
-                        <ImagePlus className="size-6 text-slate-400" aria-hidden />
+                        <ImagePlus className="size-6 text-ink-faint" aria-hidden />
                     )}
                 </div>
                 <input
@@ -165,13 +165,13 @@ export function ImageUpload({
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-valuenow={percent}
-                    className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-slate-200"
+                    className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-line"
                 >
-                    <div className="h-full bg-teal-700 transition-[width]" style={{ width: `${percent}%` }} />
+                    <div className="h-full bg-accent transition-[width]" style={{ width: `${percent}%` }} />
                 </div>
             )}
             {message && (
-                <p role="alert" className="text-sm text-red-700">
+                <p role="alert" className="text-sm text-danger">
                     {message}
                 </p>
             )}

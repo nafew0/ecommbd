@@ -31,7 +31,8 @@ export function FraudSettingsPage() {
     const canEdit = can('UpdateStoreSettings');
     const query = useQuery({
         queryKey: ['fraudSettings'],
-        queryFn: () => adminApi<{ bdFraudSettings: FraudSettings }>('{ bdFraudSettings }').then(r => r.bdFraudSettings),
+        queryFn: () =>
+            adminApi<{ bdFraudSettings: FraudSettings }>('{ bdFraudSettings }').then(r => r.bdFraudSettings),
     });
     const [draft, setDraft] = useState<FraudSettings | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -61,7 +62,8 @@ export function FraudSettingsPage() {
     if (!draft) return <PageSkeleton />;
     const velocity = (patch: Partial<FraudSettings['velocity']>) =>
         setDraft({ ...draft, velocity: { ...draft.velocity, ...patch } });
-    const otp = (patch: Partial<FraudSettings['otp']>) => setDraft({ ...draft, otp: { ...draft.otp, ...patch } });
+    const otp = (patch: Partial<FraudSettings['otp']>) =>
+        setDraft({ ...draft, otp: { ...draft.otp, ...patch } });
     const number = (text: string) => Number(banglaToAsciiDigits(text.trim()) || 0);
 
     return (
@@ -190,7 +192,10 @@ export function FraudSettingsPage() {
                                     value={digits(draft.risk.riskyScore)}
                                     disabled={!canEdit}
                                     onChange={event =>
-                                        setDraft({ ...draft, risk: { riskyScore: number(event.target.value) } })
+                                        setDraft({
+                                            ...draft,
+                                            risk: { riskyScore: number(event.target.value) },
+                                        })
                                     }
                                 />
                             )}

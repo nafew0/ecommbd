@@ -68,11 +68,11 @@ export function RichTextEditor({ value, onChange, disabled, lang, label, ...cont
     ];
 
     return (
-        <div className="overflow-hidden rounded-md border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-teal-600">
+        <div className="overflow-hidden rounded-md border border-line-strong bg-surface focus-within:ring-2 focus-within:ring-accent">
             <div
                 role="toolbar"
                 aria-label={e.toolbar}
-                className="flex flex-wrap gap-1 border-b border-slate-200 bg-slate-50 p-1"
+                className="flex flex-wrap gap-1 border-b border-line bg-surface-muted p-1"
             >
                 {tools.map(tool => (
                     <button
@@ -84,7 +84,7 @@ export function RichTextEditor({ value, onChange, disabled, lang, label, ...cont
                         // Keep the selection in the text while clicking.
                         onMouseDown={event => event.preventDefault()}
                         onClick={tool.action}
-                        className="rounded p-2 text-slate-700 hover:bg-slate-200 disabled:opacity-50"
+                        className="rounded p-2 text-ink-muted hover:bg-line disabled:opacity-50"
                     >
                         <tool.icon className="size-4" aria-hidden />
                     </button>
@@ -100,7 +100,7 @@ export function RichTextEditor({ value, onChange, disabled, lang, label, ...cont
                 contentEditable={!disabled}
                 suppressContentEditableWarning
                 onInput={() => onChange(box.current?.innerHTML ?? '')}
-                className="min-h-48 px-3 py-2 outline-none [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_a]:text-teal-700 [&_a]:underline"
+                className="min-h-48 px-3 py-2 outline-none [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_a]:text-accent [&_a]:underline"
             />
         </div>
     );

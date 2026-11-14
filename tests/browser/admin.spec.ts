@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
+import { signOut } from './support/admin-ui';
 
 /**
  * The merchant admin at /admin (roadmap phase 02b): sign-in in Bangla and English, the phone
@@ -42,7 +43,7 @@ test.describe('merchant admin', () => {
         const errors = watchForErrors(page);
         await signIn(page, 'en');
         await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-        await page.getByRole('button', { name: 'Sign out' }).click();
+        await signOut(page, 'en');
         await expect(page).toHaveURL(/\/admin\/login/);
         await expect(page.getByRole('heading', { name: 'Sign in to your store' })).toBeVisible();
         expect(errors).toEqual([]);
@@ -52,7 +53,7 @@ test.describe('merchant admin', () => {
         const errors = watchForErrors(page);
         await signIn(page, 'bn');
         await expect(page.locator('html')).toHaveAttribute('lang', 'bn');
-        await page.getByRole('button', { name: 'সাইন আউট' }).click();
+        await signOut(page, 'bn');
         await expect(page.getByRole('heading', { name: 'আপনার স্টোরে সাইন ইন করুন' })).toBeVisible();
         expect(errors).toEqual([]);
     });
@@ -91,7 +92,8 @@ test.describe('merchant admin', () => {
         await openMenuIfPhone(page, true, 'bn');
         const drawer = page.getByRole('dialog', { name: 'স্টোর অ্যাডমিন' });
         await expect(drawer).toBeVisible();
-        await drawer.getByRole('link', { name: 'স্টোর' }).click();
+        // Settings opens as its own area, on its first screen: store details.
+        await drawer.getByRole('link', { name: 'সেটিংস', exact: true }).click();
         await expect(page).toHaveURL(/\/admin\/settings\/store/);
         await expect(drawer).toBeHidden();
         await expect(page.getByRole('heading', { name: 'স্টোর সেটিংস' })).toBeVisible();
@@ -105,7 +107,7 @@ test.describe('merchant admin', () => {
         const isPhone = testInfo.project.name === 'phone';
         await signIn(page, 'bn');
         await openMenuIfPhone(page, isPhone, 'bn');
-        await page.getByRole('link', { name: 'স্টোর', exact: true }).click();
+        await page.getByRole('link', { name: 'সেটিংস', exact: true }).click();
         await expect(page.getByRole('heading', { name: 'স্টোর সেটিংস' })).toBeVisible();
 
         const name = `রহিম ফ্যাশন ${Date.now() % 100000}`;

@@ -123,15 +123,12 @@ export function ProductsPage() {
                             className="size-12 shrink-0 rounded object-cover"
                         />
                     ) : (
-                        <div className="flex size-12 shrink-0 items-center justify-center rounded bg-slate-100 text-slate-400">
+                        <div className="flex size-12 shrink-0 items-center justify-center rounded bg-surface-muted text-ink-faint">
                             <Package className="size-5" aria-hidden />
                         </div>
                     )}
                     <div className="min-w-0">
-                        <Link
-                            to={`/products/${row.id}`}
-                            className="font-medium text-teal-800 hover:underline"
-                        >
+                        <Link to={`/products/${row.id}`} className="font-medium text-accent hover:underline">
                             {row.name}
                         </Link>
                         <div className="mt-1 flex flex-wrap gap-1">
@@ -157,7 +154,7 @@ export function ProductsPage() {
                 <span className="tabular-nums">
                     {format.money(row.price)}
                     {row.oldPrice && (
-                        <span className="ml-1 text-sm text-slate-500 line-through">
+                        <span className="ml-1 text-sm text-ink-muted line-through">
                             {format.money(row.oldPrice)}
                         </span>
                     )}
@@ -168,10 +165,10 @@ export function ProductsPage() {
             key: 'stock',
             header: p.columns.stock,
             cell: row => (
-                <span className={row.stock <= 5 ? 'font-medium text-red-700' : undefined}>
+                <span className={row.stock <= 5 ? 'font-medium text-danger' : undefined}>
                     {digits(row.stock)}
                     {row.variantCount > 1 && (
-                        <span className="text-sm text-slate-500"> · {p.variants(row.variantCount)}</span>
+                        <span className="text-sm text-ink-muted"> · {p.variants(row.variantCount)}</span>
                     )}
                 </span>
             ),
@@ -206,7 +203,7 @@ export function ProductsPage() {
                             aria-label={m.common.delete}
                             onClick={() => void remove(row)}
                         >
-                            <Trash2 className="size-4 text-red-700" aria-hidden />
+                            <Trash2 className="size-4 text-danger" aria-hidden />
                         </Button>
                     )}
                 </div>

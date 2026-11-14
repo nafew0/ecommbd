@@ -207,7 +207,7 @@ export function PrintSettingsPage() {
                             disabled={!canEdit}
                             onChange={value => setDraft({ ...draft, banglaDigits: value })}
                         />
-                        <p className="text-sm text-slate-600">{s.footerHint}</p>
+                        <p className="text-sm text-ink-muted">{s.footerHint}</p>
                         <div className="grid gap-4 sm:grid-cols-2">
                             {(['bn', 'en'] as const).map(language => (
                                 <Field

@@ -181,7 +181,7 @@ export function OnlinePaymentSettingsPage() {
                                 )}
                                 {settings.enabled && paused && <Alert tone="error">{o.paused}</Alert>}
                                 {gateway === 'sslcommerz' && setup.ipnUrl && (
-                                    <p className="text-sm text-slate-600">
+                                    <p className="text-sm text-ink-muted">
                                         {o.ipnUrl}:{' '}
                                         <span className="font-mono break-all">{setup.ipnUrl}</span>
                                     </p>
@@ -212,7 +212,7 @@ export function OnlinePaymentSettingsPage() {
                                             }
                                         />
                                     </div>
-                                    <span className="text-sm text-slate-600">{o.minutes}</span>
+                                    <span className="text-sm text-ink-muted">{o.minutes}</span>
                                 </div>
                             )}
                         </Field>

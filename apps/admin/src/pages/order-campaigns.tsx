@@ -61,12 +61,12 @@ export function OrderCampaignsPage() {
                 row.campaign ? (
                     <Link
                         to={`/orders?campaign=${encodeURIComponent(row.campaign)}`}
-                        className="font-medium break-words text-teal-800 hover:underline"
+                        className="font-medium break-words text-accent hover:underline"
                     >
                         {row.campaign}
                     </Link>
                 ) : (
-                    <span className="text-slate-500">{c.noCampaign}</span>
+                    <span className="text-ink-muted">{c.noCampaign}</span>
                 ),
         },
         {
@@ -86,7 +86,7 @@ export function OrderCampaignsPage() {
                 row.salesPage ? (
                     <Link
                         to={`/orders?salesPageId=${encodeURIComponent(row.salesPage.id)}`}
-                        className="text-teal-800 hover:underline"
+                        className="text-accent hover:underline"
                     >
                         {row.salesPage.title}
                     </Link>
@@ -116,7 +116,7 @@ export function OrderCampaignsPage() {
               ]
             : []),
     ];
-    if (!can('ReadOrder')) return <p className="p-10 text-center text-slate-700">{m.errors.forbidden}</p>;
+    if (!can('ReadOrder')) return <p className="p-10 text-center text-ink-muted">{m.errors.forbidden}</p>;
     return (
         <>
             <PageHeader title={c.title} description={c.description} />
@@ -128,7 +128,7 @@ export function OrderCampaignsPage() {
                 filters={
                     <div className="flex w-full flex-wrap items-end gap-2">
                         <label className="text-sm">
-                            <span className="block text-slate-600">{m.orders.filters.from}</span>
+                            <span className="block text-ink-muted">{m.orders.filters.from}</span>
                             <Input
                                 type="date"
                                 value={dateFrom}
@@ -137,7 +137,7 @@ export function OrderCampaignsPage() {
                             />
                         </label>
                         <label className="text-sm">
-                            <span className="block text-slate-600">{m.orders.filters.to}</span>
+                            <span className="block text-ink-muted">{m.orders.filters.to}</span>
                             <Input
                                 type="date"
                                 value={dateTo}

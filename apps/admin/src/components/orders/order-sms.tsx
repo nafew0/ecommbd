@@ -50,21 +50,21 @@ export function OrderSms({ orderId, className }: { orderId: string; className?: 
             <CardHeader title={m.sms.orderSms} />
             <CardBody>
                 {query.isSuccess && rows.length === 0 && (
-                    <p className="text-sm text-slate-600">{m.sms.noOrderSms}</p>
+                    <p className="text-sm text-ink-muted">{m.sms.noOrderSms}</p>
                 )}
                 <ul className="space-y-3">
                     {rows.map(row => (
                         <li key={row.id} className="text-sm">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                                 <span className="font-medium">{m.sms.events[row.event] ?? row.event}</span>
-                                <span className="flex items-center gap-2 text-slate-500">
+                                <span className="flex items-center gap-2 text-ink-muted">
                                     {format.dateTime(row.sentAt ?? row.sendAfter ?? row.createdAt)}
                                     <Badge tone={TONES[row.status] ?? 'slate'}>
                                         {m.sms.statuses[row.status] ?? row.status}
                                     </Badge>
                                 </span>
                             </div>
-                            <p className="mt-1 break-words whitespace-pre-line text-slate-700">{row.body}</p>
+                            <p className="mt-1 break-words whitespace-pre-line text-ink-muted">{row.body}</p>
                         </li>
                     ))}
                 </ul>

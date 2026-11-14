@@ -122,10 +122,7 @@ export function SalesSettingsPanel({
         <div className="space-y-7 p-4">
             <Group title={t.basics}>
                 <div>
-                    <label
-                        htmlFor={`${ids}-title`}
-                        className="mb-1.5 block text-sm font-medium text-slate-800"
-                    >
+                    <label htmlFor={`${ids}-title`} className="mb-1.5 block text-sm font-medium text-ink">
                         {t.titleLabel}
                     </label>
                     <Input
@@ -138,14 +135,11 @@ export function SalesSettingsPanel({
                     {errorFor('title') && <Problem>{errorFor('title')!}</Problem>}
                 </div>
                 <div>
-                    <label
-                        htmlFor={`${ids}-slug`}
-                        className="mb-1.5 block text-sm font-medium text-slate-800"
-                    >
+                    <label htmlFor={`${ids}-slug`} className="mb-1.5 block text-sm font-medium text-ink">
                         {t.address}
                     </label>
-                    <div className="flex min-h-11 items-center rounded-md border border-slate-300 bg-white focus-within:outline-2 focus-within:outline-teal-600">
-                        <span className="pl-3 text-slate-500" aria-hidden>
+                    <div className="flex min-h-11 items-center rounded-md border border-line-strong bg-surface focus-within:outline-2 focus-within:outline-accent">
+                        <span className="pl-3 text-ink-muted" aria-hidden>
                             /s/
                         </span>
                         <input
@@ -164,7 +158,7 @@ export function SalesSettingsPanel({
                             {slugProblem.suggestion && (
                                 <button
                                     type="button"
-                                    className="ml-1 font-medium text-teal-800 underline"
+                                    className="ml-1 font-medium text-accent underline"
                                     onClick={() => setSlug(slugProblem.suggestion!)}
                                 >
                                     {t.useSuggestion(slugProblem.suggestion)}
@@ -180,7 +174,7 @@ export function SalesSettingsPanel({
                     description={t.activeHint}
                 />
                 <div>
-                    <p className="mb-1.5 text-sm font-medium text-slate-800">{t.product}</p>
+                    <p className="mb-1.5 text-sm font-medium text-ink">{t.product}</p>
                     <div className="flex items-center gap-2">
                         <ProductThumb product={product} size="size-10" />
                         <span className="min-w-0 flex-1 truncate text-sm">
@@ -211,9 +205,9 @@ export function SalesSettingsPanel({
                                     ),
                                 });
                             return (
-                                <li key={index} className="rounded-md border border-slate-200 p-3">
+                                <li key={index} className="rounded-md border border-line p-3">
                                     <div className="grid grid-cols-[5rem_1fr_auto] items-end gap-2">
-                                        <label className="text-xs font-medium text-slate-700">
+                                        <label className="text-xs font-medium text-ink-muted">
                                             {t.quantity}
                                             <Input
                                                 inputMode="numeric"
@@ -234,7 +228,7 @@ export function SalesSettingsPanel({
                                                 }
                                             />
                                         </label>
-                                        <label className="text-xs font-medium text-slate-700">
+                                        <label className="text-xs font-medium text-ink-muted">
                                             {t.packPrice}
                                             {/* Empty is 0, which the server refuses with its own message. */}
                                             <PriceInput
@@ -254,7 +248,7 @@ export function SalesSettingsPanel({
                                             <Trash2 className="size-4" aria-hidden />
                                         </IconButton>
                                     </div>
-                                    <p className="mt-1.5 text-xs text-slate-600">
+                                    <p className="mt-1.5 text-xs text-ink-muted">
                                         {normal != null &&
                                             (saves
                                                 ? t.packSaves(format.money(normal), format.money(saves))
@@ -277,7 +271,7 @@ export function SalesSettingsPanel({
                                                 name={`${ids}-popular`}
                                                 checked={pack.popular}
                                                 onChange={() => update({ popular: true })}
-                                                className="size-4 accent-teal-700"
+                                                className="size-4 accent-accent"
                                             />
                                             {t.popular}
                                         </label>
@@ -355,10 +349,10 @@ export function SalesSettingsPanel({
                                 ))}
                             </Select>
                         )}
-                        <label className="block text-sm font-medium text-slate-800">
+                        <label className="block text-sm font-medium text-ink">
                             {t.bumpPrice}
                             {bumpVariant.data && (
-                                <span className="ml-1 font-normal text-slate-500">
+                                <span className="ml-1 font-normal text-ink-muted">
                                     ({t.normalPrice(format.money(bumpVariant.data.priceWithTax))})
                                 </span>
                             )}
@@ -414,10 +408,7 @@ export function SalesSettingsPanel({
                     ]}
                 />
                 <div>
-                    <label
-                        htmlFor={`${ids}-font`}
-                        className="mb-1.5 block text-sm font-medium text-slate-800"
-                    >
+                    <label htmlFor={`${ids}-font`} className="mb-1.5 block text-sm font-medium text-ink">
                         {t.font}
                     </label>
                     <Select
@@ -443,7 +434,7 @@ export function SalesSettingsPanel({
                         onChange={value => set({ colours: { ...settings.colours, [name]: value as string } })}
                     />
                 ))}
-                <p className="text-xs text-slate-500">{t.coloursHint}</p>
+                <p className="text-xs text-ink-muted">{t.coloursHint}</p>
                 <Switch
                     checked={settings.stickyBar}
                     onChange={stickyBar => set({ stickyBar })}
@@ -467,10 +458,7 @@ export function SalesSettingsPanel({
                     label={t.thankYouWhatsapp}
                 />
                 <div>
-                    <label
-                        htmlFor={`${ids}-redirect`}
-                        className="mb-1.5 block text-sm font-medium text-slate-800"
-                    >
+                    <label htmlFor={`${ids}-redirect`} className="mb-1.5 block text-sm font-medium text-ink">
                         {t.redirect}
                     </label>
                     <Input
@@ -483,7 +471,7 @@ export function SalesSettingsPanel({
                             set({ thankYou: { ...settings.thankYou, redirect: event.target.value } })
                         }
                     />
-                    <p className="mt-1.5 text-xs text-slate-500">{t.redirectHint}</p>
+                    <p className="mt-1.5 text-xs text-ink-muted">{t.redirectHint}</p>
                     {errorFor('settings.thankYou.redirect') && (
                         <Problem>{errorFor('settings.thankYou.redirect')!}</Problem>
                     )}
@@ -513,7 +501,7 @@ export function SalesSettingsPanel({
                     onChange={value => set({ seo: { ...settings.seo, description: value } })}
                 />
                 <div>
-                    <p className="mb-1.5 text-sm font-medium text-slate-800">{t.shareImage}</p>
+                    <p className="mb-1.5 text-sm font-medium text-ink">{t.shareImage}</p>
                     <ImageUpload
                         maxMegabytes={10}
                         value={
@@ -533,7 +521,7 @@ export function SalesSettingsPanel({
                 </div>
             </Group>
 
-            <div className="sticky bottom-0 -mx-4 border-t border-slate-200 bg-white px-4 py-3">
+            <div className="sticky bottom-0 -mx-4 border-t border-line bg-surface px-4 py-3">
                 <Button className="w-full justify-center" loading={saving} onClick={() => void save()}>
                     {t.saveSettings}
                 </Button>
@@ -565,8 +553,8 @@ function Group({ title, hint, children }: { title: string; hint?: string; childr
     return (
         <section className="space-y-4">
             <div>
-                <h3 className="text-xs font-semibold tracking-wide text-slate-500 uppercase">{title}</h3>
-                {hint && <p className="mt-1 text-xs leading-relaxed text-slate-500">{hint}</p>}
+                <h3 className="text-xs font-semibold tracking-wide text-ink-muted uppercase">{title}</h3>
+                {hint && <p className="mt-1 text-xs leading-relaxed text-ink-muted">{hint}</p>}
             </div>
             {children}
         </section>
@@ -574,7 +562,7 @@ function Group({ title, hint, children }: { title: string; hint?: string; childr
 }
 
 function Problem({ children }: { children: React.ReactNode }) {
-    return <p className="mt-1.5 text-xs text-red-700">{children}</p>;
+    return <p className="mt-1.5 text-xs text-danger">{children}</p>;
 }
 
 /** Text in the language chosen in the editor's toolbar; the other language's shows as a hint. */
@@ -599,10 +587,10 @@ function BilingualInput({
     return (
         <div>
             <div className="mb-1.5 flex items-center justify-between gap-2">
-                <label htmlFor={id} className="text-sm font-medium text-slate-800">
+                <label htmlFor={id} className="text-sm font-medium text-ink">
                     {label}
                 </label>
-                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+                <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[11px] font-medium text-ink-muted">
                     {language === 'bn' ? 'বাংলা' : 'English'}
                 </span>
             </div>

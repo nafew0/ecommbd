@@ -83,7 +83,8 @@ export function SmsSettingsPage() {
     const canEdit = can('UpdateStoreSettings');
     const query = useQuery({
         queryKey: ['smsSettings'],
-        queryFn: () => adminApi<{ bdSmsSettings: SmsSettings }>('{ bdSmsSettings }').then(r => r.bdSmsSettings),
+        queryFn: () =>
+            adminApi<{ bdSmsSettings: SmsSettings }>('{ bdSmsSettings }').then(r => r.bdSmsSettings),
     });
     const usage = useQuery({
         queryKey: ['smsUsage'],
@@ -156,11 +157,11 @@ export function SmsSettingsPage() {
                     <CardBody>
                         <dl className="grid gap-4 sm:grid-cols-2">
                             <div>
-                                <dt className="text-sm text-slate-600">{s.today}</dt>
+                                <dt className="text-sm text-ink-muted">{s.today}</dt>
                                 <dd className="font-medium">{usageLine(usage.data?.today)}</dd>
                             </div>
                             <div>
-                                <dt className="text-sm text-slate-600">{s.month}</dt>
+                                <dt className="text-sm text-ink-muted">{s.month}</dt>
                                 <dd className="font-medium">{usageLine(usage.data?.month)}</dd>
                             </div>
                         </dl>
@@ -229,12 +230,12 @@ export function SmsSettingsPage() {
                                         {(['bn', 'en'] as const).some(
                                             language => partsOf(value[language], language).segments >= 3,
                                         ) && <Alert tone="warning">{s.longWarning}</Alert>}
-                                        <p className="text-sm text-slate-600">
+                                        <p className="text-sm text-ink-muted">
                                             {s.variables}:{' '}
                                             {variables.map((variable, index) => (
                                                 <span key={variable}>
                                                     {index > 0 && ', '}
-                                                    <code className="rounded bg-slate-100 px-1">{`{${variable}}`}</code>{' '}
+                                                    <code className="rounded bg-surface-muted px-1">{`{${variable}}`}</code>{' '}
                                                     {s.variableNames[variable]}
                                                 </span>
                                             ))}
@@ -245,7 +246,7 @@ export function SmsSettingsPage() {
                         </Card>
                     );
                 })}
-                <p className="text-sm text-slate-600">{s.segmentsHint}</p>
+                <p className="text-sm text-ink-muted">{s.segmentsHint}</p>
 
                 <Card>
                     <CardHeader title={s.quietHours} description={s.quietHoursHint} />
@@ -254,7 +255,9 @@ export function SmsSettingsPage() {
                             label={s.quietHoursOn}
                             checked={draft.quietHours.enabled}
                             disabled={!canEdit}
-                            onChange={checked => set({ quietHours: { ...draft.quietHours, enabled: checked } })}
+                            onChange={checked =>
+                                set({ quietHours: { ...draft.quietHours, enabled: checked } })
+                            }
                         />
                         {draft.quietHours.enabled && (
                             <div className="grid gap-4 sm:grid-cols-2">
@@ -310,7 +313,8 @@ export function SmsSettingsPage() {
                                                     caps: {
                                                         ...draft.caps,
                                                         [key]: Number(
-                                                            banglaToAsciiDigits(change.target.value.trim()) || 0,
+                                                            banglaToAsciiDigits(change.target.value.trim()) ||
+                                                                0,
                                                         ),
                                                     },
                                                 })

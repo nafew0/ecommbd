@@ -78,10 +78,8 @@ export function BulkBookingProgress({ run, onClose }: { run: BulkRun; onClose():
             <CardBody className="space-y-2 text-sm">
                 <p className="flex flex-wrap gap-x-4 gap-y-1">
                     <span>{b.booked(booked.length)}</span>
-                    {waiting.length > 0 && (
-                        <span className="text-amber-800">{b.waiting(waiting.length)}</span>
-                    )}
-                    {failed.length > 0 && <span className="text-red-700">{b.failed(failed.length)}</span>}
+                    {waiting.length > 0 && <span className="text-warn">{b.waiting(waiting.length)}</span>}
+                    {failed.length > 0 && <span className="text-danger">{b.failed(failed.length)}</span>}
                 </p>
                 {failed.length > 0 && (
                     <div>
@@ -89,13 +87,13 @@ export function BulkBookingProgress({ run, onClose }: { run: BulkRun; onClose():
                         <ul className="mt-1 space-y-1">
                             {failed.map(row => (
                                 <li key={row.id}>
-                                    <Link to={`/orders/${row.orderId}`} className="text-teal-800 underline">
+                                    <Link to={`/orders/${row.orderId}`} className="text-accent underline">
                                         {b.order(row.invoice ?? row.orderId)}
                                     </Link>
                                     {': '}
                                     {m.couriers.errors[row.errorCode ?? ''] ?? row.errorCode}
                                     {row.errorMessage && (
-                                        <span className="text-slate-500"> ({row.errorMessage})</span>
+                                        <span className="text-ink-muted"> ({row.errorMessage})</span>
                                     )}
                                 </li>
                             ))}

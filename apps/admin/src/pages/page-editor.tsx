@@ -89,7 +89,7 @@ export function PageEditorPage() {
         refetchOnWindowFocus: false,
     });
     if (!can('EditStorefront')) {
-        return <p className="p-10 text-center text-slate-700">{m.errors.forbidden}</p>;
+        return <p className="p-10 text-center text-ink-muted">{m.errors.forbidden}</p>;
     }
     if (query.isPending) {
         return (
@@ -101,10 +101,10 @@ export function PageEditorPage() {
     if (!query.data) {
         return (
             <div className="mx-auto max-w-xl p-10 text-center">
-                <p className="mb-4 text-slate-700">{m.notFound.body}</p>
+                <p className="mb-4 text-ink-muted">{m.notFound.body}</p>
                 <Link
                     to={layoutKind === 'landing' ? '/sales-pages' : '/store/pages'}
-                    className="font-medium text-teal-800 underline"
+                    className="font-medium text-accent underline"
                 >
                     {m.design.back}
                 </Link>
@@ -326,15 +326,15 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                 return {
                     icon: LoaderCircle,
                     text: d.saving,
-                    tone: 'text-slate-600',
+                    tone: 'text-ink-muted',
                     spin: editor.status === 'saving',
                 };
             case 'offline':
-                return { icon: CloudOff, text: d.offline, tone: 'text-amber-700', spin: false };
+                return { icon: CloudOff, text: d.offline, tone: 'text-warn', spin: false };
             case 'error':
-                return { icon: CloudOff, text: d.saveFailed, tone: 'text-red-700', spin: false };
+                return { icon: CloudOff, text: d.saveFailed, tone: 'text-danger', spin: false };
             default:
-                return { icon: CloudCheck, text: d.saved, tone: 'text-slate-600', spin: false };
+                return { icon: CloudCheck, text: d.saved, tone: 'text-ink-muted', spin: false };
         }
     })();
     const liveText = layout.publishedVersion
@@ -397,12 +397,12 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
     const definition = selectedSection ? sectionDefinition(selectedSection.type) : undefined;
 
     return (
-        <div className="flex h-dvh flex-col bg-slate-100 text-slate-900">
+        <div className="flex h-dvh flex-col bg-surface-muted text-ink">
             {/* Top bar */}
-            <header className="flex h-14 shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-2 sm:px-3">
+            <header className="flex h-14 shrink-0 items-center gap-2 border-b border-line bg-surface px-2 sm:px-3">
                 <Link
                     to={layout.type === 'page' ? '/store/pages' : landing ? '/sales-pages' : '/'}
-                    className="flex size-10 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    className="flex size-10 items-center justify-center rounded-md text-ink-muted hover:bg-surface-muted hover:text-ink"
                     aria-label={d.back}
                     title={d.back}
                 >
@@ -428,7 +428,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                                             : `/store/design/${value}`,
                                     );
                                 }}
-                                className="block min-h-9 max-w-44 truncate rounded-md border border-transparent bg-white pr-7 pl-2 font-semibold text-slate-900 hover:border-slate-300 focus:outline-2 focus:outline-teal-600 sm:max-w-64"
+                                className="block min-h-9 max-w-44 truncate rounded-md border border-transparent bg-surface pr-7 pl-2 font-semibold text-ink hover:border-line-strong focus:outline-2 focus:outline-accent sm:max-w-64"
                             >
                                 <option value="home">{d.homePage}</option>
                                 <option value="product">{d.productPage}</option>
@@ -458,14 +458,12 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                 >
                     <status.icon className={cn('size-4', status.spin && 'animate-spin')} aria-hidden />
                     <span className="max-w-56 truncate">{status.text}</span>
-                    <span className="text-slate-300" aria-hidden>
+                    <span className="text-ink-faint" aria-hidden>
                         ·
                     </span>
                     <span
                         className={cn(
-                            editor.hasChanges && layout.publishedVersion
-                                ? 'text-amber-700'
-                                : 'text-slate-500',
+                            editor.hasChanges && layout.publishedVersion ? 'text-warn' : 'text-ink-muted',
                         )}
                     >
                         {liveText}
@@ -473,7 +471,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                 </div>
                 <div className="ml-auto flex items-center gap-1">
                     <div
-                        className="hidden rounded-md bg-slate-100 p-0.5 lg:flex"
+                        className="hidden rounded-md bg-surface-muted p-0.5 lg:flex"
                         role="radiogroup"
                         aria-label={d.previewSize}
                     >
@@ -494,8 +492,8 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                                 className={cn(
                                     'flex size-8 items-center justify-center rounded',
                                     device === item.key
-                                        ? 'bg-white text-teal-800 shadow-sm'
-                                        : 'text-slate-500 hover:text-slate-900',
+                                        ? 'bg-surface text-accent shadow-sm'
+                                        : 'text-ink-muted hover:text-ink',
                                 )}
                             >
                                 <item.icon className="size-4" aria-hidden />
@@ -503,7 +501,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                         ))}
                     </div>
                     <div
-                        className="flex rounded-md bg-slate-100 p-0.5"
+                        className="flex rounded-md bg-surface-muted p-0.5"
                         role="radiogroup"
                         aria-label={d.textLanguage}
                         title={d.textLanguage}
@@ -518,8 +516,8 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                                 className={cn(
                                     'h-8 rounded px-2 text-xs font-medium',
                                     language === code
-                                        ? 'bg-white text-teal-800 shadow-sm'
-                                        : 'text-slate-500 hover:text-slate-900',
+                                        ? 'bg-surface text-accent shadow-sm'
+                                        : 'text-ink-muted hover:text-ink',
                                 )}
                             >
                                 {code === 'bn' ? 'বাং' : 'EN'}
@@ -577,7 +575,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                 {/* Sections (and, on phones, the selected section's settings over them) */}
                 <aside
                     className={cn(
-                        'flex w-full min-w-0 flex-col border-r border-slate-200 bg-white lg:w-[300px] lg:shrink-0',
+                        'flex w-full min-w-0 flex-col border-r border-line bg-surface lg:w-[300px] lg:shrink-0',
                         mobileTab === 'preview' && 'max-lg:hidden',
                     )}
                 >
@@ -660,7 +658,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                 </main>
 
                 {/* Selected section's settings (computers) */}
-                <aside className="hidden w-[360px] shrink-0 flex-col border-l border-slate-200 bg-white lg:flex">
+                <aside className="hidden w-[360px] shrink-0 flex-col border-l border-line bg-surface lg:flex">
                     {selectedSection && definition && wide ? (
                         <>
                             <PanelHeader
@@ -699,13 +697,13 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                         </>
                     ) : (
                         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-                            <div className="flex size-12 items-center justify-center rounded-full bg-teal-50 text-teal-700">
+                            <div className="flex size-12 items-center justify-center rounded-full bg-accent-soft text-accent">
                                 <SectionIcon type="hero" className="size-6" />
                             </div>
                             <p className="font-medium">{d.noSelection}</p>
-                            <p className="text-sm text-slate-600">{d.noSelectionHint}</p>
+                            <p className="text-sm text-ink-muted">{d.noSelectionHint}</p>
                             {layout.publishedAt && (
-                                <p className="mt-4 text-xs text-slate-500">
+                                <p className="mt-4 text-xs text-ink-muted">
                                     {d.versionMeta(
                                         layout.publishedBy || d.someoneElse,
                                         format.dateTime(layout.publishedAt),
@@ -719,10 +717,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
             </div>
 
             {/* Phones: switch between the sections and the preview */}
-            <nav
-                className="flex shrink-0 border-t border-slate-200 bg-white lg:hidden"
-                aria-label={d.sections}
-            >
+            <nav className="flex shrink-0 border-t border-line bg-surface lg:hidden" aria-label={d.sections}>
                 {(
                     [
                         { key: 'sections', label: d.sections },
@@ -737,8 +732,8 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                         className={cn(
                             'flex min-h-12 flex-1 items-center justify-center text-sm font-medium',
                             mobileTab === item.key
-                                ? 'text-teal-800 shadow-[inset_0_2px_0_0_#0f766e]'
-                                : 'text-slate-600',
+                                ? 'text-accent shadow-[inset_0_2px_0_0_#0f766e]'
+                                : 'text-ink-muted',
                         )}
                     >
                         {item.label}
@@ -798,8 +793,8 @@ function PanelHeader({
     closeLabel: string;
 }) {
     return (
-        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-200 px-3">
-            <span className="flex size-7 items-center justify-center rounded bg-teal-700 text-white">
+        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-line px-3">
+            <span className="flex size-7 items-center justify-center rounded bg-accent text-white">
                 <SectionIcon type={type} className="size-4" />
             </span>
             <h2 className="min-w-0 flex-1 truncate font-semibold">{title}</h2>
@@ -827,14 +822,14 @@ function EmptyLayout({
                 {['hero', 'product-grid', 'trust-badges', 'faq'].map(type => (
                     <span
                         key={type}
-                        className="flex size-12 items-center justify-center rounded-md bg-slate-100 text-slate-500"
+                        className="flex size-12 items-center justify-center rounded-md bg-surface-muted text-ink-muted"
                     >
                         <SectionIcon type={type} className="size-5" />
                     </span>
                 ))}
             </div>
             <p className="mt-2 font-semibold">{d.emptyTitle}</p>
-            <p className="text-sm text-slate-600">{d.emptyBody}</p>
+            <p className="text-sm text-ink-muted">{d.emptyBody}</p>
             <div className="mt-2 flex flex-col gap-2 self-stretch">
                 <Button onClick={onAdd} className="justify-center">
                     {d.addSection}

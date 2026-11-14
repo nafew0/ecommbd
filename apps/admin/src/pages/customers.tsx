@@ -75,7 +75,7 @@ export function CustomersPage() {
             cell: row => (
                 <Link
                     to={`/customers/${row.id}`}
-                    className="font-medium text-teal-800 underline-offset-2 hover:underline"
+                    className="font-medium text-accent underline-offset-2 hover:underline"
                 >
                     {`${row.firstName} ${row.lastName}`.trim() || m.customers.noName}
                 </Link>
@@ -90,7 +90,7 @@ export function CustomersPage() {
                         {format.phone(row.customFields.phone)}
                     </a>
                 ) : (
-                    <span className="text-slate-600">{visibleEmail(row.emailAddress) ?? ''}</span>
+                    <span className="text-ink-muted">{visibleEmail(row.emailAddress) ?? ''}</span>
                 ),
         },
         { key: 'orders', header: c.orders, cell: row => n(row.customFields.orderCount) },
@@ -143,7 +143,7 @@ export function CustomersPage() {
                 }}
                 empty={
                     term ? (
-                        <p className="px-6 py-10 text-center text-slate-600">{m.list.noResults}</p>
+                        <p className="px-6 py-10 text-center text-ink-muted">{m.list.noResults}</p>
                     ) : (
                         <EmptyState
                             icon={<Users className="size-6" aria-hidden />}

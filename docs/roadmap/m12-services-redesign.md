@@ -8,7 +8,7 @@
 
 **Why this milestone exists.** It came from the [Boneek competitor check](../research/competitor-boneek.md) (2026-11-14). We offer paid services **ourselves or with partners**, as normal paid settings. **There is no add-on store or marketplace.**
 
-**Suggested order:** 63 (the redesign) is cheap and changes how the product feels in a demo. Consider pulling it ahead of the pilot (31), together with phase 37's courier score.
+**Order:** 63a (the new look, menu and reference screens) is built **next, before any other new admin screen**, so that every later screen copies it. 63b follows. 63c can wait for its place in the milestone.
 
 These phases are planned at a higher level. **Refine each one before starting it**, and update this file first.
 
@@ -19,49 +19,68 @@ These phases are planned at a higher level. **Refine each one before starting it
 | | |
 |---|---|
 | Milestone | M12 |
-| Delivers | A new admin layout, global search, notifications, a dashboard, a new order list and order page |
+| Delivers | A new admin look, menu and "essentials first" screens (63a, 63b); then global search, notifications, a dashboard and a faster order workflow (63c) |
 | Depends on | 02b, 04 |
-| Size | L |
+| Size | L (63a, 63b, 63c) |
 
-**Goal.** The admin feels like Shopify: calm, fast to scan, and in Bangla first.
+**Goal.** The admin feels like Shopify: calm, fast to scan, and in Bangla first. A merchant sees the essentials in one click; everything else is behind "More".
 
-### Build
+**The design is fixed in the [merchant admin design guide](../design/admin-design-guide.md).** Read it before any of the three parts.
 
-1. **Layout:**
-   - **Top bar:** logo, global search, notifications bell, store name, avatar menu.
-   - **Sidebar:** about 10 top-level items; the active group opens its submenu.
-   - **Online store and Settings:** each opens as its own full-height area with "← Back to dashboard".
-   - **Look:** neutral colours (very light grey page, white cards, near-black main buttons, colour only for statuses) and full-width tables.
-2. **Global search (Ctrl/⌘+K):** finds screens, actions ("Create order"), orders by number or phone, products and customers. It respects permissions.
-3. **Notifications:**
+**Order (changed 2026-11-14): 63a is built next, before any other new admin screen.** Later phases, some built by other AI models, copy its patterns, so it has to exist first.
+
+### 63a — Design system, shell and reference screens (M)
+
+No URL, API or permission changes. Follow the guide's [build order](../design/admin-design-guide.md#8-build-order-for-phase-63a):
+
+1. Colour, type and spacing tokens; no raw Tailwind palette classes left.
+2. The existing components restyled; new ones added (`Page`, `TwoColumn`, `Tabs`, `MoreFields`, `CollapsibleCard`, `ActionMenu`, `SaveBar`, `StatTile`…), all shown on `/admin/ui-kit`.
+3. **The shell:**
+   - a dark top bar with search, language, "View store" and an avatar menu
+   - a sidebar of about 10 top-level items, one group open at a time, less-used screens under "More"
+   - **Online store** and **Settings** as their own areas with "← Back"
+4. **Search (Ctrl/⌘+K)** for screens and actions, so nothing hidden under "More" is lost.
+5. **Five reference screens** rebuilt to the four page templates: order list, product form, order page, delivery settings, home.
+
+Done when: the checklist in the guide's [section 9](../design/admin-design-guide.md#9-done-when-63a) passes.
+
+**Built 2026-11-14 (status: Review).** Also added, at the owner's request: **Motion** in its light `LazyMotion` form for the menu, cards and pages, and a **skippable guided tour** of the menu on a first visit. Left for 63c: the store's name and a "View store" link in the top bar, and menu counts beyond Confirm orders. Checked: lint, types, unit tests, and the admin browser tests on an empty database (shell, orders, products, delivery, customers, print, page editor, sales pages). Not yet checked: the order page by eye with real orders, the WooCommerce migration browser test (it needs import keys), and the screens 63b has not reached, which only have the new colours.
+
+### 63b — Every other screen (M)
+
+Each remaining screen in the guide's [screen table](../design/admin-design-guide.md#7-screen-by-screen) moves to its template, with the "essentials first" rules applied. One small task per screen, copying a reference screen. Suitable for a second AI model, reviewed afterwards.
+
+Done when: every existing screen follows its template, and no screen shows more than 7 fields in a card or more than one main button.
+
+### 63c — New functions (L)
+
+These need server work.
+
+1. **Global search:** orders by number or phone, products and customers, added to 63a's search. It respects permissions.
+2. **Notifications:**
    - triggers: new orders, payments to check, failed courier bookings, low stock, risky orders, SMS balance
    - delivery by server-sent events
    - a "mark all read" button, and a choice of what to be notified about
-4. **Dashboard:**
+3. **Dashboard:**
    - date range
    - KPI tiles: sales, orders, items, average order value
    - a sales chart
    - status tiles that link to the filtered order list
    - recent orders
-   - the confirmation widgets we already have
    - help videos (phase 33)
-5. **Order list:**
-   - status **tabs with counts**, with rare statuses under "Others"
-   - column picker, sort, page size
-   - risk icon, quick preview
-6. **Order page:**
-   - header with badges, previous/next order arrows, and Print and More menus
-   - **one main "next step" button** with a menu of other actions
-   - payment card
+4. **Order list:** column picker, sort, page size, risk icon, quick preview; rare statuses under "Others".
+5. **Order page:**
+   - previous/next order arrows
    - timeline with **staff-only comments**
-   - right-hand cards: courier score, risk, customer (copy buttons), tags, note, attribution
-7. **Empty states** with one action and a "How to" video. A live preview beside forms that change the storefront.
+   - courier score card (phase 37), tags
+6. **Empty states** with a "How to" video. A live preview beside forms that change the storefront.
 
 ### Edge cases
 
 - Long Bangla labels in tabs and the sidebar.
-- On phones: the sidebar becomes a drawer, and tables become cards.
+- On phones: the sidebar becomes a drawer, and tables hide columns.
 - Search never shows data a role can't see.
+- A hidden field that has an error, or a value the merchant set, opens by itself.
 
 ### Done when
 

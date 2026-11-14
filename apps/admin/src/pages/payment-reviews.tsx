@@ -118,7 +118,7 @@ export function PaymentReviewsPage() {
                                         <div className="flex flex-wrap items-center justify-between gap-2">
                                             <Link
                                                 to={`/orders/${item.orderId}`}
-                                                className="font-semibold text-teal-800 underline-offset-2 hover:underline"
+                                                className="font-semibold text-accent underline-offset-2 hover:underline"
                                             >
                                                 {r.order(item.orderNumber ?? item.orderCode ?? item.orderId)}
                                             </Link>
@@ -132,7 +132,7 @@ export function PaymentReviewsPage() {
                                                 {refunding && <Badge tone="amber">{r.refunding}</Badge>}
                                             </div>
                                         </div>
-                                        <p className="text-sm text-slate-700">
+                                        <p className="text-sm text-ink-muted">
                                             {refunding
                                                 ? item.refundReference
                                                     ? r.refundingHint
@@ -140,25 +140,25 @@ export function PaymentReviewsPage() {
                                                 : r.reasonHints[item.reviewReason]}
                                         </p>
                                         {item.reviewReason === 'risky' && item.riskTitle && (
-                                            <p className="text-sm text-slate-700">
+                                            <p className="text-sm text-ink-muted">
                                                 {r.riskTitle(item.riskTitle)}
                                             </p>
                                         )}
                                         <dl className="grid gap-3 sm:grid-cols-3">
                                             <div>
-                                                <dt className="text-sm text-slate-600">{r.paid}</dt>
+                                                <dt className="text-sm text-ink-muted">{r.paid}</dt>
                                                 <dd className="text-lg font-semibold tabular-nums">
                                                     {amount}
                                                 </dd>
                                             </div>
                                             <div>
-                                                <dt className="text-sm text-slate-600">{r.transaction}</dt>
+                                                <dt className="text-sm text-ink-muted">{r.transaction}</dt>
                                                 <dd className="font-mono break-all">
                                                     {item.gatewayTransactionId ?? '—'}
                                                 </dd>
                                             </div>
                                             <div>
-                                                <dt className="text-sm text-slate-600">
+                                                <dt className="text-sm text-ink-muted">
                                                     {m.onlinePayments.mode}
                                                 </dt>
                                                 <dd>

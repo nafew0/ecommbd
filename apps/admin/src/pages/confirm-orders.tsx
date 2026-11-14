@@ -153,7 +153,7 @@ export function ConfirmOrdersPage() {
                     ) : undefined
                 }
             />
-            <div className="mb-3 flex gap-1 border-b border-slate-200" role="tablist">
+            <div className="mb-3 flex gap-1 border-b border-line" role="tablist">
                 {(['waiting', 'snoozed'] as const).map(key => (
                     <button
                         key={key}
@@ -167,19 +167,17 @@ export function ConfirmOrdersPage() {
                         }}
                         className={cn(
                             'flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-medium',
-                            tab === key
-                                ? 'border-teal-700 text-teal-800'
-                                : 'border-transparent text-slate-600',
+                            tab === key ? 'border-accent text-accent' : 'border-transparent text-ink-muted',
                         )}
                     >
                         {m.queue[key]}
-                        <span className="rounded-full bg-slate-100 px-2 text-xs text-slate-700">
+                        <span className="rounded-full bg-surface-muted px-2 text-xs text-ink-muted">
                             {m.common.number(query.data?.[key].totalItems ?? 0)}
                         </span>
                     </button>
                 ))}
             </div>
-            <p className="mb-3 hidden text-sm text-slate-500 lg:block">{m.queue.shortcuts}</p>
+            <p className="mb-3 hidden text-sm text-ink-muted lg:block">{m.queue.shortcuts}</p>
             {query.isPending ? (
                 <div className="space-y-3">
                     {Array.from({ length: 3 }, (_, index) => (
@@ -187,7 +185,7 @@ export function ConfirmOrdersPage() {
                     ))}
                 </div>
             ) : rows.length === 0 ? (
-                <div className="rounded-lg border border-slate-200 bg-white">
+                <div className="rounded-lg border border-line bg-surface">
                     <EmptyState
                         icon={<CheckCircle2 className="size-6" aria-hidden />}
                         title={m.queue.emptyTitle}
@@ -229,7 +227,7 @@ export function ConfirmOrdersPage() {
                 <div className="mt-3 flex items-center justify-end gap-2 text-sm">
                     <button
                         type="button"
-                        className="rounded p-2 hover:bg-slate-100 disabled:opacity-40"
+                        className="rounded p-2 hover:bg-surface-muted disabled:opacity-40"
                         aria-label={m.list.previous}
                         disabled={page <= 1}
                         onClick={() => setPage(page - 1)}
@@ -239,7 +237,7 @@ export function ConfirmOrdersPage() {
                     <span>{m.list.pageOf(page, pages)}</span>
                     <button
                         type="button"
-                        className="rounded p-2 hover:bg-slate-100 disabled:opacity-40"
+                        className="rounded p-2 hover:bg-surface-muted disabled:opacity-40"
                         aria-label={m.list.next}
                         disabled={page >= pages}
                         onClick={() => setPage(page + 1)}
@@ -328,8 +326,8 @@ function QueueCard(props: {
         <li
             onClick={props.onFocus}
             className={cn(
-                'rounded-lg border bg-white p-4',
-                props.active ? 'border-teal-600 ring-2 ring-teal-600/20' : 'border-slate-200',
+                'rounded-lg border bg-surface p-4',
+                props.active ? 'border-accent ring-2 ring-accent/20' : 'border-line',
             )}
         >
             <div className="flex flex-wrap items-start justify-between gap-2">
@@ -337,7 +335,7 @@ function QueueCard(props: {
                     {can('ConfirmOrder') && !props.snoozed && (
                         <input
                             type="checkbox"
-                            className="size-5 accent-teal-700"
+                            className="size-5 accent-accent"
                             aria-label={m.queue.select(number)}
                             checked={props.selected}
                             onChange={event => props.onSelect(event.target.checked)}
@@ -345,11 +343,11 @@ function QueueCard(props: {
                     )}
                     <Link
                         to={`/orders/${order.id}`}
-                        className="text-lg font-semibold text-teal-800 hover:underline"
+                        className="text-lg font-semibold text-accent hover:underline"
                     >
                         {m.orders.number(number)}
                     </Link>
-                    <span className="text-sm text-slate-600">
+                    <span className="text-sm text-ink-muted">
                         {m.orders.placed(ago(order.orderPlacedAt))}
                     </span>
                 </div>
@@ -378,7 +376,7 @@ function QueueCard(props: {
                             <a
                                 href={`tel:${phone}`}
                                 onClick={props.onFocus}
-                                className="inline-flex min-h-11 items-center gap-2 rounded-md border border-teal-700 px-3 font-medium text-teal-800 tabular-nums hover:bg-teal-50"
+                                className="inline-flex min-h-11 items-center gap-2 rounded-md border border-accent px-3 font-medium text-accent tabular-nums hover:bg-accent-soft"
                             >
                                 <Phone className="size-4" aria-hidden />
                                 {format.phone(phone)}
@@ -387,13 +385,13 @@ function QueueCard(props: {
                         {fields?.alternatePhone && (
                             <a
                                 href={`tel:${fields.alternatePhone}`}
-                                className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 px-3 tabular-nums hover:bg-slate-50"
+                                className="inline-flex min-h-11 items-center gap-2 rounded-md border border-line-strong px-3 tabular-nums hover:bg-surface-muted"
                             >
                                 {m.orders.alternate}: {format.phone(fields.alternatePhone)}
                             </a>
                         )}
                     </div>
-                    <p className="text-sm text-slate-700 break-words">
+                    <p className="text-sm text-ink-muted break-words">
                         <PlaceName
                             districtId={fields?.districtId}
                             thanaId={fields?.thanaId}
@@ -410,7 +408,7 @@ function QueueCard(props: {
                         <PaymentBadge type={order.bd.paymentType} />
                     </p>
                     {order.customFields.customerNote && (
-                        <p className="rounded bg-amber-50 px-2 py-1 break-words text-amber-950">
+                        <p className="rounded bg-warn-soft px-2 py-1 break-words text-warn">
                             {order.customFields.customerNote}
                         </p>
                     )}
@@ -430,13 +428,13 @@ function QueueCard(props: {
                     {can('EditOrder') && (
                         <Link
                             to={`/orders/${order.id}?edit=1`}
-                            className="inline-flex min-h-11 items-center rounded-md px-4 text-slate-700 hover:bg-slate-100"
+                            className="inline-flex min-h-11 items-center rounded-md px-4 text-ink-muted hover:bg-surface-muted"
                         >
                             {m.editOrder.button}
                         </Link>
                     )}
                     {can('CancelOrder') && (
-                        <Button variant="ghost" className="text-red-700" onClick={props.onCancel}>
+                        <Button variant="ghost" className="text-danger" onClick={props.onCancel}>
                             {m.orders.actions.cancel}
                         </Button>
                     )}

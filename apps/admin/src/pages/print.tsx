@@ -164,18 +164,18 @@ export function PrintPage() {
         };
 
     return (
-        <div className="min-h-dvh bg-slate-100 print:min-h-0 print:bg-white">
-            <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-4 py-3 print:hidden">
+        <div className="min-h-dvh bg-surface-muted print:min-h-0 print:bg-surface">
+            <div className="sticky top-0 z-10 border-b border-line bg-surface px-4 py-3 print:hidden">
                 <div className="mx-auto flex max-w-5xl flex-wrap items-end gap-3">
                     <Link
                         to="/orders"
-                        className="inline-flex min-h-11 items-center gap-1 text-sm text-teal-800"
+                        className="inline-flex min-h-11 items-center gap-1 text-sm text-accent"
                     >
                         <ArrowLeft className="size-4" aria-hidden />
                         {m.orders.back}
                     </Link>
                     <label className="text-sm">
-                        <span className="block text-slate-600">{m.print.choose}</span>
+                        <span className="block text-ink-muted">{m.print.choose}</span>
                         <Select
                             value={doc}
                             onChange={event => set('document', event.target.value)}
@@ -190,7 +190,7 @@ export function PrintPage() {
                     </label>
                     {sizes.length > 0 && (
                         <label className="text-sm">
-                            <span className="block text-slate-600">{m.print.paper}</span>
+                            <span className="block text-ink-muted">{m.print.paper}</span>
                             <Select
                                 value={currentSize ?? ''}
                                 onChange={event => set('size', event.target.value)}
@@ -241,7 +241,7 @@ export function PrintPage() {
                         {m.print.print}
                     </Button>
                 </div>
-                <p className="mx-auto mt-2 max-w-5xl text-sm text-slate-600">
+                <p className="mx-auto mt-2 max-w-5xl text-sm text-ink-muted">
                     {m.print.hint}
                     {reprints > 0 && ` ${m.print.reprints(reprints)}`}
                 </p>

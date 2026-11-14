@@ -26,7 +26,7 @@ export function RiskBadge({ risk, otpStatus }: { risk: OrderRisk | null; otpStat
                     {m.risk.label(digits(shown.score))}
                 </Badge>
             )}
-            {reasons.length > 0 && <span className="text-sm text-slate-700">{reasons.join(' · ')}</span>}
+            {reasons.length > 0 && <span className="text-sm text-ink-muted">{reasons.join(' · ')}</span>}
             {unverified && <Badge tone="orange">{m.risk.unverified}</Badge>}
         </span>
     );

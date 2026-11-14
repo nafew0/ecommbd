@@ -90,7 +90,7 @@ export function SectionForm({ section, document, language, warnings, onChange, l
 
     return (
         <div>
-            <div role="tablist" className="sticky top-0 z-10 flex border-b border-slate-200 bg-white px-4">
+            <div role="tablist" className="sticky top-0 z-10 flex border-b border-line bg-surface px-4">
                 {tabs.map(item => (
                     <button
                         key={item.key}
@@ -101,8 +101,8 @@ export function SectionForm({ section, document, language, warnings, onChange, l
                         className={cn(
                             '-mb-px border-b-2 px-3 py-2.5 text-sm font-medium transition-colors',
                             tab === item.key
-                                ? 'border-teal-700 text-teal-800'
-                                : 'border-transparent text-slate-600 hover:text-slate-900',
+                                ? 'border-accent text-accent'
+                                : 'border-transparent text-ink-muted hover:text-ink',
                         )}
                     >
                         {item.label}
@@ -110,7 +110,7 @@ export function SectionForm({ section, document, language, warnings, onChange, l
                 ))}
             </div>
             {general.length > 0 && (
-                <ul className="mx-4 mt-4 space-y-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <ul className="mx-4 mt-4 space-y-1 rounded-md border border-warn/30 bg-warn-soft px-3 py-2 text-sm text-warn">
                     {general.map(item => (
                         <li key={`${item.code}-${item.blockId ?? ''}`}>{d.issues[item.code] ?? item.code}</li>
                     ))}
@@ -183,13 +183,13 @@ function DesignForm({
         );
     return (
         <div className="space-y-6 p-4">
-            <p className="text-sm text-slate-600">{d.designIntro}</p>
+            <p className="text-sm text-ink-muted">{d.designIntro}</p>
             {DESIGN_GROUPS.map(group => (
                 <fieldset
                     key={group.label.en}
-                    className="space-y-4 border-t border-slate-100 pt-4 first-of-type:border-0 first-of-type:pt-0"
+                    className="space-y-4 border-t border-line pt-4 first-of-type:border-0 first-of-type:pt-0"
                 >
-                    <legend className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                    <legend className="mb-2 text-xs font-semibold tracking-wide text-ink-muted uppercase">
                         {group.label[ui]}
                     </legend>
                     {group.fields.map(name => (
@@ -335,10 +335,10 @@ function Blocks({
         ) : null;
     };
     return (
-        <section className="border-t border-slate-200 pt-5">
+        <section className="border-t border-line pt-5">
             <div className="mb-3 flex items-center justify-between">
                 <h3 className="font-semibold">{label}</h3>
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-ink-muted">
                     {d.blockCount(digits(section.blocks.length), digits(blocks.max))}
                 </span>
             </div>
@@ -350,12 +350,12 @@ function Blocks({
                         <li
                             key={block.uid}
                             className={cn(
-                                'rounded-md border bg-white',
+                                'rounded-md border bg-surface',
                                 hasIssue
-                                    ? 'border-red-300'
+                                    ? 'border-danger/30'
                                     : expanded
-                                      ? 'border-teal-600 ring-1 ring-teal-600/20'
-                                      : 'border-slate-200',
+                                      ? 'border-accent ring-1 ring-accent/20'
+                                      : 'border-line',
                             )}
                         >
                             <div className="flex items-center gap-1 pr-1">
@@ -367,7 +367,7 @@ function Blocks({
                                 >
                                     <ChevronDown
                                         className={cn(
-                                            'size-4 shrink-0 text-slate-500 transition-transform',
+                                            'size-4 shrink-0 text-ink-muted transition-transform',
                                             expanded && 'rotate-180',
                                         )}
                                         aria-hidden
@@ -376,7 +376,7 @@ function Blocks({
                                         (() => {
                                             const Icon = ELEMENT_ICONS[block.settings.kind as string] ?? Type;
                                             return (
-                                                <Icon className="size-4 shrink-0 text-teal-700" aria-hidden />
+                                                <Icon className="size-4 shrink-0 text-accent" aria-hidden />
                                             );
                                         })()}
                                     <span className="truncate font-medium">
@@ -441,20 +441,20 @@ function Blocks({
                                 </IconButton>
                             </div>
                             {expanded && (
-                                <div className="space-y-5 border-t border-slate-100 p-3">
+                                <div className="space-y-5 border-t border-line p-3">
                                     {Object.keys(blocks.fields)
                                         .filter(name => !custom || !ELEMENT_STYLE.has(name))
                                         .map(name => fieldRow(block, name))}
                                     {custom && block.settings.kind !== 'spacer' && (
-                                        <details className="group rounded-md border border-slate-200">
-                                            <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 px-3 text-sm font-medium text-slate-800">
+                                        <details className="group rounded-md border border-line">
+                                            <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 px-3 text-sm font-medium text-ink">
                                                 <ChevronDown
-                                                    className="size-4 text-slate-500 transition-transform group-open:rotate-180"
+                                                    className="size-4 text-ink-muted transition-transform group-open:rotate-180"
                                                     aria-hidden
                                                 />
                                                 {d.styleElement}
                                             </summary>
-                                            <div className="space-y-5 border-t border-slate-100 p-3">
+                                            <div className="space-y-5 border-t border-line p-3">
                                                 {[...ELEMENT_STYLE].map(name => fieldRow(block, name))}
                                             </div>
                                         </details>
@@ -493,9 +493,9 @@ function Blocks({
                                 <button
                                     type="button"
                                     onClick={() => addElement(option.value)}
-                                    className="flex min-h-16 w-full flex-col items-center justify-center gap-1 rounded-md border border-slate-200 bg-white px-1 text-center text-xs font-medium text-slate-800 hover:border-teal-600 hover:text-teal-800 focus-visible:outline-2 focus-visible:outline-teal-600"
+                                    className="flex min-h-16 w-full flex-col items-center justify-center gap-1 rounded-md border border-line bg-surface px-1 text-center text-xs font-medium text-ink hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
                                 >
-                                    <Icon className="size-5 text-teal-700" aria-hidden />
+                                    <Icon className="size-5 text-accent" aria-hidden />
                                     {option.label[ui]}
                                 </button>
                             </li>
@@ -508,11 +508,11 @@ function Blocks({
 }
 
 const BACKGROUND_SWATCH: Record<SectionStyle['background'], string> = {
-    none: 'bg-white',
-    subtle: 'bg-slate-100',
-    accent: 'bg-teal-700',
-    dark: 'bg-slate-900',
-    image: 'bg-slate-50',
+    none: 'bg-surface',
+    subtle: 'bg-surface-muted',
+    accent: 'bg-accent',
+    dark: 'bg-ink',
+    image: 'bg-surface-muted',
 };
 
 function StyleForm({
@@ -542,7 +542,7 @@ function StyleForm({
     return (
         <div className="space-y-5 p-4">
             <fieldset>
-                <legend className="mb-1.5 text-sm font-medium text-slate-800">{s.background}</legend>
+                <legend className="mb-1.5 text-sm font-medium text-ink">{s.background}</legend>
                 <div className="grid grid-cols-5 gap-2" role="radiogroup">
                     {STYLE_CHOICES.background.map(choice => {
                         const on = style.background === choice.value;
@@ -557,9 +557,9 @@ function StyleForm({
                             >
                                 <span
                                     className={cn(
-                                        'flex h-9 w-full items-center justify-center rounded border border-slate-300 text-slate-400',
+                                        'flex h-9 w-full items-center justify-center rounded border border-line-strong text-ink-faint',
                                         BACKGROUND_SWATCH[choice.value],
-                                        on && 'ring-2 ring-teal-600 ring-offset-2',
+                                        on && 'ring-2 ring-accent ring-offset-2',
                                     )}
                                 >
                                     {choice.value === 'image' && <ImageIcon className="size-4" aria-hidden />}
@@ -567,7 +567,7 @@ function StyleForm({
                                 <span
                                     className={cn(
                                         'text-[11px] leading-tight',
-                                        on ? 'font-medium text-slate-900' : 'text-slate-600',
+                                        on ? 'font-medium text-ink' : 'text-ink-muted',
                                     )}
                                 >
                                     {choice.label[ui]}
@@ -579,7 +579,7 @@ function StyleForm({
             </fieldset>
             {style.background === 'image' || style.backgroundImage ? (
                 <div>
-                    <p className="mb-1.5 text-sm font-medium text-slate-800">{s.backgroundImage}</p>
+                    <p className="mb-1.5 text-sm font-medium text-ink">{s.backgroundImage}</p>
                     <ImageUpload
                         maxMegabytes={10}
                         value={
@@ -634,11 +634,11 @@ function StyleForm({
                 options={options('hideOn')}
             />
             <div>
-                <label htmlFor={anchorId} className="mb-1.5 block text-sm font-medium text-slate-800">
+                <label htmlFor={anchorId} className="mb-1.5 block text-sm font-medium text-ink">
                     {s.anchor}
                 </label>
-                <div className="flex min-h-11 items-center rounded-md border border-slate-300 bg-white focus-within:outline-2 focus-within:outline-teal-600">
-                    <span className="pl-3 text-slate-500" aria-hidden>
+                <div className="flex min-h-11 items-center rounded-md border border-line-strong bg-surface focus-within:outline-2 focus-within:outline-accent">
+                    <span className="pl-3 text-ink-muted" aria-hidden>
                         #
                     </span>
                     <input
@@ -661,8 +661,8 @@ function StyleForm({
                         }
                     />
                 </div>
-                <p className="mt-1.5 text-xs text-slate-500">{s.anchorHint}</p>
-                {issue && <p className="mt-1 text-xs text-red-700">{issue}</p>}
+                <p className="mt-1.5 text-xs text-ink-muted">{s.anchorHint}</p>
+                {issue && <p className="mt-1 text-xs text-danger">{issue}</p>}
             </div>
             <Switch
                 checked={style.animate}

@@ -49,7 +49,7 @@ export function ContentPagesPage() {
             key: 'title',
             header: c.columns.title,
             cell: page => (
-                <Link to={`/store/pages/${page.id}`} className="font-medium text-teal-800 hover:underline">
+                <Link to={`/store/pages/${page.id}`} className="font-medium text-accent hover:underline">
                     {pick(page, language)?.title}
                 </Link>
             ),
@@ -59,7 +59,7 @@ export function ContentPagesPage() {
             header: c.columns.address,
             hideOnMobile: true,
             cell: page => (
-                <span className="text-slate-600">/{pick(page, language)?.slug.normalize('NFC')}/</span>
+                <span className="text-ink-muted">/{pick(page, language)?.slug.normalize('NFC')}/</span>
             ),
         },
         {
@@ -83,7 +83,7 @@ export function ContentPagesPage() {
                       cell: (page: ContentPage) => (
                           <Link
                               to={`/store/design/page/${page.id}`}
-                              className="inline-flex items-center gap-1.5 text-sm font-medium text-teal-800 hover:underline"
+                              className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
                           >
                               <Palette className="size-4" aria-hidden />
                               {m.design.editSections}
@@ -96,7 +96,7 @@ export function ContentPagesPage() {
     const newPage = (
         <Link
             to="/store/pages/new"
-            className="inline-flex items-center gap-2 rounded-md bg-teal-700 px-4 py-2 font-medium text-white hover:bg-teal-800"
+            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 font-medium text-white hover:bg-accent"
         >
             <Plus className="size-4" aria-hidden />
             {c.newPage}

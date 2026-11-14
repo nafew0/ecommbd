@@ -187,7 +187,7 @@ export function EditOrderDialog({
             }
         >
             <div className="space-y-4">
-                <ul className="divide-y divide-slate-100">
+                <ul className="divide-y divide-line">
                     {lines.map((line, index) => (
                         <li
                             key={line.orderLineId ?? `new-${line.variantId}`}
@@ -195,7 +195,7 @@ export function EditOrderDialog({
                         >
                             <div className="min-w-0 flex-1">
                                 <p className="font-medium">{line.name}</p>
-                                <p className="text-sm text-slate-600">
+                                <p className="text-sm text-ink-muted">
                                     {format.money(line.newPrice ?? line.unitPrice)}
                                 </p>
                             </div>
@@ -243,7 +243,7 @@ export function EditOrderDialog({
                                     setLines(lines.map((l, i) => (i === index ? { ...l, quantity: 0 } : l)))
                                 }
                             >
-                                <Trash2 className="size-4 text-red-700" aria-hidden />
+                                <Trash2 className="size-4 text-danger" aria-hidden />
                             </Button>
                         </li>
                     ))}
@@ -311,7 +311,7 @@ export function EditOrderDialog({
                     )}
                 </Field>
                 {error && (
-                    <p role="alert" className="text-sm text-red-700">
+                    <p role="alert" className="text-sm text-danger">
                         {error}
                     </p>
                 )}

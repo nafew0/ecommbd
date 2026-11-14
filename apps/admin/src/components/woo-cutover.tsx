@@ -57,7 +57,7 @@ const hostList = (value: FormDataEntryValue | null) =>
 /** Numbered instructions for one way of connecting. */
 function Steps({ items }: { items: readonly string[] }) {
     return (
-        <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-700">
+        <ol className="list-decimal space-y-1 pl-5 text-sm text-ink-muted">
             {items.map(item => (
                 <li key={item}>{item}</li>
             ))}
@@ -70,14 +70,14 @@ function MoreOptions({ name }: { name: string }) {
     const { messages } = useI18n();
     const m = messages.migration;
     return (
-        <details className="rounded-md border border-slate-200 text-sm">
+        <details className="rounded-md border border-line text-sm">
             <summary className="cursor-pointer px-3 py-2">{m.flow.moreOptions}</summary>
-            <div className="space-y-1 border-t border-slate-200 p-3">
+            <div className="space-y-1 border-t border-line p-3">
                 <label>
                     {m.hosts}
                     <Input name={name} />
                 </label>
-                <p className="text-slate-600">{m.flow.hostsHint}</p>
+                <p className="text-ink-muted">{m.flow.hostsHint}</p>
             </div>
         </details>
     );
@@ -103,7 +103,7 @@ export function WooConnect({ onConnected }: { onConnected: (sourceId: string, me
         <Card>
             <CardHeader title={f.connectTitle} />
             <CardBody className="space-y-4">
-                <p className="text-sm text-slate-600">{f.connectIntro}</p>
+                <p className="text-sm text-ink-muted">{f.connectIntro}</p>
                 <div role="radiogroup" aria-label={f.connectTitle} className="grid gap-2 sm:grid-cols-3">
                     {(['helper', 'file', 'rest'] as const).map(key => (
                         <button
@@ -114,15 +114,15 @@ export function WooConnect({ onConnected }: { onConnected: (sourceId: string, me
                             onClick={() => setMethod(key)}
                             className={`rounded-md border p-3 text-left transition-colors ${
                                 method === key
-                                    ? 'border-teal-700 bg-teal-50 ring-1 ring-teal-700'
-                                    : 'border-slate-200 hover:border-slate-400'
+                                    ? 'border-accent bg-accent-soft ring-1 ring-accent'
+                                    : 'border-line hover:border-line-strong'
                             }`}
                         >
                             <span className="flex flex-wrap items-center gap-2 font-medium">
                                 {f.methods[key].title}
                                 {key === 'helper' && <Badge tone="green">{f.methods.helper.badge}</Badge>}
                             </span>
-                            <span className="mt-1 block text-sm text-slate-600">{f.methods[key].hint}</span>
+                            <span className="mt-1 block text-sm text-ink-muted">{f.methods[key].hint}</span>
                         </button>
                     ))}
                 </div>
@@ -164,7 +164,7 @@ export function WooConnect({ onConnected }: { onConnected: (sourceId: string, me
                                     readOnly
                                     value={pairing}
                                     onFocus={e => e.currentTarget.select()}
-                                    className="w-full rounded-md border border-slate-300 p-2 font-mono text-xs"
+                                    className="w-full rounded-md border border-line-strong p-2 font-mono text-xs"
                                     rows={4}
                                 />
                             </label>
@@ -369,12 +369,12 @@ export function WooLinks({ sourceId, lastCrawl }: { sourceId: string; lastCrawl?
                             {m.saveRedirect}
                         </Button>
                     </form>
-                    <p className="text-sm text-slate-600">{m.editedByStaffHint}</p>
+                    <p className="text-sm text-ink-muted">{m.editedByStaffHint}</p>
                     {review.data && review.data.redirects.length === 0 && (
-                        <p className="text-sm text-slate-600">{m.noRedirects}</p>
+                        <p className="text-sm text-ink-muted">{m.noRedirects}</p>
                     )}
                     {/* Hundreds of rules after an import: the list scrolls instead of filling the page. */}
-                    <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto">
+                    <ul className="max-h-96 divide-y divide-line overflow-y-auto">
                         {review.data?.redirects.map(rule => (
                             <li key={rule.id} className="flex items-start justify-between gap-3 py-2">
                                 <div className="min-w-0 text-sm">
@@ -383,7 +383,7 @@ export function WooLinks({ sourceId, lastCrawl }: { sourceId: string; lastCrawl?
                                         {readablePath(rule.path)} →{' '}
                                         {rule.target ? readablePath(rule.target) : m.gone}
                                     </p>
-                                    <p className="flex flex-wrap items-center gap-2 text-slate-600">
+                                    <p className="flex flex-wrap items-center gap-2 text-ink-muted">
                                         {m.visits(rule.hits)}
                                         {rule.manual && <Badge tone="sky">{m.editedByStaff}</Badge>}
                                     </p>
@@ -406,20 +406,20 @@ export function WooLinks({ sourceId, lastCrawl }: { sourceId: string; lastCrawl?
             <Card>
                 <CardHeader title={m.missingUrls} />
                 <CardBody className="space-y-2">
-                    <p className="text-sm text-slate-600">{m.missingHint}</p>
+                    <p className="text-sm text-ink-muted">{m.missingHint}</p>
                     {review.data && review.data.misses.length === 0 && (
-                        <p className="text-sm text-slate-600">{m.noMisses}</p>
+                        <p className="text-sm text-ink-muted">{m.noMisses}</p>
                     )}
-                    <ul className="divide-y divide-slate-100">
+                    <ul className="divide-y divide-line">
                         {review.data?.misses.map(miss => (
                             <li key={miss.id} className="flex items-center justify-between gap-3 py-2">
                                 <div className="min-w-0 text-sm">
                                     <p className="break-all">{readablePath(miss.path)}</p>
-                                    <p className="text-slate-600">{m.visits(miss.hits)}</p>
+                                    <p className="text-ink-muted">{m.visits(miss.hits)}</p>
                                 </div>
                                 {/* A path counted before its rule was saved stays in the list; don't offer it twice. */}
                                 {redirected.has(miss.path) ? (
-                                    <span className="shrink-0 text-sm text-slate-600">{m.hasRule}</span>
+                                    <span className="shrink-0 text-sm text-ink-muted">{m.hasRule}</span>
                                 ) : (
                                     <Button
                                         variant="secondary"
@@ -485,7 +485,7 @@ export function CutoverChecklist({ sourceId, checked = [] }: { sourceId: string;
     return (
         <div className="space-y-2">
             <h3 className="font-medium">{m.cutoverTitle}</h3>
-            <p className="text-sm text-slate-600">{m.cutoverHint}</p>
+            <p className="text-sm text-ink-muted">{m.cutoverHint}</p>
             {error && <Alert tone="warning">{error}</Alert>}
             {Object.entries(m.cutoverSteps).map(([key, label]) => (
                 <label key={key} className="flex gap-2">
@@ -558,7 +558,7 @@ export function RollbackExport() {
             }}
         >
             <h3 className="font-medium">{m.flow.rollbackTitle}</h3>
-            <p className="text-sm text-slate-600">{m.rollbackHint}</p>
+            <p className="text-sm text-ink-muted">{m.rollbackHint}</p>
             {error && <Alert tone="warning">{error}</Alert>}
             <label>
                 {m.ordersSince}
@@ -593,24 +593,24 @@ function CrawlReport({ crawl }: { crawl: CrawlResult }) {
             )}
             {crawl.truncated && <Alert tone="warning">{m.crawlTruncated}</Alert>}
             {crawl.at && (
-                <p className="text-xs text-slate-500">{m.crawlCheckedAt(format.dateTime(crawl.at))}</p>
+                <p className="text-xs text-ink-muted">{m.crawlCheckedAt(format.dateTime(crawl.at))}</p>
             )}
             {failing.length > 0 && (
                 <>
                     <h4 className="font-medium">{m.failingUrls}</h4>
-                    <ul className="divide-y divide-slate-100">
+                    <ul className="divide-y divide-line">
                         {failing.slice(0, FAILING_SHOWN).map(result => (
                             <li key={result.path} className="flex justify-between gap-3 py-1.5">
                                 <span className="min-w-0 break-all">{readablePath(result.path)}</span>
                                 {/* At most half the row, so a long Bangla reason wraps instead of squeezing the path. */}
-                                <span className="max-w-1/2 shrink-0 text-right text-slate-600">
+                                <span className="max-w-1/2 shrink-0 text-right text-ink-muted">
                                     {crawlStatusLabel(m, result.status)}
                                 </span>
                             </li>
                         ))}
                     </ul>
                     {failing.length > FAILING_SHOWN && (
-                        <p className="text-slate-600">{m.more(failing.length - FAILING_SHOWN)}</p>
+                        <p className="text-ink-muted">{m.more(failing.length - FAILING_SHOWN)}</p>
                     )}
                 </>
             )}
@@ -630,9 +630,9 @@ export function SourceSettings({ reference }: { reference: SourceReference }) {
     const permalinks = reference.permalinks ?? {};
     const redirects = reference.redirects?.length ?? 0;
     return (
-        <details className="rounded-md border border-slate-200 text-sm">
+        <details className="rounded-md border border-line text-sm">
             <summary className="cursor-pointer px-3 py-2">{m.sourceReference}</summary>
-            <div className="space-y-3 border-t border-slate-200 p-3">
+            <div className="space-y-3 border-t border-line p-3">
                 <p>
                     {m.importedPixel}: {reference.pixelId || '—'}
                 </p>
@@ -641,11 +641,11 @@ export function SourceSettings({ reference }: { reference: SourceReference }) {
                         {m.pricesIncludedTax}: {reference.pricesIncludeTax ? m.yes : m.no}
                     </p>
                 )}
-                <p className="text-slate-600">{m.referenceHint}</p>
+                <p className="text-ink-muted">{m.referenceHint}</p>
                 <div>
                     <h4 className="font-medium">{m.shippingZones}</h4>
                     {zones.length === 0 ? (
-                        <p className="text-slate-600">{m.noShippingZones}</p>
+                        <p className="text-ink-muted">{m.noShippingZones}</p>
                     ) : (
                         <ul className="space-y-1">
                             {zones.map((zone, index) => {
@@ -653,7 +653,7 @@ export function SourceSettings({ reference }: { reference: SourceReference }) {
                                 return (
                                     <li key={String(zone.id ?? index)}>
                                         <span className="font-medium">{zone.name || '—'}</span>
-                                        <span className="block text-slate-600">
+                                        <span className="block text-ink-muted">
                                             {locations.length ? locations.join(' · ') : m.zoneNoLocations}
                                         </span>
                                     </li>
@@ -667,7 +667,7 @@ export function SourceSettings({ reference }: { reference: SourceReference }) {
                     <dl className="space-y-0.5">
                         {Object.entries(m.permalinkKinds).map(([key, label]) => (
                             <div key={key} className="flex flex-wrap justify-between gap-x-3">
-                                <dt className="text-slate-600">{label}</dt>
+                                <dt className="text-ink-muted">{label}</dt>
                                 {/* An empty base means WooCommerce's own (/product/, /product-category/…). */}
                                 <dd className="break-all">{permalinks[key] || m.permalinkDefault}</dd>
                             </div>

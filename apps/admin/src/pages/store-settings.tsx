@@ -225,7 +225,7 @@ export function StoreSettingsPage() {
                 <div
                     role="tablist"
                     aria-label={m.settings.title}
-                    className="flex gap-1 overflow-x-auto rounded-lg bg-slate-200/60 p-1"
+                    className="flex gap-1 overflow-x-auto rounded-lg bg-line/60 p-1"
                 >
                     {TABS.map(name => (
                         <button
@@ -239,13 +239,13 @@ export function StoreSettingsPage() {
                             className={cn(
                                 'flex min-h-10 shrink-0 items-center gap-2 rounded-md px-4 text-sm font-medium whitespace-nowrap',
                                 tab === name
-                                    ? 'bg-white text-slate-900 shadow-sm'
-                                    : 'text-slate-600 hover:text-slate-900',
+                                    ? 'bg-surface text-ink shadow-sm'
+                                    : 'text-ink-muted hover:text-ink',
                             )}
                         >
                             {m.settings.tabs[name]}
                             {tabHasError(name) && (
-                                <span className="size-2 rounded-full bg-red-600" aria-hidden />
+                                <span className="size-2 rounded-full bg-danger" aria-hidden />
                             )}
                         </button>
                     ))}
@@ -281,8 +281,8 @@ export function StoreSettingsPage() {
                     </fieldset>
 
                     {history.length > 0 && (
-                        <details className="mt-4 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm">
-                            <summary className="flex cursor-pointer items-center gap-2 text-slate-700">
+                        <details className="mt-4 rounded-lg border border-line bg-surface px-4 py-3 text-sm">
+                            <summary className="flex cursor-pointer items-center gap-2 text-ink-muted">
                                 <History className="size-4" aria-hidden />
                                 {lastChange &&
                                     m.settings.history.lastChanged(
@@ -294,7 +294,7 @@ export function StoreSettingsPage() {
                                     )}
                             </summary>
                             <h2 className="mt-3 mb-1 font-medium">{m.settings.history.title}</h2>
-                            <ul className="space-y-1 text-slate-600">
+                            <ul className="space-y-1 text-ink-muted">
                                 {history.slice(0, 10).map(entry => (
                                     <li key={entry.at}>
                                         {formatDhaka(new Date(entry.at), {
@@ -310,11 +310,9 @@ export function StoreSettingsPage() {
                     )}
 
                     {canEdit && (
-                        <div className="sticky bottom-0 z-20 -mx-4 mt-4 flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+                        <div className="sticky bottom-0 z-20 -mx-4 mt-4 flex flex-wrap items-center justify-end gap-3 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
                             {dirty && (
-                                <span className="mr-auto text-sm text-amber-800">
-                                    {m.common.unsavedChanges}
-                                </span>
+                                <span className="mr-auto text-sm text-warn">{m.common.unsavedChanges}</span>
                             )}
                             <Button
                                 type="submit"
@@ -410,7 +408,7 @@ function ProfileTab({
     const address = draft.profile.address;
     return (
         <>
-            <p className="text-sm text-slate-600">{m.settings.publicHint}</p>
+            <p className="text-sm text-ink-muted">{m.settings.publicHint}</p>
             <Section title={m.settings.sections.name} description={f.storeNameHint}>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <TextField
@@ -427,7 +425,7 @@ function ProfileTab({
                     />
                 </div>
                 {editor.error('profile.storeName') && (
-                    <p className="text-sm text-red-700" data-field-error="true">
+                    <p className="text-sm text-danger" data-field-error="true">
                         {m.errors.required}
                     </p>
                 )}
@@ -471,7 +469,7 @@ function ProfileTab({
             <Section title={m.settings.sections.contact}>
                 <fieldset className="space-y-2">
                     <legend className="font-medium">{f.phones}</legend>
-                    <p className="text-sm text-slate-600">{f.phonesHint}</p>
+                    <p className="text-sm text-ink-muted">{f.phonesHint}</p>
                     {phones.map((phone, index) => (
                         <div key={index} className="flex items-start gap-2">
                             <div className="min-w-0 flex-1">
@@ -709,13 +707,13 @@ function LocaleTab({ editor, language }: { editor: Editor; language: 'bn' | 'en'
             year: 'numeric',
             timeZone: 'Asia/Dhaka',
         }).format(today);
-    const radio = 'size-4 accent-teal-700';
+    const radio = 'size-4 accent-accent';
     return (
         <Card>
             <CardBody className="space-y-6">
                 <fieldset className="space-y-2">
                     <legend className="font-medium">{l.defaultLanguage}</legend>
-                    <p className="text-sm text-slate-600">{l.defaultLanguageHint}</p>
+                    <p className="text-sm text-ink-muted">{l.defaultLanguageHint}</p>
                     {(['bn', 'en'] as const).map(option => (
                         <label key={option} className="flex min-h-10 items-center gap-3">
                             <input
@@ -751,7 +749,7 @@ function LocaleTab({ editor, language }: { editor: Editor; language: 'bn' | 'en'
                             />
                             <span>
                                 {option === 'numeric' ? l.dateNumeric : l.dateLong}
-                                <span className="ml-2 text-sm text-slate-600">
+                                <span className="ml-2 text-sm text-ink-muted">
                                     {option === 'numeric'
                                         ? formatDhaka(today, { banglaDigits: language === 'bn' })
                                         : longDate(language)}

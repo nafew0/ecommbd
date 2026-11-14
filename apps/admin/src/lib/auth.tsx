@@ -263,7 +263,7 @@ function ReloginDialog(props: {
             description={m.login.sessionExpiredBody}
         >
             <form onSubmit={submit} className="space-y-4">
-                <p className="text-sm text-slate-700">{props.identifier}</p>
+                <p className="text-sm text-ink-muted">{props.identifier}</p>
                 <label className="block space-y-1">
                     <span className="font-medium">{m.login.password}</span>
                     <Input
@@ -277,7 +277,7 @@ function ReloginDialog(props: {
                     />
                 </label>
                 {error && (
-                    <p role="alert" className="text-sm text-red-700">
+                    <p role="alert" className="text-sm text-danger">
                         {error}
                     </p>
                 )}

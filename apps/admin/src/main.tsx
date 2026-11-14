@@ -19,6 +19,7 @@ import { ApiError } from './lib/api';
 import { AuthProvider, useAuth } from './lib/auth';
 import { ConfirmProvider } from './lib/confirm';
 import { I18nProvider, useI18n } from './lib/i18n';
+import { MotionRoot } from './lib/motion';
 import { isMissingBuildFile, reloadForNewBuild } from './lib/new-build';
 import { ToastProvider } from './lib/toast';
 
@@ -388,11 +389,13 @@ createRoot(document.getElementById('root')!).render(
     <StrictMode>
         <QueryClientProvider client={queryClient}>
             <I18nProvider>
-                <ToastProvider>
-                    <ConfirmProvider>
-                        <RouterProvider router={router} />
-                    </ConfirmProvider>
-                </ToastProvider>
+                <MotionRoot>
+                    <ToastProvider>
+                        <ConfirmProvider>
+                            <RouterProvider router={router} />
+                        </ConfirmProvider>
+                    </ToastProvider>
+                </MotionRoot>
             </I18nProvider>
         </QueryClientProvider>
     </StrictMode>,

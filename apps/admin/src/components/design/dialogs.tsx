@@ -82,7 +82,7 @@ export function AddSectionDialog({
             description={d.libraryDescription}
             size="wide"
         >
-            <div role="tablist" className="-mt-1 mb-4 flex gap-1 border-b border-slate-200">
+            <div role="tablist" className="-mt-1 mb-4 flex gap-1 border-b border-line">
                 {tabs.map(item => (
                     <button
                         key={item.key}
@@ -93,8 +93,8 @@ export function AddSectionDialog({
                         className={cn(
                             '-mb-px border-b-2 px-3 py-2 text-sm font-medium',
                             tab === item.key
-                                ? 'border-teal-700 text-teal-800'
-                                : 'border-transparent text-slate-600 hover:text-slate-900',
+                                ? 'border-accent text-accent'
+                                : 'border-transparent text-ink-muted hover:text-ink',
                         )}
                     >
                         {item.label}
@@ -108,7 +108,7 @@ export function AddSectionDialog({
                         if (!items.length) return null;
                         return (
                             <section key={category}>
-                                <h3 className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                                <h3 className="mb-2 text-xs font-semibold tracking-wide text-ink-muted uppercase">
                                     {d.categories[category]}
                                 </h3>
                                 <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -120,23 +120,23 @@ export function AddSectionDialog({
                                                     onAdd(createSection(definition.type));
                                                     onClose();
                                                 }}
-                                                className="group flex h-full w-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white text-left transition hover:border-teal-600 hover:shadow-md focus-visible:outline-2 focus-visible:outline-teal-600"
+                                                className="group flex h-full w-full flex-col overflow-hidden rounded-lg border border-line bg-surface text-left transition hover:border-accent hover:shadow-md focus-visible:outline-2 focus-visible:outline-accent"
                                             >
-                                                <span className="block border-b border-slate-100 bg-slate-50 p-2">
+                                                <span className="block border-b border-line bg-surface-muted p-2">
                                                     <SectionThumbnail
                                                         type={definition.type}
-                                                        className="aspect-[16/10] w-full rounded shadow-sm ring-1 ring-slate-200 transition group-hover:ring-teal-600/40"
+                                                        className="aspect-[16/10] w-full rounded shadow-sm ring-1 ring-line transition group-hover:ring-accent/40"
                                                     />
                                                 </span>
                                                 <span className="flex flex-1 flex-col gap-0.5 p-3">
                                                     <span className="flex items-center gap-1.5 text-sm font-medium">
                                                         <SectionIcon
                                                             type={definition.type}
-                                                            className="size-4 text-teal-700"
+                                                            className="size-4 text-accent"
                                                         />
                                                         {pick(definition.name, language)}
                                                     </span>
-                                                    <span className="text-xs leading-snug text-slate-600">
+                                                    <span className="text-xs leading-snug text-ink-muted">
                                                         {pick(definition.description, language)}
                                                     </span>
                                                 </span>
@@ -152,8 +152,8 @@ export function AddSectionDialog({
             {tab === 'saved' && (
                 <div>
                     {saved.data?.length === 0 && (
-                        <div className="flex flex-col items-center gap-2 py-12 text-center text-slate-600">
-                            <Bookmark className="size-6 text-slate-400" aria-hidden />
+                        <div className="flex flex-col items-center gap-2 py-12 text-center text-ink-muted">
+                            <Bookmark className="size-6 text-ink-faint" aria-hidden />
                             <p>{d.noSavedSections}</p>
                         </div>
                     )}
@@ -166,12 +166,12 @@ export function AddSectionDialog({
                                         onAdd(copySection(item.section));
                                         onClose();
                                     }}
-                                    className="flex h-full w-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white text-left transition hover:border-teal-600 hover:shadow-md"
+                                    className="flex h-full w-full flex-col overflow-hidden rounded-lg border border-line bg-surface text-left transition hover:border-accent hover:shadow-md"
                                 >
-                                    <span className="block border-b border-slate-100 bg-slate-50 p-2">
+                                    <span className="block border-b border-line bg-surface-muted p-2">
                                         <SectionThumbnail
                                             type={item.section.type}
-                                            className="aspect-[16/10] w-full rounded ring-1 ring-slate-200"
+                                            className="aspect-[16/10] w-full rounded ring-1 ring-line"
                                         />
                                     </span>
                                     <span className="p-3 pr-10 text-sm font-medium">{item.name}</span>
@@ -191,10 +191,10 @@ export function AddSectionDialog({
             )}
             {tab === 'templates' && layoutType === 'landing' && (
                 <div className="space-y-6">
-                    <p className="text-sm text-slate-600">{d.landingTemplatesDescription}</p>
+                    <p className="text-sm text-ink-muted">{d.landingTemplatesDescription}</p>
                     {LANDING_CATEGORIES.map(category => (
                         <section key={category}>
-                            <h3 className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                            <h3 className="mb-2 text-xs font-semibold tracking-wide text-ink-muted uppercase">
                                 {pick(LANDING_CATEGORY_NAMES[category], language)}
                             </h3>
                             <ul className="grid gap-3 sm:grid-cols-2">
@@ -218,7 +218,7 @@ export function AddSectionDialog({
             )}
             {tab === 'templates' && layoutType !== 'landing' && (
                 <div>
-                    <p className="mb-4 text-sm text-slate-600">{d.templatesDescription}</p>
+                    <p className="mb-4 text-sm text-ink-muted">{d.templatesDescription}</p>
                     <ul className="grid gap-3 sm:grid-cols-2">
                         {STARTERS.map(name => {
                             const types = starterLayout(name)
@@ -232,9 +232,9 @@ export function AddSectionDialog({
                                             onTemplate(name);
                                             onClose();
                                         }}
-                                        className="group flex w-full gap-3 rounded-lg border border-slate-200 bg-white p-3 text-left transition hover:border-teal-600 hover:shadow-md"
+                                        className="group flex w-full gap-3 rounded-lg border border-line bg-surface p-3 text-left transition hover:border-accent hover:shadow-md"
                                     >
-                                        <span className="flex w-24 shrink-0 flex-col gap-1 rounded bg-slate-50 p-1.5 ring-1 ring-slate-200">
+                                        <span className="flex w-24 shrink-0 flex-col gap-1 rounded bg-surface-muted p-1.5 ring-1 ring-line">
                                             {types.slice(0, 5).map((type, index) => (
                                                 <SectionThumbnail
                                                     key={`${type}-${index}`}
@@ -245,16 +245,13 @@ export function AddSectionDialog({
                                         </span>
                                         <span className="min-w-0">
                                             <span className="flex items-center gap-1.5 font-medium">
-                                                <LayoutTemplate
-                                                    className="size-4 text-teal-700"
-                                                    aria-hidden
-                                                />
+                                                <LayoutTemplate className="size-4 text-accent" aria-hidden />
                                                 {pick(STARTER_INFO[name].name, language)}
                                             </span>
-                                            <span className="mt-1 block text-sm text-slate-600">
+                                            <span className="mt-1 block text-sm text-ink-muted">
                                                 {pick(STARTER_INFO[name].description, language)}
                                             </span>
-                                            <span className="mt-3 inline-flex text-sm font-medium text-teal-800 group-hover:underline">
+                                            <span className="mt-3 inline-flex text-sm font-medium text-accent group-hover:underline">
                                                 {d.applyTemplate}
                                             </span>
                                         </span>
@@ -291,11 +288,11 @@ export function LandingTemplateCard({
             onClick={onPick}
             aria-pressed={selected}
             className={cn(
-                'group flex w-full gap-3 rounded-lg border bg-white p-3 text-left transition hover:border-teal-600 hover:shadow-md focus-visible:outline-2 focus-visible:outline-teal-600',
-                selected ? 'border-teal-600 ring-2 ring-teal-600/30' : 'border-slate-200',
+                'group flex w-full gap-3 rounded-lg border bg-surface p-3 text-left transition hover:border-accent hover:shadow-md focus-visible:outline-2 focus-visible:outline-accent',
+                selected ? 'border-accent ring-2 ring-accent/30' : 'border-line',
             )}
         >
-            <span className="flex w-20 shrink-0 flex-col gap-1 rounded bg-slate-50 p-1.5 ring-1 ring-slate-200">
+            <span className="flex w-20 shrink-0 flex-col gap-1 rounded bg-surface-muted p-1.5 ring-1 ring-line">
                 {types.slice(0, 5).map((type, index) => (
                     <SectionThumbnail key={`${type}-${index}`} type={type} className="w-full rounded-sm" />
                 ))}
@@ -303,16 +300,16 @@ export function LandingTemplateCard({
             <span className="min-w-0">
                 <span className="flex items-center gap-1.5 font-medium">
                     {selected ? (
-                        <Check className="size-4 text-teal-700" aria-hidden />
+                        <Check className="size-4 text-accent" aria-hidden />
                     ) : (
-                        <LayoutTemplate className="size-4 text-teal-700" aria-hidden />
+                        <LayoutTemplate className="size-4 text-accent" aria-hidden />
                     )}
                     {pick(template.name, language)}
                 </span>
-                <span className="mt-1 block text-sm text-slate-600">
+                <span className="mt-1 block text-sm text-ink-muted">
                     {pick(template.description, language)}
                 </span>
-                <span className="mt-2 block text-xs text-slate-500">
+                <span className="mt-2 block text-xs text-ink-muted">
                     {m.design.sectionCountShort(types.length)}
                 </span>
             </span>
@@ -395,17 +392,17 @@ export function HistoryDialog({
         language === 'bn' ? String(n).replace(/\d/g, digit => '০১২৩৪৫৬৭৮৯'[Number(digit)]!) : String(n);
     return (
         <Dialog open={open} onClose={onClose} title={d.historyTitle} description={d.historyDescription}>
-            {versions.data?.length === 0 && <p className="py-8 text-center text-slate-600">{d.noHistory}</p>}
-            <ol className="relative space-y-1 border-l border-slate-200 pl-5">
+            {versions.data?.length === 0 && <p className="py-8 text-center text-ink-muted">{d.noHistory}</p>}
+            <ol className="relative space-y-1 border-l border-line pl-5">
                 {versions.data?.map(item => (
                     <li
                         key={item.version}
-                        className="relative flex items-center gap-3 rounded-md py-2 pr-1 hover:bg-slate-50"
+                        className="relative flex items-center gap-3 rounded-md py-2 pr-1 hover:bg-surface-muted"
                     >
                         <span
                             className={cn(
                                 'absolute top-1/2 -left-[26px] size-3 -translate-y-1/2 rounded-full border-2 border-white',
-                                item.version === publishedVersion ? 'bg-teal-600' : 'bg-slate-300',
+                                item.version === publishedVersion ? 'bg-accent' : 'bg-line',
                             )}
                             aria-hidden
                         />
@@ -413,12 +410,12 @@ export function HistoryDialog({
                             <p className="flex items-center gap-2 font-medium">
                                 {d.version(digits(item.version))}
                                 {item.version === publishedVersion && (
-                                    <span className="rounded bg-teal-50 px-1.5 py-0.5 text-xs font-medium text-teal-800">
+                                    <span className="rounded bg-accent-soft px-1.5 py-0.5 text-xs font-medium text-accent">
                                         {d.liveNow}
                                     </span>
                                 )}
                             </p>
-                            <p className="truncate text-sm text-slate-600">
+                            <p className="truncate text-sm text-ink-muted">
                                 {d.versionMeta(
                                     item.publishedBy || d.someoneElse,
                                     format.dateTime(item.publishedAt),
@@ -498,7 +495,7 @@ export function ShareDialog({
                     />
                 </div>
                 {link.data && (
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-ink-muted">
                         {d.worksUntil(format.dateTime(link.data.expiresAt))}
                     </p>
                 )}
@@ -520,19 +517,19 @@ export function ShareDialog({
                     </Button>
                     <a
                         className={cn(
-                            'inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 font-medium text-slate-900 hover:bg-slate-50',
+                            'inline-flex min-h-11 items-center gap-2 rounded-md border border-line-strong bg-surface px-4 font-medium text-ink hover:bg-surface-muted',
                             !url && 'pointer-events-none opacity-50',
                         )}
                         href={`https://wa.me/?text=${encodeURIComponent(url)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                     >
-                        <MessageCircle className="size-4 text-green-700" aria-hidden />
+                        <MessageCircle className="size-4 text-ok" aria-hidden />
                         {d.sendWhatsapp}
                     </a>
                     <a
                         className={cn(
-                            'inline-flex min-h-11 items-center gap-2 rounded-md px-4 font-medium text-slate-700 hover:bg-slate-100',
+                            'inline-flex min-h-11 items-center gap-2 rounded-md px-4 font-medium text-ink-muted hover:bg-surface-muted',
                             !url && 'pointer-events-none opacity-50',
                         )}
                         href={url}

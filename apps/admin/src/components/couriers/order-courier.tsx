@@ -159,11 +159,11 @@ export function OrderCourier({
                                     : (o.statuses[booking.status] ?? booking.status)}
                             </Badge>
                             {booking.courierStatus && (
-                                <span className="text-sm text-slate-500">{booking.courierStatus}</span>
+                                <span className="text-sm text-ink-muted">{booking.courierStatus}</span>
                             )}
                         </div>
                         {booking.status === 'failed' && (
-                            <p className="text-sm text-red-700">
+                            <p className="text-sm text-danger">
                                 {o.failed(
                                     m.couriers.errors[booking.errorCode ?? ''] ?? booking.errorCode ?? '',
                                 )}
@@ -171,10 +171,10 @@ export function OrderCourier({
                             </p>
                         )}
                         {booking.waitingForCourier && (
-                            <p className="text-sm text-amber-800">{o.waiting(courierLabel)}</p>
+                            <p className="text-sm text-warn">{o.waiting(courierLabel)}</p>
                         )}
                         {unconfirmed && !booking.waitingForCourier && (
-                            <p className="text-sm text-amber-800">
+                            <p className="text-sm text-warn">
                                 {booking.errorCode === 'COURIER_BUSY'
                                     ? o.busy(courierLabel)
                                     : askStaff
@@ -244,8 +244,8 @@ export function OrderCourier({
                             </div>
                         )}
                         {live && booking.newCodAmount !== null && (
-                            <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm">
-                                <p className="text-amber-900">
+                            <div className="space-y-2 rounded-md border border-warn/30 bg-warn-soft p-3 text-sm">
+                                <p className="text-warn">
                                     {o.codChanged(
                                         format.money(booking.codAmount),
                                         format.money(booking.newCodAmount),
@@ -272,25 +272,25 @@ export function OrderCourier({
                             </div>
                         )}
                         {booking.status === 'failed' && booking.errorCode === 'UNMAPPED_ADDRESS' && (
-                            <Link to="/orders/unmapped-addresses" className="text-sm text-teal-800 underline">
+                            <Link to="/orders/unmapped-addresses" className="text-sm text-accent underline">
                                 {o.mapAddress}
                             </Link>
                         )}
                         {booking.consignmentId && (
                             <dl className="grid gap-2 text-sm sm:grid-cols-3">
                                 <div>
-                                    <dt className="text-slate-600">{o.consignment}</dt>
+                                    <dt className="text-ink-muted">{o.consignment}</dt>
                                     <dd className="font-mono break-all">{booking.consignmentId}</dd>
                                 </div>
                                 {live && (
                                     <div>
-                                        <dt className="text-slate-600">{o.cod}</dt>
+                                        <dt className="text-ink-muted">{o.cod}</dt>
                                         <dd className="tabular-nums">{format.money(booking.codAmount)}</dd>
                                     </div>
                                 )}
                                 {booking.deliveryFee !== null && (
                                     <div>
-                                        <dt className="text-slate-600">{o.fee}</dt>
+                                        <dt className="text-ink-muted">{o.fee}</dt>
                                         <dd className="tabular-nums">{format.money(booking.deliveryFee)}</dd>
                                     </div>
                                 )}
@@ -299,7 +299,7 @@ export function OrderCourier({
                         <div className="flex flex-wrap gap-2">
                             {booking.trackingUrl && (
                                 <a
-                                    className="text-sm text-teal-800 underline"
+                                    className="text-sm text-accent underline"
                                     href={booking.trackingUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
@@ -350,7 +350,7 @@ export function OrderCourier({
                         </div>
                         {booking.events.length > 0 && (
                             <details className="text-sm">
-                                <summary className="cursor-pointer text-slate-600">{o.history}</summary>
+                                <summary className="cursor-pointer text-ink-muted">{o.history}</summary>
                                 <ul className="mt-2 space-y-1">
                                     {[...booking.events].reverse().map(event => (
                                         <li
@@ -359,11 +359,11 @@ export function OrderCourier({
                                         >
                                             <span>
                                                 {event.status}{' '}
-                                                <span className="text-slate-500">
+                                                <span className="text-ink-muted">
                                                     ({o.sources[event.source] ?? event.source})
                                                 </span>
                                             </span>
-                                            <span className="text-slate-500">{ago(event.at)}</span>
+                                            <span className="text-ink-muted">{ago(event.at)}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -371,7 +371,7 @@ export function OrderCourier({
                         )}
                     </div>
                 )}
-                {!booking && bookable && <p className="text-sm text-slate-600">{o.notBooked}</p>}
+                {!booking && bookable && <p className="text-sm text-ink-muted">{o.notBooked}</p>}
                 {bookable && canBook && (
                     <div className="flex flex-wrap items-end gap-2">
                         <Field label={o.bookWith}>
@@ -414,7 +414,7 @@ export function OrderCourier({
                 )}
                 {manual && bookable && (
                     <form
-                        className="space-y-3 rounded-md border border-slate-200 p-3"
+                        className="space-y-3 rounded-md border border-line p-3"
                         onSubmit={event => {
                             event.preventDefault();
                             void run(
@@ -426,7 +426,7 @@ export function OrderCourier({
                             );
                         }}
                     >
-                        <p className="text-sm text-slate-600">{o.manualHint}</p>
+                        <p className="text-sm text-ink-muted">{o.manualHint}</p>
                         <div className="grid gap-3 sm:grid-cols-2">
                             <Field label={o.courierName}>
                                 {control => (

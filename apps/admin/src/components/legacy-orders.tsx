@@ -106,7 +106,7 @@ export function LegacyOrders({
         <Card>
             {showHeader && <CardHeader title={m.legacyTitle} />}
             <CardBody>
-                {showHeader && <p className="text-sm text-slate-600">{m.legacyIntro}</p>}
+                {showHeader && <p className="text-sm text-ink-muted">{m.legacyIntro}</p>}
                 <Input
                     aria-label={m.search}
                     placeholder={m.search}
@@ -133,7 +133,7 @@ export function LegacyOrders({
                                             .join(' · ')}
                                     </p>
                                 )}
-                                <p className="flex flex-wrap items-center gap-x-2 text-sm text-slate-600">
+                                <p className="flex flex-wrap items-center gap-x-2 text-sm text-ink-muted">
                                     {[format.date(order.placedAt), wooStatusLabel(m, order.status)]
                                         .filter(Boolean)
                                         .join(' · ')}
@@ -227,7 +227,7 @@ export function LegacyOrders({
 function Item({ label, children }: { label: string; children: ReactNode }) {
     return (
         <div className="min-w-0">
-            <dt className="text-sm text-slate-600">{label}</dt>
+            <dt className="text-sm text-ink-muted">{label}</dt>
             <dd className="font-medium break-words">{children}</dd>
         </div>
     );
@@ -272,7 +272,7 @@ function OrderSnapshot({ order }: { order: Legacy }) {
             {lines.length > 0 && (
                 <div className="text-sm">
                     <h4 className="font-medium">{m.items}</h4>
-                    <ul className="divide-y divide-slate-100">
+                    <ul className="divide-y divide-line">
                         {lines.map((line, index) => (
                             <li key={String(line.id ?? index)} className="flex justify-between gap-3 py-1.5">
                                 <span className="min-w-0 break-words">

@@ -1,0 +1,8 @@
+---
+description: Ecomm BD project rules
+alwaysApply: true
+---
+
+Read `CLAUDE.md` at the repository root before any change: it holds the project rules (Vendure plugins, settings, money, phones, migrations, permissions, Bangla and English strings).
+
+Work on the current branch. Don't push or open pull requests without asking.

@@ -40,7 +40,7 @@ export function ProductPicker({ onPick }: { onPick(variant: PickedVariant): void
         <div className="space-y-2">
             <div className="relative">
                 <Search
-                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400"
+                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint"
                     aria-hidden
                 />
                 <Input
@@ -52,9 +52,9 @@ export function ProductPicker({ onPick }: { onPick(variant: PickedVariant): void
                 />
             </div>
             {term && results.data && (
-                <ul className="max-h-72 divide-y divide-slate-100 overflow-y-auto rounded-md border border-slate-200">
+                <ul className="max-h-72 divide-y divide-line overflow-y-auto rounded-md border border-line">
                     {results.data.length === 0 && (
-                        <li className="px-3 py-2 text-sm text-slate-600">{m.phoneOrder.noProducts}</li>
+                        <li className="px-3 py-2 text-sm text-ink-muted">{m.phoneOrder.noProducts}</li>
                     )}
                     {results.data.map(variant => {
                         const soldOut = variant.available <= 0 && !variant.backorder;
@@ -63,7 +63,7 @@ export function ProductPicker({ onPick }: { onPick(variant: PickedVariant): void
                                 <button
                                     type="button"
                                     disabled={soldOut}
-                                    className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-slate-50 disabled:opacity-50"
+                                    className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-surface-muted disabled:opacity-50"
                                     onClick={() => {
                                         onPick(variant);
                                         setSearch('');
@@ -76,11 +76,11 @@ export function ProductPicker({ onPick }: { onPick(variant: PickedVariant): void
                                             className="size-10 rounded object-cover"
                                         />
                                     ) : (
-                                        <span className="size-10 rounded bg-slate-100" />
+                                        <span className="size-10 rounded bg-surface-muted" />
                                     )}
                                     <span className="min-w-0 flex-1">
                                         <span className="block font-medium">{variant.name}</span>
-                                        <span className="block text-sm text-slate-600">
+                                        <span className="block text-sm text-ink-muted">
                                             {format.money(variant.price)} ·{' '}
                                             {soldOut
                                                 ? m.phoneOrder.soldOut

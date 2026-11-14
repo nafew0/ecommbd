@@ -112,7 +112,7 @@ function MapCard({ item, cities }: { item: Unmapped; cities: Place[] }) {
                     <p className="font-semibold">
                         {item.thanaName}, {item.districtName}
                     </p>
-                    <span className="text-sm text-slate-600">{u.orders(item.orderIds.length)}</span>
+                    <span className="text-sm text-ink-muted">{u.orders(item.orderIds.length)}</span>
                 </div>
                 {can('BookCourier') && (
                     <div className="flex flex-wrap items-end gap-3">

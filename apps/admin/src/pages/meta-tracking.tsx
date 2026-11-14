@@ -257,7 +257,7 @@ export function MetaTrackingPage() {
                 </div>
             )}
             <EventLog />
-            <p className="mt-4 text-sm text-slate-500">{t.version(setup.graphVersion)}</p>
+            <p className="mt-4 text-sm text-ink-muted">{t.version(setup.graphVersion)}</p>
         </>
     );
 }
@@ -358,7 +358,7 @@ function TokenCard({
                             {t.sendTest}
                         </Button>
                     </div>
-                    {saved && !testCode && <p className="text-sm text-slate-600">{t.testNeedsCode}</p>}
+                    {saved && !testCode && <p className="text-sm text-ink-muted">{t.testNeedsCode}</p>}
                     {result && <Alert tone={result.ok ? 'info' : 'error'}>{result.text}</Alert>}
                 </form>
             </CardBody>
@@ -433,9 +433,9 @@ function EventLog() {
                     />
                 </div>
                 {items.length === 0 ? (
-                    <p className="text-sm text-slate-600">{l.empty}</p>
+                    <p className="text-sm text-ink-muted">{l.empty}</p>
                 ) : (
-                    <ul className="divide-y divide-slate-100">
+                    <ul className="divide-y divide-line">
                         {items.map(event => (
                             <li key={event.id} className="py-2 text-sm">
                                 <div className="flex flex-wrap items-center gap-2">
@@ -443,13 +443,13 @@ function EventLog() {
                                     <Badge tone={TONES[event.status] ?? 'slate'}>
                                         {l.statuses[event.status] ?? event.status}
                                     </Badge>
-                                    <span className="text-slate-600">
+                                    <span className="text-ink-muted">
                                         {l.sources[event.source] ?? event.source}
                                     </span>
-                                    <span className="font-mono text-slate-500">{event.pixelId}</span>
-                                    <span className="text-slate-500">{ago(event.createdAt)}</span>
+                                    <span className="font-mono text-ink-muted">{event.pixelId}</span>
+                                    <span className="text-ink-muted">{ago(event.createdAt)}</span>
                                     {event.response?.events_received !== undefined && (
-                                        <span className="text-green-800">
+                                        <span className="text-ok">
                                             {l.received(
                                                 event.response.events_received,
                                                 event.response.batch_size ?? 1,
@@ -457,21 +457,21 @@ function EventLog() {
                                         </span>
                                     )}
                                     {event.error && (
-                                        <span className="text-red-700">
+                                        <span className="text-danger">
                                             {l.errors[event.error] ?? event.error}
                                         </span>
                                     )}
                                 </div>
                                 <details className="mt-1">
-                                    <summary className="cursor-pointer text-slate-600">{l.details}</summary>
+                                    <summary className="cursor-pointer text-ink-muted">{l.details}</summary>
                                     <p className="mt-2 font-medium">{l.payload}</p>
-                                    <pre className="max-h-64 overflow-auto rounded bg-slate-50 p-2 text-xs">
+                                    <pre className="max-h-64 overflow-auto rounded bg-surface-muted p-2 text-xs">
                                         {JSON.stringify(event.payload, null, 2)}
                                     </pre>
                                     {event.response && (
                                         <>
                                             <p className="mt-2 font-medium">{l.response}</p>
-                                            <pre className="overflow-auto rounded bg-slate-50 p-2 text-xs">
+                                            <pre className="overflow-auto rounded bg-surface-muted p-2 text-xs">
                                                 {JSON.stringify(event.response, null, 2)}
                                             </pre>
                                         </>
@@ -499,7 +499,7 @@ function EventLog() {
                         >
                             {l.next}
                         </Button>
-                        <span className="text-slate-600">
+                        <span className="text-ink-muted">
                             {l.range(skip + 1, Math.min(skip + PAGE_SIZE, total), total)}
                         </span>
                     </div>

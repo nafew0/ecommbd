@@ -139,7 +139,7 @@ export function DistrictThanaPicker({
                 )}
             </Field>
             {failed && (
-                <p role="alert" className="text-sm text-red-700 sm:col-span-2">
+                <p role="alert" className="text-sm text-danger sm:col-span-2">
                     {m.address.loadFailed}
                 </p>
             )}

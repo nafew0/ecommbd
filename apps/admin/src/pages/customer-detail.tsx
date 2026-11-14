@@ -174,7 +174,7 @@ export function CustomerDetailPage() {
                     f.phone && (
                         <a
                             href={`tel:${f.phone}`}
-                            className="inline-flex min-h-11 items-center gap-2 rounded-md bg-teal-700 px-4 font-medium text-white hover:bg-teal-800"
+                            className="inline-flex min-h-11 items-center gap-2 rounded-md bg-accent px-4 font-medium text-white hover:bg-accent"
                         >
                             <Phone className="size-4" aria-hidden />
                             {m.customers.call(format.phone(f.phone))}
@@ -312,11 +312,11 @@ export function CustomerDetailPage() {
                     <CardHeader title={m.customers.recentOrders} />
                     {customer.orders.items.length === 0 ? (
                         <CardBody>
-                            <p className="text-slate-600">{m.customers.noOrders}</p>
+                            <p className="text-ink-muted">{m.customers.noOrders}</p>
                         </CardBody>
                     ) : (
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 text-slate-600">
+                            <thead className="bg-surface-muted text-ink-muted">
                                 <tr>
                                     <th className="px-4 py-2 font-medium">
                                         {m.customers.orderColumns.order}
@@ -327,7 +327,7 @@ export function CustomerDetailPage() {
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-line">
                                 {customer.orders.items.map(order => (
                                     <tr key={order.id}>
                                         <td className="px-4 py-2 font-medium">{order.code}</td>
@@ -352,7 +352,7 @@ function BackLink() {
     return (
         <Link
             to="/customers"
-            className="mb-3 inline-flex items-center gap-1 text-sm text-teal-800 hover:underline"
+            className="mb-3 inline-flex items-center gap-1 text-sm text-accent hover:underline"
         >
             <ArrowLeft className="size-4" aria-hidden />
             {m.customers.back}
@@ -363,9 +363,9 @@ function BackLink() {
 function Item({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
     return (
         <div className="min-w-0">
-            <dt className="text-sm text-slate-600">{label}</dt>
+            <dt className="text-sm text-ink-muted">{label}</dt>
             <dd className="font-medium break-words">{children}</dd>
-            {hint && <dd className="text-xs text-slate-500">{hint}</dd>}
+            {hint && <dd className="text-xs text-ink-muted">{hint}</dd>}
         </div>
     );
 }

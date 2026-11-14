@@ -118,7 +118,7 @@ export function ContentPageEditPage() {
         <>
             <Link
                 to="/store/pages"
-                className="mb-3 inline-flex items-center gap-1 text-sm text-teal-800 hover:underline"
+                className="mb-3 inline-flex items-center gap-1 text-sm text-accent hover:underline"
             >
                 <ArrowLeft className="size-4" aria-hidden />
                 {c.back}
@@ -184,7 +184,7 @@ export function ContentPageEditPage() {
                                         />
                                     )}
                                 </Field>
-                                <details className="rounded-md border border-slate-200 p-3">
+                                <details className="rounded-md border border-line p-3">
                                     <summary className="cursor-pointer font-medium">{c.seo}</summary>
                                     <div className="mt-3 space-y-4">
                                         <Field

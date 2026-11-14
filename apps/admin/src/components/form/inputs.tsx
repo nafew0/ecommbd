@@ -58,7 +58,7 @@ export function TakaInput({
         <div className="relative">
             <span
                 aria-hidden
-                className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-500"
+                className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-ink-muted"
             >
                 ৳
             </span>

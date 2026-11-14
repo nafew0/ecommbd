@@ -93,8 +93,10 @@ export function BlockListPage() {
             header: t.columns.value,
             cell: row => (
                 <div>
-                    <div className="font-medium tabular-nums">{row.kind === 'phone' ? format.phone(row.value) : row.value}</div>
-                    <div className="text-sm text-slate-600">{t.kinds[row.kind]}</div>
+                    <div className="font-medium tabular-nums">
+                        {row.kind === 'phone' ? format.phone(row.value) : row.value}
+                    </div>
+                    <div className="text-sm text-ink-muted">{t.kinds[row.kind]}</div>
                 </div>
             ),
         },
@@ -166,7 +168,9 @@ export function BlockListPage() {
                                     hint={kind === 'ip' ? t.untilHintIp : t.untilHintPhone}
                                     optional={kind === 'phone'}
                                 >
-                                    {control => <DhakaDateTimeInput {...control} value={until} onChange={setUntil} />}
+                                    {control => (
+                                        <DhakaDateTimeInput {...control} value={until} onChange={setUntil} />
+                                    )}
                                 </Field>
                                 <Field label={t.note} optional>
                                     {control => (
@@ -182,7 +186,12 @@ export function BlockListPage() {
                                 </Field>
                             </div>
                             {error && <Alert tone="warning">{t.errors[error]}</Alert>}
-                            <Button type="submit" variant="danger" loading={block.isPending} disabled={!value.trim()}>
+                            <Button
+                                type="submit"
+                                variant="danger"
+                                loading={block.isPending}
+                                disabled={!value.trim()}
+                            >
                                 {t.block}
                             </Button>
                         </form>
@@ -202,8 +211,15 @@ export function BlockListPage() {
                     },
                     placeholder: t.search,
                 }}
-                pagination={{ page, pageSize: PAGE_SIZE, total: query.data?.totalItems ?? 0, onChange: setPage }}
-                empty={<EmptyState icon={<ShieldBan aria-hidden />} title={t.emptyTitle} body={t.emptyBody} />}
+                pagination={{
+                    page,
+                    pageSize: PAGE_SIZE,
+                    total: query.data?.totalItems ?? 0,
+                    onChange: setPage,
+                }}
+                empty={
+                    <EmptyState icon={<ShieldBan aria-hidden />} title={t.emptyTitle} body={t.emptyBody} />
+                }
             />
             <UnblockDialog
                 open={Boolean(unblocking)}

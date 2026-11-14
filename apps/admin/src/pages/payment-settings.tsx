@@ -122,7 +122,7 @@ export function PaymentSettingsPage() {
                                 </Field>
                                 <fieldset>
                                     <legend className="mb-1 text-sm font-medium">{s.codZones}</legend>
-                                    <p className="mb-2 text-sm text-slate-600">{s.codZonesHint}</p>
+                                    <p className="mb-2 text-sm text-ink-muted">{s.codZonesHint}</p>
                                     <div className="flex flex-wrap gap-x-6 gap-y-2">
                                         {SHIPPING_ZONES.map(zone => (
                                             <label key={zone} className="flex items-center gap-2 text-sm">
@@ -161,7 +161,7 @@ export function PaymentSettingsPage() {
                             return (
                                 <div
                                     key={provider}
-                                    className="space-y-3 border-b border-slate-100 pb-4 last:border-0 last:pb-0"
+                                    className="space-y-3 border-b border-line pb-4 last:border-0 last:pb-0"
                                 >
                                     <Switch
                                         label={s.providerOn(name)}

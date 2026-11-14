@@ -126,7 +126,7 @@ export function SearchSettingsPage() {
                     <Card>
                         <CardHeader title={s.synonyms} description={s.synonymsHint} />
                         <CardBody>
-                            {groups.length === 0 && <p className="text-sm text-slate-600">{s.noSynonyms}</p>}
+                            {groups.length === 0 && <p className="text-sm text-ink-muted">{s.noSynonyms}</p>}
                             {groups.map((group, index) => (
                                 <Field
                                     key={index}
@@ -186,7 +186,7 @@ export function SearchSettingsPage() {
                     {misses.data && misses.data.length > 0 ? (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                                <thead className="text-left text-slate-600">
+                                <thead className="text-left text-ink-muted">
                                     <tr>
                                         <th className="px-4 py-2 font-medium">{s.term}</th>
                                         <th className="px-4 py-2 font-medium">{s.times}</th>
@@ -200,10 +200,10 @@ export function SearchSettingsPage() {
                                 </thead>
                                 <tbody>
                                     {misses.data.map(miss => (
-                                        <tr key={miss.term} className="border-t border-slate-100">
+                                        <tr key={miss.term} className="border-t border-line">
                                             <td className="px-4 py-2 font-medium">{miss.term}</td>
                                             <td className="px-4 py-2">{digits(miss.count)}</td>
-                                            <td className="hidden px-4 py-2 text-slate-600 sm:table-cell">
+                                            <td className="hidden px-4 py-2 text-ink-muted sm:table-cell">
                                                 {format.dateTime(miss.lastSearchedAt)}
                                             </td>
                                             <td className="px-4 py-2 text-right">

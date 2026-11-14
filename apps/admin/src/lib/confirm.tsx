@@ -47,7 +47,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                     </>
                 }
             >
-                {options?.body && <p className="text-slate-700">{options.body}</p>}
+                {options?.body && <p className="text-ink-muted">{options.body}</p>}
             </Dialog>
         </ConfirmContext.Provider>
     );

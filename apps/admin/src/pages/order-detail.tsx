@@ -6,7 +6,7 @@ import {
 } from '@ecommbd/shared/order-status';
 import { EDITABLE_STATUSES } from '@ecommbd/shared/manual-orders';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Phone, Printer } from 'lucide-react';
+import { Phone, Printer } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { EditOrderDialog } from '../components/orders/edit-order-dialog';
@@ -23,7 +23,10 @@ import {
     OrderPayments,
 } from '../components/payments/order-payments';
 import { Button } from '../components/ui/button';
+import type { ActionItem } from '../components/ui/action-menu';
+import { Page, TwoColumn } from '../components/ui/layout';
 import { Alert, Badge, Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
+import { CopyButton } from '../components/ui/stat';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useConfirm } from '../lib/confirm';
@@ -129,10 +132,10 @@ export function OrderDetailPage() {
     if (query.isPending) return <PageSkeleton />;
     if (!order) {
         return (
-            <>
-                <BackLink />
+            <Page width="wide">
+                <PageHeader back={{ to: '/orders', label: m.orders.back }} title={m.orders.title} />
                 <Alert tone="warning">{m.orders.notFound}</Alert>
-            </>
+            </Page>
         );
     }
 
@@ -163,37 +166,66 @@ export function OrderDetailPage() {
         ...actions.filter(action => action !== 'cancel'),
         ...(isNew ? (['noAnswer', 'callLater'] as const) : []),
     ];
+    // One main button (the next step) and up to two beside it; everything else is under "More".
+    const allowed = buttons.filter(action => can(ACTION_PERMISSIONS[action]));
+    const menu: ActionItem[] = [
+        ...(can('EditOrder') && (EDITABLE_STATUSES as readonly string[]).includes(order.bd.status ?? '')
+            ? [{ label: m.editOrder.button, onSelect: () => setEditing(true) }]
+            : []),
+        ...(can('PrintOrders')
+            ? (['invoice', 'sticker'] as const).map(document => ({
+                  label: m.print.documents[document],
+                  icon: <Printer className="size-4" aria-hidden />,
+                  onSelect: () => openPrint(document, [order.id]),
+              }))
+            : []),
+        ...(actions.includes('cancel') && can(ACTION_PERMISSIONS.cancel)
+            ? [
+                  {
+                      label: m.orders.actions.cancel,
+                      tone: 'danger' as const,
+                      onSelect: () => {
+                          setCancelReason(order.bd.possibleDuplicateOf ? 'duplicate' : undefined);
+                          setDialog('cancel');
+                      },
+                  },
+              ]
+            : []),
+    ];
     const address = order.shippingAddress;
     const fields = address?.customFields;
     const phone = address?.phoneNumber ?? order.customer?.customFields.phone;
     const claim = order.bd.claim;
 
     return (
-        <>
-            <BackLink />
+        <Page width="wide">
             <PageHeader
+                back={{ to: '/orders', label: m.orders.back }}
                 title={m.orders.number(number)}
                 description={format.dateTime(order.orderPlacedAt)}
-                actions={
-                    <div className="flex flex-wrap items-center gap-2">
+                badges={
+                    <>
                         <StatusBadge status={order.bd.status} />
                         <PaymentBadge type={order.bd.paymentType} />
-                        {can('PrintOrders') &&
-                            (['invoice', 'sticker'] as const).map(document => (
-                                <Button
-                                    key={document}
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={() => openPrint(document, [order.id])}
-                                >
-                                    <Printer className="size-4" aria-hidden />
-                                    {m.print.documents[document]}
-                                </Button>
-                            ))}
-                    </div>
+                    </>
                 }
+                menu={menu}
+                actions={allowed
+                    .map((action, index) => (
+                        <Button
+                            key={action}
+                            variant={index === 0 ? 'primary' : 'secondary'}
+                            loading={busy === action}
+                            onClick={() =>
+                                action === 'callLater' ? setDialog('callLater') : void run(action)
+                            }
+                        >
+                            {m.orders.actions[action]}
+                        </Button>
+                    ))
+                    .reverse()}
             />
-            <div className="mb-4 flex flex-wrap gap-2">
+            <div className="mb-4 flex flex-wrap gap-2 empty:hidden">
                 {claim && (
                     <Badge tone="sky">
                         {claim.mine ? m.orders.claim.mine : m.orders.claim.other(claim.name ?? '')}
@@ -207,43 +239,6 @@ export function OrderDetailPage() {
                 {order.bd.imported && <Badge>{m.orders.badges.imported}</Badge>}
                 <RiskBadge risk={order.bdRisk} otpStatus={order.bdOtpStatus} />
             </div>
-            {(buttons.length > 0 || actions.includes('cancel')) && (
-                <div className="mb-4 flex flex-wrap gap-2">
-                    {buttons
-                        .filter(action => can(ACTION_PERMISSIONS[action]))
-                        .map((action, index) => (
-                            <Button
-                                key={action}
-                                variant={index === 0 ? 'primary' : 'secondary'}
-                                loading={busy === action}
-                                onClick={() =>
-                                    action === 'callLater' ? setDialog('callLater') : void run(action)
-                                }
-                            >
-                                {m.orders.actions[action]}
-                            </Button>
-                        ))}
-                    {actions.includes('cancel') && can(ACTION_PERMISSIONS.cancel) && (
-                        <Button
-                            variant="ghost"
-                            className="text-red-700"
-                            onClick={() => {
-                                setCancelReason(order.bd.possibleDuplicateOf ? 'duplicate' : undefined);
-                                setDialog('cancel');
-                            }}
-                        >
-                            {m.orders.actions.cancel}
-                        </Button>
-                    )}
-                </div>
-            )}
-            {can('EditOrder') && (EDITABLE_STATUSES as readonly string[]).includes(order.bd.status ?? '') && (
-                <div className="mb-4">
-                    <Button variant="secondary" onClick={() => setEditing(true)}>
-                        {m.editOrder.button}
-                    </Button>
-                </div>
-            )}
             {order.bd.status === 'cancelled' && order.bd.cancelReason && (
                 <div className="mb-4">
                     <Alert tone="warning">
@@ -261,144 +256,170 @@ export function OrderDetailPage() {
                     <Alert tone="warning">{m.orders.returnStatusOnly}</Alert>
                 </div>
             )}
-            <div className="grid gap-4 lg:grid-cols-2">
-                <Card>
-                    <CardHeader title={m.orders.items} />
-                    <CardBody>
-                        <ul className="divide-y divide-slate-100">
-                            {order.lines
-                                .filter(line => line.quantity > 0)
-                                .map(line => (
-                                    <li key={line.id} className="flex justify-between gap-3 py-2">
-                                        <span className="min-w-0 break-words">
-                                            {line.productVariant.name}{' '}
-                                            <span className="text-slate-600">
-                                                {m.orders.quantity(line.quantity)}
-                                            </span>
-                                        </span>
-                                        <span className="tabular-nums">
-                                            {format.money(line.linePriceWithTax)}
-                                        </span>
-                                    </li>
-                                ))}
-                        </ul>
-                        <dl className="space-y-1 border-t border-slate-100 pt-3 text-sm">
-                            <Row label={m.orders.subtotal}>{format.money(order.subTotalWithTax)}</Row>
-                            <Row label={m.orders.delivery}>{format.money(order.shippingWithTax)}</Row>
-                            {order.surcharges
-                                .filter(surcharge => surcharge.sku === 'BD-COD-FEE')
-                                .map((surcharge, index) => (
-                                    <Row key={index} label={m.payments.order.codFee}>
-                                        {format.money(surcharge.priceWithTax)}
+            <TwoColumn
+                main={
+                    <>
+                        <Card>
+                            <CardHeader title={m.orders.items} />
+                            <CardBody>
+                                <ul className="divide-y divide-line">
+                                    {order.lines
+                                        .filter(line => line.quantity > 0)
+                                        .map(line => (
+                                            <li key={line.id} className="flex justify-between gap-3 py-2">
+                                                <span className="min-w-0 break-words">
+                                                    {line.productVariant.name}{' '}
+                                                    <span className="text-ink-muted">
+                                                        {m.orders.quantity(line.quantity)}
+                                                    </span>
+                                                </span>
+                                                <span className="tabular-nums">
+                                                    {format.money(line.linePriceWithTax)}
+                                                </span>
+                                            </li>
+                                        ))}
+                                </ul>
+                                <dl className="space-y-1 border-t border-line pt-3 text-sm">
+                                    <Row label={m.orders.subtotal}>{format.money(order.subTotalWithTax)}</Row>
+                                    <Row label={m.orders.delivery}>{format.money(order.shippingWithTax)}</Row>
+                                    {order.surcharges
+                                        .filter(surcharge => surcharge.sku === 'BD-COD-FEE')
+                                        .map((surcharge, index) => (
+                                            <Row key={index} label={m.payments.order.codFee}>
+                                                {format.money(surcharge.priceWithTax)}
+                                            </Row>
+                                        ))}
+                                    <Row label={m.orders.total} strong>
+                                        {format.money(order.totalWithTax)}
                                     </Row>
-                                ))}
-                            <Row label={m.orders.total} strong>
-                                {format.money(order.totalWithTax)}
-                            </Row>
-                            {order.bd.paidAmount > 0 && (
-                                <Row label={m.orders.paid}>{format.money(order.bd.paidAmount)}</Row>
-                            )}
-                        </dl>
-                        {order.bd.status !== 'returned' && order.bd.status !== 'cancelled' && (
-                            <div className="rounded-md bg-amber-50 px-4 py-3">
-                                <p className="text-sm text-amber-900">{m.orders.codDue}</p>
-                                <p className="text-2xl font-semibold tabular-nums text-amber-950">
-                                    {format.money(order.bd.codDue)}
-                                </p>
-                            </div>
-                        )}
-                    </CardBody>
-                </Card>
-                <OrderPayments payments={order.payments} onChanged={() => void query.refetch()} />
-                <OnlineAttempts orderId={order.id} onChanged={() => void query.refetch()} />
-                <OrderCourier orderId={order.id} status={order.bd.status} onChanged={() => void query.refetch()} />
-                <Card>
-                    <CardHeader title={m.orders.customer} />
-                    <CardBody>
-                        <p className="text-lg font-semibold break-words">{address?.fullName}</p>
-                        {phone && (
-                            <a
-                                href={`tel:${phone}`}
-                                className="inline-flex min-h-11 items-center gap-2 rounded-md bg-teal-700 px-4 font-medium text-white hover:bg-teal-800"
-                            >
-                                <Phone className="size-4" aria-hidden />
-                                {format.phone(phone)}
-                            </a>
-                        )}
-                        {fields?.alternatePhone && (
-                            <p>
-                                {m.orders.alternate}:{' '}
-                                <a href={`tel:${fields.alternatePhone}`} className="tabular-nums underline">
-                                    {format.phone(fields.alternatePhone)}
-                                </a>
-                            </p>
-                        )}
-                        {order.customer && (
-                            <Link
-                                to={`/customers/${order.customer.id}`}
-                                className="block text-sm text-teal-800 underline"
-                            >
-                                {m.orders.openCustomer}
-                            </Link>
-                        )}
-                        <div>
-                            <h3 className="text-sm text-slate-600">{m.orders.address}</h3>
-                            <p className="break-words">{address?.streetLine1}</p>
-                            <p className="break-words">
-                                <PlaceName
-                                    districtId={fields?.districtId}
-                                    thanaId={fields?.thanaId}
-                                    area={fields?.area}
-                                />
-                            </p>
-                            {fields?.landmark && <p className="text-slate-600">{fields.landmark}</p>}
-                        </div>
-                        {order.customFields.customerNote && (
-                            <div>
-                                <h3 className="text-sm text-slate-600">{m.orders.note}</h3>
-                                <p className="break-words whitespace-pre-line">
-                                    {order.customFields.customerNote}
-                                </p>
-                            </div>
-                        )}
-                    </CardBody>
-                </Card>
-                <AttributionCard attribution={order.bdAttribution} />
-                <Card className="lg:col-span-2">
-                    <CardHeader title={m.orders.history} />
-                    <CardBody>
-                        <ol className="space-y-2">
-                            {order.history.items.map(entry => {
-                                const text = historyText(entry, m, format.dateTime);
-                                if (!text) return null;
-                                const who = entry.administrator
-                                    ? m.orders.historyBy(
-                                          `${entry.administrator.firstName} ${entry.administrator.lastName}`.trim(),
-                                      )
-                                    : null;
-                                return (
-                                    <li
-                                        key={entry.id}
-                                        className="flex flex-wrap justify-between gap-x-4 text-sm"
-                                    >
-                                        <span>
-                                            {text}
-                                            {who && <span className="text-slate-600"> · {who}</span>}
-                                        </span>
-                                        <span
-                                            className="text-slate-500"
-                                            title={format.dateTime(entry.createdAt)}
+                                    {order.bd.paidAmount > 0 && (
+                                        <Row label={m.orders.paid}>{format.money(order.bd.paidAmount)}</Row>
+                                    )}
+                                </dl>
+                                {order.bd.status !== 'returned' && order.bd.status !== 'cancelled' && (
+                                    <div className="rounded-md bg-warn-soft px-4 py-3">
+                                        <p className="text-sm text-warn">{m.orders.codDue}</p>
+                                        <p className="text-2xl font-semibold tabular-nums text-warn">
+                                            {format.money(order.bd.codDue)}
+                                        </p>
+                                    </div>
+                                )}
+                            </CardBody>
+                        </Card>
+                        <OrderPayments payments={order.payments} onChanged={() => void query.refetch()} />
+                        <OnlineAttempts orderId={order.id} onChanged={() => void query.refetch()} />
+                        <OrderCourier
+                            orderId={order.id}
+                            status={order.bd.status}
+                            onChanged={() => void query.refetch()}
+                        />
+                        <Card>
+                            <CardHeader title={m.orders.history} />
+                            <CardBody>
+                                <ol className="space-y-2">
+                                    {order.history.items.map(entry => {
+                                        const text = historyText(entry, m, format.dateTime);
+                                        if (!text) return null;
+                                        const who = entry.administrator
+                                            ? m.orders.historyBy(
+                                                  `${entry.administrator.firstName} ${entry.administrator.lastName}`.trim(),
+                                              )
+                                            : null;
+                                        return (
+                                            <li
+                                                key={entry.id}
+                                                className="flex flex-wrap justify-between gap-x-4 text-sm"
+                                            >
+                                                <span>
+                                                    {text}
+                                                    {who && <span className="text-ink-muted"> · {who}</span>}
+                                                </span>
+                                                <span
+                                                    className="text-ink-muted"
+                                                    title={format.dateTime(entry.createdAt)}
+                                                >
+                                                    {ago(entry.createdAt)}
+                                                </span>
+                                            </li>
+                                        );
+                                    })}
+                                </ol>
+                            </CardBody>
+                        </Card>
+                        <OrderSms orderId={order.id} />
+                    </>
+                }
+                side={
+                    <>
+                        <Card>
+                            <CardHeader title={m.orders.customer} />
+                            <CardBody>
+                                <p className="font-semibold break-words">{address?.fullName}</p>
+                                {phone && (
+                                    <div className="flex items-center gap-1">
+                                        <a
+                                            href={`tel:${phone}`}
+                                            className="inline-flex min-h-10 flex-1 items-center gap-2 rounded-md border border-line-strong px-3 text-sm font-semibold tabular-nums hover:bg-surface-muted"
                                         >
-                                            {ago(entry.createdAt)}
-                                        </span>
-                                    </li>
-                                );
-                            })}
-                        </ol>
-                    </CardBody>
-                </Card>
-                <OrderSms orderId={order.id} className="lg:col-span-2" />
-            </div>
+                                            <Phone className="size-4 text-ink-muted" aria-hidden />
+                                            {format.phone(phone)}
+                                        </a>
+                                        <CopyButton value={phone} label={m.orders.customer} />
+                                    </div>
+                                )}
+                                {fields?.alternatePhone && (
+                                    <p>
+                                        {m.orders.alternate}:{' '}
+                                        <a
+                                            href={`tel:${fields.alternatePhone}`}
+                                            className="tabular-nums underline"
+                                        >
+                                            {format.phone(fields.alternatePhone)}
+                                        </a>
+                                    </p>
+                                )}
+                                {order.customer && (
+                                    <Link
+                                        to={`/customers/${order.customer.id}`}
+                                        className="block text-sm text-accent underline"
+                                    >
+                                        {m.orders.openCustomer}
+                                    </Link>
+                                )}
+                                <div>
+                                    <h3 className="flex items-center justify-between text-[13px] text-ink-muted">
+                                        {m.orders.address}
+                                        {address?.streetLine1 && (
+                                            <CopyButton
+                                                value={address.streetLine1}
+                                                label={m.orders.address}
+                                            />
+                                        )}
+                                    </h3>
+                                    <p className="break-words">{address?.streetLine1}</p>
+                                    <p className="break-words">
+                                        <PlaceName
+                                            districtId={fields?.districtId}
+                                            thanaId={fields?.thanaId}
+                                            area={fields?.area}
+                                        />
+                                    </p>
+                                    {fields?.landmark && <p className="text-ink-muted">{fields.landmark}</p>}
+                                </div>
+                                {order.customFields.customerNote && (
+                                    <div>
+                                        <h3 className="text-sm text-ink-muted">{m.orders.note}</h3>
+                                        <p className="break-words whitespace-pre-line">
+                                            {order.customFields.customerNote}
+                                        </p>
+                                    </div>
+                                )}
+                            </CardBody>
+                        </Card>
+                        <AttributionCard attribution={order.bdAttribution} />
+                    </>
+                }
+            />
             <CancelDialog
                 orderNumber={number}
                 open={dialog === 'cancel'}
@@ -443,7 +464,7 @@ export function OrderDetailPage() {
                     setDialog('cancel');
                 }}
             />
-        </>
+        </Page>
     );
 }
 
@@ -482,24 +503,11 @@ function historyText(
 function Row({ label, strong, children }: { label: string; strong?: boolean; children: ReactNode }) {
     return (
         <div
-            className={strong ? 'flex justify-between font-semibold' : 'flex justify-between text-slate-700'}
+            className={strong ? 'flex justify-between font-semibold' : 'flex justify-between text-ink-muted'}
         >
             <dt>{label}</dt>
             <dd className="tabular-nums">{children}</dd>
         </div>
-    );
-}
-
-function BackLink() {
-    const { messages: m } = useI18n();
-    return (
-        <Link
-            to="/orders"
-            className="mb-3 inline-flex items-center gap-1 text-sm text-teal-800 hover:underline"
-        >
-            <ArrowLeft className="size-4" aria-hidden />
-            {m.orders.back}
-        </Link>
     );
 }
 
@@ -530,10 +538,10 @@ function AttributionCard({ attribution }: { attribution: Attribution }) {
             <CardBody>
                 {attribution.salesPage && (
                     <p>
-                        <span className="text-sm text-slate-600">{a.salesPage}: </span>
+                        <span className="text-sm text-ink-muted">{a.salesPage}: </span>
                         <Link
                             to={`/store/design/landing/${attribution.salesPage.id}`}
-                            className="font-medium break-words text-teal-800 underline"
+                            className="font-medium break-words text-accent underline"
                         >
                             {attribution.salesPage.title}
                         </Link>
@@ -543,19 +551,19 @@ function AttributionCard({ attribution }: { attribution: Attribution }) {
                     <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
                         {shown.map(([label, value]) => (
                             <div key={label} className="contents">
-                                <dt className="text-slate-600">{label}</dt>
+                                <dt className="text-ink-muted">{label}</dt>
                                 <dd className="min-w-0 break-words">{value}</dd>
                             </div>
                         ))}
                     </dl>
                 )}
                 {attribution.at && (
-                    <p className="text-xs text-slate-500">{a.visited(format.dateTime(attribution.at))}</p>
+                    <p className="text-xs text-ink-muted">{a.visited(format.dateTime(attribution.at))}</p>
                 )}
                 {attribution.campaign && (
                     <Link
                         to={`/orders?campaign=${encodeURIComponent(attribution.campaign)}`}
-                        className="block text-sm text-teal-800 underline"
+                        className="block text-sm text-accent underline"
                     >
                         {a.sameCampaign}
                     </Link>

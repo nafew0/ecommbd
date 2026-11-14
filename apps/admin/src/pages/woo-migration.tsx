@@ -180,7 +180,7 @@ export function WooMigrationPage() {
                                 </Button>
                             )}
                             {source && (
-                                <p className="w-full text-sm text-slate-600">
+                                <p className="w-full text-sm text-ink-muted">
                                     {m.currency}: {source.settings.currency || '—'} · {m.weight}:{' '}
                                     {source.settings.weightUnit || '—'}
                                 </p>
@@ -208,7 +208,7 @@ export function WooMigrationPage() {
                     <Card>
                         <CardHeader title={f.checkTitle} />
                         <CardBody className="space-y-4">
-                            <p className="text-sm text-slate-600">{f.checkHint}</p>
+                            <p className="text-sm text-ink-muted">{f.checkHint}</p>
                             <Button
                                 variant={checked ? 'secondary' : 'primary'}
                                 disabled={busy || working(checks[0])}
@@ -225,7 +225,7 @@ export function WooMigrationPage() {
                     <Card>
                         <CardHeader title={f.importTitle} />
                         <CardBody className="space-y-4">
-                            <p className="text-sm text-slate-600">{f.importHint}</p>
+                            <p className="text-sm text-ink-muted">{f.importHint}</p>
                             {!checked ? (
                                 <Alert tone="warning">{f.checkFirst}</Alert>
                             ) : (
@@ -263,7 +263,7 @@ export function WooMigrationPage() {
                         <Card>
                             <CardHeader title={f.linksTitle} />
                             <CardBody>
-                                <p className="text-sm text-slate-600">{f.linksHint}</p>
+                                <p className="text-sm text-ink-muted">{f.linksHint}</p>
                             </CardBody>
                         </Card>
                         <WooLinks key={sourceId} sourceId={sourceId} lastCrawl={source?.settings.crawl} />
@@ -274,7 +274,7 @@ export function WooMigrationPage() {
                     <Card>
                         <CardHeader title={f.liveTitle} />
                         <CardBody className="space-y-6">
-                            <p className="text-sm text-slate-600">{f.liveHint}</p>
+                            <p className="text-sm text-ink-muted">{f.liveHint}</p>
                             {source?.settings.reference && (
                                 <SourceSettings reference={source.settings.reference} />
                             )}
@@ -285,7 +285,7 @@ export function WooMigrationPage() {
                             />
                             <section className="space-y-2">
                                 <h3 className="font-medium">{f.syncTitle}</h3>
-                                <p className="text-sm text-slate-600">{f.syncHint}</p>
+                                <p className="text-sm text-ink-muted">{f.syncHint}</p>
                                 {ackBox}
                                 <Button
                                     variant="secondary"
@@ -299,7 +299,7 @@ export function WooMigrationPage() {
                             <RollbackExport />
                             <section className="space-y-2">
                                 <h3 className="font-medium">{f.finishTitle}</h3>
-                                <p className="text-sm text-slate-600">{f.finishHint}</p>
+                                <p className="text-sm text-ink-muted">{f.finishHint}</p>
                                 <div className="flex flex-wrap gap-2">
                                     <Button
                                         variant="secondary"
@@ -373,17 +373,17 @@ function StepBar({
                                 onClick={() => (key === 'connect' ? onConnect() : onSelect(key))}
                                 className={`flex w-full flex-col items-center gap-1 rounded-md border px-1 py-2 text-center text-xs sm:flex-row sm:gap-2 sm:px-3 sm:text-left sm:text-sm ${
                                     active
-                                        ? 'border-teal-700 bg-teal-50 font-medium text-teal-900'
-                                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'
+                                        ? 'border-accent bg-accent-soft font-medium text-accent'
+                                        : 'border-line bg-surface text-ink-muted hover:border-line-strong'
                                 }`}
                             >
                                 <span
                                     className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs ${
                                         done[key]
-                                            ? 'bg-teal-700 text-white'
+                                            ? 'bg-accent text-white'
                                             : active
-                                              ? 'border border-teal-700 text-teal-900'
-                                              : 'border border-slate-300 text-slate-600'
+                                              ? 'border border-accent text-accent'
+                                              : 'border border-line-strong text-ink-muted'
                                     }`}
                                 >
                                     {done[key] ? (
@@ -478,9 +478,9 @@ function RunPanel({ runs, onError }: { runs: WooRun[]; onError: (message: string
                 );
         });
     }
-    if (!runs.length) return <p className="text-sm text-slate-600">{f.notRun}</p>;
+    if (!runs.length) return <p className="text-sm text-ink-muted">{f.notRun}</p>;
     return (
-        <section className="space-y-3 border-t border-slate-200 pt-4">
+        <section className="space-y-3 border-t border-line pt-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-medium">{f.latestRun}</h3>
                 {runs.length > 1 && (
@@ -505,7 +505,7 @@ function RunPanel({ runs, onError }: { runs: WooRun[]; onError: (message: string
                     <p>
                         {m.status}: {m.states[run.data.status as keyof typeof m.states] ?? run.data.status}
                     </p>
-                    {working(run.data) && <p className="text-sm text-slate-600">{f.running}</p>}
+                    {working(run.data) && <p className="text-sm text-ink-muted">{f.running}</p>}
                     <RunProgress run={run.data} />
                     {run.data.error && <RunError code={run.data.error} />}
                     {/* A run a restart stopped continues by itself (the server checks every five

@@ -121,10 +121,8 @@ export const PreviewFrame = forwardRef<PreviewHandle, PreviewFrameProps>(functio
             {src && (
                 <div
                     className={cn(
-                        'absolute top-0 overflow-hidden bg-white transition-[width,height] duration-300',
-                        device === 'phone'
-                            ? 'top-4 rounded-[18px] shadow-2xl ring-8 ring-slate-900'
-                            : 'shadow-sm',
+                        'absolute top-0 overflow-hidden bg-surface transition-[width,height] duration-300',
+                        device === 'phone' ? 'top-4 rounded-[18px] shadow-2xl ring-8 ring-ink' : 'shadow-sm',
                     )}
                     style={{
                         width: frameWidth * scale,
@@ -139,7 +137,7 @@ export const PreviewFrame = forwardRef<PreviewHandle, PreviewFrameProps>(functio
                         title={title}
                         sandbox="allow-scripts allow-same-origin"
                         referrerPolicy="same-origin"
-                        className="block origin-top-left border-0 bg-white"
+                        className="block origin-top-left border-0 bg-surface"
                         style={{
                             width: frameWidth,
                             height: frameHeight,
@@ -150,19 +148,19 @@ export const PreviewFrame = forwardRef<PreviewHandle, PreviewFrameProps>(functio
             )}
             {src && !ready && !failed && (
                 <div
-                    className="absolute inset-0 flex items-center justify-center bg-slate-100/70"
+                    className="absolute inset-0 flex items-center justify-center bg-surface-muted/70"
                     role="status"
                 >
-                    <span className="flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm text-slate-700 shadow">
-                        <LoaderCircle className="size-4 animate-spin text-teal-700" aria-hidden />
+                    <span className="flex items-center gap-2 rounded-md bg-surface px-4 py-2 text-sm text-ink-muted shadow">
+                        <LoaderCircle className="size-4 animate-spin text-accent" aria-hidden />
                         {d.previewLoading}
                     </span>
                 </div>
             )}
             {failed && (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-100/80 p-6">
-                    <div className="max-w-sm rounded-lg bg-white p-5 text-center shadow">
-                        <p className="mb-3 text-sm text-slate-700">{d.previewFailed}</p>
+                <div className="absolute inset-0 flex items-center justify-center bg-surface-muted/80 p-6">
+                    <div className="max-w-sm rounded-lg bg-surface p-5 text-center shadow">
+                        <p className="mb-3 text-sm text-ink-muted">{d.previewFailed}</p>
                         <Button variant="secondary" size="sm" onClick={() => setAttempt(value => value + 1)}>
                             <RefreshCw className="size-4" aria-hidden />
                             {d.retry}

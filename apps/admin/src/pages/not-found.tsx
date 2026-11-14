@@ -12,7 +12,7 @@ export function NotFoundPage() {
                 title={m.notFound.title}
                 body={m.notFound.body}
                 action={
-                    <Link to="/" className="font-medium text-teal-800 underline">
+                    <Link to="/" className="font-medium text-accent underline">
                         {m.notFound.home}
                     </Link>
                 }

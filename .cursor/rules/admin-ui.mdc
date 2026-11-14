@@ -1,0 +1,14 @@
+---
+description: Merchant admin screens (apps/admin)
+globs: apps/admin/**
+alwaysApply: false
+---
+
+Before adding or changing a screen in `apps/admin`, read `docs/design/admin-design-guide.md`, sections 1, 5, 6 and 10.
+
+- Pick one of the four page templates and copy its reference screen.
+- Use only the components in `src/components/ui/`, `src/components/form/` and `src/components/list-page.tsx`. Don't write a new button, card, table, tab or dialog.
+- Colours only from the tokens (`bg-surface`, `text-ink-muted`, `border-line`…). Never raw Tailwind palette classes or hex values.
+- At most 7 visible fields per card and one main button per screen. Put the rest behind `MoreFields`, `CollapsibleCard` or `ActionMenu`.
+- Every string goes in `src/messages/en.ts` and `bn.ts`.
+- Check at 360 px and 1280 px, in Bangla and English.

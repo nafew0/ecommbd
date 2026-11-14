@@ -272,7 +272,7 @@ export function CourierSettingsPage() {
                             </Field>
                         </div>
                         <div className="flex flex-wrap items-center gap-3">
-                            <span className="text-sm text-slate-600">
+                            <span className="text-sm text-ink-muted">
                                 {c.pathaoPlaces(setup.pathaoCities)}
                             </span>
                             {canEdit && (
@@ -339,7 +339,7 @@ export function CourierSettingsPage() {
                                             }
                                         />
                                     </div>
-                                    <span className="text-sm text-slate-600">{c.grams}</span>
+                                    <span className="text-sm text-ink-muted">{c.grams}</span>
                                 </div>
                             )}
                         </Field>

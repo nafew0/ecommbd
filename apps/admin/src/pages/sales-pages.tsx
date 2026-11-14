@@ -75,7 +75,7 @@ export function SalesPagesPage() {
     const refresh = () => void queryClient.invalidateQueries({ queryKey: ['salesPages'] });
 
     if (!can('EditStorefront'))
-        return <p className="p-10 text-center text-slate-700">{m.errors.forbidden}</p>;
+        return <p className="p-10 text-center text-ink-muted">{m.errors.forbidden}</p>;
 
     const startingPrice = (row: SalesPage) => {
         const packs = row.settings.packs;
@@ -90,11 +90,11 @@ export function SalesPagesPage() {
                 <div className="min-w-0">
                     <Link
                         to={`/store/design/landing/${row.id}`}
-                        className="font-medium text-teal-800 hover:underline"
+                        className="font-medium text-accent hover:underline"
                     >
                         {row.title}
                     </Link>
-                    <p className="truncate text-xs text-slate-500">/s/{row.slug}/</p>
+                    <p className="truncate text-xs text-ink-muted">/s/{row.slug}/</p>
                 </div>
             ),
         },
@@ -119,7 +119,7 @@ export function SalesPagesPage() {
                         <span className="max-w-40 truncate">{product?.name ?? '…'}</span>
                     </span>
                 ) : (
-                    <span className="text-red-700">{t.productDeleted}</span>
+                    <span className="text-danger">{t.productDeleted}</span>
                 );
             },
         },
@@ -144,12 +144,12 @@ export function SalesPagesPage() {
                 row.orderCount ? (
                     <Link
                         to={`/orders?salesPageId=${encodeURIComponent(row.id)}`}
-                        className="font-medium text-teal-800 tabular-nums hover:underline"
+                        className="font-medium text-accent tabular-nums hover:underline"
                     >
                         {m.common.number(row.orderCount)}
                     </Link>
                 ) : (
-                    <span className="text-slate-500 tabular-nums">{m.common.number(0)}</span>
+                    <span className="text-ink-muted tabular-nums">{m.common.number(0)}</span>
                 ),
         },
         {
@@ -340,10 +340,7 @@ function CreateSalesPageDialog({
             <div className="space-y-6">
                 <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                        <label
-                            htmlFor={`${ids}-title`}
-                            className="mb-1.5 block text-sm font-medium text-slate-800"
-                        >
+                        <label htmlFor={`${ids}-title`} className="mb-1.5 block text-sm font-medium text-ink">
                             {t.titleLabel}
                         </label>
                         <Input
@@ -355,18 +352,15 @@ function CreateSalesPageDialog({
                             aria-invalid={errorFor('title') ? true : undefined}
                         />
                         {errorFor('title') && (
-                            <p className="mt-1 text-xs text-red-700">{t.problems[errorFor('title')!.code]}</p>
+                            <p className="mt-1 text-xs text-danger">{t.problems[errorFor('title')!.code]}</p>
                         )}
                     </div>
                     <div>
-                        <label
-                            htmlFor={`${ids}-slug`}
-                            className="mb-1.5 block text-sm font-medium text-slate-800"
-                        >
+                        <label htmlFor={`${ids}-slug`} className="mb-1.5 block text-sm font-medium text-ink">
                             {t.address}
                         </label>
-                        <div className="flex min-h-11 items-center rounded-md border border-slate-300 bg-white focus-within:outline-2 focus-within:outline-teal-600">
-                            <span className="pl-3 text-slate-500" aria-hidden>
+                        <div className="flex min-h-11 items-center rounded-md border border-line-strong bg-surface focus-within:outline-2 focus-within:outline-accent">
+                            <span className="pl-3 text-ink-muted" aria-hidden>
                                 /s/
                             </span>
                             <input
@@ -383,12 +377,12 @@ function CreateSalesPageDialog({
                             />
                         </div>
                         {slugError && (
-                            <p className="mt-1 text-xs text-red-700">
+                            <p className="mt-1 text-xs text-danger">
                                 {t.problems[slugError.code] ?? slugError.code}
                                 {slugError.suggestion && (
                                     <button
                                         type="button"
-                                        className="ml-1 font-medium text-teal-800 underline"
+                                        className="ml-1 font-medium text-accent underline"
                                         onClick={() => {
                                             setSlugTouched(true);
                                             setSlug(slugError.suggestion!);
@@ -404,8 +398,8 @@ function CreateSalesPageDialog({
                 </div>
 
                 <section>
-                    <h3 className="mb-2 text-sm font-medium text-slate-800">{t.product}</h3>
-                    <div className="flex items-center gap-3 rounded-md border border-slate-200 p-2">
+                    <h3 className="mb-2 text-sm font-medium text-ink">{t.product}</h3>
+                    <div className="flex items-center gap-3 rounded-md border border-line p-2">
                         <ProductThumb product={product} size="size-12" />
                         <span className="min-w-0 flex-1 truncate">
                             {product?.name ?? t.chooseProductHint}
@@ -414,14 +408,14 @@ function CreateSalesPageDialog({
                             {productId ? m.design.change : m.design.chooseProduct}
                         </Button>
                     </div>
-                    <p className="mt-1.5 text-xs text-slate-500">{t.productHint}</p>
+                    <p className="mt-1.5 text-xs text-ink-muted">{t.productHint}</p>
                     {errorFor('productId') && (
-                        <p className="mt-1 text-xs text-red-700">{t.problems[errorFor('productId')!.code]}</p>
+                        <p className="mt-1 text-xs text-danger">{t.problems[errorFor('productId')!.code]}</p>
                     )}
                 </section>
 
                 <section>
-                    <h3 className="mb-2 text-sm font-medium text-slate-800">{t.template}</h3>
+                    <h3 className="mb-2 text-sm font-medium text-ink">{t.template}</h3>
                     <div className="mb-3 flex flex-wrap gap-1.5" role="tablist" aria-label={t.template}>
                         {LANDING_CATEGORIES.map(item => (
                             <button
@@ -433,8 +427,8 @@ function CreateSalesPageDialog({
                                 className={cn(
                                     'rounded-md border px-3 py-1.5 text-sm font-medium',
                                     category === item
-                                        ? 'border-teal-700 bg-teal-50 text-teal-800'
-                                        : 'border-slate-200 text-slate-700 hover:border-slate-300',
+                                        ? 'border-accent bg-accent-soft text-accent'
+                                        : 'border-line text-ink-muted hover:border-line-strong',
                                 )}
                             >
                                 {pick(LANDING_CATEGORY_NAMES[item], language)}

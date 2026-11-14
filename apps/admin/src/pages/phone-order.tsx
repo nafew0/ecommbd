@@ -131,7 +131,9 @@ export function PhoneOrderPage() {
             const found: Line[] = [];
             const unavailable: string[] = [];
             for (const line of record.cart ?? []) {
-                const { bdStock } = await adminApi<{ bdStock: PickedVariant[] }>(FIND_VARIANT, { search: line.name });
+                const { bdStock } = await adminApi<{ bdStock: PickedVariant[] }>(FIND_VARIANT, {
+                    search: line.name,
+                });
                 const variant = bdStock.find(candidate => candidate.variantId === line.variantId);
                 if (variant && (variant.available > 0 || variant.backorder)) {
                     found.push({ variant, quantity: line.quantity, unitPrice: null });
@@ -142,7 +144,9 @@ export function PhoneOrderPage() {
             setPhone(current => current || record.phone || '');
             setName(current => current || record.name || '');
             setPlace(current =>
-                current.districtId ? current : { districtId: record.districtId ?? '', thanaId: record.thanaId ?? '' },
+                current.districtId
+                    ? current
+                    : { districtId: record.districtId ?? '', thanaId: record.thanaId ?? '' },
             );
             setLines(current => (current.length ? current : found));
             setSource('phone');
@@ -258,7 +262,9 @@ export function PhoneOrderPage() {
                 <div className="mb-4 space-y-2">
                     <Alert>{o.fromIncomplete}</Alert>
                     {fromIncomplete.data.unavailable.length > 0 && (
-                        <Alert tone="warning">{o.unavailable(fromIncomplete.data.unavailable.join(', '))}</Alert>
+                        <Alert tone="warning">
+                            {o.unavailable(fromIncomplete.data.unavailable.join(', '))}
+                        </Alert>
                     )}
                 </div>
             )}
@@ -345,7 +351,7 @@ export function PhoneOrderPage() {
                         <CardBody>
                             <ProductPicker onPick={add} />
                             {lines.length > 0 && (
-                                <ul className="divide-y divide-slate-100">
+                                <ul className="divide-y divide-line">
                                     {lines.map((line, index) => (
                                         <li
                                             key={line.variant.variantId}
@@ -353,7 +359,7 @@ export function PhoneOrderPage() {
                                         >
                                             <div className="min-w-0 flex-1">
                                                 <p className="font-medium">{line.variant.name}</p>
-                                                <p className="text-sm text-slate-600">
+                                                <p className="text-sm text-ink-muted">
                                                     {format.money(line.variant.price)}
                                                 </p>
                                             </div>
@@ -406,7 +412,7 @@ export function PhoneOrderPage() {
                                                 aria-label={m.common.remove}
                                                 onClick={() => setLines(lines.filter((_, i) => i !== index))}
                                             >
-                                                <Trash2 className="size-4 text-red-700" aria-hidden />
+                                                <Trash2 className="size-4 text-danger" aria-hidden />
                                             </Button>
                                         </li>
                                     ))}
@@ -560,7 +566,7 @@ export function PhoneOrderPage() {
                     <Card>
                         <CardHeader title={o.summary} />
                         <CardBody>
-                            {!ready && <p className="text-sm text-slate-600">{o.summaryEmpty}</p>}
+                            {!ready && <p className="text-sm text-ink-muted">{o.summaryEmpty}</p>}
                             {quoteError && <Alert tone="warning">{quoteError}</Alert>}
                             {totals && (
                                 <dl className="space-y-1 text-sm">
@@ -582,9 +588,9 @@ export function PhoneOrderPage() {
                                     {totals.paidNow > 0 && (
                                         <Row label={o.paidNow}>{format.money(totals.paidNow)}</Row>
                                     )}
-                                    <div className="mt-2 rounded-md bg-amber-50 px-3 py-2">
-                                        <p className="text-amber-900">{m.orders.codDue}</p>
-                                        <p className="text-xl font-semibold tabular-nums text-amber-950">
+                                    <div className="mt-2 rounded-md bg-warn-soft px-3 py-2">
+                                        <p className="text-warn">{m.orders.codDue}</p>
+                                        <p className="text-xl font-semibold tabular-nums text-warn">
                                             {format.money(totals.codDue)}
                                         </p>
                                     </div>
@@ -610,7 +616,7 @@ export function PhoneOrderPage() {
 function Row({ label, strong, children }: { label: string; strong?: boolean; children: React.ReactNode }) {
     return (
         <div
-            className={`flex justify-between gap-3 ${strong ? 'border-t border-slate-100 pt-1 text-base font-semibold' : ''}`}
+            className={`flex justify-between gap-3 ${strong ? 'border-t border-line pt-1 text-base font-semibold' : ''}`}
         >
             <dt>{label}</dt>
             <dd className="tabular-nums">{children}</dd>

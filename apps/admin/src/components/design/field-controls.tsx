@@ -54,11 +54,11 @@ export interface FieldControlProps {
 function Label({ htmlFor, children, language }: { htmlFor?: string; children: string; language?: Language }) {
     return (
         <div className="mb-1.5 flex items-center justify-between gap-2">
-            <label htmlFor={htmlFor} className="text-sm font-medium text-slate-800">
+            <label htmlFor={htmlFor} className="text-sm font-medium text-ink">
                 {children}
             </label>
             {language && (
-                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+                <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[11px] font-medium text-ink-muted">
                     {language === 'bn' ? 'বাংলা' : 'English'}
                 </span>
             )}
@@ -72,7 +72,7 @@ function Hint({ children, tone = 'muted', id }: { children: string; tone?: 'mute
             id={id}
             className={cn(
                 'mt-1.5 text-xs leading-relaxed',
-                tone === 'error' ? 'text-red-700' : 'text-slate-500',
+                tone === 'error' ? 'text-danger' : 'text-ink-muted',
             )}
         >
             {children}
@@ -163,7 +163,7 @@ function ProductsControl({ field, value, onChange, issue }: FieldControlProps) {
         <div>
             <Label>{field.label[ui]}</Label>
             {ids.length > 0 && (
-                <ul className="mb-2 divide-y divide-slate-100 rounded-md border border-slate-200 bg-white">
+                <ul className="mb-2 divide-y divide-line rounded-md border border-line bg-surface">
                     {ids.map((productId, index) => {
                         const product = products.data?.get(productId);
                         return (
@@ -172,9 +172,7 @@ function ProductsControl({ field, value, onChange, issue }: FieldControlProps) {
                                 <span className="min-w-0 flex-1 truncate text-sm">
                                     {product?.name ?? '…'}
                                     {product && !product.enabled && (
-                                        <span className="ml-1 text-xs text-amber-700">
-                                            · {d.hiddenProduct}
-                                        </span>
+                                        <span className="ml-1 text-xs text-warn">· {d.hiddenProduct}</span>
                                     )}
                                 </span>
                                 {!single && (
@@ -237,7 +235,7 @@ function CollectionsControl({ field, value, onChange, issue }: FieldControlProps
     return (
         <div>
             <Label>{field.label[ui]}</Label>
-            {ids.length === 0 && !single && <p className="mb-2 text-sm text-slate-600">{d.mainCategories}</p>}
+            {ids.length === 0 && !single && <p className="mb-2 text-sm text-ink-muted">{d.mainCategories}</p>}
             {ids.length > 0 && (
                 <ul className="mb-2 flex flex-wrap gap-1.5">
                     {ids.map(collectionId => {
@@ -245,14 +243,14 @@ function CollectionsControl({ field, value, onChange, issue }: FieldControlProps
                         return (
                             <li
                                 key={collectionId}
-                                className="inline-flex max-w-full items-center gap-1 rounded-md border border-slate-200 bg-white py-1 pr-1 pl-2.5 text-sm"
+                                className="inline-flex max-w-full items-center gap-1 rounded-md border border-line bg-surface py-1 pr-1 pl-2.5 text-sm"
                             >
                                 <span className="truncate">
                                     {collection ? collectionLabel(collection) : '…'}
                                 </span>
                                 <button
                                     type="button"
-                                    className="rounded p-0.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                                    className="rounded p-0.5 text-ink-muted hover:bg-surface-muted hover:text-ink"
                                     aria-label={d.remove}
                                     onClick={() => set(ids.filter(item => item !== collectionId))}
                                 >
@@ -477,11 +475,11 @@ export function Segmented<T extends string>({
     const id = useId();
     return (
         <fieldset>
-            <legend id={id} className="mb-1.5 text-sm font-medium text-slate-800">
+            <legend id={id} className="mb-1.5 text-sm font-medium text-ink">
                 {label}
             </legend>
             <div
-                className="flex rounded-md border border-slate-300 bg-slate-50 p-0.5"
+                className="flex rounded-md border border-line-strong bg-surface-muted p-0.5"
                 role="radiogroup"
                 aria-labelledby={id}
             >
@@ -495,10 +493,10 @@ export function Segmented<T extends string>({
                             aria-checked={on}
                             onClick={() => onChange(option.value)}
                             className={cn(
-                                'min-h-9 flex-1 rounded px-2 text-sm leading-tight transition-colors focus-visible:outline-2 focus-visible:outline-teal-600',
+                                'min-h-9 flex-1 rounded px-2 text-sm leading-tight transition-colors focus-visible:outline-2 focus-visible:outline-accent',
                                 on
-                                    ? 'bg-white font-medium text-slate-900 shadow-sm ring-1 ring-slate-200'
-                                    : 'text-slate-600 hover:text-slate-900',
+                                    ? 'bg-surface font-medium text-ink shadow-sm ring-1 ring-line'
+                                    : 'text-ink-muted hover:text-ink',
                             )}
                         >
                             {option.label}
@@ -520,12 +518,12 @@ function RangeControl({ field, value, onChange }: FieldControlProps) {
     return (
         <div>
             <div className="mb-1.5 flex items-center justify-between gap-2">
-                <label htmlFor={id} className="text-sm font-medium text-slate-800">
+                <label htmlFor={id} className="text-sm font-medium text-ink">
                     {field.label[ui]}
                 </label>
                 <output
                     htmlFor={id}
-                    className="min-w-8 rounded bg-slate-100 px-2 py-0.5 text-center text-sm font-medium tabular-nums"
+                    className="min-w-8 rounded bg-surface-muted px-2 py-0.5 text-center text-sm font-medium tabular-nums"
                 >
                     {shown}
                 </output>
@@ -538,7 +536,7 @@ function RangeControl({ field, value, onChange }: FieldControlProps) {
                 step={field.step}
                 value={value as number}
                 onChange={event => onChange(Number(event.target.value))}
-                className="h-2 w-full cursor-pointer accent-teal-700"
+                className="h-2 w-full cursor-pointer accent-accent"
             />
             {field.hint && <Hint>{field.hint[ui]}</Hint>}
         </div>
@@ -562,13 +560,13 @@ function VideoControl({ field, value, onChange, issue }: FieldControlProps) {
                 onChange={event => onChange(event.target.value)}
             />
             {url && video && (
-                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-teal-800">
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-accent">
                     <CircleCheck className="size-3.5" aria-hidden />
                     {m.design.videoFound(video.provider === 'youtube' ? 'YouTube' : 'Facebook')}
                 </p>
             )}
             {url && !video && (
-                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-700">
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-danger">
                     <CircleX className="size-3.5" aria-hidden />
                     {m.design.issues.invalidVideo}
                 </p>
@@ -599,7 +597,7 @@ function HexControl({ field, value, onChange, issue }: FieldControlProps) {
         <div>
             <Label htmlFor={id}>{field.label[ui]}</Label>
             <div className="flex items-center gap-2">
-                <span className="relative size-11 shrink-0 overflow-hidden rounded-md border border-slate-300">
+                <span className="relative size-11 shrink-0 overflow-hidden rounded-md border border-line-strong">
                     <input
                         type="color"
                         aria-label={field.label[ui]}
@@ -609,8 +607,8 @@ function HexControl({ field, value, onChange, issue }: FieldControlProps) {
                     />
                     {!hex && (
                         // No colour chosen: a slash, like "none" in design tools.
-                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white">
-                            <span className="h-px w-8 rotate-45 bg-red-500" />
+                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-surface">
+                            <span className="h-px w-8 rotate-45 bg-danger" />
                         </span>
                     )}
                 </span>
@@ -658,7 +656,7 @@ function SizeControl({ field, value, onChange }: FieldControlProps) {
     return (
         <div>
             <div className="mb-1.5 flex items-center justify-between gap-2">
-                <label htmlFor={id} className="text-sm font-medium text-slate-800">
+                <label htmlFor={id} className="text-sm font-medium text-ink">
                     {field.label[ui]}
                 </label>
                 <span className="flex items-center gap-1.5">
@@ -666,7 +664,7 @@ function SizeControl({ field, value, onChange }: FieldControlProps) {
                         htmlFor={id}
                         className={cn(
                             'min-w-12 rounded px-2 py-0.5 text-center text-sm font-medium tabular-nums',
-                            size == null ? 'text-slate-500' : 'bg-slate-100',
+                            size == null ? 'text-ink-muted' : 'bg-surface-muted',
                         )}
                     >
                         {size == null ? m.design.auto : `${shown(size)} ${unit}`}
@@ -675,7 +673,7 @@ function SizeControl({ field, value, onChange }: FieldControlProps) {
                         <button
                             type="button"
                             onClick={() => onChange(null)}
-                            className="rounded px-1.5 py-0.5 text-xs font-medium text-teal-800 hover:bg-teal-50"
+                            className="rounded px-1.5 py-0.5 text-xs font-medium text-accent hover:bg-accent-soft"
                         >
                             {m.design.auto}
                         </button>
@@ -690,7 +688,7 @@ function SizeControl({ field, value, onChange }: FieldControlProps) {
                 step={field.step}
                 value={size ?? field.min}
                 onChange={event => onChange(Number(event.target.value))}
-                className={cn('h-2 w-full cursor-pointer accent-teal-700', size == null && 'opacity-50')}
+                className={cn('h-2 w-full cursor-pointer accent-accent', size == null && 'opacity-50')}
             />
             {field.hint && <Hint>{field.hint[ui]}</Hint>}
         </div>
@@ -777,8 +775,8 @@ export function PriceInput({
           : null;
     return (
         <>
-            <div className="flex min-h-11 items-center rounded-md border border-slate-300 bg-white focus-within:outline-2 focus-within:outline-teal-600">
-                <span className="pl-3 text-slate-500" aria-hidden>
+            <div className="flex min-h-11 items-center rounded-md border border-line-strong bg-surface focus-within:outline-2 focus-within:outline-accent">
+                <span className="pl-3 text-ink-muted" aria-hidden>
                     ৳
                 </span>
                 <input
@@ -811,10 +809,10 @@ export function PriceInput({
 }
 
 const SWATCHES: Record<(typeof PALETTE_COLOURS)[number], string> = {
-    text: 'bg-slate-900',
-    accent: 'bg-teal-700',
-    sale: 'bg-red-700',
-    subtle: 'bg-slate-100',
+    text: 'bg-ink',
+    accent: 'bg-accent',
+    sale: 'bg-danger',
+    subtle: 'bg-surface-muted',
 };
 
 function ColourControl({ field, value, onChange }: FieldControlProps) {
@@ -822,7 +820,7 @@ function ColourControl({ field, value, onChange }: FieldControlProps) {
     if (field.kind !== 'colour') return null;
     return (
         <fieldset>
-            <legend className="mb-1.5 text-sm font-medium text-slate-800">{field.label[ui]}</legend>
+            <legend className="mb-1.5 text-sm font-medium text-ink">{field.label[ui]}</legend>
             <div className="flex gap-2">
                 {PALETTE_COLOURS.map(colour => (
                     <button
@@ -832,9 +830,9 @@ function ColourControl({ field, value, onChange }: FieldControlProps) {
                         aria-pressed={value === colour}
                         onClick={() => onChange(colour)}
                         className={cn(
-                            'size-8 rounded border border-slate-300',
+                            'size-8 rounded border border-line-strong',
                             SWATCHES[colour],
-                            value === colour && 'ring-2 ring-teal-600 ring-offset-2',
+                            value === colour && 'ring-2 ring-accent ring-offset-2',
                         )}
                     />
                 ))}

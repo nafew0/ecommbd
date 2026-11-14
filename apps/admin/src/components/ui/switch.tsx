@@ -28,11 +28,11 @@ export function Switch({ checked, onChange, label, description, disabled }: Swit
             />
             <span
                 aria-hidden
-                className="relative mt-0.5 inline-flex h-6 w-11 shrink-0 rounded-full bg-slate-300 transition-colors peer-checked:bg-teal-700 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-teal-600 after:absolute after:top-0.5 after:left-0.5 after:size-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:after:translate-x-5"
+                className="relative mt-0.5 inline-flex h-6 w-11 shrink-0 rounded-full bg-line-strong transition-colors peer-checked:bg-accent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent after:absolute after:top-0.5 after:left-0.5 after:size-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:after:translate-x-5"
             />
             <span className="min-w-0">
                 <span className="block font-medium">{label}</span>
-                {description && <span className="block text-sm text-slate-600">{description}</span>}
+                {description && <span className="block text-sm text-ink-muted">{description}</span>}
             </span>
         </label>
     );
