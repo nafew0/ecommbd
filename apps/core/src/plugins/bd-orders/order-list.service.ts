@@ -35,6 +35,19 @@ export interface OrderListFilters {
     campaign?: string | null;
     /** The sales page an order came from (phase 16). */
     salesPageId?: string | null;
+    /** newest (default), oldest, totalHigh or totalLow. */
+    sort?: string | null;
+}
+
+export interface Dashboard {
+    dateFrom: string;
+    dateTo: string;
+    orders: number;
+    items: number;
+    sales: number | null;
+    averageOrder: number | null;
+    days: Array<{ date: string; orders: number; sales: number | null }>;
+    statuses: Array<{ status: string; count: number }>;
 }
 
 export interface Page {
@@ -55,6 +68,11 @@ export interface OrderStats {
 }
 
 const MAX_TAKE = 100;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const DHAKA_OFFSET_MS = 6 * 60 * 60 * 1000;
+const MAX_DASHBOARD_DAYS = 366;
+/** The Dhaka calendar day an order was placed on. The column is UTC without a time zone (src/env.ts). */
+const DHAKA_DAY = `to_char("order"."orderPlacedAt" + interval '6 hours', 'YYYY-MM-DD')`;
 const escapeLike = (text: string) => text.replace(/[\\%_]/g, char => `\\${char}`);
 
 /** The shopper-typed address and phone live in the order's JSON column. */
@@ -91,8 +109,99 @@ export class OrderListService {
                 states: BD_ORDER_STATUSES.includes(status) ? vendureStatesOf(status) : ['-'],
             });
         }
-        qb.orderBy('order.orderPlacedAt', 'DESC').addOrderBy('order.id', 'DESC');
+        if (filters.sort === 'totalHigh' || filters.sort === 'totalLow') {
+            qb.orderBy(TOTAL, filters.sort === 'totalHigh' ? 'DESC' : 'ASC').addOrderBy('order.id', 'DESC');
+        } else {
+            const direction = filters.sort === 'oldest' ? 'ASC' : 'DESC';
+            qb.orderBy('order.orderPlacedAt', direction).addOrderBy('order.id', direction);
+        }
         return this.page(ctx, qb, page);
+    }
+
+    /**
+     * The dashboard (roadmap phase 63c): orders, items and order value for a range of Dhaka days,
+     * one row per day for the chart, and the orders per status. Cancelled orders are left out of
+     * the totals, as on the home widgets. Sales figures are null without ReadSalesFigures.
+     */
+    async dashboard(
+        ctx: RequestContext,
+        dateFrom: string,
+        dateTo: string,
+        canSeeSales: boolean,
+    ): Promise<Dashboard> {
+        const start = dhakaDayStart(dateFrom);
+        const end = endOfDhakaDay(dhakaDayStart(dateTo));
+        const dayCount = Math.round((end.getTime() - start.getTime()) / DAY_MS);
+        if (dayCount < 1 || dayCount > MAX_DASHBOARD_DAYS) {
+            throw new UserInputError('error.bd-orders.invalid-date');
+        }
+        const counted = () =>
+            this.placedOrders(ctx)
+                .andWhere('order.orderPlacedAt >= :start AND order.orderPlacedAt < :end', { start, end })
+                .andWhere("order.state != 'Cancelled'");
+        const [rows, lines, statuses] = await Promise.all([
+            counted()
+                .select(DHAKA_DAY, 'day')
+                .addSelect('COUNT(*)', 'orders')
+                .addSelect(`COALESCE(SUM(${TOTAL}), 0)`, 'sales')
+                .groupBy(DHAKA_DAY)
+                .getRawMany<{ day: string; orders: string; sales: string }>(),
+            counted()
+                .innerJoin('order.lines', 'line')
+                .select('COALESCE(SUM(line.quantity), 0)', 'items')
+                .getRawOne<{ items: string }>(),
+            this.counts(ctx, { dateFrom, dateTo }),
+        ]);
+        const byDay = new Map(rows.map(row => [row.day, row]));
+        const days = Array.from({ length: dayCount }, (_, index) => {
+            // Dhaka has no daylight saving time: every day is 24 hours, six ahead of UTC.
+            const date = new Date(start.getTime() + index * DAY_MS + DHAKA_OFFSET_MS)
+                .toISOString()
+                .slice(0, 10);
+            const row = byDay.get(date);
+            return {
+                date,
+                orders: Number(row?.orders ?? 0),
+                sales: canSeeSales ? Number(row?.sales ?? 0) : null,
+            };
+        });
+        const orders = days.reduce((sum, day) => sum + day.orders, 0);
+        const sales = rows.reduce((sum, row) => sum + Number(row.sales), 0);
+        return {
+            dateFrom,
+            dateTo,
+            orders,
+            items: Number(lines?.items ?? 0),
+            sales: canSeeSales ? sales : null,
+            // Whole taka, like every total (money is kept in poisha).
+            averageOrder: canSeeSales && orders > 0 ? Math.round(sales / orders / 100) * 100 : null,
+            days,
+            statuses,
+        };
+    }
+
+    /** The orders placed just after and just before this one, in the list's order. */
+    async neighbours(ctx: RequestContext, orderId: ID): Promise<{ newerId: ID | null; olderId: ID | null }> {
+        const order = await this.placedOrders(ctx).andWhere('order.id = :orderId', { orderId }).getOne();
+        if (!order?.orderPlacedAt) {
+            return { newerId: null, olderId: null };
+        }
+        const at = order.orderPlacedAt;
+        const neighbour = (newer: boolean) =>
+            this.placedOrders(ctx)
+                .andWhere(
+                    newer
+                        ? '(order.orderPlacedAt > :at OR (order.orderPlacedAt = :at AND order.id > :id))'
+                        : '(order.orderPlacedAt < :at OR (order.orderPlacedAt = :at AND order.id < :id))',
+                    { at, id: order.id },
+                )
+                .orderBy('order.orderPlacedAt', newer ? 'ASC' : 'DESC')
+                .addOrderBy('order.id', newer ? 'ASC' : 'DESC')
+                .select('order.id', 'id')
+                .limit(1)
+                .getRawOne<{ id: ID }>();
+        const [newer, older] = await Promise.all([neighbour(true), neighbour(false)]);
+        return { newerId: newer?.id ?? null, olderId: older?.id ?? null };
     }
 
     /** How many orders each status tab has, with the same filters as the list. */

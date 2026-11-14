@@ -60,6 +60,36 @@ export const ordersAdminApiExtensions = gql`
         confirmedNotPacked: Int!
     }
 
+    type BdDashboardDay {
+        "A Dhaka calendar day, YYYY-MM-DD"
+        date: String!
+        orders: Int!
+        "Null without the ReadSalesFigures permission"
+        sales: Money
+    }
+
+    "Orders placed in the range, cancelled ones left out of the totals. Order value, not money received."
+    type BdDashboard {
+        dateFrom: String!
+        dateTo: String!
+        orders: Int!
+        items: Int!
+        "Null without the ReadSalesFigures permission"
+        sales: Money
+        "Null without the ReadSalesFigures permission, or with no orders"
+        averageOrder: Money
+        days: [BdDashboardDay!]!
+        "Orders per status in the range (cancelled included)"
+        statuses: [BdOrderStatusCount!]!
+    }
+
+    type BdOrderNeighbours {
+        "The order placed just after this one (above it in the list)"
+        newerId: ID
+        "The order placed just before this one (below it in the list)"
+        olderId: ID
+    }
+
     enum BdOrderActionErrorCode {
         ${ORDER_ACTION_ERROR_CODES.join('\n')}
     }
@@ -136,6 +166,8 @@ export const ordersAdminApiExtensions = gql`
             campaign: String
             "The sales page the orders came from"
             salesPageId: ID
+            "newest (default), oldest, totalHigh or totalLow"
+            sort: String
             skip: Int
             take: Int
         ): OrderList!
@@ -155,6 +187,10 @@ export const ordersAdminApiExtensions = gql`
         bdOrderStats(date: String): BdOrderStats!
         "OrderSettings from @ecommbd/shared"
         bdOrderSettings: JSON!
+        "The dashboard for a range of Dhaka days (YYYY-MM-DD, both inclusive, at most 366 days)"
+        bdDashboard(dateFrom: String!, dateTo: String!): BdDashboard!
+        "The orders placed just after and just before this one, for the order page's arrows"
+        bdOrderNeighbours(orderId: ID!): BdOrderNeighbours!
     }
 
     extend type Mutation {

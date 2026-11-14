@@ -197,7 +197,7 @@ Status values: **Not started** · **In progress** · **Review** · **Done**.
 | [60](m11-page-builder.md#phase-60--system-pages-in-the-builder) | System pages in the builder | M11 | Header, footer, product, category, cart, checkout, thank-you layouts | 56, 13, 14 | XL | Not started |
 | [61](m11-page-builder.md#phase-61--element-library-to-70) | Element library to 70+ | M11 | Promotion, product, media and trust elements | 56, 57 | L | Not started |
 | [62](m11-page-builder.md#phase-62--publish-quality) | Publish quality | M11 | Pre-publish checklist, guided tour, saved styles | 57, 58 | M | Not started |
-| [63](m12-services-redesign.md#phase-63--admin-redesign) | Admin redesign | M12 | 63a: new look, menu, essentials-first screens ([design guide](../design/admin-design-guide.md)). 63b: every other screen. 63c: global search, notifications, dashboard, order screens | 02b, 04 | L (63a, 63b, 63c) | **63a, 63b: Review** (built 2026-11-14, with Motion and a guided tour). 63c: not started |
+| [63](m12-services-redesign.md#phase-63--admin-redesign) | Admin redesign | M12 | 63a: new look, menu, essentials-first screens ([design guide](../design/admin-design-guide.md)). 63b: every other screen. 63c: global search, notifications, dashboard, order screens | 02b, 04 | L (63a, 63b, 63c) | **Review** (63a, 63b and 63c built 2026-11-14, with Motion and a guided tour; 63c's courier score, order tags, help videos and real-time notifications are left for later, see the phase) |
 | [64](m12-services-redesign.md#phase-64--store-controls) | Store controls | M12 | Maintenance mode, noindex, VAT, prefixes, invoice logo | 12, 06, 17 | M | Not started |
 | [65](m12-services-redesign.md#phase-65--order-confirmation-services-i) | Order confirmation services I | M12 | Device order limit, address clean-up | 11, 21 | M | Not started |
 | [66](m12-services-redesign.md#phase-66--order-confirmation-services-ii-paid) | Order confirmation services II (paid) | M12 | AI voice calls in Bangla, call centre (ours or partner) | 04, 38, 39, 65 | L | Not started |
@@ -266,7 +266,7 @@ Added 2026-11-14. Claude usage is limited, so some phases go to a second model (
 |---|---|---|
 | **63a** | Claude | Sets the design every later screen copies |
 | **63b** | Built by Claude on 2026-11-14, at the owner's request | — |
-| **63c** | Claude | New dashboard, search and order page design |
+| **63c** | Built by Claude on 2026-11-14 | — |
 | **51, 52, 53, 54** (back office) | Second model, after 63a | Mostly entities, services and list/form screens |
 | **55** (product depth) | Split: second model for units, brands, shipping classes, statuses, prefixes; Claude for the variation matrix editor and media library | The matrix editor is a new kind of screen |
 | **64, 65** (store controls, device limit, address clean-up) | Second model | Small settings and server rules. Claude builds the storefront maintenance page |

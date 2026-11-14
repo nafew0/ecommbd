@@ -1,7 +1,11 @@
 import { CornerDownLeft, Search } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { useFormat } from '../lib/format';
+import { useDebounced } from '../lib/use-debounced';
 import { cn } from '../lib/cn';
 import { useI18n } from '../lib/i18n';
 import { bn } from '../messages/bn';
@@ -13,7 +17,7 @@ interface Result {
     label: string;
     /** Where it is, shown in grey: the group for a screen. */
     context?: string;
-    kind: 'action' | 'screen';
+    kind: 'action' | 'screen' | 'order' | 'product' | 'customer';
     /** Everything it can be found by, in both languages, lower case. */
     words: string;
     run(): void;
@@ -65,9 +69,54 @@ export function matches(result: Pick<Result, 'words'>, query: string): boolean {
         .every(word => result.words.includes(word));
 }
 
+const RECORDS_TAKE = 5;
+
+interface Records {
+    orders?: {
+        items: Array<{
+            id: string;
+            code: string;
+            customFields: { orderNumber: string | null };
+            shippingAddress: { fullName: string | null } | null;
+        }>;
+    };
+    products?: { items: Array<{ id: string; name: string }> };
+    customers?: {
+        items: Array<{
+            id: string;
+            firstName: string;
+            lastName: string;
+            customFields: { phone: string | null };
+        }>;
+    };
+}
+
 /**
- * Search for screens and actions (Ctrl K / ⌘ K): what makes hiding screens under "More" safe.
- * Orders, products and customers join in phase 63c.
+ * Orders (by number, phone or name), products and customers that match, five of each. Only the
+ * kinds this role may read are asked for; the server checks the permission either way.
+ */
+function useRecords(term: string, open: boolean) {
+    const { can } = useAuth();
+    const parts = [
+        can('ReadOrder') &&
+            `orders: bdOrders(search: $term, take: ${RECORDS_TAKE}) { items { id code customFields { orderNumber } shippingAddress { fullName } } }`,
+        (can('ReadProduct') || can('ReadCatalog')) &&
+            `products: bdProducts(search: $term, take: ${RECORDS_TAKE}) { items { id name } }`,
+        can('ReadCustomer') &&
+            `customers: bdCustomers(search: $term, take: ${RECORDS_TAKE}) { items { id firstName lastName customFields { phone } } }`,
+    ].filter(Boolean);
+    return useQuery({
+        queryKey: ['finder', term, parts.length],
+        enabled: open && term.length >= 2 && parts.length > 0,
+        staleTime: 15_000,
+        placeholderData: keepPreviousData,
+        queryFn: () => adminApi<Records>(`query Finder($term: String!) { ${parts.join(' ')} }`, { term }),
+    });
+}
+
+/**
+ * Search (Ctrl K / ⌘ K): screens and actions at once, which is what makes hiding screens under
+ * "More" safe, then orders, products and customers from the server as the merchant types.
  */
 export function CommandSearch({
     open,
@@ -81,6 +130,7 @@ export function CommandSearch({
     const { messages: t, language } = useI18n();
     const { can } = useAuth();
     const navigate = useNavigate();
+    const format = useFormat();
     const dialog = useRef<HTMLDialogElement>(null);
     const listId = useId();
     const [query, setQuery] = useState('');
@@ -102,7 +152,40 @@ export function CommandSearch({
         () => searchIndex(visibleMenu(MENU, can), can, language, to => void navigate(to), onStartTour),
         [can, language, navigate, onStartTour],
     );
-    const results = useMemo(() => all.filter(result => matches(result, query)), [all, query]);
+    const term = useDebounced(query.trim(), 250);
+    const records = useRecords(term, open);
+    const results = useMemo(() => {
+        const local = all.filter(result => matches(result, query));
+        const data = query.trim().length >= 2 ? records.data : undefined;
+        const go = (to: string) => () => void navigate(to);
+        const found: Result[] = [
+            ...(data?.orders?.items ?? []).map(order => ({
+                key: `order:${order.id}`,
+                label: t.orders.number(order.customFields.orderNumber ?? order.code),
+                context: order.shippingAddress?.fullName ?? undefined,
+                kind: 'order' as const,
+                words: '',
+                run: go(`/orders/${order.id}`),
+            })),
+            ...(data?.products?.items ?? []).map(product => ({
+                key: `product:${product.id}`,
+                label: product.name,
+                kind: 'product' as const,
+                words: '',
+                run: go(`/products/${product.id}`),
+            })),
+            ...(data?.customers?.items ?? []).map(customer => ({
+                key: `customer:${customer.id}`,
+                label: `${customer.firstName} ${customer.lastName}`.trim() || t.customers.noName,
+                context: customer.customFields.phone ? format.phone(customer.customFields.phone) : undefined,
+                kind: 'customer' as const,
+                words: '',
+                run: go(`/customers/${customer.id}`),
+            })),
+        ];
+        // What was searched for by number or name comes first; screens and actions follow.
+        return [...found, ...local];
+    }, [all, query, records.data, navigate, t, format]);
     const active = results[Math.min(index, results.length - 1)];
 
     const choose = (result: Result | undefined) => {
@@ -172,7 +255,7 @@ export function CommandSearch({
                                 <li key={result.key} role="presentation">
                                     {heading && (
                                         <p className="px-3 pt-2 pb-1 text-xs font-semibold text-ink-muted">
-                                            {result.kind === 'action' ? t.finder.actions : t.finder.screens}
+                                            {t.finder.kinds[result.kind]}
                                         </p>
                                     )}
                                     <button
@@ -210,7 +293,9 @@ export function CommandSearch({
                             );
                         })}
                         {results.length === 0 && (
-                            <li className="px-3 py-8 text-center text-sm text-ink-muted">{t.finder.empty}</li>
+                            <li className="px-3 py-8 text-center text-sm text-ink-muted">
+                                {records.isFetching ? t.common.loading : t.finder.empty}
+                            </li>
                         )}
                     </ul>
                     <p className="hidden border-t border-line px-4 py-2 text-xs text-ink-muted sm:block">

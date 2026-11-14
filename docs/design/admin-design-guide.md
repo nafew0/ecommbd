@@ -15,7 +15,7 @@
 - Every string still goes in `src/messages/en.ts` and `bn.ts`.
 - One new npm package: `motion`, in its light form (section 3.7). Icons stay `lucide-react`.
 
-**Status:** 63a and 63b were built on 2026-11-14. Where the build differs from the first plan, this guide says what was built.
+**Status:** 63a, 63b and most of 63c were built on 2026-11-14. Where the build differs from the first plan, this guide says what was built.
 
 ---
 
@@ -114,9 +114,10 @@ Line height stays 1.6 for Bangla. Numbers in tables use `tabular-nums`.
 ### 3.1 Top bar
 
 - 56 px tall, `bg-bar`, white text, sticky.
-- **Left:** the admin's name, truncated. On phones, the menu button comes first. (The store's own name comes in 63c: the shell has no cheap query for it yet.)
+- **Left:** the store's name in the admin's language, truncated ("Store admin" until a name is set). On phones, the menu button comes first.
 - **Middle:** a search button that looks like an input ("Search… Ctrl K"). On phones it is an icon. See 3.4.
-- **Right:** language switch, then an avatar button with the person's initial. Its menu has "Take the tour" and "Sign out". ("View store" comes in 63c: the admin doesn't know the storefront's address yet.)
+- **Right:** "View store" (when the server knows the storefront's address, `STOREFRONT_URL`), the language switch, the bell (below), then an avatar button with the person's initial. Its menu has "Take the tour" and "Sign out".
+- **The bell** lists the work that is waiting, each line going to the screen where it is done: orders to confirm, payments to check, confirmed orders to pack, addresses the courier can't place, unfinished checkouts, products low on stock. A dot shows when a count has grown since the list was last opened on this device. It is a to-do list, not a message feed: nothing is stored on the server, and it refreshes once a minute with the rest of the shell (`layout/use-shell.ts`).
 - The notifications bell is **not** in 63a (it needs server work: phase 63c). Don't show a bell that does nothing.
 
 ### 3.2 Sidebar
@@ -125,7 +126,7 @@ Line height stays 1.6 for Bangla. Numbers in tables use `tabular-nums`.
 - **About 10 top-level items**, each with an 18 px icon and a label.
 - **One group open at a time.** Clicking a group opens it and goes to its first screen. The group holding the current page is always open.
 - **Active item:** `bg-surface` with a 1 px `border-line` and `font-semibold`. No teal block.
-- **Counts:** a screen that is a to-do list shows a small count when it is above zero (`count` on its link in `menu.ts`). Today only Confirm orders has one, from `bdOrderStats`; Verify payments, Incomplete orders and Unmapped addresses get theirs in 63c, when one query can return them all. A "More" item with a count above zero is shown outside "More".
+- **Counts:** a screen that is a to-do list shows a small count when it is above zero (`count` on its link in `menu.ts`): Confirm orders, Incomplete orders, Verify payments and Unmapped addresses. They come from the shell's one request (`layout/use-shell.ts`), which asks only for what the role may read. A "More" item with a count above zero is shown outside "More".
 - **"More" inside a group:** a last row that opens the less-used screens in place. It remembers open or closed in `localStorage`.
 
 **The main menu:**
@@ -163,11 +164,12 @@ These two have many screens. Each becomes its own **area**: the sidebar is repla
 
 **How to build it:** in `layout/menu.ts`, give each group an `area: 'main' | 'store' | 'settings'` and each link an optional `more: true`. The area is read from the URL: paths under `/settings` are the settings area, paths under `/store` the store area, everything else main. `visibleMenu` keeps filtering by `ready` and permission exactly as now. Update `menu.spec.ts`.
 
-### 3.4 Search (63a: screens and actions only)
+### 3.4 Search
 
 - Opens with Ctrl K / ⌘ K or the top bar button. A `Dialog` near the top of the screen with one input and a result list. Arrow keys move, Enter opens, Escape closes.
-- In 63a it searches **screens** (every menu link, in both languages, including ones under "More") and a short list of **actions** ("Create order", "Add product", "Add sales page"). It only lists what the person's role may open.
-- Searching orders, products and customers is phase 63c.
+- It searches **screens** (every menu link, in both languages, including ones under "More") and a short list of **actions** ("Create order", "Add product", "Add sales page") at once, in the browser.
+- From two letters on, it also asks the server for **orders** (by number, phone or name), **products** and **customers**, five of each, and lists them first.
+- It only lists what the person's role may open; the server checks each kind's permission again.
 - Why it's in 63a: hiding things under "More" is only safe when search can find them.
 
 ### 3.5 On phones (below `lg`)
@@ -234,7 +236,7 @@ All live in `apps/admin/src/components/ui/` (form parts in `components/form/`). 
 | `Switch` | Checked colour `bg-accent`. |
 | `Dialog`, toast, confirm | Token colours only. |
 | `Field` | No change beyond tokens. |
-| `ListPage` | Token colours. The search and filters sit in one row above the table. Rows are 48 px. Selected tab: `border-ink text-ink`. New prop `moreFilters={{ content, active }}`: the rarely used filters open under one "Filters" button that shows how many are set. |
+| `ListPage` | New in 63c: `tabs.more` (rarely used tabs under one "Others" menu), `columnPicker` (each person chooses their columns, remembered on the device) and `pagination.sizes` (a per-page choice in the footer). Token colours. The search and filters sit in one row above the table. Rows are 48 px. Selected tab: `border-ink text-ink`. New prop `moreFilters={{ content, active }}`: the rarely used filters open under one "Filters" button that shows how many are set. |
 | `PageHeader` | Gains `back` (a link with a left arrow above the title), `badges` (beside the title) and `menu` (items for a "More" button). `actions` keeps working. |
 
 ### 4.2 New
@@ -318,8 +320,9 @@ Page width="full"
   TwoColumn-style grid of the existing widgets
 ```
 
-- 63a only restyles what exists. Sales numbers, the chart and the date range are phase 63c (they need new queries).
-- Remove the "coming soon" card: it is filler.
+- Under today's tiles sits the **sales overview** (`components/dashboard.tsx`): a range (Today, 7 days, 30 days, This month), four tiles (order value, orders, items sold, average order), a bar per day, the orders per status (each row opens that list) and the latest five orders.
+- Staff without the `ReadSalesFigures` permission see counts only, and the chart shows orders per day.
+- The chart is `components/ui/bar-chart.tsx`: one series, one colour, the value on hover, and the same numbers in a table for screen readers. Use it for any "one number per day" chart; a chart with several series needs its own design first.
 
 **Screens that keep their own layout:** the confirmation queue, the phone-order screen, the WooCommerce migration steps, the theme and page editors, login and print. In 63a they get tokens and the new components, nothing more.
 

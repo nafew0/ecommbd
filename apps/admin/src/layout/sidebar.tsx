@@ -6,7 +6,7 @@ import { useI18n } from '../lib/i18n';
 import { AnimatePresence, expand, m } from '../lib/motion';
 import { activeLink, type Area, type MenuGroup, type MenuLink } from './menu';
 
-export type MenuCounts = Partial<Record<NonNullable<MenuLink['count']>, number>>;
+export type MenuCounts = Partial<Record<NonNullable<MenuLink['count']>, number | undefined>>;
 
 interface SidebarProps {
     menu: MenuGroup[];

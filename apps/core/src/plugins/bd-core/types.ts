@@ -8,4 +8,6 @@ export interface BdCorePluginOptions {
      * is missing, so this is safe on every start.
      */
     initializeOnBootstrap?: boolean;
+    /** STOREFRONT_URL: the admin's "View store" link. */
+    storefrontUrl?: string;
 }

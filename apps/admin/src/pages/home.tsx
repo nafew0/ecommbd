@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Settings } from 'lucide-react';
 import { Link } from 'react-router';
+import { Dashboard } from '../components/dashboard';
 import { Page } from '../components/ui/layout';
 import { Card, CardBody, CardHeader, PageHeader } from '../components/ui/misc';
 import { StatTile } from '../components/ui/stat';
@@ -32,6 +33,7 @@ export function HomePage() {
             <PageHeader title={m.home.greeting(user?.name ?? '')} description={m.home.intro} />
             {can('ReadOrder') && <OrderWidgets />}
             {can('ReadOrder') && <CourierWidgets />}
+            {can('ReadOrder') && <Dashboard />}
             {can('ReadSettings') && (
                 <Card className="max-w-xl">
                     <CardHeader title={m.home.setupTitle} />

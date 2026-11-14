@@ -6,7 +6,7 @@ import {
 } from '@ecommbd/shared/order-status';
 import { EDITABLE_STATUSES } from '@ecommbd/shared/manual-orders';
 import { useQuery } from '@tanstack/react-query';
-import { Phone, Printer } from 'lucide-react';
+import { ChevronDown, ChevronUp, Phone, Printer } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { EditOrderDialog } from '../components/orders/edit-order-dialog';
@@ -23,6 +23,7 @@ import {
     OrderPayments,
 } from '../components/payments/order-payments';
 import { Button } from '../components/ui/button';
+import { Textarea } from '../components/ui/input';
 import type { ActionItem } from '../components/ui/action-menu';
 import { Page, TwoColumn } from '../components/ui/layout';
 import { Alert, Badge, Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
@@ -32,6 +33,7 @@ import { useAuth } from '../lib/auth';
 import { useConfirm } from '../lib/confirm';
 import { useFormat } from '../lib/format';
 import { useI18n } from '../lib/i18n';
+import { useToast } from '../lib/toast';
 import { openPrint } from '../lib/print';
 import {
     ACTION_PERMISSIONS,
@@ -210,20 +212,23 @@ export function OrderDetailPage() {
                     </>
                 }
                 menu={menu}
-                actions={allowed
-                    .map((action, index) => (
-                        <Button
-                            key={action}
-                            variant={index === 0 ? 'primary' : 'secondary'}
-                            loading={busy === action}
-                            onClick={() =>
-                                action === 'callLater' ? setDialog('callLater') : void run(action)
-                            }
-                        >
-                            {m.orders.actions[action]}
-                        </Button>
-                    ))
-                    .reverse()}
+                actions={[
+                    <Neighbours key="neighbours" orderId={order.id} />,
+                    ...allowed
+                        .map((action, index) => (
+                            <Button
+                                key={action}
+                                variant={index === 0 ? 'primary' : 'secondary'}
+                                loading={busy === action}
+                                onClick={() =>
+                                    action === 'callLater' ? setDialog('callLater') : void run(action)
+                                }
+                            >
+                                {m.orders.actions[action]}
+                            </Button>
+                        ))
+                        .reverse(),
+                ]}
             />
             <div className="mb-4 flex flex-wrap gap-2 empty:hidden">
                 {claim && (
@@ -316,6 +321,9 @@ export function OrderDetailPage() {
                         <Card>
                             <CardHeader title={m.orders.history} />
                             <CardBody>
+                                {can('UpdateOrder') && (
+                                    <StaffNote orderId={order.id} onAdded={() => void query.refetch()} />
+                                )}
                                 <ol className="space-y-2">
                                     {order.history.items.map(entry => {
                                         const text = historyText(entry, m, format.dateTime);
@@ -465,6 +473,91 @@ export function OrderDetailPage() {
                 }}
             />
         </Page>
+    );
+}
+
+const NEIGHBOURS = `query ($orderId: ID!) { bdOrderNeighbours(orderId: $orderId) { newerId olderId } }`;
+
+/** Arrows to the order placed just after and just before this one, so staff can work down the list. */
+function Neighbours({ orderId }: { orderId: string }) {
+    const { messages: m } = useI18n();
+    const query = useQuery({
+        queryKey: ['orders', 'neighbours', orderId],
+        queryFn: () =>
+            adminApi<{ bdOrderNeighbours: { newerId: string | null; olderId: string | null } }>(NEIGHBOURS, {
+                orderId,
+            }).then(result => result.bdOrderNeighbours),
+        staleTime: 30_000,
+    });
+    const arrow = (id: string | null | undefined, label: string, Icon: typeof ChevronUp) =>
+        id ? (
+            <Link
+                to={`/orders/${id}`}
+                aria-label={label}
+                title={label}
+                className="inline-flex size-10 items-center justify-center rounded-md border border-line-strong bg-surface text-ink-muted hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+            >
+                <Icon className="size-4" aria-hidden />
+            </Link>
+        ) : (
+            <span
+                aria-hidden
+                className="inline-flex size-10 items-center justify-center rounded-md border border-line text-ink-faint"
+            >
+                <Icon className="size-4" />
+            </span>
+        );
+    return (
+        <span className="inline-flex gap-1">
+            {arrow(query.data?.newerId, m.orders.neighbours.newer, ChevronUp)}
+            {arrow(query.data?.olderId, m.orders.neighbours.older, ChevronDown)}
+        </span>
+    );
+}
+
+const ADD_NOTE = `mutation ($input: AddNoteToOrderInput!) { addNoteToOrder(input: $input) { id } }`;
+
+/** A note only staff see, kept in the order's history (Vendure's private order note). */
+function StaffNote({ orderId, onAdded }: { orderId: string; onAdded(): void }) {
+    const { messages: m } = useI18n();
+    const toast = useToast();
+    const [note, setNote] = useState('');
+    const [busy, setBusy] = useState(false);
+    const c = m.orders.comment;
+    return (
+        <form
+            className="flex flex-wrap items-end gap-2 border-b border-line pb-4"
+            onSubmit={async event => {
+                event.preventDefault();
+                if (!note.trim()) return;
+                setBusy(true);
+                try {
+                    await adminApi(ADD_NOTE, { input: { id: orderId, note: note.trim(), isPublic: false } });
+                    setNote('');
+                    toast.success(c.added);
+                    onAdded();
+                } catch {
+                    toast.error(m.errors.generic);
+                } finally {
+                    setBusy(false);
+                }
+            }}
+        >
+            <label className="min-w-0 flex-1 basis-64 space-y-1">
+                <span className="block text-[13px] text-ink-muted">{c.label}</span>
+                <Textarea
+                    rows={2}
+                    maxLength={1000}
+                    value={note}
+                    placeholder={c.placeholder}
+                    onChange={event => setNote(event.target.value)}
+                    className="min-h-11"
+                />
+            </label>
+            <Button type="submit" variant="secondary" loading={busy} disabled={!note.trim()}>
+                {c.add}
+            </Button>
+        </form>
     );
 }
 

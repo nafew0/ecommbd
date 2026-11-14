@@ -1,8 +1,9 @@
-import { ChevronLeft, ChevronRight, Search, SlidersHorizontal } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Search, SlidersHorizontal } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { cn } from '../lib/cn';
 import { useI18n } from '../lib/i18n';
 import { AnimatePresence, expand, m as motion } from '../lib/motion';
+import { ActionMenu } from './ui/action-menu';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Skeleton } from './ui/misc';
@@ -29,7 +30,18 @@ interface ListPageProps<T> {
     loading?: boolean;
     search?: { value: string; onChange(value: string): void; placeholder?: string };
     /** Status tabs with counts (All, New, Confirmed…). */
-    tabs?: { items: ListTab[]; active: string; onChange(key: string): void };
+    tabs?: {
+        items: ListTab[];
+        active: string;
+        onChange(key: string): void;
+        /** Keys of the rarely used tabs: they sit under one "Others" menu at the end. */
+        more?: string[];
+    };
+    /**
+     * Lets each person choose which columns to see; remembered on this device under `storageKey`.
+     * `locked` columns can't be hidden (the one that names the row).
+     */
+    columnPicker?: { storageKey: string; locked?: string[] };
     /** Filters used all the time, shown beside the search box. Keep to one or two. */
     filters?: ReactNode;
     /** The rest, behind one "Filters" button. `active` is how many are set (shown on the button). */
@@ -47,25 +59,41 @@ interface ListPageProps<T> {
     empty: ReactNode;
 }
 
+function readHidden(storageKey: string | undefined): string[] {
+    if (!storageKey) return [];
+    try {
+        const value: unknown = JSON.parse(localStorage.getItem(storageKey) ?? '[]');
+        return Array.isArray(value) ? value.filter(item => typeof item === 'string') : [];
+    } catch {
+        return [];
+    }
+}
+
 /**
  * The list screen every later phase uses (orders, products, customers…): search, status tabs with
  * counts, filters, pagination and bulk select. Data loading stays with the page.
  */
 export function ListPage<T>(props: ListPageProps<T>) {
     const { messages: m } = useI18n();
-    const {
-        rows,
-        rowId,
-        columns,
-        loading,
-        search,
-        tabs,
-        filters,
-        moreFilters,
-        pagination,
-        selection,
-        empty,
-    } = props;
+    const { rows, rowId, loading, search, tabs, filters, moreFilters, pagination, selection, empty } = props;
+    const { columnPicker } = props;
+    const [hidden, setHidden] = useState<string[]>(() => readHidden(columnPicker?.storageKey));
+    const columns = props.columns.filter(column => !hidden.includes(column.key));
+    const toggleColumn = (key: string) => {
+        setHidden(current => {
+            const next = current.includes(key) ? current.filter(item => item !== key) : [...current, key];
+            try {
+                if (columnPicker) localStorage.setItem(columnPicker.storageKey, JSON.stringify(next));
+            } catch {
+                // Not remembered: fine.
+            }
+            return next;
+        });
+    };
+    const moreKeys = tabs?.more ?? [];
+    const mainTabs = tabs?.items.filter(tab => !moreKeys.includes(tab.key)) ?? [];
+    const moreTabs = tabs?.items.filter(tab => moreKeys.includes(tab.key)) ?? [];
+    const activeMore = moreTabs.find(tab => tab.key === tabs?.active);
     const [filtersOpen, setFiltersOpen] = useState((moreFilters?.active ?? 0) > 0);
     const pageIds = rows.map(rowId);
     const allSelected =
@@ -90,7 +118,7 @@ export function ListPage<T>(props: ListPageProps<T>) {
         <div className="overflow-hidden rounded-lg border border-line bg-surface">
             {tabs && (
                 <div className="flex gap-1 overflow-x-auto border-b border-line px-2" role="tablist">
-                    {tabs.items.map(tab => (
+                    {mainTabs.map(tab => (
                         <button
                             key={tab.key}
                             type="button"
@@ -112,9 +140,28 @@ export function ListPage<T>(props: ListPageProps<T>) {
                             )}
                         </button>
                     ))}
+                    {moreTabs.length > 0 && (
+                        <ActionMenu
+                            variant="ghost"
+                            size="sm"
+                            className={cn(
+                                'my-1 shrink-0 self-center',
+                                activeMore && 'bg-surface-muted font-semibold text-ink',
+                            )}
+                            label={
+                                activeMore
+                                    ? `${activeMore.label} ${n(activeMore.count ?? 0)}`
+                                    : `${m.list.others} ${n(moreTabs.reduce((sum, tab) => sum + (tab.count ?? 0), 0))}`
+                            }
+                            items={moreTabs.map(tab => ({
+                                label: tab.count === undefined ? tab.label : `${tab.label} · ${n(tab.count)}`,
+                                onSelect: () => tabs.onChange(tab.key),
+                            }))}
+                        />
+                    )}
                 </div>
             )}
-            {(search || filters || moreFilters) && (
+            {(search || filters || moreFilters || columnPicker) && (
                 <div className="border-b border-line p-3">
                     <div className="flex flex-wrap items-center gap-2">
                         {search && (
@@ -134,6 +181,22 @@ export function ListPage<T>(props: ListPageProps<T>) {
                             </div>
                         )}
                         {filters}
+                        {columnPicker && (
+                            <ActionMenu
+                                label={m.list.columns}
+                                items={props.columns
+                                    .filter(column => !columnPicker.locked?.includes(column.key))
+                                    .map(column => ({
+                                        label: column.header,
+                                        icon: hidden.includes(column.key) ? (
+                                            <span className="size-4" />
+                                        ) : (
+                                            <Check className="size-4" aria-hidden />
+                                        ),
+                                        onSelect: () => toggleColumn(column.key),
+                                    }))}
+                            />
+                        )}
                         {moreFilters && (
                             <Button
                                 variant="secondary"

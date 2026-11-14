@@ -32,8 +32,21 @@ export const settingsAdminApiExtensions = gql`
         errors: [BdSettingsFieldError!]!
     }
 
+    type BdAdminStoreName {
+        bn: String!
+        en: String!
+    }
+
+    "What the merchant admin's top bar shows. For any signed-in staff member."
+    type BdAdminShell {
+        storeName: BdAdminStoreName!
+        "The storefront's address (STOREFRONT_URL), when the server knows it"
+        storefrontUrl: String
+    }
+
     extend type Query {
         bdStoreSettings: BdStoreSettingsPayload!
+        bdAdminShell: BdAdminShell!
     }
 
     extend type Mutation {

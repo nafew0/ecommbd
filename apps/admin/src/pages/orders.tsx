@@ -1,18 +1,21 @@
 import { BD_ORDER_STATUSES, type BdOrderStatus } from '@ecommbd/shared/order-status';
 import { PRINT_DOCUMENTS, type PrintDocument } from '@ecommbd/shared/print-settings';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { Plus, Printer, ShoppingBag, Truck } from 'lucide-react';
+import { Eye, Plus, Printer, ShoppingBag, Truck } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { usePlaces } from '../components/address/district-thana-picker';
 import { BulkBookingProgress, type BulkRun, bulkStart } from '../components/couriers/bulk-booking';
 import { DistrictName } from '../components/address/place-name';
 import { type Column, ListPage, type ListTab } from '../components/list-page';
+import { RiskBadge } from '../components/orders/risk-badge';
 import { PaymentBadge, StatusBadge } from '../components/orders/status';
 import { Button } from '../components/ui/button';
+import { Dialog } from '../components/ui/dialog';
 import { Input, Select } from '../components/ui/input';
 import { Page } from '../components/ui/layout';
 import { Alert, EmptyState, PageHeader } from '../components/ui/misc';
+import { KeyValue } from '../components/ui/stat';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useFormat } from '../lib/format';
@@ -23,14 +26,18 @@ import { openPrint } from '../lib/print';
 import { useDebounced } from '../lib/use-debounced';
 import { fetchSalesPages } from '../components/design/design-api';
 
+const SORTS = ['newest', 'oldest', 'totalHigh', 'totalLow'] as const;
+/** Rarely opened statuses share one "Others" tab menu. */
+const MORE_TABS = ['awaitingPayment', 'partiallyDelivered', 'returned', 'cancelled'];
+
 /** Up to 100 per page, so the packing desk can select a whole batch to print (phase 06). */
 const PAGE_SIZES = [25, 50, 100];
 
 const ORDERS = `
     query Orders($status: String, $search: String, $dateFrom: String, $dateTo: String, $districtId: String,
-        $paymentType: String, $campaign: String, $salesPageId: ID, $skip: Int, $take: Int) {
+        $paymentType: String, $campaign: String, $salesPageId: ID, $sort: String, $skip: Int, $take: Int) {
         bdOrders(status: $status, search: $search, dateFrom: $dateFrom, dateTo: $dateTo, districtId: $districtId,
-            paymentType: $paymentType, campaign: $campaign, salesPageId: $salesPageId, skip: $skip, take: $take) {
+            paymentType: $paymentType, campaign: $campaign, salesPageId: $salesPageId, sort: $sort, skip: $skip, take: $take) {
             totalItems
             items { ...BdOrderRow bdPrint { invoicePrintedAt slipPrintedAt stickerPrintedAt } }
         }
@@ -94,6 +101,8 @@ export function OrdersPage() {
         staleTime: 60_000,
     });
     const [page, setPage] = useState(1);
+    const [sort, setSort] = useState<(typeof SORTS)[number]>('newest');
+    const [preview, setPreview] = useState<Row | null>(null);
     const [pageSize, setPageSize] = useState(PAGE_SIZES[0]!);
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [printDocument, setPrintDocument] = useState<PrintDocument>('invoice');
@@ -123,7 +132,7 @@ export function OrdersPage() {
     const term = useDebounced(search.trim());
     const { districts } = usePlaces('');
     const query = useQuery({
-        queryKey: ['orders', 'list', status, term, filters, page, pageSize],
+        queryKey: ['orders', 'list', status, term, filters, sort, page, pageSize],
         queryFn: () =>
             adminApi<OrdersData>(ORDERS, {
                 status: status === 'all' ? null : status,
@@ -134,6 +143,7 @@ export function OrdersPage() {
                 paymentType: filters.paymentType || null,
                 campaign: filters.campaign.trim() || null,
                 salesPageId: filters.salesPageId || null,
+                sort,
                 skip: (page - 1) * pageSize,
                 take: pageSize,
             }),
@@ -206,7 +216,16 @@ export function OrdersPage() {
             hideOnMobile: true,
             cell: row => <DistrictName districtId={row.shippingAddress?.customFields?.districtId} />,
         },
-        { key: 'status', header: c.status, cell: row => <StatusBadge status={row.bd.status} /> },
+        {
+            key: 'status',
+            header: c.status,
+            cell: row => (
+                <span className="inline-flex flex-wrap items-center gap-1.5">
+                    <StatusBadge status={row.bd.status} />
+                    <RiskBadge risk={row.bdRisk} otpStatus={row.bdOtpStatus} />
+                </span>
+            ),
+        },
         {
             key: 'payment',
             header: c.payment,
@@ -220,6 +239,23 @@ export function OrdersPage() {
             cell: row => format.money(row.totalWithTax),
         },
         { key: 'date', header: c.date, hideOnMobile: true, cell: row => format.dateTime(row.orderPlacedAt) },
+        {
+            key: 'preview',
+            header: m.orders.preview.column,
+            className: 'w-10 text-right',
+            hideOnMobile: true,
+            cell: row => (
+                <button
+                    type="button"
+                    aria-label={m.orders.preview.open(row.customFields.orderNumber ?? row.code)}
+                    title={m.orders.preview.column}
+                    onClick={() => setPreview(row)}
+                    className="inline-flex size-8 items-center justify-center rounded-md text-ink-muted hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+                >
+                    <Eye className="size-4" aria-hidden />
+                </button>
+            ),
+        },
     ];
     const wooOrders = useQuery({
         queryKey: ['woo', 'history', 'count'],
@@ -269,6 +305,7 @@ export function OrdersPage() {
                 loading={query.isPending}
                 tabs={{
                     items: tabs,
+                    more: MORE_TABS,
                     active: status,
                     onChange: key => {
                         setParams(key === 'all' ? {} : { status: key });
@@ -283,6 +320,25 @@ export function OrdersPage() {
                     },
                     placeholder: m.orders.searchPlaceholder,
                 }}
+                columnPicker={{ storageKey: 'ecommbd-admin-orders-columns', locked: ['number'] }}
+                filters={
+                    <div className="w-44 shrink-0">
+                        <Select
+                            aria-label={m.orders.sort.label}
+                            value={sort}
+                            onChange={event => {
+                                setSort(event.target.value as (typeof SORTS)[number]);
+                                setPage(1);
+                            }}
+                        >
+                            {SORTS.map(key => (
+                                <option key={key} value={key}>
+                                    {m.orders.sort[key]}
+                                </option>
+                            ))}
+                        </Select>
+                    </div>
+                }
                 moreFilters={{
                     active: Object.values(filters).filter(Boolean).length,
                     content: (
@@ -440,6 +496,63 @@ export function OrdersPage() {
                     )
                 }
             />
+            <Dialog
+                open={preview !== null}
+                onClose={() => setPreview(null)}
+                title={preview ? m.orders.number(preview.customFields.orderNumber ?? preview.code) : ''}
+                footer={
+                    preview && (
+                        <Button onClick={() => void navigate(`/orders/${preview.id}`)}>
+                            {m.orders.preview.openOrder}
+                        </Button>
+                    )
+                }
+            >
+                {preview && (
+                    <div className="space-y-4 text-sm">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            <StatusBadge status={preview.bd.status} />
+                            <PaymentBadge type={preview.bd.paymentType} />
+                            <RiskBadge risk={preview.bdRisk} otpStatus={preview.bdOtpStatus} />
+                        </div>
+                        <ul className="divide-y divide-line">
+                            {preview.lines
+                                .filter(line => line.quantity > 0)
+                                .map(line => (
+                                    <li key={line.id} className="flex justify-between gap-3 py-2">
+                                        <span className="min-w-0 break-words">
+                                            {line.productVariant.name}{' '}
+                                            <span className="text-ink-muted">
+                                                {m.orders.quantity(line.quantity)}
+                                            </span>
+                                        </span>
+                                        <span className="tabular-nums">
+                                            {format.money(line.linePriceWithTax)}
+                                        </span>
+                                    </li>
+                                ))}
+                        </ul>
+                        <KeyValue
+                            rows={[
+                                { label: m.orders.total, value: format.money(preview.totalWithTax) },
+                                { label: m.orders.codDue, value: format.money(preview.bd.codDue) },
+                                { label: m.orders.customer, value: preview.shippingAddress?.fullName ?? '—' },
+                                {
+                                    label: c.phone,
+                                    value: format.phone(
+                                        preview.shippingAddress?.phoneNumber ??
+                                            preview.customer?.customFields.phone,
+                                    ),
+                                },
+                                {
+                                    label: m.orders.address,
+                                    value: preview.shippingAddress?.streetLine1 ?? '—',
+                                },
+                            ]}
+                        />
+                    </div>
+                )}
+            </Dialog>
         </Page>
     );
 }

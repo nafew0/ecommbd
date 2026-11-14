@@ -63,6 +63,24 @@ export class OrdersAdminResolver {
         );
     }
 
+    /** Counts need ReadOrder; the sales figures also need ReadSalesFigures (null otherwise). */
+    @Query()
+    @Allow(Permission.ReadOrder)
+    bdDashboard(@Ctx() ctx: RequestContext, @Args() args: { dateFrom: string; dateTo: string }) {
+        return this.lists.dashboard(
+            ctx,
+            args.dateFrom,
+            args.dateTo,
+            ctx.userHasPermissions([readSalesFiguresPermission.Permission]),
+        );
+    }
+
+    @Query()
+    @Allow(Permission.ReadOrder)
+    bdOrderNeighbours(@Ctx() ctx: RequestContext, @Args() args: { orderId: ID }) {
+        return this.lists.neighbours(ctx, args.orderId);
+    }
+
     @Query()
     @Allow(Permission.ReadSettings)
     bdOrderSettings(@Ctx() ctx: RequestContext) {

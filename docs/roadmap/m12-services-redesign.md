@@ -77,6 +77,23 @@ These need server work.
    - courier score card (phase 37), tags
 6. **Empty states** with a "How to" video. A live preview beside forms that change the storefront.
 
+**Built 2026-11-14 (status: Review), simpler than planned in places:**
+
+- **Search:** orders, products and customers from Ctrl/⌘+K, through the existing list queries.
+- **Notifications:** a bell that lists the work waiting (orders to confirm, payments to check, orders to pack, addresses the courier can't place, unfinished checkouts, low stock) with a dot when a count grows. It refreshes every minute. **No server-sent events, no stored "read" state and no per-person choice of what to be notified about:** the bell is a to-do list built from counts the server already had. Failed courier bookings, risky orders and SMS balance are not in it yet.
+- **Dashboard:** date range, four KPI tiles, a bar per day, orders per status, latest orders (`bdDashboard`).
+- **Order list:** sort, a column chooser, page size, the risk badge beside the status, a quick look, and Awaiting payment, Partly delivered, Returned and Cancelled under "Others".
+- **Order page:** arrows to the newer and older order (`bdOrderNeighbours`), and staff-only notes in the history.
+- **Top bar:** the store's name, "View store", and counts on four menu items.
+
+**Not built, with the reason:**
+
+- **Courier score card:** needs phase 37.
+- **Help videos in empty states and on the dashboard:** need phase 33's videos.
+- **Order tags:** needs a new field and a migration; left for its own small task.
+- **A live preview beside storefront forms:** no form needed it yet; the page and theme editors already have one.
+- **Real-time notifications (SSE):** see above. Add it when merchants ask for alerts while the admin is open on another screen, or with the mobile app (48).
+
 ### Edge cases
 
 - Long Bangla labels in tabs and the sidebar.

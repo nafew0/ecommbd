@@ -4,6 +4,16 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+### Added
+
+- **Merchant admin (phase 63c):**
+  - **Search everything:** Ctrl K / ⌘ K now also finds orders (by number, phone or name), products and customers.
+  - **Sales overview on the home screen:** choose Today, 7 days, 30 days or This month, and see order value, orders, items sold and the average order, a bar for each day, the orders in each status and the latest orders. Staff who may not see sales figures see counts only.
+  - **A bell in the top bar** lists the work that is waiting (orders to confirm, payments to check, orders to pack, addresses the courier can't place, unfinished checkouts, low stock) and shows a dot when something new arrives. The menu shows the same counts.
+  - **Order list:** sort by newest, oldest, highest or lowest total; choose which columns to see; a quick look at an order without leaving the list; the risk badge beside the status; rarely used statuses under "Others".
+  - **Order page:** arrows to the next and previous order, and notes that only staff see.
+  - **Top bar:** your store's name, and a "View store" link.
+
 ### Changed
 
 - **Merchant admin redesign, part one (phase 63a).** See [the design guide](docs/design/admin-design-guide.md).

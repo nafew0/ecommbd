@@ -1011,6 +1011,92 @@ describe('order lists and widgets', () => {
         expect((await adminOrder(unpaid.id)).bd.paidAmount).toBe(0);
     });
 
+    it("builds the dashboard for a range of Dhaka days, sorts the list and finds an order's neighbours", async () => {
+        const first = await newOrder({ quantity: 2 });
+        const second = await newOrder();
+        const cancelled = await newOrder();
+        // 20:00 UTC on the 4th is 02:00 on the 5th in Dhaka.
+        await setPlacedAt(first.id, new Date('2026-02-04T20:00:00Z'));
+        await setPlacedAt(second.id, new Date('2026-02-06T06:00:00Z'));
+        await setPlacedAt(cancelled.id, new Date('2026-02-06T07:00:00Z'));
+        await adminClient.query(CANCEL, { input: { orderId: cancelled.id, reason: 'duplicate' } });
+
+        const DASHBOARD = gql`
+            query ($dateFrom: String!, $dateTo: String!) {
+                bdDashboard(dateFrom: $dateFrom, dateTo: $dateTo) {
+                    orders
+                    items
+                    sales
+                    averageOrder
+                    days {
+                        date
+                        orders
+                        sales
+                    }
+                    statuses {
+                        status
+                        count
+                    }
+                }
+            }
+        `;
+        const { bdDashboard } = await adminClient.query(DASHBOARD, {
+            dateFrom: '2026-02-05',
+            dateTo: '2026-02-07',
+        });
+        const total = first.totalWithTax + second.totalWithTax;
+        expect(bdDashboard).toMatchObject({
+            orders: 2,
+            items: 3,
+            sales: total,
+            averageOrder: Math.round(total / 2 / 100) * 100,
+            days: [
+                { date: '2026-02-05', orders: 1, sales: first.totalWithTax },
+                { date: '2026-02-06', orders: 1, sales: second.totalWithTax },
+                { date: '2026-02-07', orders: 0, sales: 0 },
+            ],
+        });
+        const count = (status: string) =>
+            bdDashboard.statuses.find((row: { status: string }) => row.status === status).count;
+        expect(count('new')).toBe(2);
+        expect(count('cancelled')).toBe(1);
+        await expect(
+            adminClient.query(DASHBOARD, { dateFrom: '2026-02-07', dateTo: '2026-02-05' }),
+        ).rejects.toThrow();
+
+        const SORTED = gql`
+            query ($sort: String) {
+                bdOrders(dateFrom: "2026-02-05", dateTo: "2026-02-07", sort: $sort) {
+                    items {
+                        id
+                    }
+                }
+            }
+        `;
+        const ids = async (sort?: string) =>
+            (await adminClient.query(SORTED, { sort })).bdOrders.items.map((item: { id: string }) => item.id);
+        expect(await ids()).toEqual([cancelled.id, second.id, first.id]);
+        expect(await ids('oldest')).toEqual([first.id, second.id, cancelled.id]);
+        expect((await ids('totalHigh'))[0]).toBe(first.id);
+        expect((await ids('totalLow')).at(-1)).toBe(first.id);
+
+        const NEIGHBOURS = gql`
+            query ($orderId: ID!) {
+                bdOrderNeighbours(orderId: $orderId) {
+                    newerId
+                    olderId
+                }
+            }
+        `;
+        expect((await adminClient.query(NEIGHBOURS, { orderId: second.id })).bdOrderNeighbours).toEqual({
+            newerId: cancelled.id,
+            olderId: first.id,
+        });
+        expect((await adminClient.query(NEIGHBOURS, { orderId: first.id })).bdOrderNeighbours.newerId).toBe(
+            second.id,
+        );
+    });
+
     it('finds orders by phone digits, order number, name, district and payment type, with counts', async () => {
         const phone = nextPhone();
         const order = await newOrder({ phone, name: 'Shahana Parvin' });

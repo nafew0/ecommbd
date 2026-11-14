@@ -1,20 +1,19 @@
-import { useQuery } from '@tanstack/react-query';
-import { Compass, LogOut, Menu as MenuIcon, Search } from 'lucide-react';
+import { Compass, ExternalLink, LogOut, Menu as MenuIcon, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigation } from 'react-router';
 import { ActionMenu } from '../components/ui/action-menu';
 import { Dialog } from '../components/ui/dialog';
-import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
 import { m as motion } from '../lib/motion';
 import { CommandSearch } from './command-search';
 import { LanguageSwitch } from './language-switch';
 import { areaOf, MENU, visibleMenu } from './menu';
-import { type MenuCounts, Sidebar } from './sidebar';
+import { Notifications } from './notifications';
+import { Sidebar } from './sidebar';
+import { useShell } from './use-shell';
 import { markTourDone, shouldStartTour, Tour, TOUR_STEPS, type TourStep } from './tour';
 
-const COUNTS = `query MenuCounts { bdOrderStats { waitingConfirmation } }`;
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
 /**
@@ -22,7 +21,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigat
  * a left menu that becomes a drawer on phones, and the page. A first visit starts a short tour.
  */
 export function AppLayout() {
-    const { messages: m } = useI18n();
+    const { messages: m, language } = useI18n();
     const { can, user, signOut } = useAuth();
     const navigation = useNavigation();
     const location = useLocation();
@@ -33,12 +32,8 @@ export function AppLayout() {
     const menu = useMemo(() => visibleMenu(MENU, can), [can]);
     const area = areaOf(location.pathname);
 
-    const counts = useQuery({
-        queryKey: ['menu', 'counts'],
-        queryFn: () => adminApi<{ bdOrderStats: MenuCounts }>(COUNTS).then(result => result.bdOrderStats),
-        enabled: can('ReadOrder'),
-        refetchInterval: 60_000,
-    });
+    const { shell, attention } = useShell();
+    const storeName = shell?.storeName[language] || shell?.storeName.bn || shell?.storeName.en || m.appName;
 
     useEffect(() => setDrawerOpen(false), [location.pathname]);
 
@@ -79,12 +74,7 @@ export function AppLayout() {
     const tourGroup = tourOpen && area === 'main' ? tourStep : undefined;
 
     const sidebar = (
-        <Sidebar
-            menu={menu}
-            area={tourOpen ? 'main' : area}
-            counts={counts.data ?? {}}
-            tourGroup={tourGroup}
-        />
+        <Sidebar menu={menu} area={tourOpen ? 'main' : area} counts={attention} tourGroup={tourGroup} />
     );
     const initial = (user?.name ?? user?.identifier ?? '?').trim().charAt(0).toUpperCase();
 
@@ -114,7 +104,7 @@ export function AppLayout() {
                 >
                     <MenuIcon className="size-5" aria-hidden />
                 </button>
-                <span className="min-w-0 shrink truncate font-semibold lg:w-56 lg:shrink-0">{m.appName}</span>
+                <span className="min-w-0 shrink truncate font-semibold lg:w-56 lg:shrink-0">{storeName}</span>
                 <div className="flex flex-1 justify-end lg:min-w-0 lg:justify-center">
                     <button
                         type="button"
@@ -133,7 +123,20 @@ export function AppLayout() {
                         </kbd>
                     </button>
                 </div>
+                {shell?.storefrontUrl && (
+                    <a
+                        href={shell.storefrontUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={m.nav.viewStore}
+                        className="hidden min-h-9 items-center gap-1.5 rounded-md px-2 text-sm text-white/80 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white md:inline-flex"
+                    >
+                        <ExternalLink className="size-4" aria-hidden />
+                        {m.nav.viewStore}
+                    </a>
+                )}
                 <LanguageSwitch tone="dark" />
+                <Notifications attention={attention} />
                 <ActionMenu
                     label={m.nav.account}
                     variant="ghost"

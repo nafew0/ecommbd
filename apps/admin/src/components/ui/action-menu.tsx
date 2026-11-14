@@ -24,6 +24,8 @@ interface ActionMenuProps {
     variant?: ButtonProps['variant'];
     size?: ButtonProps['size'];
     className?: string;
+    /** Called each time the list opens. */
+    onOpen?(): void;
 }
 
 /**
@@ -38,6 +40,7 @@ export function ActionMenu({
     variant = 'secondary',
     size = 'md',
     className,
+    onOpen,
 }: ActionMenuProps) {
     const messages = useMessages();
     const id = useId();
@@ -94,10 +97,14 @@ export function ActionMenu({
                 aria-expanded={open}
                 aria-controls={open ? id : undefined}
                 aria-label={trigger ? name : undefined}
-                onClick={() => setOpen(value => !value)}
+                onClick={() => {
+                    if (!open) onOpen?.();
+                    setOpen(value => !value);
+                }}
                 onKeyDown={event => {
                     if (event.key === 'ArrowDown') {
                         event.preventDefault();
+                        if (!open) onOpen?.();
                         setOpen(true);
                         requestAnimationFrame(() => focusItem(1));
                     }

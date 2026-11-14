@@ -94,6 +94,7 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
         BdCorePlugin.init({
             defaultLanguage: options.defaultLanguage,
             initializeOnBootstrap: options.initializeOnBootstrap,
+            storefrontUrl: options.storefrontUrl,
         }),
         BdCheckoutPlugin.init({
             redis: options.cacheRedis,

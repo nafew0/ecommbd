@@ -23,7 +23,7 @@ interface LinkOptions {
     /** The heading it sits under in the Settings area. */
     section?: NavKey;
     /** A to-do screen: shows this count from the order stats when it is above zero. */
-    count?: 'waitingConfirmation';
+    count?: 'waitingConfirmation' | 'incompleteOpen' | 'paymentsToVerify' | 'unmappedAddresses';
 }
 
 export interface MenuLink extends LinkOptions {
@@ -73,11 +73,18 @@ export const MENU: MenuGroup[] = [
             link('confirmOrders', '/orders/confirm', '04', true, 'ConfirmOrder', {
                 count: 'waitingConfirmation',
             }),
-            link('incompleteOrders', '/orders/incomplete', '11', true, 'ReadOrder'),
-            link('verifyPayments', '/orders/payments', '08', true, 'VerifyPayment'),
+            link('incompleteOrders', '/orders/incomplete', '11', true, 'ReadOrder', {
+                count: 'incompleteOpen',
+            }),
+            link('verifyPayments', '/orders/payments', '08', true, 'VerifyPayment', {
+                count: 'paymentsToVerify',
+            }),
             link('paymentReviews', '/orders/payment-reviews', '18', true, 'ReadOrder', more),
             link('ordersByCampaign', '/orders/campaigns', '16', true, 'ReadOrder', more),
-            link('unmappedAddresses', '/orders/unmapped-addresses', '19', true, 'BookCourier', more),
+            link('unmappedAddresses', '/orders/unmapped-addresses', '19', true, 'BookCourier', {
+                more: true,
+                count: 'unmappedAddresses',
+            }),
             link('wooOrders', '/orders/woocommerce', '21', true, 'ReadOrder', more),
         ],
     },
