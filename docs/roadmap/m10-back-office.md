@@ -50,8 +50,8 @@ Every screen is in Bangla and English, with taka in whole numbers.
 
 ### Done when
 
-- [ ] An order shows a correct profit breakdown, and changing a product's cost doesn't change past orders.
-- [ ] Order staff can't see cost anywhere: not in the API, in exports or on prints.
+- [x] An order shows a correct profit breakdown, and changing a product's cost doesn't change past orders. (`bd-cost.e2e-spec.ts`, the order page profit card.)
+- [x] Order staff can't see cost anywhere: not in the API, in exports or on prints. (`bd-cost.e2e-spec.ts`: profit query, product fields, product form, product list, print payload. There is no order or product CSV export.)
 
 ### Not in this phase
 

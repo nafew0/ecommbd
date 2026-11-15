@@ -42,11 +42,15 @@ final class EcommBD_Migrator_Exporter {
 	const SECRET_KEY_PATTERN = '/token|secret|key|passw|pwd|auth|api|signature|nonce|credential|session|salt|hash|cookie|otp|cvv|card|private/i';
 
 	/**
-	 * Private ("_") meta keys the core reads. None today: the core takes the transaction ID from
-	 * the order's own transaction_id field, not from meta. Add a key here only when the core
-	 * starts reading it.
+	 * Private ("_") meta keys the core reads. Cost plugins store the buying price here (phase 51).
+	 * These are prices, not secrets. Add a key only when the core starts reading it.
 	 */
-	const KEEP_PRIVATE_META = array();
+	const KEEP_PRIVATE_META = array(
+		'_wc_cog_cost',
+		'_alg_wc_cog_cost',
+		'_yith_cog_cost',
+		'_purchase_price'
+	);
 
 	/**
 	 * Shipping method instance settings that are costs or cost rules, never credentials.

@@ -1,4 +1,11 @@
-import { CATALOG_LIMITS, parseBdMobile, sanitizeRichText, stripShortcodes } from '@ecommbd/shared';
+import {
+    CATALOG_LIMITS,
+    parseBdMobile,
+    sanitizeRichText,
+    stripShortcodes,
+    WOO_COST_META_KEYS,
+    wooUnitCost,
+} from '@ecommbd/shared';
 import { normalizeString } from '@vendure/common/lib/normalize-string';
 import { createHash } from 'node:crypto';
 
@@ -109,6 +116,22 @@ export function meta(row: WooRecord, ...names: string[]): string {
     for (const name of names) {
         const value = data.find((entry: WooRecord) => entry.key === name)?.value;
         if (typeof value === 'string') return value;
+    }
+    return '';
+}
+
+/** Cost-plugin meta on a variation, or on the parent product when the variation has none. */
+export function readWooUnitCost(variant: WooRecord, parent?: WooRecord): number | null {
+    const raw = costMeta(variant) || (parent && parent !== variant ? costMeta(parent) : '');
+    return raw ? wooUnitCost(raw) : null;
+}
+
+function costMeta(row: WooRecord): string {
+    const data = Array.isArray(row.meta_data) ? row.meta_data : [];
+    for (const name of WOO_COST_META_KEYS) {
+        const value = data.find((entry: WooRecord) => entry.key === name)?.value;
+        if (typeof value === 'string' && value.trim()) return value;
+        if (typeof value === 'number' && Number.isFinite(value)) return String(value);
     }
     return '';
 }

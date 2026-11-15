@@ -1,4 +1,4 @@
-import { cleanText, slugify } from '@ecommbd/shared';
+import { cleanText, marginPercent, slugify } from '@ecommbd/shared';
 import { Injectable } from '@nestjs/common';
 import {
     Collection,
@@ -14,6 +14,7 @@ import {
     UserInputError,
 } from '@vendure/core';
 import { In, IsNull } from 'typeorm';
+import { readCostPermission } from '../bd-cost/constants';
 import { ShippingSettingsService } from '../shipping-bd';
 import { assetUrl } from './asset-url';
 import { CATEGORY_FILTER_CODE } from './category-filter';
@@ -44,7 +45,12 @@ export class CatalogService {
     /** Products for the list: image, name, category, price (and old price), stock, badges. */
     async products(
         ctx: RequestContext,
-        options: { search?: string | null; skip?: number | null; take?: number | null },
+        options: {
+            search?: string | null;
+            skip?: number | null;
+            take?: number | null;
+            costMissing?: boolean | null;
+        },
     ) {
         const qb = this.connection
             .getRepository(ctx, Product)
@@ -54,12 +60,22 @@ export class CatalogService {
             .leftJoinAndSelect('product.customFields.category', 'category')
             .leftJoinAndSelect('category.translations', 'categoryTranslation')
             .where('product.deletedAt IS NULL');
+        const canSeeCost = ctx.userHasPermissions([readCostPermission.Permission]);
         const search = cleanText(options.search ?? '');
         if (search) {
             qb.andWhere(
                 `product.id IN (SELECT t."baseId" FROM "product_translation" t WHERE t."name" ILIKE :search
                  UNION SELECT v."productId" FROM "product_variant" v WHERE v."sku" ILIKE :search AND v."deletedAt" IS NULL)`,
                 { search: `%${search}%` },
+            );
+        }
+        // A role without ReadCost must not learn which products have a cost by filtering.
+        if (options.costMissing && canSeeCost) {
+            qb.andWhere(
+                `product.id IN (
+                    SELECT v."productId" FROM "product_variant" v
+                    WHERE v."deletedAt" IS NULL AND v."customFieldsUnitcost" IS NULL
+                )`,
             );
         }
         const [products, totalItems] = await qb
@@ -92,6 +108,14 @@ export class CatalogService {
                         null,
                     price: cheapest ? channelPrice(ctx, cheapest) : 0,
                     oldPrice: cheapest?.customFields.oldPrice ?? null,
+                    cost: canSeeCost ? (cheapest?.customFields.unitCost ?? null) : null,
+                    margin: canSeeCost
+                        ? marginPercent(
+                              cheapest ? channelPrice(ctx, cheapest) : 0,
+                              cheapest?.customFields.unitCost ?? null,
+                          )
+                        : null,
+                    costMissing: canSeeCost ? own.some(variant => variant.customFields.unitCost == null) : null,
                     stock: levels.reduce((sum, level) => sum + level.stockOnHand - level.stockAllocated, 0),
                     variantCount: own.length,
                     featured: product.customFields.featured ?? false,

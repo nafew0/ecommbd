@@ -18,6 +18,12 @@ export const catalogAdminApiExtensions = gql`
         featured: Boolean!
         isNew: Boolean!
         enabled: Boolean!
+        "The cheapest variant's cost. Null without ReadCost, or when that variant has no cost."
+        cost: Money
+        "Margin percent of that variant. Null without ReadCost, or when the cost is missing."
+        margin: Int
+        "True when any variation has no cost. Null without ReadCost."
+        costMissing: Boolean
     }
 
     type BdProductList {
@@ -95,7 +101,8 @@ export const catalogAdminApiExtensions = gql`
     }
 
     extend type Query {
-        bdProducts(search: String, skip: Int, take: Int): BdProductList!
+        "costMissing limits the list to products with a variation that has no cost. Ignored without ReadCost."
+        bdProducts(search: String, skip: Int, take: Int, costMissing: Boolean): BdProductList!
         "The product form's JSON; null when the product doesn't exist"
         bdProductForm(id: ID!): JSON
         bdCategories: [BdCategory!]!

@@ -33,6 +33,12 @@ const MORE_TABS = ['awaitingPayment', 'partiallyDelivered', 'returned', 'cancell
 /** Up to 100 per page, so the packing desk can select a whole batch to print (phase 06). */
 const PAGE_SIZES = [25, 50, 100];
 
+const PROFITS = `
+    query OrderProfits($ids: [ID!]!) {
+        bdOrderProfits(orderIds: $ids) { orderId profit { amount known } }
+    }
+`;
+
 const ORDERS = `
     query Orders($status: String, $search: String, $dateFrom: String, $dateTo: String, $districtId: String,
         $paymentType: String, $campaign: String, $salesPageId: ID, $sort: String, $skip: Int, $take: Int) {
@@ -169,6 +175,17 @@ export function OrdersPage() {
         setFilters(current => ({ ...current, [key]: value }));
         setPage(1);
     };
+    const orderIds = (query.data?.bdOrders.items ?? []).map(row => row.id);
+    const profits = useQuery({
+        queryKey: ['orderProfits', orderIds],
+        enabled: can('ReadCost') && orderIds.length > 0,
+        queryFn: () =>
+            adminApi<{ bdOrderProfits: Array<{ orderId: string; profit: { amount: number | null; known: boolean } }> }>(
+                PROFITS,
+                { ids: orderIds },
+            ).then(result => result.bdOrderProfits),
+    });
+    const profitOf = (id: string) => profits.data?.find(row => row.orderId === id)?.profit;
     const c = m.orders.columns;
     const columns: Column<Row>[] = [
         {
@@ -238,6 +255,27 @@ export function OrdersPage() {
             className: 'text-right tabular-nums',
             cell: row => format.money(row.totalWithTax),
         },
+        ...(can('ReadCost')
+            ? [
+                  {
+                      key: 'profit',
+                      header: c.profit,
+                      hideOnMobile: true,
+                      className: 'text-right tabular-nums',
+                      cell: (row: Row) => {
+                          const part = profitOf(row.id);
+                          if (!part) return null;
+                          return part.known && part.amount != null ? (
+                              <span className={part.amount < 0 ? 'text-warn' : undefined}>
+                                  {format.money(part.amount)}
+                              </span>
+                          ) : (
+                              <span className="text-ink-muted">{m.cost.unknown}</span>
+                          );
+                      },
+                  } satisfies Column<Row>,
+              ]
+            : []),
         { key: 'date', header: c.date, hideOnMobile: true, cell: row => format.dateTime(row.orderPlacedAt) },
         {
             key: 'preview',

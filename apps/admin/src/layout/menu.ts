@@ -141,6 +141,7 @@ export const MENU: MenuGroup[] = [
             link('store', '/settings/store', '02', true, 'ReadSettings', { section: 'secStore' }),
             link('staff', '/settings/staff', '32', false, 'ReadAdministrator', { section: 'secStore' }),
             link('orderSettings', '/settings/orders', '04', true, 'ReadSettings', { section: 'secOrders' }),
+            link('cost', '/settings/cost', '51', true, 'ReadCost', { section: 'secOrders', more: true }),
             link('fraud', '/settings/fraud', '11', true, 'ReadSettings', { section: 'secOrders' }),
             link('invoice', '/settings/invoice', '06', true, 'ReadSettings', { section: 'secOrders' }),
             link('checkout', '/settings/checkout', '14', false, undefined, { section: 'secOrders' }),

@@ -32,6 +32,12 @@ One word per idea everywhere: storefront, Dashboard, SMS, help articles. Banglad
 | Product | পণ্য |
 | Category | ক্যাটাগরি |
 | Price / Regular price / Sale price | দাম / আগের দাম / ছাড়ের দাম |
+| Cost (what we pay for one) | ক্রয়মূল্য |
+| Profit | লাভ |
+| Margin | মার্জিন |
+| Unknown (a figure we don't have) | অজানা |
+| Courier charge (what we pay) | কুরিয়ার চার্জ |
+| Gateway fee | গেটওয়ে ফি |
 | Stock / In stock / Out of stock | স্টক / স্টকে আছে / স্টকে নেই |
 | Cart | কার্ট |
 | Checkout | চেকআউট |

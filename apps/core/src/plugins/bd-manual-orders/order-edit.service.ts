@@ -17,6 +17,7 @@ import {
     TransactionalConnection,
 } from '@vendure/core';
 import { lockAndCheckStock } from '../bd-catalog';
+import { CostSnapshotService } from '../bd-cost/cost-snapshot.service';
 import { channelPrice } from '../bd-catalog/product-form.service';
 import { BdAddressError, normalizeAddressInput } from '../bd-core';
 import { settledAmount } from '../bd-orders';
@@ -320,6 +321,7 @@ export class OrderEditService {
                 throw refuse('DISCOUNT_TOO_LARGE', [String(Math.min(cap, modified.subTotalWithTax))]);
             }
         }
+        await this.moduleRef.get(CostSnapshotService, { strict: false }).snapshotAdded(ctx, order.id);
         await this.dropNotCollected(ctx, order.id);
         const synced = await this.rules.syncCodFee(ctx, modified);
         await this.followTotal(ctx, synced);

@@ -24,6 +24,7 @@ import {
     TransactionalConnection,
 } from '@vendure/core';
 import { IsNull } from 'typeorm';
+import { readCostPermission } from '../bd-cost/constants';
 import { StockService } from './stock.service';
 
 /** A pre-order variant can go this far below zero. */
@@ -144,6 +145,7 @@ export class ProductFormService {
         const variants = product.variants
             .filter(variant => !variant.deletedAt)
             .sort((a, b) => Number(a.id) - Number(b.id));
+        const canSeeCost = ctx.userHasPermissions([readCostPermission.Permission]);
         return {
             id: String(product.id),
             name: bilingual('name'),
@@ -196,6 +198,7 @@ export class ProductFormService {
                         allowBackorder:
                             !variant.useGlobalOutOfStockThreshold && variant.outOfStockThreshold < 0,
                         weightGrams: variant.customFields.weightGrams ?? null,
+                        unitCost: canSeeCost ? (variant.customFields.unitCost ?? null) : null,
                     };
                 }),
             ),
@@ -363,6 +366,10 @@ export class ProductFormService {
                     oldPrice: variant.oldPrice,
                     isDefault: variant.isDefault,
                     weightGrams: variant.weightGrams,
+                    // Without ReadCost the field is left as it is, so a save can't clear or set it.
+                    ...(ctx.userHasPermissions([readCostPermission.Permission])
+                        ? { unitCost: variant.unitCost }
+                        : {}),
                 },
             };
             if (variant.id) {

@@ -75,6 +75,8 @@ export function ProductFormPage() {
     const queryClient = useQueryClient();
     const digits = useDigits();
     const canEdit = can(isNew ? 'CreateProduct' : 'UpdateProduct') || can('UpdateCatalog');
+    const canCost = can('ReadCost');
+    const [splitCost, setSplitCost] = useState(false);
     const loaded = useQuery({
         queryKey: ['productForm', id],
         enabled: !isNew,
@@ -154,6 +156,8 @@ export function ProductFormPage() {
         draft.delivery.outsideDhaka !== null ||
         draft.delivery.surcharge > 0;
     const first = draft.variants[0]!;
+    const sameCost = canCost && !splitCost && draft.variants.every(variant => variant.unitCost === first.unitCost);
+    const below = (price: number, cost: number | null) => cost != null && price > 0 && price < cost;
     const changeType = (type: VariationType) =>
         set({
             variationType: type,
@@ -383,7 +387,7 @@ export function ProductFormPage() {
                                 <Card>
                                     <CardHeader title={f.priceStock} />
                                     <CardBody>
-                                        <div className="grid gap-4 sm:grid-cols-3">
+                                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                                             <Field label={f.price} error={errors['variants.0.price']}>
                                                 {control => (
                                                     <TakaInput
@@ -409,6 +413,23 @@ export function ProductFormPage() {
                                                     />
                                                 )}
                                             </Field>
+                                            {canCost && (
+                                                <Field
+                                                    label={f.cost}
+                                                    hint={f.costHint}
+                                                    error={errors['variants.0.unitCost']}
+                                                    optional
+                                                >
+                                                    {control => (
+                                                        <TakaInput
+                                                            {...control}
+                                                            value={first.unitCost}
+                                                            disabled={!canEdit}
+                                                            onChange={v => setVariant(0, { unitCost: v })}
+                                                        />
+                                                    )}
+                                                </Field>
+                                            )}
                                             <Field label={f.stock} error={errors['variants.0.stock']}>
                                                 {control => (
                                                     <Input
@@ -425,6 +446,9 @@ export function ProductFormPage() {
                                                 )}
                                             </Field>
                                         </div>
+                                        {canCost && below(first.price, first.unitCost) && (
+                                            <p className="text-sm text-warn">{f.belowCost}</p>
+                                        )}
                                     </CardBody>
                                 </Card>
                             )}
@@ -580,6 +604,48 @@ export function ProductFormPage() {
                                             </Field>
                                         </div>
                                     )}
+                                    {!single && canCost && (
+                                        <Switch
+                                            label={f.sameCost}
+                                            checked={sameCost}
+                                            disabled={!canEdit}
+                                            onChange={checked => {
+                                                if (checked) {
+                                                    setSplitCost(false);
+                                                    set({
+                                                        variants: draft.variants.map(variant => ({
+                                                            ...variant,
+                                                            unitCost: first.unitCost,
+                                                        })),
+                                                    });
+                                                } else {
+                                                    setSplitCost(true);
+                                                }
+                                            }}
+                                        />
+                                    )}
+                                    {!single && canCost && sameCost && (
+                                        <Field label={f.cost} hint={f.costHint} optional>
+                                            {control => (
+                                                <TakaInput
+                                                    {...control}
+                                                    value={first.unitCost}
+                                                    disabled={!canEdit}
+                                                    onChange={value =>
+                                                        set({
+                                                            variants: draft.variants.map(variant => ({
+                                                                ...variant,
+                                                                unitCost: value,
+                                                            })),
+                                                        })
+                                                    }
+                                                />
+                                            )}
+                                        </Field>
+                                    )}
+                                    {!single && canCost && sameCost && below(first.price, first.unitCost) && (
+                                        <p className="text-sm text-warn">{f.belowCost}</p>
+                                    )}
                                     {!single && (
                                         <ul className="space-y-3">
                                             {draft.variants.map((variant, index) => (
@@ -626,7 +692,13 @@ export function ProductFormPage() {
                                                             )}
                                                         </Field>
                                                     </div>
-                                                    <div className="grid gap-3 sm:grid-cols-3">
+                                                    <div
+                                                        className={`grid gap-3 ${
+                                                            canCost && !sameCost
+                                                                ? 'sm:grid-cols-2 lg:grid-cols-4'
+                                                                : 'sm:grid-cols-3'
+                                                        }`}
+                                                    >
                                                         <Field
                                                             label={f.price}
                                                             error={errors[`variants.${index}.price`]}
@@ -658,6 +730,24 @@ export function ProductFormPage() {
                                                                 />
                                                             )}
                                                         </Field>
+                                                        {canCost && !sameCost && (
+                                                            <Field
+                                                                label={f.cost}
+                                                                error={errors[`variants.${index}.unitCost`]}
+                                                                optional
+                                                            >
+                                                                {control => (
+                                                                    <TakaInput
+                                                                        {...control}
+                                                                        value={variant.unitCost}
+                                                                        disabled={!canEdit}
+                                                                        onChange={v =>
+                                                                            setVariant(index, { unitCost: v })
+                                                                        }
+                                                                    />
+                                                                )}
+                                                            </Field>
+                                                        )}
                                                         <Field
                                                             label={f.stock}
                                                             error={errors[`variants.${index}.stock`]}
@@ -678,6 +768,11 @@ export function ProductFormPage() {
                                                             )}
                                                         </Field>
                                                     </div>
+                                                    {canCost &&
+                                                        !sameCost &&
+                                                        below(variant.price, variant.unitCost) && (
+                                                            <p className="text-sm text-warn">{f.belowCost}</p>
+                                                        )}
                                                     <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
                                                         <label className="flex items-center gap-2 text-sm">
                                                             <input

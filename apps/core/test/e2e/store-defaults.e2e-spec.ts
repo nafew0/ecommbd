@@ -235,6 +235,7 @@ describe('running the initializer again', () => {
             'online-payment-methods',
             'online-payment-permissions',
             'courier-permissions',
+            'cost-permissions',
             'woo-import-permission-v1',
             'search-synonyms',
             'storefront-permissions',

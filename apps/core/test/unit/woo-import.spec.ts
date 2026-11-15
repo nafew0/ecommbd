@@ -6,6 +6,7 @@ import {
     catalogPrice,
     recordPhone,
     digest,
+    readWooUnitCost,
     restoreWordPressEmoji,
     safeDescription,
 } from '../../src/plugins/woo-import/helpers';
@@ -105,5 +106,13 @@ describe('WooCommerce migration boundaries', () => {
         expect(await verifyWordPressPassword('x'.repeat(4097), hashes[0])).toBe(false);
         expect(await verifyWordPressPassword(password, '$argon2id$unknown')).toBe(false);
         expect(await verifyWordPressPassword(password, '$P$zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz')).toBe(false);
+    });
+
+    it('reads a cost plugin’s price from the variation, then the parent product', () => {
+        const parent = { meta_data: [{ key: '_wc_cog_cost', value: '450' }] };
+        expect(readWooUnitCost({ meta_data: [{ key: '_alg_wc_cog_cost', value: 700 }] }, parent)).toBe(70000);
+        expect(readWooUnitCost({ meta_data: [] }, parent)).toBe(45000);
+        expect(readWooUnitCost({ meta_data: [{ key: '_purchase_price', value: '12.50' }] }, parent)).toBeNull();
+        expect(readWooUnitCost({ meta_data: [{ key: '_yith_cog_cost', value: '1,250.00' }] })).toBe(125000);
     });
 });

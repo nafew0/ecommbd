@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useDigits } from '../components/form/inputs';
 import { type Column, ListPage } from '../components/list-page';
+import { Switch } from '../components/ui/switch';
 import { Button } from '../components/ui/button';
 import { Page } from '../components/ui/layout';
 import { Badge, EmptyState, PageHeader } from '../components/ui/misc';
@@ -16,10 +17,10 @@ import { useToast } from '../lib/toast';
 import { useDebounced } from '../lib/use-debounced';
 
 const PRODUCTS = `
-    query Products($search: String, $skip: Int, $take: Int) {
-        bdProducts(search: $search, skip: $skip, take: $take) {
+    query Products($search: String, $skip: Int, $take: Int, $costMissing: Boolean) {
+        bdProducts(search: $search, skip: $skip, take: $take, costMissing: $costMissing) {
             totalItems
-            items { id name banglaMissing preview categoryName price oldPrice stock variantCount featured isNew enabled }
+            items { id name banglaMissing preview categoryName price oldPrice stock variantCount featured isNew enabled cost margin costMissing }
         }
     }
 `;
@@ -51,6 +52,9 @@ interface ProductRow {
     featured: boolean;
     isNew: boolean;
     enabled: boolean;
+    cost: number | null;
+    margin: number | null;
+    costMissing: boolean | null;
 }
 
 const PAGE_SIZE = 25;
@@ -68,14 +72,16 @@ export function ProductsPage() {
     const queryClient = useQueryClient();
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
+    const [costMissing, setCostMissing] = useState(false);
     const term = useDebounced(search.trim());
     const query = useQuery({
-        queryKey: ['products', term, page],
+        queryKey: ['products', term, page, costMissing, can('ReadCost')],
         queryFn: () =>
             adminApi<{ bdProducts: { totalItems: number; items: ProductRow[] } }>(PRODUCTS, {
                 search: term || null,
                 skip: (page - 1) * PAGE_SIZE,
                 take: PAGE_SIZE,
+                costMissing: can('ReadCost') && costMissing ? true : null,
             }).then(result => result.bdProducts),
     });
     const refresh = () => void queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -162,6 +168,33 @@ export function ProductsPage() {
                 </span>
             ),
         },
+        ...(can('ReadCost')
+            ? [
+                  {
+                      key: 'cost',
+                      header: p.columns.cost,
+                      hideOnMobile: true,
+                      cell: (row: ProductRow) =>
+                          row.cost == null ? (
+                              <span className="text-ink-muted">{m.cost.unknown}</span>
+                          ) : (
+                              <span className="tabular-nums">
+                                  {format.money(row.cost)}
+                                  {row.margin != null && (
+                                      <span
+                                          className={`block text-sm ${row.margin < 0 ? 'text-warn' : 'text-ink-muted'}`}
+                                      >
+                                          {p.margin(row.margin)}
+                                      </span>
+                                  )}
+                                  {row.costMissing && (
+                                      <span className="block text-sm text-warn">{p.costMissing}</span>
+                                  )}
+                              </span>
+                          ),
+                  } satisfies Column<ProductRow>,
+              ]
+            : []),
         {
             key: 'stock',
             header: p.columns.stock,
@@ -243,6 +276,23 @@ export function ProductsPage() {
                 }}
                 empty={
                     <EmptyState icon={<Package className="size-6" aria-hidden />} title={p.empty} body="" />
+                }
+                moreFilters={
+                    can('ReadCost')
+                        ? {
+                              active: costMissing ? 1 : 0,
+                              content: (
+                                  <Switch
+                                      label={p.costMissing}
+                                      checked={costMissing}
+                                      onChange={checked => {
+                                          setCostMissing(checked);
+                                          setPage(1);
+                                      }}
+                                  />
+                              ),
+                          }
+                        : undefined
                 }
             />
         </Page>

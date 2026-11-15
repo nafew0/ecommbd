@@ -85,6 +85,8 @@ const variantSchema = z.object({
     enabled: z.boolean(),
     /** Pre-orders: sell when out of stock. */
     allowBackorder: z.boolean(),
+    /** What one costs the merchant. Null means they haven't said. Omitted input stays null. */
+    unitCost: money.nullable().default(null),
     weightGrams: z
         .number()
         .int('invalid')
@@ -199,6 +201,7 @@ export function emptyVariant(): ProductFormVariant {
         enabled: true,
         allowBackorder: false,
         weightGrams: null,
+        unitCost: null,
     };
 }
 

@@ -6,6 +6,7 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
 
 ### Added
 
+- **Cost and profit.** Each product variation has a cost (what you pay for one). An order keeps that cost from when it was placed, so changing it later does not change old orders. The order page and the order list show the profit: selling price, discount, what the customer paid for delivery, the product cost, the courier's charge, the cash-on-delivery charge you pay, and the gateway fee. A missing cost shows as "unknown", not ৳0. A price below cost is a warning, and the order still goes through. Only the owner and the manager see cost and profit. Order staff do not see it on the order, in the product list, or on a print. WooCommerce cost (from a cost plugin) comes in with the products. Set the fallback courier charge and the gateway percent under Settings → Cost and profit.
 - **Merchant admin (phase 63c):**
   - **Search everything:** Ctrl K / ⌘ K now also finds orders (by number, phone or name), products and customers.
   - **Sales overview on the home screen:** choose Today, 7 days, 30 days or This month, and see order value, orders, items sold and the average order, a bar for each day, the orders in each status and the latest orders. Staff who may not see sales figures see counts only.

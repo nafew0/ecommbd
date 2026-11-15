@@ -1,3 +1,4 @@
+import type { Messages } from '../messages/en';
 import {
     bdActionsFor,
     bdStatusOf,
@@ -27,7 +28,7 @@ import { Textarea } from '../components/ui/input';
 import type { ActionItem } from '../components/ui/action-menu';
 import { Page, TwoColumn } from '../components/ui/layout';
 import { Alert, Badge, Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
-import { CopyButton } from '../components/ui/stat';
+import { CopyButton, KeyValue } from '../components/ui/stat';
 import { adminApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useConfirm } from '../lib/confirm';
@@ -64,6 +65,43 @@ const ORDER = `
     }
     ${ORDER_FIELDS}
 `;
+
+const PROFIT = `
+    query OrderProfit($id: ID!) {
+        bdOrderProfit(orderId: $id) {
+            belowCost
+            sellingPrice { amount known source detail }
+            discount { amount known source detail }
+            deliveryCharged { amount known source detail }
+            codFeeCharged { amount known source detail }
+            productCost { amount known source detail }
+            courierCharge { amount known source detail }
+            codCharge { amount known source detail }
+            gatewayFee { amount known source detail }
+            profit { amount known source detail }
+        }
+    }
+`;
+
+interface MoneyPart {
+    amount: number | null;
+    known: boolean;
+    source: keyof Messages['cost']['sources'];
+    detail: string | null;
+}
+
+interface OrderProfit {
+    belowCost: boolean;
+    sellingPrice: MoneyPart;
+    discount: MoneyPart;
+    deliveryCharged: MoneyPart;
+    codFeeCharged: MoneyPart;
+    productCost: MoneyPart;
+    courierCharge: MoneyPart;
+    codCharge: MoneyPart;
+    gatewayFee: MoneyPart;
+    profit: MoneyPart;
+}
 
 interface HistoryItem {
     id: string;
@@ -113,6 +151,11 @@ export function OrderDetailPage() {
         queryKey: ['orders', 'detail', id],
         queryFn: () => adminApi<OrderData>(ORDER, { id }),
         refetchInterval: 30_000,
+    });
+    const profitQuery = useQuery({
+        queryKey: ['orderProfit', id],
+        enabled: can('ReadCost') && !!id,
+        queryFn: () => adminApi<{ bdOrderProfit: OrderProfit }>(PROFIT, { id }).then(r => r.bdOrderProfit),
     });
     const order = query.data?.order;
     const [dialog, setDialog] = useState<'cancel' | 'callLater' | null>(null);
@@ -311,6 +354,9 @@ export function OrderDetailPage() {
                                 )}
                             </CardBody>
                         </Card>
+                        {can('ReadCost') && profitQuery.data && (
+                            <ProfitCard profit={profitQuery.data} />
+                        )}
                         <OrderPayments payments={order.payments} onChanged={() => void query.refetch()} />
                         <OnlineAttempts orderId={order.id} onChanged={() => void query.refetch()} />
                         <OrderCourier
@@ -661,6 +707,69 @@ function AttributionCard({ attribution }: { attribution: Attribution }) {
                         {a.sameCampaign}
                     </Link>
                 )}
+            </CardBody>
+        </Card>
+    );
+}
+
+const PROFIT_PARTS = [
+    'sellingPrice',
+    'discount',
+    'deliveryCharged',
+    'codFeeCharged',
+    'productCost',
+    'courierCharge',
+    'codCharge',
+    'gatewayFee',
+    'profit',
+] as const;
+
+/** The order's profit, each part with where the number came from. Missing cost is "unknown". */
+function ProfitCard({ profit }: { profit: OrderProfit }) {
+    const { messages: m } = useI18n();
+    const format = useFormat();
+    const source = (part: MoneyPart) => {
+        if (part.source === 'courier') {
+            if (part.detail === 'steadfast') return m.cost.couriers.steadfast;
+            if (part.detail === 'pathao') return m.cost.couriers.pathao;
+            return part.detail || m.cost.sources.courier;
+        }
+        return m.cost.sources[part.source];
+    };
+    const shown = (part: MoneyPart) =>
+        part.known && part.amount != null ? format.money(part.amount) : m.cost.unknown;
+    return (
+        <Card>
+            <CardHeader title={m.cost.cardTitle} />
+            <CardBody>
+                {profit.belowCost && (
+                    <div className="mb-3">
+                        <Alert tone="warning">{m.cost.belowCost}</Alert>
+                    </div>
+                )}
+                <KeyValue
+                    rows={PROFIT_PARTS.map(key => ({
+                        label: m.cost.parts[key],
+                        value: (
+                            <span
+                                className={
+                                    key === 'profit'
+                                        ? `font-semibold tabular-nums${
+                                              profit.profit.known &&
+                                              profit.profit.amount != null &&
+                                              profit.profit.amount < 0
+                                                  ? ' text-warn'
+                                                  : ''
+                                          }`
+                                        : 'tabular-nums'
+                                }
+                            >
+                                {shown(profit[key])}
+                                <span className="ml-2 text-sm font-normal text-ink-muted">{source(profit[key])}</span>
+                            </span>
+                        ),
+                    }))}
+                />
             </CardBody>
         </Card>
     );

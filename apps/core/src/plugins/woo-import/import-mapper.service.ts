@@ -45,6 +45,7 @@ import {
     minor,
     pathOf,
     phoneOf,
+    readWooUnitCost,
     recordPhone,
     restoreWordPressEmoji,
     safeDescription,
@@ -527,6 +528,7 @@ export class ImportMapperService {
                 await this.issue(ctx, run, 'products', String(row.id), 'DUPLICATE_SKU_SUFFIXED');
             }
             const price = catalogPrice(variant.price);
+            const unitCost = readWooUnitCost(variant, row);
             const regular = variant.regular_price ? catalogPrice(variant.regular_price) : null;
             const factor =
                 ({ kg: 1000, g: 1, lbs: 453.59237, oz: 28.349523125 } as Record<string, number>)[
@@ -566,6 +568,7 @@ export class ImportMapperService {
                 ),
                 customFields: {
                     oldPrice: regular && regular > price ? regular : null,
+                    ...(unitCost != null ? { unitCost } : {}),
                     weightGrams: weight ? Math.round(Number(weight) * factor) : null,
                     isDefault: arrays(row.default_attributes).length
                         ? arrays(row.default_attributes).every(a =>

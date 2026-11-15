@@ -14,7 +14,10 @@ export class CatalogAdminResolver {
 
     @Query()
     @Allow(Permission.ReadProduct, Permission.ReadCatalog)
-    bdProducts(@Ctx() ctx: RequestContext, @Args() args: { search?: string; skip?: number; take?: number }) {
+    bdProducts(
+        @Ctx() ctx: RequestContext,
+        @Args() args: { search?: string; skip?: number; take?: number; costMissing?: boolean | null },
+    ) {
         return this.catalog.products(ctx, args);
     }
 

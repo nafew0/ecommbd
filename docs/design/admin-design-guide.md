@@ -381,12 +381,13 @@ A starting point for each existing screen. **Before changing a screen, read it, 
 | Screen (`pages/…`) | Template | Always visible | Behind "More" or collapsed |
 |---|---|---|---|
 | `home` | D | to-do tiles, setup checklist, order and courier widgets | — (remove "coming soon") |
-| `orders` | A | tabs by status, search, columns: order, customer, total, payment, status, date. Main button "Create order" | date range, source and courier filters behind "Filters"; export in the header menu |
-| `order-detail` | B | main: items, **one "next step" button** from the status table (`packages/shared/src/order-status.ts`), payment, courier, history. Side: customer with copy buttons, address, risk | other status moves, edit, print choices, SMS, cancel → `ActionMenu`; attribution as a collapsed side card |
+| `orders` | A | tabs by status, search, columns: order, customer, total, profit (ReadCost only, hidden on phones), payment, status, date. Main button "Create order" | date range, source and courier filters behind "Filters"; export in the header menu |
+| `order-detail` | B | main: items, profit breakdown (ReadCost only), **one "next step" button** from the status table (`packages/shared/src/order-status.ts`), payment, courier, history. Side: customer with copy buttons, address, risk | other status moves, edit, print choices, SMS, cancel → `ActionMenu`; attribution as a collapsed side card |
 | `confirm-orders`, `phone-order` | own | as today | — |
 | `incomplete-orders`, `verify-payments`, `payment-reviews`, `unmapped-addresses`, `order-campaigns`, `woo-orders` | A | as today, in the new `ListPage` look | — |
-| `products` | A | photo, name, price, stock, status. Main button "Add product" | — |
-| `product-form` | B | main: name, description, photos, price, sale price, stock, variations. Side: status (shown or hidden), category | SKU, weight and per-product delivery rules, slug and other search fields → `MoreFields` in their card or a collapsed "Delivery" card |
+| `products` | A | photo, name, price, stock, status. Main button "Add product". Cost and margin (ReadCost only, hidden on phones) | "Cost missing" filter |
+| `cost-settings` | C | courier charge fallback | COD charge we pay, gateway fee (collapsed, summary shows the current value or "not set") |
+| `product-form` | B | main: name, description, photos, price, sale price, stock, cost (ReadCost only), variations. Side: status (shown or hidden), category. "Same cost for every variation" when there are variations | SKU, weight and per-product delivery rules, slug and other search fields → `MoreFields` in their card or a collapsed "Delivery" card |
 | `categories`, `stock` | A | as today | — |
 | `customers` | A | name, phone, orders, total spent, last order | — |
 | `customer-detail` | B | main: recent orders, notes. Side: contact, block status | SMS opt-out as a collapsed side card |

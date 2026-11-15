@@ -231,6 +231,13 @@ const router = createBrowserRouter(
                                 })),
                         },
                         {
+                            path: 'settings/cost',
+                            lazy: () =>
+                                import('./pages/cost-settings').then(module => ({
+                                    Component: module.CostSettingsPage,
+                                })),
+                        },
+                        {
                             path: 'settings/invoice',
                             lazy: () =>
                                 import('./pages/print-settings').then(module => ({

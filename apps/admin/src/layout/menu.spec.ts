@@ -59,6 +59,7 @@ describe('menu', () => {
         expect(menu[7]!.children!.map(child => child.to)).toEqual([
             '/settings/store',
             '/settings/orders',
+            '/settings/cost',
             '/settings/fraud',
             '/settings/invoice',
             '/settings/delivery',
@@ -89,6 +90,7 @@ describe('menu', () => {
                     'ReadCatalog',
                     'EditStorefront',
                     'BookCourier',
+                    'ReadCost',
                 ].includes(permission),
         );
         expect(menu.map(group => group.label)).toEqual(['home']);
