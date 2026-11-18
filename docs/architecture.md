@@ -156,6 +156,7 @@ Buying one only to study its features and screens is fine. Don't copy its code.
 | `bd-checkout` | Phone-only checkout, incomplete orders |
 | `bd-orders` | Order states New → Confirmed → Packed → Shipped → Delivered / Returned / Cancelled, order numbers, confirmation queue, manual orders |
 | `bd-cost` | Cost per variation, a snapshot of that cost on each order line, and profit on the order. Only roles with ReadCost can see it |
+| `bd-purchases` | Suppliers, purchases, purchase returns and supplier payments. Receiving stock uses the catalog adjustment (reason `purchase`) and updates the variation's cost |
 | `bd-print` | Print data, printed marks and print settings for invoices, packing slips, receipts and courier stickers; the print views are pages of the merchant admin, printed by the browser |
 | `bd-content` | Storefront pages and header/footer menus, slug history (old URLs redirect, deleted products answer 410), SEO fields on products and categories, sanitized descriptions |
 | `bd-images` | Checks and cleans every uploaded image before it is stored (type from its bytes, 15 MB, 40 megapixels, metadata and GPS removed), then makes WebP sizes on the worker, served at `/img`; one copy per content hash |
@@ -350,7 +351,7 @@ npm workspaces, Vendure's own tooling default. Add Turborepo once there are seve
 ```
 apps/
   core/          Vendure project from @vendure/create (one build, run per store)
-    src/plugins/ our Vendure plugins (bd-checkout, bd-orders, bd-cost, bd-sections, payments-*, couriers, meta-capi, images, woo-import, cache-purge, central-client)
+    src/plugins/ our Vendure plugins (bd-checkout, bd-orders, bd-cost, bd-purchases, bd-sections, payments-*, couriers, meta-capi, images, woo-import, cache-purge, central-client)
   admin/         merchant admin: React + Vite, Bangla and English, served by the core at /admin
   storefront/    Astro SSR + Preact islands, themes and sections
   central/       central system: API + admin

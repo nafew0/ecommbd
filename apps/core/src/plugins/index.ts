@@ -16,6 +16,7 @@ import { PaymentsBdPlugin } from './payments-bd';
 import { PaymentsOnlinePlugin } from './payments-online';
 import { CouriersPlugin } from './couriers';
 import { BdCostPlugin } from './bd-cost';
+import { BdPurchasesPlugin } from './bd-purchases';
 import { MetaCapiPlugin } from './meta-capi';
 import { ShippingBdPlugin } from './shipping-bd';
 import { WooImportPlugin } from './woo-import';
@@ -129,6 +130,7 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
             baseUrls: options.courierBaseUrls,
         }),
         BdCostPlugin,
+        BdPurchasesPlugin,
         MetaCapiPlugin.init({
             publicUrl: options.storefrontUrl,
             keyring: options.secretsKeyring,

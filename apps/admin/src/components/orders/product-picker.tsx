@@ -9,8 +9,10 @@ import { useDigits } from '../form/inputs';
 import { Input } from '../ui/input';
 
 const SEARCH = `
-    query Pick($search: String) {
-        bdStock(search: $search, take: 20) { variantId name sku preview available price backorder }
+    query Pick($search: String, $includeArchived: Boolean) {
+        bdStock(search: $search, take: 20, includeArchived: $includeArchived) {
+            variantId name sku preview available price backorder
+        }
     }
 `;
 
@@ -25,16 +27,26 @@ export interface PickedVariant {
 }
 
 /** Search products by name or SKU and pick a variant, seeing its price and stock (phase 05). */
-export function ProductPicker({ onPick }: { onPick(variant: PickedVariant): void }) {
+export function ProductPicker({
+    onPick,
+    allowSoldOut = false,
+}: {
+    onPick(variant: PickedVariant): void;
+    /** A purchase can add stock to a product that is currently sold out. */
+    allowSoldOut?: boolean;
+}) {
     const { messages: m } = useI18n();
     const format = useFormat();
     const digits = useDigits();
     const [search, setSearch] = useState('');
     const term = useDebounced(search.trim());
     const results = useQuery({
-        queryKey: ['productPicker', term],
+        queryKey: ['productPicker', term, allowSoldOut],
         enabled: term.length > 0,
-        queryFn: () => adminApi<{ bdStock: PickedVariant[] }>(SEARCH, { search: term }).then(r => r.bdStock),
+        queryFn: () =>
+            adminApi<{ bdStock: PickedVariant[] }>(SEARCH, { search: term, includeArchived: allowSoldOut }).then(
+                r => r.bdStock,
+            ),
     });
     return (
         <div className="space-y-2">
@@ -57,7 +69,7 @@ export function ProductPicker({ onPick }: { onPick(variant: PickedVariant): void
                         <li className="px-3 py-2 text-sm text-ink-muted">{m.phoneOrder.noProducts}</li>
                     )}
                     {results.data.map(variant => {
-                        const soldOut = variant.available <= 0 && !variant.backorder;
+                        const soldOut = !allowSoldOut && variant.available <= 0 && !variant.backorder;
                         return (
                             <li key={variant.variantId}>
                                 <button

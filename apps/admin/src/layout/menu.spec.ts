@@ -42,6 +42,8 @@ describe('menu', () => {
             '/products',
             '/products/categories',
             '/products/stock',
+            '/products/purchases',
+            '/products/suppliers',
         ]);
         expect(menu[3]!.children!.map(child => child.to)).toEqual(['/customers', '/customers/blocked']);
         expect(menu[4]!.link!.to).toBe('/sales-pages');
@@ -60,6 +62,7 @@ describe('menu', () => {
             '/settings/store',
             '/settings/orders',
             '/settings/cost',
+            '/settings/purchases',
             '/settings/fraud',
             '/settings/invoice',
             '/settings/delivery',
@@ -91,6 +94,7 @@ describe('menu', () => {
                     'EditStorefront',
                     'BookCourier',
                     'ReadCost',
+                    'ReadPurchase',
                 ].includes(permission),
         );
         expect(menu.map(group => group.label)).toEqual(['home']);

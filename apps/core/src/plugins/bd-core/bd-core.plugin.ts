@@ -42,6 +42,7 @@ import type { BdCorePluginOptions } from './types';
         StoreDefaultsService,
         StoreSettingsService,
     ],
+    exports: [StoreSettingsService],
     controllers: [BdGeoController],
     shopApiExtensions: {
         schema: gql`

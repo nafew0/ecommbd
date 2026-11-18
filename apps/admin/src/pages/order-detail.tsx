@@ -24,6 +24,7 @@ import {
     OrderPayments,
 } from '../components/payments/order-payments';
 import { Button } from '../components/ui/button';
+import { MoreFields } from '../components/ui/disclosure';
 import { Textarea } from '../components/ui/input';
 import type { ActionItem } from '../components/ui/action-menu';
 import { Page, TwoColumn } from '../components/ui/layout';
@@ -354,9 +355,7 @@ export function OrderDetailPage() {
                                 )}
                             </CardBody>
                         </Card>
-                        {can('ReadCost') && profitQuery.data && (
-                            <ProfitCard profit={profitQuery.data} />
-                        )}
+                        {can('ReadCost') && profitQuery.data && <ProfitCard profit={profitQuery.data} />}
                         <OrderPayments payments={order.payments} onChanged={() => void query.refetch()} />
                         <OnlineAttempts orderId={order.id} onChanged={() => void query.refetch()} />
                         <OrderCourier
@@ -712,6 +711,7 @@ function AttributionCard({ attribution }: { attribution: Attribution }) {
     );
 }
 
+/** The parts behind "Show the breakdown". The profit itself is always visible. */
 const PROFIT_PARTS = [
     'sellingPrice',
     'discount',
@@ -721,7 +721,6 @@ const PROFIT_PARTS = [
     'courierCharge',
     'codCharge',
     'gatewayFee',
-    'profit',
 ] as const;
 
 /** The order's profit, each part with where the number came from. Missing cost is "unknown". */
@@ -748,28 +747,41 @@ function ProfitCard({ profit }: { profit: OrderProfit }) {
                     </div>
                 )}
                 <KeyValue
-                    rows={PROFIT_PARTS.map(key => ({
-                        label: m.cost.parts[key],
-                        value: (
-                            <span
-                                className={
-                                    key === 'profit'
-                                        ? `font-semibold tabular-nums${
-                                              profit.profit.known &&
-                                              profit.profit.amount != null &&
-                                              profit.profit.amount < 0
-                                                  ? ' text-warn'
-                                                  : ''
-                                          }`
-                                        : 'tabular-nums'
-                                }
-                            >
-                                {shown(profit[key])}
-                                <span className="ml-2 text-sm font-normal text-ink-muted">{source(profit[key])}</span>
-                            </span>
-                        ),
-                    }))}
+                    rows={[
+                        {
+                            label: m.cost.parts.profit,
+                            value: (
+                                <span
+                                    className={`font-semibold tabular-nums${
+                                        profit.profit.known &&
+                                        profit.profit.amount != null &&
+                                        profit.profit.amount < 0
+                                            ? ' text-warn'
+                                            : ''
+                                    }`}
+                                >
+                                    {shown(profit.profit)}
+                                </span>
+                            ),
+                        },
+                    ]}
                 />
+                {/* Opens by itself when the profit is unknown, so the missing part is in view. */}
+                <MoreFields label={m.cost.breakdown} forceOpen={!profit.profit.known}>
+                    <KeyValue
+                        rows={PROFIT_PARTS.map(key => ({
+                            label: m.cost.parts[key],
+                            value: (
+                                <span className="tabular-nums">
+                                    {shown(profit[key])}
+                                    <span className="ml-2 text-sm font-normal text-ink-muted">
+                                        {source(profit[key])}
+                                    </span>
+                                </span>
+                            ),
+                        }))}
+                    />
+                </MoreFields>
             </CardBody>
         </Card>
     );

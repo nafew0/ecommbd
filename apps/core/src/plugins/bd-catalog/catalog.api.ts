@@ -106,7 +106,8 @@ export const catalogAdminApiExtensions = gql`
         "The product form's JSON; null when the product doesn't exist"
         bdProductForm(id: ID!): JSON
         bdCategories: [BdCategory!]!
-        bdStock(search: String, lowOnly: Boolean, take: Int): [BdStockRow!]!
+        "includeArchived also lists soft-deleted products, so a purchase can receive into one."
+        bdStock(search: String, lowOnly: Boolean, take: Int, includeArchived: Boolean): [BdStockRow!]!
         bdStockHistory(variantId: ID!): [BdStockAdjustment!]!
     }
 

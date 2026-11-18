@@ -12,7 +12,16 @@ import { cleanText } from './text';
 export const VARIATION_TYPES = ['none', 'size', 'colour', 'pack', 'custom'] as const;
 export type VariationType = (typeof VARIATION_TYPES)[number];
 
-export const STOCK_REASONS = ['recount', 'received', 'damaged', 'gift', 'returned', 'other'] as const;
+export const STOCK_REASONS = [
+    'recount',
+    'received',
+    'damaged',
+    'gift',
+    'returned',
+    'other',
+    'purchase',
+    'purchaseReturn',
+] as const;
 export type StockReason = (typeof STOCK_REASONS)[number];
 
 export const CATALOG_LIMITS = {

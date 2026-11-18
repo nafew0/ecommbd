@@ -1,11 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { signIn, watchForErrors } from './support/admin-ui';
-import {
-    adminSession,
-    ensureCheckoutFixtures,
-    placePhoneOrder,
-    randomPhone,
-} from './support/store-api';
+import { adminSession, ensureCheckoutFixtures, placePhoneOrder, randomPhone } from './support/store-api';
 
 /**
  * Cost and profit (phase 51), in Bangla: an order with a known cost shows the breakdown (never
@@ -13,7 +8,9 @@ import {
  * page uses the same settings layout as the other screens.
  */
 
-test('shows an order’s profit in Bangla, with cost on the product and the settings page', async ({ page }, testInfo) => {
+test('shows an order’s profit in Bangla, with cost on the product and the settings page', async ({
+    page,
+}, testInfo) => {
     const errors = watchForErrors(page);
     const admin = await adminSession();
     const variantId = await ensureCheckoutFixtures(admin);
@@ -55,6 +52,9 @@ test('shows an order’s profit in Bangla, with cost on the product and the sett
     await page.goto(`/admin/orders/${order.id}`);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'লাভ' })).toBeVisible();
+    // The profit is known, so the breakdown starts closed behind "More".
+    await expect(page.getByText('পণ্যের ক্রয়মূল্য')).toBeHidden();
+    await page.getByRole('button', { name: 'হিসাবের বিস্তারিত' }).click();
     await expect(page.getByText('পণ্যের ক্রয়মূল্য')).toBeVisible();
     await expect(page.getByText('৳৪০০').first()).toBeVisible();
     await expect(page.getByText('কুরিয়ার চার্জ')).toBeVisible();

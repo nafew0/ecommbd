@@ -95,7 +95,7 @@ Purchases that set the cost automatically (52); the monthly profit and loss repo
 
 ### Done when
 
-- [ ] Receiving a purchase raises stock and cost correctly. A return reverses both. The supplier balance matches its purchases, returns and payments.
+- [x] Receiving a purchase raises stock and cost correctly. A return reverses both. The supplier balance matches its purchases, returns and payments. (`bd-purchases.e2e-spec.ts`, the purchase page and the supplier page.)
 
 ### Not in this phase
 

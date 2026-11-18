@@ -71,7 +71,8 @@ export function wooUnitCost(value: string): number | null {
     if (!raw || !/^\d+(?:\.\d{1,2})?$/.test(raw)) return null;
     const [whole, fraction = ''] = raw.split('.');
     const poisha = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
-    if (!Number.isSafeInteger(poisha) || poisha > takaToMinor(1_00_00_000) || !isWholeTaka(poisha)) return null;
+    if (!Number.isSafeInteger(poisha) || poisha > takaToMinor(1_00_00_000) || !isWholeTaka(poisha))
+        return null;
     return poisha;
 }
 
@@ -199,20 +200,26 @@ export function deliveredQuantity(
 }
 
 function courierCharge(input: ProfitInput): MoneyPart {
-    if (input.courierDeliveryFee != null) return known(input.courierDeliveryFee, 'courier', input.courierName);
+    if (input.courierDeliveryFee != null)
+        return known(input.courierDeliveryFee, 'courier', input.courierName);
     if (input.state === 'cancelled' && !input.booked) return known(0, 'notBooked');
     if (input.settings.courierFlat != null) return known(input.settings.courierFlat, 'storeSetting');
     return unknown(input.booked ? 'courier' : 'storeSetting', input.booked ? input.courierName : null);
 }
 
-function codCharge(input: ProfitInput, linesUnknown: boolean, anyDelivered: boolean): MoneyPart {
+function codCharge(
+    input: ProfitInput,
+    linesUnknown: boolean,
+    anyDelivered: boolean,
+    collected: number,
+): MoneyPart {
     if (input.state === 'cancelled' || (!linesUnknown && !anyDelivered)) return known(0, 'notCollected');
     if (input.paymentType === 'prepaid' || input.codDue <= 0) return known(0, 'prepaid');
     const setting = input.settings.codCharge;
     if (setting.type === 'percent') {
         return setting.percent == null
             ? unknown('storeSetting')
-            : known(percentOfWholeTaka(input.codDue, setting.percent), 'storeSetting');
+            : known(percentOfWholeTaka(collected, setting.percent), 'storeSetting');
     }
     return setting.flat == null ? unknown('storeSetting') : known(setting.flat, 'storeSetting');
 }
@@ -234,6 +241,7 @@ export function orderProfit(input: ProfitInput): OrderProfit {
     const linesUnknown = delivered.some(quantity => quantity == null);
     let selling = 0;
     let net = 0;
+    let netAll = 0;
     let product = 0;
     let productKnown = !linesUnknown;
     let belowCost = false;
@@ -246,6 +254,7 @@ export function orderProfit(input: ProfitInput): OrderProfit {
             line.quantity > 0 &&
             line.proratedLinePriceWithTax < line.unitCost * line.quantity;
         if (isBelow) belowCost = true;
+        netAll += line.proratedLinePriceWithTax;
         if (quantity == null) {
             return { deliveredQuantity: null, unitCost: line.unitCost, belowCost: false };
         }
@@ -268,9 +277,20 @@ export function orderProfit(input: ProfitInput): OrderProfit {
         : known(anyDelivered ? input.customerCodFee : 0, 'order');
     const productCost = productKnown ? known(product, 'costSnapshot') : unknown('costSnapshot');
     const courier = courierCharge(input);
-    const cod = codCharge(input, linesUnknown, anyDelivered);
+    // Cash is collected only for what was kept: take the value of items not delivered off the amount due.
+    const collected = linesUnknown ? input.codDue : Math.max(0, input.codDue - (netAll - net));
+    const cod = codCharge(input, linesUnknown, anyDelivered, collected);
     const gateway = gatewayFee(input);
-    const parts = [sellingPrice, discount, deliveryCharged, codFeeCharged, productCost, courier, cod, gateway];
+    const parts = [
+        sellingPrice,
+        discount,
+        deliveryCharged,
+        codFeeCharged,
+        productCost,
+        courier,
+        cod,
+        gateway,
+    ];
     const profit = parts.every(part => part.known)
         ? known(
               sellingPrice.amount! -

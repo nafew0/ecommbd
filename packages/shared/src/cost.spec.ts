@@ -65,7 +65,12 @@ describe('orderProfit', () => {
                 lines: [{ ...base().lines[0]!, unitCost: null }],
             }),
         );
-        expect(profit.productCost).toEqual({ amount: null, known: false, source: 'costSnapshot', detail: null });
+        expect(profit.productCost).toEqual({
+            amount: null,
+            known: false,
+            source: 'costSnapshot',
+            detail: null,
+        });
         expect(profit.profit).toEqual({ amount: null, known: false, source: 'order', detail: null });
         expect(profit.sellingPrice.known).toBe(true);
     });
@@ -141,7 +146,11 @@ describe('orderProfit', () => {
             base({
                 courierDeliveryFee: null,
                 booked: false,
-                settings: { ...defaultCostSettings(), courierFlat: tk(60), codCharge: { type: 'flat', flat: 0, percent: null } },
+                settings: {
+                    ...defaultCostSettings(),
+                    courierFlat: tk(60),
+                    codCharge: { type: 'flat', flat: 0, percent: null },
+                },
             }),
         );
         expect(profit.courierCharge).toMatchObject({ amount: tk(60), source: 'storeSetting' });
@@ -161,7 +170,9 @@ describe('orderProfit', () => {
     });
 
     it('leaves the courier charge unknown when nobody has said what it is', () => {
-        const profit = orderProfit(base({ courierDeliveryFee: null, booked: false, settings: defaultCostSettings() }));
+        const profit = orderProfit(
+            base({ courierDeliveryFee: null, booked: false, settings: defaultCostSettings() }),
+        );
         expect(profit.courierCharge).toMatchObject({ amount: null, known: false, source: 'storeSetting' });
         expect(profit.profit.known).toBe(false);
     });
@@ -169,7 +180,10 @@ describe('orderProfit', () => {
     it('rounds a percent COD charge half-up to whole taka, and skips it when the order is prepaid', () => {
         const percent = orderProfit(
             base({
-                settings: { ...defaultCostSettings(), codCharge: { type: 'percent', flat: null, percent: 1 } },
+                settings: {
+                    ...defaultCostSettings(),
+                    codCharge: { type: 'percent', flat: null, percent: 1 },
+                },
                 codDue: tk(1350),
             }),
         );
@@ -182,7 +196,11 @@ describe('orderProfit', () => {
         const profit = orderProfit(
             base({
                 onlinePaid: tk(1000),
-                settings: { ...defaultCostSettings(), gatewayFeePercent: 2, codCharge: { type: 'flat', flat: 0, percent: null } },
+                settings: {
+                    ...defaultCostSettings(),
+                    gatewayFeePercent: 2,
+                    codCharge: { type: 'flat', flat: 0, percent: null },
+                },
             }),
         );
         expect(profit.gatewayFee).toMatchObject({ amount: tk(20), source: 'storeSetting' });
@@ -240,7 +258,9 @@ describe('orderProfit remaining cases', () => {
         const kept = orderProfit(
             base({
                 state: 'returned',
-                lines: [{ ...base().lines[0]!, quantity: 2, returnedQuantity: 1, linePriceWithTax: tk(1000) }],
+                lines: [
+                    { ...base().lines[0]!, quantity: 2, returnedQuantity: 1, linePriceWithTax: tk(1000) },
+                ],
             }),
         );
         expect(kept.lines[0]?.deliveredQuantity).toBe(1);
@@ -253,10 +273,37 @@ describe('orderProfit remaining cases', () => {
         });
     });
 
+    it('takes a percent COD charge only on the cash collected for delivered items', () => {
+        const profit = orderProfit(
+            base({
+                state: 'partiallyDelivered',
+                lines: [
+                    {
+                        ...base().lines[0]!,
+                        quantity: 2,
+                        returnedQuantity: 1,
+                        linePriceWithTax: tk(2000),
+                        proratedLinePriceWithTax: tk(1800),
+                    },
+                ],
+                codDue: tk(1870),
+                settings: {
+                    ...defaultCostSettings(),
+                    codCharge: { type: 'percent', flat: null, percent: 1 },
+                },
+            }),
+        );
+        // 1870 due − 900 for the item that came back = 970 collected; 1% = 9.7 → 10
+        expect(profit.codCharge).toMatchObject({ amount: tk(10), known: true, source: 'storeSetting' });
+    });
+
     it('leaves a percent COD charge unknown until the percent is set', () => {
         const profit = orderProfit(
             base({
-                settings: { ...defaultCostSettings(), codCharge: { type: 'percent', flat: null, percent: null } },
+                settings: {
+                    ...defaultCostSettings(),
+                    codCharge: { type: 'percent', flat: null, percent: null },
+                },
             }),
         );
         expect(profit.codCharge).toMatchObject({ amount: null, known: false, source: 'storeSetting' });

@@ -387,6 +387,11 @@ A starting point for each existing screen. **Before changing a screen, read it, 
 | `incomplete-orders`, `verify-payments`, `payment-reviews`, `unmapped-addresses`, `order-campaigns`, `woo-orders` | A | as today, in the new `ListPage` look | — |
 | `products` | A | photo, name, price, stock, status. Main button "Add product". Cost and margin (ReadCost only, hidden on phones) | "Cost missing" filter |
 | `cost-settings` | C | courier charge fallback | COD charge we pay, gateway fee (collapsed, summary shows the current value or "not set") |
+| `suppliers` | A | name, phone, balance owed. Main button "Add supplier" | — |
+| `supplier` | B | name, phone, address, note, balance, purchase history. Main button "New purchase" | payments (collapsed) |
+| `purchases` | A | number, supplier, status, total. Tabs by status. Main button "New purchase" | — |
+| `purchase` | B | supplier, date, lines (product, quantity, cost). After it is ordered: receive quantities, main button "Receive stock" | charges, discount, paid, bill photo, note (collapsed). Return and delete under More |
+| `purchase-settings` | C | how cost updates (average or latest) | number prefixes (collapsed) |
 | `product-form` | B | main: name, description, photos, price, sale price, stock, cost (ReadCost only), variations. Side: status (shown or hidden), category. "Same cost for every variation" when there are variations | SKU, weight and per-product delivery rules, slug and other search fields → `MoreFields` in their card or a collapsed "Delivery" card |
 | `categories`, `stock` | A | as today | — |
 | `customers` | A | name, phone, orders, total spent, last order | — |

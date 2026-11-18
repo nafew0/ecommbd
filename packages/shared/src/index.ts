@@ -23,6 +23,7 @@ export * from './payments';
 export * from './phone';
 export * from './placeholder-email';
 export * from './print-settings';
+export * from './purchases';
 export * from './rate-limit';
 export * from './redact';
 export * from './rich-text';

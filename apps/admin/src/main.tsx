@@ -97,6 +97,13 @@ const router = createBrowserRouter(
                             lazy: () =>
                                 import('./pages/print').then(module => ({ Component: module.PrintPage })),
                         },
+                        {
+                            path: 'purchase',
+                            lazy: () =>
+                                import('./pages/purchase-print').then(module => ({
+                                    Component: module.PurchasePrintPage,
+                                })),
+                        },
                     ],
                 },
                 {
@@ -168,6 +175,40 @@ const router = createBrowserRouter(
                                 import('./pages/stock').then(module => ({ Component: module.StockPage })),
                         },
                         {
+                            path: 'products/suppliers',
+                            lazy: () =>
+                                import('./pages/suppliers').then(module => ({
+                                    Component: module.SuppliersPage,
+                                })),
+                        },
+                        {
+                            path: 'products/suppliers/new',
+                            lazy: () =>
+                                import('./pages/supplier').then(module => ({ Component: module.SupplierPage })),
+                        },
+                        {
+                            path: 'products/suppliers/:id',
+                            lazy: () =>
+                                import('./pages/supplier').then(module => ({ Component: module.SupplierPage })),
+                        },
+                        {
+                            path: 'products/purchases',
+                            lazy: () =>
+                                import('./pages/purchases').then(module => ({
+                                    Component: module.PurchasesPage,
+                                })),
+                        },
+                        {
+                            path: 'products/purchases/new',
+                            lazy: () =>
+                                import('./pages/purchase').then(module => ({ Component: module.PurchasePage })),
+                        },
+                        {
+                            path: 'products/purchases/:id',
+                            lazy: () =>
+                                import('./pages/purchase').then(module => ({ Component: module.PurchasePage })),
+                        },
+                        {
                             path: 'products/:id',
                             lazy: () =>
                                 import('./pages/product-form').then(module => ({
@@ -228,6 +269,13 @@ const router = createBrowserRouter(
                             lazy: () =>
                                 import('./pages/order-settings').then(module => ({
                                     Component: module.OrderSettingsPage,
+                                })),
+                        },
+                        {
+                            path: 'settings/purchases',
+                            lazy: () =>
+                                import('./pages/purchase-settings').then(module => ({
+                                    Component: module.PurchaseSettingsPage,
                                 })),
                         },
                         {

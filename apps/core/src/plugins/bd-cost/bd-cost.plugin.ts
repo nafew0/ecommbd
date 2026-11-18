@@ -46,7 +46,10 @@ registerStoreDefaults(costPermissionsStep);
             ...(config.customFields.ProductVariant ?? []),
             ...variantCostCustomFields,
         ];
-        config.customFields.OrderLine = [...(config.customFields.OrderLine ?? []), ...orderLineCostCustomFields];
+        config.customFields.OrderLine = [
+            ...(config.customFields.OrderLine ?? []),
+            ...orderLineCostCustomFields,
+        ];
         config.settingsStoreFields = {
             ...config.settingsStoreFields,
             bdCost: [
@@ -71,6 +74,10 @@ export class BdCostPlugin implements OnApplicationBootstrap {
         private snapshots: CostSnapshotService,
     ) {}
 
+    /**
+     * The snapshot handlers never throw: a reporting feature must not stop a customer's order or
+     * a staff edit. A failed snapshot leaves the line's cost empty, so its profit shows unknown.
+     */
     onApplicationBootstrap() {
         this.i18n.addTranslation('en', costTranslations.en);
         this.i18n.addTranslation('bn', costTranslations.bn);
@@ -82,10 +89,9 @@ export class BdCostPlugin implements OnApplicationBootstrap {
                     await this.snapshots.onPlaced(event.ctx, event.order);
                 } catch (error) {
                     Logger.error(
-                        `Could not snapshot order cost: ${error instanceof Error ? error.message : 'failed'}`,
+                        `Could not snapshot order cost, the order goes ahead and its profit shows unknown: ${error instanceof Error ? error.message : 'failed'}`,
                         loggerCtx,
                     );
-                    throw error;
                 }
             },
         });
@@ -97,10 +103,9 @@ export class BdCostPlugin implements OnApplicationBootstrap {
                     await this.snapshots.onLine(event.ctx, event.order, event.orderLine, event.type);
                 } catch (error) {
                     Logger.error(
-                        `Could not snapshot line cost: ${error instanceof Error ? error.message : 'failed'}`,
+                        `Could not snapshot line cost, the edit goes ahead and its profit shows unknown: ${error instanceof Error ? error.message : 'failed'}`,
                         loggerCtx,
                     );
-                    throw error;
                 }
             },
         });

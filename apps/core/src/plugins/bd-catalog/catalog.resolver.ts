@@ -66,7 +66,10 @@ export class CatalogAdminResolver {
 
     @Query()
     @Allow(Permission.ReadProduct, Permission.ReadCatalog)
-    bdStock(@Ctx() ctx: RequestContext, @Args() args: { search?: string; lowOnly?: boolean; take?: number }) {
+    bdStock(
+        @Ctx() ctx: RequestContext,
+        @Args() args: { search?: string; lowOnly?: boolean; take?: number; includeArchived?: boolean },
+    ) {
         return this.stock.list(ctx, args);
     }
 

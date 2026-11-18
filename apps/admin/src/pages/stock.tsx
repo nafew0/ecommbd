@@ -225,7 +225,7 @@ export function StockPage() {
                                 value={reason}
                                 onChange={e => setReason(e.target.value as StockReason)}
                             >
-                                {STOCK_REASONS.map(code => (
+                                {STOCK_REASONS.filter(code => code !== 'purchase' && code !== 'purchaseReturn').map(code => (
                                     <option key={code} value={code}>
                                         {s.reasons[code]}
                                     </option>

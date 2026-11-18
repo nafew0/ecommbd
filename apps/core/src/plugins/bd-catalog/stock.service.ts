@@ -47,7 +47,7 @@ export class StockService {
             if (after < 0) {
                 throw new UserInputError('message.bd-catalog.stock-negative');
             }
-            await this.variants.update(txCtx, [{ id: input.variantId, stockOnHand: after }]);
+            await this.writeStock(txCtx, input.variantId, after);
             return this.connection.getRepository(txCtx, BdStockAdjustment).save(
                 new BdStockAdjustment({
                     productVariantId: input.variantId,
@@ -72,7 +72,12 @@ export class StockService {
     /** Every variant with its stock, lowest first; `search` matches the name or SKU. */
     async list(
         ctx: RequestContext,
-        options: { search?: string | null; lowOnly?: boolean | null; take?: number | null },
+        options: {
+            search?: string | null;
+            lowOnly?: boolean | null;
+            take?: number | null;
+            includeArchived?: boolean | null;
+        },
     ) {
         const qb = this.connection
             .getRepository(ctx, ProductVariant)
@@ -80,9 +85,9 @@ export class StockService {
             .leftJoinAndSelect('variant.translations', 'translation')
             .leftJoinAndSelect('variant.product', 'product')
             .leftJoinAndSelect('product.featuredAsset', 'asset')
-            .leftJoinAndSelect('variant.productVariantPrices', 'price')
-            .where('variant.deletedAt IS NULL')
-            .andWhere('product.deletedAt IS NULL');
+            .leftJoinAndSelect('variant.productVariantPrices', 'price');
+        if (options.includeArchived) qb.withDeleted();
+        else qb.where('variant.deletedAt IS NULL').andWhere('product.deletedAt IS NULL');
         const search = cleanText(options.search ?? '');
         if (search) {
             qb.andWhere('(translation.name ILIKE :search OR variant.sku ILIKE :search)', {
@@ -120,6 +125,31 @@ export class StockService {
         return filtered
             .sort((a, b) => a.available - b.available)
             .slice(0, Math.min(options.take ?? 100, 500));
+    }
+
+    /**
+     * Writes the new on-hand count. A hidden product uses the usual update. An archived
+     * (soft-deleted) one is skipped by that update, so its stock row is written directly.
+     * Purchases receive into both (phase 52).
+     */
+    private async writeStock(ctx: RequestContext, variantId: ID, stockOnHand: number): Promise<void> {
+        const variant = await this.connection.getRepository(ctx, ProductVariant).findOne({
+            where: { id: variantId },
+            withDeleted: true,
+        });
+        if (!variant) throw new UserInputError('message.bd-catalog.stock-missing');
+        if (!variant.deletedAt) {
+            await this.variants.update(ctx, [{ id: variantId, stockOnHand }]);
+            return;
+        }
+        const rows = (await this.connection.getRepository(ctx, ProductVariant).query(
+            `UPDATE stock_level SET "stockOnHand" = $1, "updatedAt" = now()
+             WHERE "productVariantId" = $2 RETURNING id`,
+            [stockOnHand, variant.id],
+        )) as unknown[];
+        if (!Array.isArray(rows) || rows.length === 0) {
+            throw new UserInputError('message.bd-catalog.stock-missing');
+        }
     }
 
     private async staffName(ctx: RequestContext): Promise<string> {

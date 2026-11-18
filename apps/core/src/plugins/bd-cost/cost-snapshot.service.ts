@@ -1,6 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { Order, OrderLine, ProductVariant, RequestContext, TransactionalConnection } from '@vendure/core';
-import { ORDER_LINE_COST_COLUMN } from './constants';
+import {
+    Logger,
+    Order,
+    OrderLine,
+    ProductVariant,
+    RequestContext,
+    TransactionalConnection,
+} from '@vendure/core';
+import { loggerCtx, ORDER_LINE_COST_COLUMN } from './constants';
 
 /**
  * Copies the variation's cost onto an order line once, and never again.
@@ -15,7 +22,38 @@ import { ORDER_LINE_COST_COLUMN } from './constants';
 export class CostSnapshotService {
     constructor(private connection: TransactionalConnection) {}
 
-    async onPlaced(ctx: RequestContext, order: Order): Promise<void> {
+    onPlaced(ctx: RequestContext, order: Order): Promise<void> {
+        return this.guarded(ctx, () => this.placed(ctx, order));
+    }
+
+    onLine(
+        ctx: RequestContext,
+        order: Order,
+        line: OrderLine,
+        type: 'created' | 'updated' | 'deleted' | 'cancelled',
+    ): Promise<void> {
+        return this.guarded(ctx, () => this.line(ctx, order, line, type));
+    }
+
+    /**
+     * Runs the snapshot inside a savepoint when the order's transaction is open. On PostgreSQL a
+     * failed query aborts the whole transaction, so without this a snapshot error would still
+     * cancel the order even though the caller catches it.
+     */
+    private async guarded(ctx: RequestContext, work: () => Promise<void>): Promise<void> {
+        const runner = this.connection.getRepository(ctx, OrderLine).manager.queryRunner;
+        const inTransaction = !!runner?.isTransactionActive;
+        if (inTransaction) await runner!.query('SAVEPOINT bd_cost_snapshot');
+        try {
+            await work();
+            if (inTransaction) await runner!.query('RELEASE SAVEPOINT bd_cost_snapshot');
+        } catch (error) {
+            if (inTransaction) await runner!.query('ROLLBACK TO SAVEPOINT bd_cost_snapshot');
+            throw error;
+        }
+    }
+
+    private async placed(ctx: RequestContext, order: Order): Promise<void> {
         const full = await this.connection.getRepository(ctx, Order).findOne({
             where: { id: order.id },
             relations: { lines: { productVariant: true } },
@@ -27,7 +65,7 @@ export class CostSnapshotService {
         }
     }
 
-    async onLine(
+    private async line(
         ctx: RequestContext,
         order: Order,
         line: OrderLine,
@@ -36,10 +74,12 @@ export class CostSnapshotService {
         if (type !== 'created' && type !== 'updated') return;
         const placedAt = await this.placedAt(ctx, order);
         if (!placedAt) return;
-        const [row] = (await this.connection.getRepository(ctx, OrderLine).query(
-            `SELECT "createdAt" AS created, "${ORDER_LINE_COST_COLUMN}" AS cost FROM "order_line" WHERE id = $1`,
-            [line.id],
-        )) as Array<{ created: Date | string; cost: number | null }>;
+        const [row] = (await this.connection
+            .getRepository(ctx, OrderLine)
+            .query(
+                `SELECT "createdAt" AS created, "${ORDER_LINE_COST_COLUMN}" AS cost FROM "order_line" WHERE id = $1`,
+                [line.id],
+            )) as Array<{ created: Date | string; cost: number | null }>;
         if (!row || row.cost != null) return;
         // An update of a line that was on the order when it was placed must not fill a missing cost.
         if (type === 'updated' && new Date(row.created).getTime() <= placedAt.getTime()) return;
@@ -50,8 +90,24 @@ export class CostSnapshotService {
         await this.write(ctx, line.id, variant?.customFields.unitCost ?? null);
     }
 
-    /** Lines added after the order was placed that still have no cost. Called after an edit commits its lines. */
+    /**
+     * Lines added after the order was placed that still have no cost. Called after an edit commits
+     * its lines. Never throws: a failure leaves the cost empty and the edit goes ahead.
+     */
     async snapshotAdded(ctx: RequestContext, orderId: Order['id']): Promise<void> {
+        try {
+            await this.guarded(ctx, () => this.added(ctx, orderId));
+        } catch (error) {
+            Logger.error(
+                `Could not snapshot added lines, the edit goes ahead and its profit shows unknown: ${
+                    error instanceof Error ? error.message : 'failed'
+                }`,
+                loggerCtx,
+            );
+        }
+    }
+
+    private async added(ctx: RequestContext, orderId: Order['id']): Promise<void> {
         const order = await this.connection.getRepository(ctx, Order).findOne({
             where: { id: orderId },
             relations: { lines: { productVariant: true } },

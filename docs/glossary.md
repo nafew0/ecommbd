@@ -33,6 +33,10 @@ One word per idea everywhere: storefront, Dashboard, SMS, help articles. Banglad
 | Category | ক্যাটাগরি |
 | Price / Regular price / Sale price | দাম / আগের দাম / ছাড়ের দাম |
 | Cost (what we pay for one) | ক্রয়মূল্য |
+| Supplier | সাপ্লায়ার |
+| Purchase | ক্রয় |
+| Purchase return | ক্রয় ফেরত |
+| Balance owed | বাকি |
 | Profit | লাভ |
 | Margin | মার্জিন |
 | Unknown (a figure we don't have) | অজানা |
