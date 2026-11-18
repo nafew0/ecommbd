@@ -375,8 +375,15 @@ An HTML embed element (our decision: no raw HTML; merchant scripts live in phase
 
 ### Done when
 
-- [ ] The checklist catches each listed problem on a test page.
-- [ ] A new merchant finishes the tour and publishes a page without help.
+- [x] The checklist catches each listed problem on a test page (`packages/sections/src/checklist.spec.ts` for what the data shows; `tests/browser/builder.spec.ts` for sideways scrolling and tap targets, measured at phone width).
+- [ ] A new merchant finishes the tour and publishes a page without help. The tour is built and tested; this needs a real merchant (phase 33's review).
+
+### As built so far (2026-11-19)
+
+- **Checklist:** `pageChecklist` in `packages/sections/src/checklist.ts`, the **Checklist** button and dialog in the editor, and the preview frame's phone-width measurements. Only blockers stop publishing.
+- **Guided tour:** six steps, shown once on a first visit on a computer, skippable, restartable from More.
+- **Shortcut sheet:** under "?" and More (built with phase 58).
+- **Still to build:** saved styles (named text and button styles, store-wide), and help videos (with phase 33).
 
 ### Not in this phase
 

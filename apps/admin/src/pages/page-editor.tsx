@@ -1,5 +1,9 @@
 import {
+    canPublish,
+    type CheckItem,
     fillFromProduct,
+    findNode,
+    pageChecklist,
     landingTemplate,
     LAYOUT_LIMITS,
     type LayoutDocument,
@@ -31,7 +35,7 @@ import {
     Undo2,
     X,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import {
     type AdminLayout,
@@ -46,6 +50,7 @@ import {
 } from '../components/design/design-api';
 import {
     AddSectionDialog,
+    ChecklistDialog,
     ConflictDialog,
     HistoryDialog,
     type LibraryTab,
@@ -53,7 +58,7 @@ import {
     SaveSectionDialog,
     ShareDialog,
 } from '../components/design/dialogs';
-import { insertSection } from '../components/design/document-ops';
+import { insertSection, nodeName, sectionLabel } from '../components/design/document-ops';
 import { IconButton } from '../components/design/icon-button';
 import {
     type Device,
@@ -169,6 +174,11 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
     const [zoom, setZoom] = useState<number | null>(null);
     const [fit, setFit] = useState(100);
     const [shortcutsOpen, setShortcutsOpen] = useState(false);
+    // The pre-publish checklist (phase 62): what the page's data shows, plus what the preview
+    // frame measures at phone width when the checklist is opened.
+    const [checklistOpen, setChecklistOpen] = useState(false);
+    const [measuring, setMeasuring] = useState(false);
+    const [measured, setMeasured] = useState<CheckItem[]>([]);
     /** A design being tried: its name, and the page as it was, to put back. */
     const [trying, setTrying] = useState<{ name: string; previous: LayoutDocument } | null>(null);
     // A first visit to the editor gets a short tour (phase 62); it can be skipped at any step and
@@ -270,7 +280,47 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
         toast,
     });
 
+    const checks = useMemo(
+        () => [...pageChecklist(document, { layoutType: layout.type }), ...measured],
+        [document, layout.type, measured],
+    );
+    const openChecklist = () => {
+        setChecklistOpen(true);
+        setMeasured([]);
+        setMeasuring(true);
+        // Fitting is judged on a phone: the preview goes there, settles, then measures itself.
+        setDevice('phone');
+        window.setTimeout(() => preview.current?.post({ type: 'audit' }), 900);
+        window.setTimeout(() => setMeasuring(false), 5000);
+    };
+    /** What the phone-width checks found: parts that stick out, and buttons too small to tap. */
+    const onAudit = (message: PreviewMessage) => {
+        const places = (value: unknown) =>
+            (Array.isArray(value) ? value : []).filter(
+                (item): item is { uid: string; node: string | null } =>
+                    typeof item === 'object' &&
+                    item !== null &&
+                    typeof (item as { uid?: unknown }).uid === 'string',
+            );
+        setMeasured([
+            ...places(message.overflow).map(item => ({
+                code: 'overflow' as const,
+                level: 'warning' as const,
+                sectionId: item.uid,
+                nodeId: item.node ?? undefined,
+            })),
+            ...places(message.small).map(item => ({
+                code: 'smallTap' as const,
+                level: 'tip' as const,
+                sectionId: item.uid,
+                nodeId: item.node ?? undefined,
+            })),
+        ]);
+        setMeasuring(false);
+    };
+
     const onPreviewMessage = (message: PreviewMessage) => {
+        if (message.type === 'audit-result') onAudit(message);
         if (message.type === 'ready') {
             preview.current?.post({ type: 'select', uid: selected, node: selectedNode });
         }
@@ -355,6 +405,12 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
     };
 
     const publish = async (force = false) => {
+        // A blocker in the checklist (a page that would be too heavy, a broken link) stops it here.
+        if (!canPublish(checks)) {
+            toast.error(d.checklist.blocked);
+            openChecklist();
+            return;
+        }
         setPublishing(true);
         try {
             const result = await editor.publish(force);
@@ -638,6 +694,24 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                         </Button>
                     )}
                     <RowMenu label={d.more} items={moreItems} />
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        className="hidden sm:inline-flex"
+                        onClick={openChecklist}
+                    >
+                        {d.checklist.button}
+                        {checks.length > 0 && (
+                            <span
+                                className={cn(
+                                    'min-w-5 rounded-full px-1.5 text-center text-xs font-semibold tabular-nums',
+                                    canPublish(checks) ? 'bg-surface-muted text-ink' : 'bg-danger text-white',
+                                )}
+                            >
+                                {digits(checks.length)}
+                            </span>
+                        )}
+                    </Button>
                     <Button
                         size="sm"
                         data-tour="editorPublish"
@@ -961,6 +1035,23 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                 language={language}
             />
             <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+            <ChecklistDialog
+                open={checklistOpen}
+                onClose={() => setChecklistOpen(false)}
+                items={checks}
+                measuring={measuring}
+                onShow={item => {
+                    select(item.sectionId, item.nodeId ?? null);
+                    setMobileTab('sections');
+                }}
+                nameOf={item => {
+                    const section = document.sections.find(entry => entry.uid === item.sectionId);
+                    if (!section) return '';
+                    const found = item.nodeId ? findNode(section.children ?? [], item.nodeId) : null;
+                    const name = sectionLabel(section, ui).name;
+                    return found ? `${name} · ${nodeName(found.node, ui)}` : name;
+                }}
+            />
             <Tour
                 open={tourOpen && wide && !expanded}
                 steps={EDITOR_TOUR}

@@ -524,4 +524,71 @@ test.describe('the element tree', () => {
         await expect(page.getByRole('list', { name: 'Sections' }).getByRole('listitem')).toHaveCount(8);
         expect(errors).toEqual([]);
     });
+    test('the checklist finds what to fix before publishing, on the page and on a phone', async ({
+        page,
+        isMobile,
+    }) => {
+        test.skip(isMobile, 'The phone layout of the editor has its own test');
+        const errors = watchForErrors(page);
+        const section = createSection('custom');
+        const sample = createNode('heading');
+        const noPhoto = createNode('image');
+        const wide = createNode('text', { text: text('<p>These words stick out of a phone.</p>') });
+        wide.style = { base: { width: 100, marginLeft: 200 } };
+        const tiny = createNode('button', {
+            label: text('Read more'),
+            link: { type: 'search' },
+            look: 'link',
+        });
+        const broken = createNode('button', { label: text('Buy'), link: { type: 'url', url: 'not a link' } });
+        section.children = [sample, noPhoto, wide, tiny, broken];
+        await setDraft(admin, 'home', { sections: [section] });
+        await signIn(page, 'en');
+        await openEditor(page);
+
+        // The count on the button is red while something blocks publishing.
+        await page.getByRole('button', { name: /^Checklist/ }).click();
+        const checklist = page.getByRole('dialog', { name: 'Before you publish' });
+        await expect(checklist.getByText('Must fix before publishing · 1')).toBeVisible();
+        await expect(
+            checklist.getByText('A link isn’t a web address or a path on your store.'),
+        ).toBeVisible();
+        await expect(checklist.getByText('This still has the sample words. Write your own.')).toBeVisible();
+        await expect(checklist.getByText('No photo chosen yet.')).toBeVisible();
+        // Measured on the page itself, at phone width.
+        await expect(page.locator(`iframe[title="${PREVIEW}"]`)).toHaveJSProperty('offsetWidth', 390);
+        await expect(
+            checklist.getByText('On a phone this sticks out and the page scrolls sideways.').first(),
+        ).toBeVisible({
+            timeout: 10_000,
+        });
+        await expect(
+            checklist.getByText('On a phone this is too small to tap easily (under 44 px).'),
+        ).toBeVisible();
+
+        // A line goes to what it's about.
+        await checklist.getByRole('button', { name: /No photo chosen yet/ }).click();
+        await expect(checklist).toBeHidden();
+        await expect(layersOf(page).getByRole('button', { name: /^Image$/ })).toHaveAttribute(
+            'aria-current',
+            'true',
+        );
+
+        // Publishing is stopped, and says where to look.
+        await page.getByRole('button', { name: 'Publish' }).click();
+        await expect(page.getByText('Fix what the checklist marks in red, then publish.')).toBeVisible();
+        await expect(checklist).toBeVisible();
+        await page.keyboard.press('Escape');
+
+        // With the broken link fixed, nothing blocks it.
+        await layersOf(page)
+            .getByRole('button', { name: /^Button Buy/ })
+            .click();
+        await page.getByRole('textbox', { name: 'Web address' }).fill('https://example.com/shop');
+        await page.getByRole('button', { name: 'Publish' }).click();
+        await expect(page.getByText('Published. The live page updates within seconds.')).toBeVisible({
+            timeout: 15_000,
+        });
+        expect(errors).toEqual([]);
+    });
 });

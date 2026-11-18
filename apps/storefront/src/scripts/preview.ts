@@ -237,6 +237,8 @@ window.addEventListener('message', event => {
         highlight(true);
     } else if (data.type === 'refresh') {
         void refresh();
+    } else if (data.type === 'audit') {
+        audit();
     } else if (data.type === 'drag') {
         dragging = data.active === true;
         if (!dragging) dropLine.hidden = true;
@@ -250,6 +252,45 @@ window.addEventListener('message', event => {
         }
     }
 });
+
+/**
+ * What can only be seen on the drawn page (the checklist, phase 62), at the width it's shown now:
+ * whether the page scrolls sideways and which parts stick out, and which buttons are too small
+ * to tap (under 44 px either way). Each is named by the section and the element it's in.
+ */
+function audit() {
+    const width = document.documentElement.clientWidth;
+    const where = (element: Element) => ({
+        uid: sectionOf(element)?.dataset.section ?? null,
+        node: nodeOf(element)?.dataset.u ?? null,
+    });
+    const key = (item: { uid: string | null; node: string | null }) => `${item.uid}/${item.node}`;
+    const unique = (items: Array<{ uid: string | null; node: string | null }>) =>
+        [...new Map(items.filter(item => item.uid).map(item => [key(item), item])).values()].slice(0, 20);
+    const scrolls = document.documentElement.scrollWidth > width + 1;
+    const wide = scrolls
+        ? [...document.querySelectorAll<HTMLElement>('main [data-node], main [data-section]')].filter(
+              element => {
+                  const box = element.getBoundingClientRect();
+                  return box.width > 0 && (box.right > width + 1 || box.left < -1);
+              },
+          )
+        : [];
+    const small = [
+        ...document.querySelectorAll<HTMLElement>('main [data-section] :is(.button, button, .text-link)'),
+    ].filter(element => {
+        if (element.closest('[data-canvas-ui], [data-add-inside]')) return false;
+        const box = element.getBoundingClientRect();
+        return box.width > 0 && box.height > 0 && (box.width < 44 || box.height < 44);
+    });
+    post({
+        type: 'audit-result',
+        width,
+        scrolls,
+        overflow: unique(wide.map(where)),
+        small: unique(small.map(where)),
+    });
+}
 
 /** Ends a text edit: the new words go to the editor, or the old ones come back. */
 function finishEdit(keep: boolean) {

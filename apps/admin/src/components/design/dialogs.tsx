@@ -1,4 +1,6 @@
 import {
+    type CheckItem,
+    type CheckLevel,
     createSection,
     copySection,
     LANDING_CATEGORIES,
@@ -805,6 +807,97 @@ export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose(): v
                     </div>
                 ))}
             </dl>
+        </Dialog>
+    );
+}
+
+/**
+ * The pre-publish checklist (roadmap phase 62): what to look at before the page goes live, most
+ * serious first. Each line opens the section or element it's about.
+ */
+export function ChecklistDialog({
+    open,
+    onClose,
+    items,
+    measuring,
+    onShow,
+    nameOf,
+}: {
+    open: boolean;
+    onClose(): void;
+    items: CheckItem[];
+    /** The phone-width checks are still being measured on the page. */
+    measuring: boolean;
+    onShow(item: CheckItem): void;
+    /** What the section or element is called, for the line. */
+    nameOf(item: CheckItem): string;
+}) {
+    const { messages: m } = useI18n();
+    const c = m.design.checklist;
+    const levels: Array<{ level: CheckLevel; title: string }> = [
+        { level: 'blocker', title: c.blockers },
+        { level: 'warning', title: c.warnings },
+        { level: 'tip', title: c.tips },
+    ];
+    return (
+        <Dialog open={open} onClose={onClose} title={c.title} description={c.description}>
+            {items.length === 0 && !measuring && (
+                <p className="flex items-center gap-2 py-6 text-ink">
+                    <Check className="size-5 text-ok" aria-hidden />
+                    {c.allGood}
+                </p>
+            )}
+            <div className="space-y-5">
+                {levels.map(({ level, title }) => {
+                    const found = items.filter(item => item.level === level);
+                    if (!found.length) return null;
+                    return (
+                        <section key={level}>
+                            <h3 className="mb-1.5 flex items-center gap-2 text-xs font-semibold tracking-wide text-ink-muted uppercase">
+                                <span
+                                    className={cn(
+                                        'size-2 rounded-full',
+                                        level === 'blocker'
+                                            ? 'bg-danger'
+                                            : level === 'warning'
+                                              ? 'bg-warn'
+                                              : 'bg-ink-faint',
+                                    )}
+                                    aria-hidden
+                                />
+                                {title} · {found.length}
+                            </h3>
+                            <ul className="divide-y divide-line border-y border-line">
+                                {found.map((item, index) => (
+                                    <li key={`${item.code}-${item.sectionId}-${item.nodeId ?? ''}-${index}`}>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                onShow(item);
+                                                onClose();
+                                            }}
+                                            className="flex w-full items-start gap-3 py-2.5 text-left hover:bg-surface-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
+                                        >
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block text-sm text-ink">
+                                                    {c.codes[item.code] ?? item.code}
+                                                </span>
+                                                <span className="block truncate text-xs text-ink-muted">
+                                                    {nameOf(item)}
+                                                </span>
+                                            </span>
+                                            <span className="shrink-0 pt-0.5 text-xs font-medium text-ink underline underline-offset-2">
+                                                {c.show}
+                                            </span>
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        </section>
+                    );
+                })}
+            </div>
+            {measuring && <p className="mt-4 text-sm text-ink-muted">{c.measuring}</p>}
         </Dialog>
     );
 }
