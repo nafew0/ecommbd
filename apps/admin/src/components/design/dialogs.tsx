@@ -4,15 +4,24 @@ import {
     LANDING_CATEGORIES,
     LANDING_CATEGORY_NAMES,
     LANDING_TEMPLATES,
+    type LayoutDocument,
     type LayoutType,
+    PAGE_DESIGNS,
     pick,
+    READY_CATEGORIES,
+    READY_CATEGORY_NAMES,
+    type ReadyCategory,
+    readySectionsFor,
     SECTION_CATEGORIES,
     type SectionData,
     sectionsFor,
     STARTER_INFO,
     starterLayout,
     STARTERS,
-    type StarterName,
+    STORE_DESIGNS,
+    STORE_TYPE_NAMES,
+    STORE_TYPES,
+    type StoreType,
 } from '@ecommbd/sections';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bookmark, Check, Copy, ExternalLink, LayoutTemplate, MessageCircle, Trash2 } from 'lucide-react';
@@ -23,11 +32,12 @@ import { useI18n } from '../../lib/i18n';
 import { useToast } from '../../lib/toast';
 import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
-import { Input } from '../ui/input';
+import { Input, Select } from '../ui/input';
 import {
     createPreviewLink,
     deleteSavedSection,
     fetchSavedSections,
+    fetchStoreLogo,
     fetchVersions,
     type LayoutConflict,
     saveSection,
@@ -38,24 +48,29 @@ import { SectionThumbnail } from './section-thumbnail';
 
 /** The page editor's dialogs (roadmap phase 15). */
 
-type LibraryTab = 'sections' | 'saved' | 'templates';
+export type LibraryTab = 'ready' | 'sections' | 'saved' | 'templates';
 
-/** "Add section": the library by category, saved sections and (on the home page) templates. */
+/**
+ * "Add section" (phases 15 and 59): ready sections first, filtered by the kind of store and by
+ * category; then the plain section types, the merchant's saved sections, and whole designs (home
+ * pages for each kind of store, ready pages, sales page templates).
+ */
 export function AddSectionDialog({
     open,
     onClose,
     layoutType,
     onAdd,
-    onTemplate,
+    onDesign,
     onLandingTemplate,
-    initialTab = 'sections',
+    initialTab = 'ready',
 }: {
     open: boolean;
     onClose(): void;
     layoutType: LayoutType;
     onAdd(section: SectionData): void;
-    onTemplate(name: StarterName): void;
-    /** Sales pages (phase 16) pick from their own twelve templates. */
+    /** A whole design chosen: the page's sections are replaced by it (the editor lets it be tried first). */
+    onDesign(document: LayoutDocument, name: string): void;
+    /** Sales pages (phase 16) pick from their own templates. */
     onLandingTemplate?(id: string): void;
     initialTab?: LibraryTab;
 }) {
@@ -69,7 +84,28 @@ export function AddSectionDialog({
         onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['savedSections'] }),
     });
     const definitions = sectionsFor(layoutType);
+    const [storeType, setStoreType] = useState<StoreType | 'all'>('all');
+    const [category, setCategory] = useState<ReadyCategory | 'all'>('all');
+    const [search, setSearch] = useState('');
+    const store = useQuery({
+        queryKey: ['storeLogo'],
+        queryFn: fetchStoreLogo,
+        enabled: open,
+        staleTime: 60_000,
+    });
+    const storeInfo = { name: store.data ? pick(store.data.storeName, language) : '', description: '' };
+    const words = search.trim().toLowerCase();
+    // Ready sections are ordinary sections: only those this kind of page can hold are offered.
+    const allowed = new Set(definitions.map(definition => definition.type));
+    const readyList = readySectionsFor(storeType, category).filter(
+        item =>
+            !words ||
+            `${item.name.bn} ${item.name.en} ${item.description.bn} ${item.description.en}`
+                .toLowerCase()
+                .includes(words),
+    );
     const tabs: Array<{ key: LibraryTab; label: string }> = [
+        { key: 'ready', label: d.lib.ready },
         { key: 'sections', label: d.sections },
         { key: 'saved', label: d.savedSections },
         ...(layoutType !== 'product' ? [{ key: 'templates' as const, label: d.templates }] : []),
@@ -101,6 +137,112 @@ export function AddSectionDialog({
                     </button>
                 ))}
             </div>
+            {tab === 'ready' && (
+                <div>
+                    <div className="mb-4 flex flex-wrap items-end gap-3">
+                        <div className="min-w-44 flex-1">
+                            <label
+                                htmlFor="ready-store-type"
+                                className="mb-1.5 block text-sm font-medium text-ink"
+                            >
+                                {d.lib.storeType}
+                            </label>
+                            <Select
+                                id="ready-store-type"
+                                value={storeType}
+                                onChange={event => setStoreType(event.target.value as StoreType | 'all')}
+                            >
+                                <option value="all">{d.lib.allStoreTypes}</option>
+                                {STORE_TYPES.map(type => (
+                                    <option key={type} value={type}>
+                                        {pick(STORE_TYPE_NAMES[type], language)}
+                                    </option>
+                                ))}
+                            </Select>
+                        </div>
+                        <div className="min-w-44 flex-1">
+                            <label
+                                htmlFor="ready-search"
+                                className="mb-1.5 block text-sm font-medium text-ink"
+                            >
+                                {d.lib.search}
+                            </label>
+                            <Input
+                                id="ready-search"
+                                type="search"
+                                value={search}
+                                onChange={event => setSearch(event.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <div
+                        className="mb-4 flex flex-wrap gap-1.5"
+                        role="radiogroup"
+                        aria-label={d.lib.category}
+                    >
+                        {(['all', ...READY_CATEGORIES] as const).map(item => (
+                            <button
+                                key={item}
+                                type="button"
+                                role="radio"
+                                aria-checked={category === item}
+                                onClick={() => setCategory(item)}
+                                className={cn(
+                                    'min-h-9 rounded-md border px-3 text-sm font-medium transition-colors',
+                                    category === item
+                                        ? 'border-ink bg-ink text-white'
+                                        : 'border-line-strong bg-surface text-ink hover:border-ink',
+                                )}
+                            >
+                                {item === 'all'
+                                    ? d.lib.allCategories
+                                    : pick(READY_CATEGORY_NAMES[item], language)}
+                            </button>
+                        ))}
+                    </div>
+                    <p className="mb-3 text-xs text-ink-muted">{d.lib.readyCount(readyList.length)}</p>
+                    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                        {readyList.map(item => {
+                            // Built once to know what it is; added fresh, with new IDs, when chosen.
+                            const sample = item.build();
+                            if (!allowed.has(sample.type)) return null;
+                            return (
+                                <li key={item.id}>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            onAdd(item.build());
+                                            onClose();
+                                        }}
+                                        className="group flex h-full w-full flex-col overflow-hidden rounded-lg border border-line bg-surface text-left transition hover:border-ink hover:shadow-md focus-visible:outline-2 focus-visible:outline-accent"
+                                    >
+                                        <span className="block border-b border-line bg-surface-muted p-2">
+                                            <SectionThumbnail
+                                                type={sample.type}
+                                                className="aspect-[16/10] w-full rounded shadow-sm ring-1 ring-line"
+                                            />
+                                        </span>
+                                        <span className="flex flex-1 flex-col gap-0.5 p-3">
+                                            <span className="text-sm font-medium">
+                                                {pick(item.name, language)}
+                                            </span>
+                                            <span className="text-xs leading-snug text-ink-muted">
+                                                {pick(item.description, language)}
+                                            </span>
+                                            <span className="mt-1.5 text-[11px] font-medium tracking-wide text-ink-faint uppercase">
+                                                {pick(READY_CATEGORY_NAMES[item.category], language)}
+                                            </span>
+                                        </span>
+                                    </button>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                    {readyList.length === 0 && (
+                        <p className="py-10 text-center text-ink-muted">{d.lib.noneFound}</p>
+                    )}
+                </div>
+            )}
             {tab === 'sections' && (
                 <div className="space-y-6">
                     {SECTION_CATEGORIES.map(category => {
@@ -218,21 +360,43 @@ export function AddSectionDialog({
             )}
             {tab === 'templates' && layoutType !== 'landing' && (
                 <div>
-                    <p className="mb-4 text-sm text-ink-muted">{d.templatesDescription}</p>
+                    <p className="mb-4 text-sm text-ink-muted">{d.lib.designsDescription}</p>
                     <ul className="grid gap-3 sm:grid-cols-2">
-                        {STARTERS.map(name => {
-                            const types = starterLayout(name)
+                        {(layoutType === 'page'
+                            ? PAGE_DESIGNS.map(design => ({
+                                  id: design.id,
+                                  name: pick(design.name, language),
+                                  description: pick(design.description, language),
+                                  build: () => design.build(storeInfo),
+                              }))
+                            : [
+                                  ...STORE_DESIGNS.map(design => ({
+                                      id: design.id,
+                                      name: pick(design.name, language),
+                                      description: pick(design.description, language),
+                                      build: () => design.build(storeInfo),
+                                  })),
+                                  ...STARTERS.map(name => ({
+                                      id: `starter-${name}`,
+                                      name: pick(STARTER_INFO[name].name, language),
+                                      description: pick(STARTER_INFO[name].description, language),
+                                      build: () => starterLayout(name),
+                                  })),
+                              ]
+                        ).map(design => {
+                            const types = design
+                                .build()
                                 .sections.filter(section => !section.hidden)
                                 .map(section => section.type);
                             return (
-                                <li key={name}>
+                                <li key={design.id}>
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            onTemplate(name);
+                                            onDesign(design.build(), design.name);
                                             onClose();
                                         }}
-                                        className="group flex w-full gap-3 rounded-lg border border-line bg-surface p-3 text-left transition hover:border-accent hover:shadow-md"
+                                        className="group flex h-full w-full gap-3 rounded-lg border border-line bg-surface p-3 text-left transition hover:border-ink hover:shadow-md"
                                     >
                                         <span className="flex w-24 shrink-0 flex-col gap-1 rounded bg-surface-muted p-1.5 ring-1 ring-line">
                                             {types.slice(0, 5).map((type, index) => (
@@ -245,14 +409,17 @@ export function AddSectionDialog({
                                         </span>
                                         <span className="min-w-0">
                                             <span className="flex items-center gap-1.5 font-medium">
-                                                <LayoutTemplate className="size-4 text-accent" aria-hidden />
-                                                {pick(STARTER_INFO[name].name, language)}
+                                                <LayoutTemplate
+                                                    className="size-4 text-ink-muted"
+                                                    aria-hidden
+                                                />
+                                                {design.name}
                                             </span>
                                             <span className="mt-1 block text-sm text-ink-muted">
-                                                {pick(STARTER_INFO[name].description, language)}
+                                                {design.description}
                                             </span>
-                                            <span className="mt-3 inline-flex text-sm font-medium text-accent group-hover:underline">
-                                                {d.applyTemplate}
+                                            <span className="mt-3 inline-flex text-sm font-medium text-ink underline-offset-2 group-hover:underline">
+                                                {d.lib.tryDesign}
                                             </span>
                                         </span>
                                     </button>

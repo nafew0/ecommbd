@@ -473,4 +473,55 @@ test.describe('the element tree', () => {
         await page.getByRole('dialog').getByRole('button', { name: 'Skip the tour' }).last().click();
         await expect(page.getByRole('dialog')).toHaveCount(0);
     });
+    test('a merchant adds a ready section for their kind of store, tries a whole design and puts the page back', async ({
+        page,
+        isMobile,
+    }) => {
+        test.skip(isMobile, 'The phone layout of the editor has its own test');
+        const errors = watchForErrors(page);
+        const own = createSection('rich-text');
+        own.settings.heading = text('My own page');
+        await setDraft(admin, 'home', { sections: [own] });
+        await signIn(page, 'en');
+        await openEditor(page);
+        const canvas = preview(page);
+
+        // The library opens on ready sections: narrowed to a food store's, in the Trust category.
+        await page.getByRole('button', { name: 'Add section', exact: true }).last().click();
+        const library = page.getByRole('dialog', { name: 'Add a section' });
+        await expect(library.getByRole('tab', { name: 'Ready sections' })).toHaveAttribute(
+            'aria-selected',
+            'true',
+        );
+        await library.getByRole('combobox', { name: 'Your kind of store' }).selectOption({ label: 'Food' });
+        await library.getByRole('radio', { name: 'Trust' }).click();
+        await expect(library.getByRole('button', { name: /^Fashion:/ })).toHaveCount(0);
+        await library.getByRole('button', { name: /^Food: our promises/ }).click();
+        await expect(canvas.getByText('Nothing added')).toBeVisible({ timeout: 15_000 });
+
+        // A whole design, tried on the real page; the page comes back with one click.
+        await page.getByRole('button', { name: 'Add section', exact: true }).last().click();
+        await library.getByRole('tab', { name: 'Templates' }).click();
+        await library.getByRole('button', { name: /^Fashion home page/ }).click();
+        const bar = page.getByRole('status').filter({ hasText: 'You’re trying “Fashion home page”' });
+        await expect(bar).toBeVisible();
+        await expect(canvas.getByRole('heading', { name: 'Your style, at your price' })).toBeVisible({
+            timeout: 15_000,
+        });
+        await page.getByRole('radio', { name: 'Tablet', exact: true }).first().click();
+        await expect(page.locator(`iframe[title="${PREVIEW}"]`)).toHaveJSProperty('offsetWidth', 768);
+        await bar.getByRole('button', { name: 'Put my page back' }).click();
+        await expect(canvas.getByRole('heading', { name: 'My own page' })).toBeVisible({ timeout: 15_000 });
+        await expect(canvas.getByRole('heading', { name: 'Your style, at your price' })).toHaveCount(0);
+        await expect(page.getByRole('list', { name: 'Sections' }).getByRole('listitem')).toHaveCount(2);
+
+        // Tried again and kept.
+        await page.getByRole('button', { name: 'Add section', exact: true }).last().click();
+        await library.getByRole('tab', { name: 'Templates' }).click();
+        await library.getByRole('button', { name: /^Fashion home page/ }).click();
+        await bar.getByRole('button', { name: 'Keep it' }).click();
+        await expect(page.getByText('Design kept. Change anything, then publish.')).toBeVisible();
+        await expect(page.getByRole('list', { name: 'Sections' }).getByRole('listitem')).toHaveCount(8);
+        expect(errors).toEqual([]);
+    });
 });

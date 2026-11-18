@@ -1,4 +1,11 @@
-import { createSection, STARTERS, starterLayout } from '@ecommbd/sections';
+import {
+    createSection,
+    type LayoutDocument,
+    PAGE_DESIGNS,
+    STARTERS,
+    starterLayout,
+    STORE_DESIGNS,
+} from '@ecommbd/sections';
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import { gzipSync } from 'node:zlib';
 import { signIn, watchForErrors } from './support/admin-ui';
@@ -77,7 +84,10 @@ const preview = (page: Page) => page.frameLocator(`iframe[title="${PREVIEW}"]`);
 
 async function addFromLibrary(page: Page, name: string | RegExp) {
     await page.getByRole('button', { name: 'Add section', exact: true }).last().click();
-    await page.getByRole('dialog', { name: 'Add a section' }).getByRole('button', { name }).first().click();
+    // The library opens on the ready sections (phase 59); the plain section types are one tab on.
+    const library = page.getByRole('dialog', { name: 'Add a section' });
+    await library.getByRole('tab', { name: 'Sections', exact: true }).click();
+    await library.getByRole('button', { name }).first().click();
 }
 
 test.describe('sections and the page editor', () => {
@@ -110,11 +120,7 @@ test.describe('sections and the page editor', () => {
         await openEditor(page);
         await expect(page.getByText('No sections yet')).toBeVisible();
 
-        await page.getByRole('button', { name: 'Add section' }).first().click();
-        await page
-            .getByRole('dialog', { name: 'Add a section' })
-            .getByRole('button', { name: /^Hero/ })
-            .click();
+        await addFromLibrary(page, /^Hero/);
         const title = `Eid panjabi ${unique()}`;
         await page.getByRole('textbox', { name: 'Heading', exact: true }).fill(title);
         for (const name of [
@@ -352,13 +358,23 @@ test.describe('sections and the page editor', () => {
         expect(live.headers.get('x-frame-options')).toBe('SAMEORIGIN');
     });
 
-    for (const starter of STARTERS) {
-        test(`the ${starter} starter layout stays within the JavaScript budget`, async ({
-            page,
-            isMobile,
-        }) => {
+    // The four starters, the eleven store designs and the eight page designs (phase 59), each as
+    // the home page: none may cost more script than the budget.
+    const DESIGNS: Array<{ name: string; build(): LayoutDocument }> = [
+        ...STARTERS.map(name => ({ name: `${name} starter layout`, build: () => starterLayout(name) })),
+        ...STORE_DESIGNS.map(design => ({
+            name: `${design.id} store design`,
+            build: () => design.build({ name: 'Rahim Fashion', description: '' }),
+        })),
+        ...PAGE_DESIGNS.map(design => ({
+            name: `${design.id} page design`,
+            build: () => design.build({ name: 'Rahim Fashion', description: '' }),
+        })),
+    ];
+    for (const { name: starter, build } of DESIGNS) {
+        test(`the ${starter} stays within the JavaScript budget`, async ({ page, isMobile }) => {
             test.skip(!isMobile, 'Measured on the phone');
-            const layout = starterLayout(starter);
+            const layout = build();
             const marker = `starter-${unique()}`;
             layout.sections[0]!.style.anchor = marker;
             await publishLayout(admin, 'home', layout);

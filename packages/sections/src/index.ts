@@ -4,6 +4,7 @@ export * from './document';
 export * from './elements';
 export * from './fields';
 export * from './landing-templates';
+export * from './library';
 export * from './node-style';
 export * from './nodes';
 export * from './open';

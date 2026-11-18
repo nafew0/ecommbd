@@ -5,8 +5,8 @@ import type { SectionStyle } from './style';
 import type { Bilingual } from './text';
 
 /**
- * Sales page templates (roadmap phase 16): twelve ready pages for what Bangladeshi merchants sell
- * from Facebook ads. Each is ordinary sections, so everything stays editable; the product's name
+ * Sales page templates (roadmap phase 16, grown from twelve to thirty-one in phase 59): ready pages
+ * for what Bangladeshi merchants sell from Facebook ads, and a few building blocks to start from. Each is ordinary sections, so everything stays editable; the product's name
  * goes into the text, and its photo, price and packs come from the page itself.
  */
 
@@ -610,6 +610,702 @@ export const LANDING_TEMPLATES: readonly LandingTemplate[] = [
                 trustSales(),
                 reviews(),
                 ...close(),
+            ],
+        }),
+    },
+    // Phase 59: eighteen more, and building blocks to start a page from.
+    {
+        id: 'mango',
+        category: 'food',
+        name: t('মৌসুমি ফল', 'Seasonal fruit'),
+        description: t(
+            'বাগান থেকে সরাসরি, মৌসুম শেষের কাউন্টডাউনসহ',
+            'Straight from the orchard, with an end-of-season countdown',
+        ),
+        build: product => ({
+            sections: [
+                hero(
+                    product,
+                    t('বাগান থেকে সরাসরি', 'Straight from the orchard'),
+                    t('কেমিক্যাল ছাড়া পাকানো', 'Ripened without chemicals'),
+                ),
+                make('countdown', {
+                    heading: t('মৌসুম শেষ হতে বাকি', 'The season ends in'),
+                    mode: 'evergreen',
+                    hours: 48,
+                }),
+                make(
+                    'benefits',
+                    { heading: t('কেন আমাদের ফল', 'Why our fruit') },
+                    {
+                        blocks: [
+                            benefit('leaf', 'ফরমালিন ও কার্বাইডমুক্ত', 'No formalin or carbide'),
+                            benefit('box', 'ক্যারেটে যত্ন করে প্যাক', 'Carefully packed in crates'),
+                            benefit('truck', 'পাড়ার পরদিনই পাঠানো', 'Sent the day after picking'),
+                            benefit('return', 'নষ্ট হলে বদলে দিই', 'Replaced if it arrives spoiled'),
+                        ],
+                        style: ordered,
+                    },
+                ),
+                story(
+                    t('আমাদের বাগান', 'Our orchard'),
+                    t(
+                        '<p>বাগান কোথায়, কোন জাতের ফল আর কীভাবে পাকানো হয়, তা এখানে লিখুন।</p>',
+                        '<p>Say where the orchard is, which varieties you grow and how they ripen.</p>',
+                    ),
+                ),
+                make('price-packs', { heading: t('কত কেজি নেবেন?', 'How many kilos?') }),
+                reviews(),
+                ...close(),
+            ],
+        }),
+    },
+    {
+        id: 'pickle',
+        category: 'food',
+        name: t('আচার ও সস', 'Pickles and sauces'),
+        description: t(
+            'ঘরে বানানো স্বাদ, উপাদানের তালিকা আর জারের মাপ',
+            'Home-made taste, the ingredients and jar sizes',
+        ),
+        build: product => ({
+            sections: [
+                hero(product, t('ঘরে বানানো', 'Home-made'), t('মায়ের হাতের সেই স্বাদ', 'The taste of home')),
+                make('benefits', { heading: t('যা দিয়ে বানানো', 'What goes in') }, { style: ordered }),
+                make(
+                    'specs',
+                    { heading: t('এক নজরে', 'At a glance') },
+                    {
+                        blocks: [
+                            { label: t('ওজন', 'Weight'), value: t('', '') },
+                            { label: t('মেয়াদ', 'Keeps for'), value: t('৬ মাস', '6 months') },
+                            {
+                                label: t('সংরক্ষণ', 'Storage'),
+                                value: t('ঠান্ডা, শুকনো জায়গায়', 'Somewhere cool and dry'),
+                            },
+                        ],
+                    },
+                ),
+                make('price-packs'),
+                trustSales(),
+                reviews(),
+                ...close(),
+            ],
+        }),
+    },
+    {
+        id: 'tea',
+        category: 'food',
+        name: t('চা ও কফি', 'Tea and coffee'),
+        description: t(
+            'বাগানের গল্প, বানানোর নিয়ম আর প্যাকের মাপ',
+            'The garden’s story, how to brew and pack sizes',
+        ),
+        build: product => ({
+            sections: [
+                hero(
+                    product,
+                    t('বাগানের তাজা পাতা', 'Fresh from the garden'),
+                    t('প্রতি কাপে আসল স্বাদ', 'Real taste in every cup'),
+                ),
+                story(
+                    t('কোন বাগানের চা', 'Where it grows'),
+                    t(
+                        '<p>চা কোন বাগানের, কখন তোলা আর স্বাদ কেমন, তা এখানে লিখুন।</p>',
+                        '<p>Say which garden it comes from, when it was picked and how it tastes.</p>',
+                    ),
+                    true,
+                ),
+                make(
+                    'specs',
+                    { heading: t('যেভাবে বানাবেন', 'How to brew'), look: 'steps' },
+                    {
+                        blocks: [
+                            {
+                                label: t('পানি ফোটান', 'Boil the water'),
+                                value: t('এক কাপ পানি ফুটিয়ে নিন।', 'Bring one cup of water to the boil.'),
+                            },
+                            {
+                                label: t('পাতা দিন', 'Add the leaves'),
+                                value: t(
+                                    'এক চা-চামচ পাতা দিয়ে ২ মিনিট রাখুন।',
+                                    'Add one teaspoon and leave for 2 minutes.',
+                                ),
+                            },
+                            {
+                                label: t('ছেঁকে নিন', 'Strain'),
+                                value: t('ছেঁকে গরম গরম পরিবেশন করুন।', 'Strain and serve hot.'),
+                            },
+                        ],
+                    },
+                ),
+                make('price-packs'),
+                trustSales(),
+                ...close(),
+            ],
+        }),
+    },
+    {
+        id: 'pain-relief',
+        category: 'health',
+        name: t('ব্যথার তেল ও মালিশ', 'Pain relief oil'),
+        description: t(
+            'কীভাবে ব্যবহার করবেন, কারা ব্যবহার করবেন আর সতর্কতা',
+            'How to use it, who it’s for and cautions',
+        ),
+        build: product => ({
+            sections: [
+                hero(
+                    product,
+                    t('ভেষজ উপাদানে তৈরি', 'Made from herbs'),
+                    t('প্রতিদিনের ব্যথায় আরাম', 'Ease for everyday aches'),
+                ),
+                make('benefits', { heading: t('কখন কাজে লাগে', 'When it helps') }, { style: ordered }),
+                make(
+                    'specs',
+                    { heading: t('ব্যবহারের নিয়ম', 'How to use it'), look: 'steps' },
+                    {
+                        blocks: [
+                            {
+                                label: t('পরিষ্কার করুন', 'Clean the area'),
+                                value: t('ব্যথার জায়গা পরিষ্কার করে নিন।', 'Clean the area that hurts.'),
+                            },
+                            {
+                                label: t('মালিশ করুন', 'Massage'),
+                                value: t(
+                                    'অল্প তেল নিয়ে ৫ মিনিট মালিশ করুন।',
+                                    'Massage in a little oil for 5 minutes.',
+                                ),
+                            },
+                            {
+                                label: t('দিনে দুইবার', 'Twice a day'),
+                                value: t('সকালে ও রাতে ব্যবহার করুন।', 'Use it morning and night.'),
+                            },
+                        ],
+                    },
+                ),
+                make('guarantee', {
+                    heading: t('সতর্কতা', 'Please note'),
+                    text: t(
+                        'এটি কোনো রোগের চিকিৎসা নয়। ব্যথা না কমলে ডাক্তারের পরামর্শ নিন।',
+                        'This does not treat any disease. See a doctor if the pain stays.',
+                    ),
+                }),
+                make('price-packs'),
+                reviews(),
+                ...close(),
+            ],
+        }),
+    },
+    {
+        id: 'hair-oil',
+        category: 'beauty',
+        name: t('চুলের তেল', 'Hair oil'),
+        description: t(
+            'উপাদান, ব্যবহারের নিয়ম আর আগে-পরের তুলনা',
+            'Ingredients, how to use it and a before-and-after comparison',
+        ),
+        build: product => ({
+            sections: [
+                hero(
+                    product,
+                    t('প্রাকৃতিক উপাদানে', 'From natural ingredients'),
+                    t('চুলের গোড়া থেকে যত্ন', 'Care from the roots'),
+                ),
+                make('benefits', { heading: t('যা আছে এই তেলে', 'What’s in the oil') }, { style: ordered }),
+                make(
+                    'comparison',
+                    { heading: t('নিয়মিত ব্যবহারে', 'With regular use') },
+                    { style: ordered },
+                ),
+                make(
+                    'specs',
+                    { heading: t('ব্যবহারের নিয়ম', 'How to use it'), look: 'steps' },
+                    {
+                        blocks: [
+                            {
+                                label: t('রাতে লাগান', 'Apply at night'),
+                                value: t(
+                                    'চুলের গোড়ায় আঙুল দিয়ে মালিশ করুন।',
+                                    'Massage into the roots with your fingertips.',
+                                ),
+                            },
+                            {
+                                label: t('সকালে ধুয়ে ফেলুন', 'Wash in the morning'),
+                                value: t('হালকা শ্যাম্পু দিয়ে ধুয়ে নিন।', 'Wash with a mild shampoo.'),
+                            },
+                            {
+                                label: t('সপ্তাহে তিনদিন', 'Three times a week'),
+                                value: t('নিয়মিত ব্যবহারে ফল পাবেন।', 'Results come with regular use.'),
+                            },
+                        ],
+                    },
+                ),
+                make('price-packs'),
+                reviews(),
+                ...close(),
+            ],
+        }),
+    },
+    {
+        id: 'makeup',
+        category: 'beauty',
+        name: t('মেকআপ', 'Makeup'),
+        description: t(
+            'শেড, অরিজিনাল পণ্যের প্রমাণ আর ব্যবহারের ভিডিও',
+            'Shades, proof it’s genuine and a how-to video',
+        ),
+        build: product => ({
+            sections: [
+                hero(
+                    product,
+                    t('১০০% অরিজিনাল', '100% genuine'),
+                    t('সারা দিন টিকে থাকে', 'Stays on all day'),
+                ),
+                make(
+                    'video',
+                    { heading: t('লাগানোর নিয়ম দেখুন', 'See how to apply it') },
+                    { hidden: true, style: ordered },
+                ),
+                make('benefits', { look: 'grid', columns: 2 }, { style: ordered }),
+                make('guarantee', {
+                    heading: t('অরিজিনাল পণ্যের নিশ্চয়তা', 'Guaranteed genuine'),
+                    text: t(
+                        'ব্যাচ নম্বর মিলিয়ে নিন। নকল প্রমাণ হলে পুরো টাকা ফেরত।',
+                        'Check the batch number. A full refund if it proves fake.',
+                    ),
+                }),
+                make('price-packs'),
+                reviews(),
+                ...close(),
+            ],
+        }),
+    },
+    {
+        id: 'saree',
+        category: 'fashion',
+        name: t('শাড়ি', 'Saree'),
+        description: t('কাপড়ের বিবরণ, বড় ছবি আর যত্নের নিয়ম', 'Fabric details, large photos and care'),
+        build: product => ({
+            sections: [
+                hero(
+                    product,
+                    t('নতুন ডিজাইন', 'New design'),
+                    t('উৎসবে, আয়োজনে', 'For festivals and occasions'),
+                ),
+                make(
+                    'image-grid',
+                    { heading: t('কাছ থেকে দেখুন', 'Look closer'), shape: 'portrait', columns: 3 },
+                    { style: ordered },
+                ),
+                make(
+                    'specs',
+                    { heading: t('শাড়ির বিবরণ', 'About the saree') },
+                    {
+                        blocks: [
+                            { label: t('কাপড়', 'Fabric'), value: t('', '') },
+                            { label: t('লম্বা', 'Length'), value: t('১২ হাত', '12 haat (5.5 m)') },
+                            { label: t('ব্লাউজ পিস', 'Blouse piece'), value: t('আছে', 'Included') },
+                            { label: t('ধোয়া', 'Washing'), value: t('ড্রাই ওয়াশ', 'Dry clean') },
+                        ],
+                    },
+                ),
+                trustSales(),
+                make('price-packs'),
+                reviews(),
+                ...close(),
+            ],
+        }),
+    },
+    {
+        id: 'panjabi',
+        category: 'fashion',
+        name: t('পাঞ্জাবি', 'Panjabi'),
+        description: t(
+            'মাপের চার্ট, কাপড়ের বিবরণ আর মাপ বদলের সুবিধা',
+            'A size chart, fabric details and size exchange',
+        ),
+        build: product => ({
+            sections: [
+                hero(
+                    product,
+                    t('ঈদ কালেকশন', 'Eid collection'),
+                    t('আরামদায়ক কাপড়, নিখুঁত সেলাই', 'Comfortable fabric, neat stitching'),
+                ),
+                make('benefits', { look: 'grid', columns: 2 }, { style: ordered }),
+                make(
+                    'specs',
+                    { heading: t('মাপের চার্ট', 'Size chart') },
+                    {
+                        blocks: [
+                            { label: t('M', 'M'), value: t('বুক ৪০", লম্বা ৪০"', 'Chest 40", length 40"') },
+                            { label: t('L', 'L'), value: t('বুক ৪২", লম্বা ৪২"', 'Chest 42", length 42"') },
+                            { label: t('XL', 'XL'), value: t('বুক ৪৪", লম্বা ৪৪"', 'Chest 44", length 44"') },
+                        ],
+                    },
+                ),
+                make('guarantee', {
+                    heading: t('মাপ না মিললে বদলে দেব', 'Wrong size? We exchange it'),
+                    text: t('ডেলিভারির ৩ দিনের মধ্যে জানান।', 'Tell us within 3 days of delivery.'),
+                }),
+                make('price-packs'),
+                reviews(),
+                ...close(),
+            ],
+        }),
+    },
+    {
+        id: 'shoes',
+        category: 'fashion',
+        name: t('জুতা', 'Shoes'),
+        description: t(
+            'মাপ বাছাই, উপাদান আর পায়ে দিয়ে দেখার সুবিধা',
+            'Choosing a size, materials and try before you pay',
+        ),
+        build: product => ({
+            sections: [
+                hero(
+                    product,
+                    t('আরামদায়ক সোল', 'Comfortable sole'),
+                    t('সারা দিন পায়ে, তবু আরাম', 'On your feet all day, still comfortable'),
+                ),
+                make('benefits', { look: 'grid', columns: 2 }, { style: ordered }),
+                make(
+                    'specs',
+                    { heading: t('মাপ', 'Sizes') },
+                    {
+                        blocks: [
+                            { label: t('৩৯', '39'), value: t('২৪.৫ সেমি', '24.5 cm') },
+                            { label: t('৪০', '40'), value: t('২৫ সেমি', '25 cm') },
+                            { label: t('৪১', '41'), value: t('২৬ সেমি', '26 cm') },
+                            { label: t('৪২', '42'), value: t('২৬.৫ সেমি', '26.5 cm') },
+                        ],
+                    },
+                ),
+                make('guarantee', {
+                    heading: t('পায়ে দিয়ে দেখে টাকা দিন', 'Try them on, then pay'),
+                    text: t(
+                        'মাপ না মিললে ডেলিভারিম্যানের কাছেই ফেরত দিন।',
+                        'If they don’t fit, hand them back to the delivery person.',
+                    ),
+                }),
+                make('price-packs'),
+                reviews(),
+                ...close(),
+            ],
+        }),
+    },
+    {
+        id: 'watch',
+        category: 'fashion',
+        name: t('ঘড়ি ও ব্যাগ', 'Watches and bags'),
+        description: t('কাছ থেকে তোলা ছবি, উপাদান আর ওয়ারেন্টি', 'Close-up photos, materials and warranty'),
+        build: product => ({
+            sections: [
+                hero(
+                    product,
+                    t('প্রিমিয়াম কোয়ালিটি', 'Premium quality'),
+                    t('উপহার দিতে বা নিজের জন্য', 'For a gift, or for yourself'),
+                ),
+                make(
+                    'image-grid',
+                    { heading: t('কাছ থেকে দেখুন', 'Look closer'), shape: 'square', columns: 3 },
+                    { style: ordered },
+                ),
+                make('benefits', { look: 'grid', columns: 2 }, { style: ordered }),
+                make('guarantee', {
+                    heading: t('৬ মাসের ওয়ারেন্টি', '6-month warranty'),
+                    text: t(
+                        'কোনো সমস্যা হলে ওয়ারেন্টির মধ্যে ঠিক করে দেব।',
+                        'If anything goes wrong within the warranty, we fix it.',
+                    ),
+                }),
+                make('price-packs'),
+                reviews(),
+                ...close(),
+            ],
+        }),
+    },
+    {
+        id: 'earbuds',
+        category: 'gadgets',
+        name: t('ইয়ারবাড ও হেডফোন', 'Earbuds and headphones'),
+        description: t(
+            'ব্যাটারি, সাউন্ড আর অন্য ব্র্যান্ডের সাথে তুলনা',
+            'Battery, sound and a comparison with others',
+        ),
+        build: product => ({
+            sections: [
+                hero(
+                    product,
+                    t('অফিসিয়াল ওয়ারেন্টি', 'Official warranty'),
+                    t('পরিষ্কার শব্দ, লম্বা ব্যাটারি', 'Clear sound, long battery'),
+                ),
+                make(
+                    'benefits',
+                    { heading: t('ফিচার', 'Features'), look: 'grid', columns: 2 },
+                    { style: ordered },
+                ),
+                make(
+                    'comparison',
+                    { heading: t('সাধারণ ইয়ারবাডের সাথে তুলনা', 'Against ordinary earbuds') },
+                    { style: ordered },
+                ),
+                make(
+                    'specs',
+                    { heading: t('স্পেসিফিকেশন', 'Specifications') },
+                    {
+                        blocks: [
+                            { label: t('ব্যাটারি', 'Battery'), value: t('', '') },
+                            { label: t('ব্লুটুথ', 'Bluetooth'), value: t('', '') },
+                            { label: t('ওয়ারেন্টি', 'Warranty'), value: t('৬ মাস', '6 months') },
+                        ],
+                    },
+                ),
+                make('price-packs'),
+                reviews(),
+                ...close(),
+            ],
+        }),
+    },
+    {
+        id: 'smartwatch',
+        category: 'gadgets',
+        name: t('স্মার্টওয়াচ', 'Smartwatch'),
+        description: t('ডেমো ভিডিও, ফিচার আর বক্সে যা আছে', 'A demo video, features and what’s in the box'),
+        build: product => ({
+            sections: [
+                hero(product, t('নতুন মডেল', 'New model'), t('হাতেই সব খবর', 'Everything on your wrist')),
+                make(
+                    'video',
+                    { heading: t('চালিয়ে দেখুন', 'See it working') },
+                    { hidden: true, style: ordered },
+                ),
+                make(
+                    'benefits',
+                    { heading: t('যা যা করতে পারে', 'What it does'), look: 'grid', columns: 2 },
+                    { style: ordered },
+                ),
+                make(
+                    'specs',
+                    { heading: t('বক্সে যা আছে', 'In the box') },
+                    {
+                        blocks: [
+                            { label: t('ঘড়ি', 'Watch'), value: t('১টি', '1') },
+                            { label: t('চার্জার', 'Charger'), value: t('১টি', '1') },
+                            { label: t('ওয়ারেন্টি কার্ড', 'Warranty card'), value: t('১টি', '1') },
+                        ],
+                    },
+                ),
+                make('guarantee'),
+                make('price-packs'),
+                reviews(),
+                ...close(),
+            ],
+        }),
+    },
+    {
+        id: 'kitchen',
+        category: 'gadgets',
+        name: t('রান্নাঘরের জিনিস', 'Kitchen tools'),
+        description: t(
+            'সময় বাঁচানোর গল্প, ব্যবহারের ধাপ আর ভিডিও',
+            'How it saves time, steps to use it and a video',
+        ),
+        build: product => ({
+            sections: [
+                hero(
+                    product,
+                    t('রান্না এখন সহজ', 'Cooking made easier'),
+                    t('অর্ধেক সময়ে একই কাজ', 'The same job in half the time'),
+                ),
+                make(
+                    'video',
+                    { heading: t('ব্যবহার দেখুন', 'See it in use') },
+                    { hidden: true, style: ordered },
+                ),
+                make('comparison', { heading: t('আগে আর এখন', 'Before and now') }, { style: ordered }),
+                make(
+                    'specs',
+                    { heading: t('ব্যবহারের ধাপ', 'How to use it'), look: 'steps' },
+                    {
+                        blocks: [
+                            { label: t('প্রথম ধাপ', 'First'), value: t('', '') },
+                            { label: t('দ্বিতীয় ধাপ', 'Then'), value: t('', '') },
+                            {
+                                label: t('ধুয়ে রাখুন', 'Wash and store'),
+                                value: t('ব্যবহারের পর ধুয়ে শুকিয়ে রাখুন।', 'Wash and dry it after use.'),
+                            },
+                        ],
+                    },
+                ),
+                make('price-packs'),
+                trustSales(),
+                ...close(),
+            ],
+        }),
+    },
+    {
+        id: 'toy',
+        category: 'kids',
+        name: t('খেলনা', 'Toys'),
+        description: t('বয়স, নিরাপত্তা আর শিশু কী শিখবে', 'Age, safety and what a child learns'),
+        build: product => ({
+            sections: [
+                hero(
+                    product,
+                    t('শিশুর জন্য নিরাপদ', 'Safe for children'),
+                    t('খেলতে খেলতে শেখা', 'Learning through play'),
+                ),
+                make(
+                    'benefits',
+                    { heading: t('শিশু যা শিখবে', 'What your child learns') },
+                    { style: ordered },
+                ),
+                make(
+                    'specs',
+                    { heading: t('এক নজরে', 'At a glance') },
+                    {
+                        blocks: [
+                            { label: t('বয়স', 'Age'), value: t('৩ বছর ও তার বেশি', '3 years and up') },
+                            { label: t('উপাদান', 'Material'), value: t('', '') },
+                            { label: t('মাপ', 'Size'), value: t('', '') },
+                        ],
+                    },
+                ),
+                make('guarantee', {
+                    heading: t('নিরাপদ উপাদান', 'Safe materials'),
+                    text: t('ধারালো কোনা নেই, ক্ষতিকর রং নেই।', 'No sharp edges and no harmful paint.'),
+                }),
+                make('price-packs'),
+                reviews(),
+                ...close(),
+            ],
+        }),
+    },
+    {
+        id: 'islamic',
+        category: 'other',
+        name: t('ইসলামিক পণ্য', 'Islamic products'),
+        description: t(
+            'আতর, জায়নামাজ বা বই: বিবরণ, উপহারের প্যাকেজিং আর প্যাক',
+            'Attar, prayer mats or books: details, gift packaging and packs',
+        ),
+        build: product => ({
+            sections: [
+                hero(
+                    product,
+                    t('অ্যালকোহলমুক্ত', 'Alcohol-free'),
+                    t('নিজের জন্য, প্রিয়জনের জন্য', 'For yourself, or someone dear'),
+                ),
+                make(
+                    'benefits',
+                    {},
+                    {
+                        blocks: [
+                            benefit('check', 'বিবরণ অনুযায়ী পণ্য', 'Exactly as described'),
+                            benefit('gift', 'উপহারের প্যাকেজিং', 'Gift packaging'),
+                            benefit('cash', 'হাতে পেয়ে টাকা দিন', 'Pay when it arrives'),
+                            benefit('truck', 'সারা দেশে ডেলিভারি', 'Delivery nationwide'),
+                        ],
+                        style: ordered,
+                    },
+                ),
+                story(
+                    t('পণ্যটি সম্পর্কে', 'About the product'),
+                    t(
+                        '<p>পণ্যটি কোথা থেকে আসে, কী দিয়ে তৈরি আর কীভাবে ব্যবহার করবেন, তা এখানে লিখুন।</p>',
+                        '<p>Say where it comes from, what it’s made of and how to use it.</p>',
+                    ),
+                ),
+                make('price-packs'),
+                reviews(),
+                ...close(),
+            ],
+        }),
+    },
+    {
+        id: 'block-offer',
+        category: 'other',
+        name: t('ব্লক: একটি পণ্যের অফার', 'Block: single product offer'),
+        description: t(
+            'শুধু হিরো, প্যাক আর অর্ডার ফর্ম: বাকিটা নিজে যোগ করুন',
+            'Only a hero, packs and the order form: add the rest yourself',
+        ),
+        build: product => ({
+            sections: [
+                hero(product, t('বিশেষ অফার', 'Special offer'), t('আজই অর্ডার করুন', 'Order today')),
+                make('price-packs'),
+                make('order-form'),
+            ],
+        }),
+    },
+    {
+        id: 'block-reviews',
+        category: 'other',
+        name: t('ব্লক: ক্রেতাদের মতামত দিয়ে শুরু', 'Block: reviews first'),
+        description: t(
+            'হিরোর নিচেই মতামতের স্ক্রিনশট, তারপর ফর্ম',
+            'Review screenshots right under the hero, then the form',
+        ),
+        build: product => ({
+            sections: [
+                hero(
+                    product,
+                    t('ক্রেতাদের পছন্দ', 'Buyers’ choice'),
+                    t('হাজারো ক্রেতার ভরসা', 'Trusted by thousands'),
+                ),
+                make('testimonials', {
+                    heading: t('কাস্টমাররা যা বলছেন', 'What customers say'),
+                    look: 'screenshots',
+                }),
+                trustSales(),
+                make('price-packs'),
+                make('order-form'),
+            ],
+        }),
+    },
+    {
+        id: 'block-video',
+        category: 'other',
+        name: t('ব্লক: ভিডিও দিয়ে শুরু', 'Block: video first'),
+        description: t('ওপরে ভিডিও, নিচে সুবিধা আর ফর্ম', 'A video on top, then benefits and the form'),
+        build: product => ({
+            sections: [
+                make('sales-hero', {
+                    badge: t('ভিডিওতে দেখুন', 'Watch the video'),
+                    headline: named(
+                        product,
+                        name => name,
+                        name => name,
+                    ),
+                    highlight: t('নিজের চোখে দেখে নিন', 'See it for yourself'),
+                    media: 'video',
+                }),
+                make('benefits', {}, { style: ordered }),
+                make('price-packs'),
+                make('order-form'),
+            ],
+        }),
+    },
+    {
+        id: 'block-short',
+        category: 'other',
+        name: t('ব্লক: ছোট অর্ডার পেজ', 'Block: short order page'),
+        description: t(
+            'এক স্ক্রিনে পণ্য, ভরসার চিহ্ন আর ফর্ম',
+            'The product, promises and the form on one screen',
+        ),
+        build: product => ({
+            sections: [
+                hero(
+                    product,
+                    t('ক্যাশ অন ডেলিভারি', 'Cash on delivery'),
+                    t('পণ্য দেখে টাকা দিন', 'Check your order, then pay'),
+                ),
+                trustSales(),
+                make('price-packs'),
+                make('order-form'),
             ],
         }),
     },

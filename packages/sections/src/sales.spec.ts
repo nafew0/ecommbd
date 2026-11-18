@@ -36,9 +36,9 @@ describe('sales sections', () => {
 });
 
 describe('sales page templates', () => {
-    it('are twelve, in known categories, with unique ids and both languages', () => {
-        expect(LANDING_TEMPLATES).toHaveLength(12);
-        expect(new Set(LANDING_TEMPLATES.map(template => template.id)).size).toBe(12);
+    it('are at least thirty, in known categories, with unique ids and both languages', () => {
+        expect(LANDING_TEMPLATES.length).toBeGreaterThanOrEqual(30);
+        expect(new Set(LANDING_TEMPLATES.map(template => template.id)).size).toBe(LANDING_TEMPLATES.length);
         for (const template of LANDING_TEMPLATES) {
             expect(LANDING_CATEGORIES).toContain(template.category);
             expect(template.name.bn && template.name.en, template.id).toBeTruthy();

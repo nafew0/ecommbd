@@ -2,11 +2,10 @@ import {
     fillFromProduct,
     landingTemplate,
     LAYOUT_LIMITS,
+    type LayoutDocument,
     pick,
     type SectionData,
     sectionDefinition,
-    starterLayout,
-    type StarterName,
 } from '@ecommbd/sections';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -49,6 +48,7 @@ import {
     AddSectionDialog,
     ConflictDialog,
     HistoryDialog,
+    type LibraryTab,
     ShortcutsDialog,
     SaveSectionDialog,
     ShareDialog,
@@ -169,6 +169,8 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
     const [zoom, setZoom] = useState<number | null>(null);
     const [fit, setFit] = useState(100);
     const [shortcutsOpen, setShortcutsOpen] = useState(false);
+    /** A design being tried: its name, and the page as it was, to put back. */
+    const [trying, setTrying] = useState<{ name: string; previous: LayoutDocument } | null>(null);
     // A first visit to the editor gets a short tour (phase 62); it can be skipped at any step and
     // started again from the "More" menu.
     const [tourOpen, setTourOpen] = useState(() => shouldStartTour(EDITOR_TOUR_KEY));
@@ -177,7 +179,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
         setTourOpen(false);
     }, []);
     const [mobileTab, setMobileTab] = useState<'sections' | 'preview'>('sections');
-    const [library, setLibrary] = useState<null | 'sections' | 'templates'>(null);
+    const [library, setLibrary] = useState<null | LibraryTab>(null);
     const [historyOpen, setHistoryOpen] = useState(false);
     const [shareOpen, setShareOpen] = useState(false);
     const [saving, setSaving] = useState<SectionData | null>(null);
@@ -250,7 +252,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
         post: message => preview.current?.post(message),
         addSectionAt: index => {
             setInsertAt(index);
-            setLibrary('sections');
+            setLibrary('ready');
         },
         addInside: uid => setAddInside({ uid, at: Date.now() }),
         toggleExpanded: () => setExpanded(value => !value),
@@ -328,34 +330,28 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
         select(section.uid);
     };
 
-    const applyTemplate = async (name: StarterName) => {
-        if (
-            document.sections.length &&
-            !(await confirm({ title: d.useTemplate, body: d.replaceConfirm, confirmLabel: d.applyTemplate }))
-        ) {
-            return;
-        }
-        editor.change(starterLayout(name));
+    /**
+     * A whole design (phase 59) replaces the page's sections straight away, so it can be looked at
+     * on the real page at every screen size. A bar over the canvas keeps it or puts the page back.
+     */
+    const applyDesign = (next: LayoutDocument, name: string) => {
+        if (document.sections.length) setTrying({ name, previous: document });
+        else toast.success(d.templateApplied);
+        editor.change(next);
         select(null);
-        toast.success(d.templateApplied);
     };
 
-    /** Sales pages (phase 16): another of the twelve templates, filled from the page's product. */
+    /** Sales pages (phase 16): one of the sales templates, filled from the page's product. */
     const applyLandingTemplate = async (id: string) => {
         const template = landingTemplate(id);
         if (!template) return;
-        if (
-            document.sections.length &&
-            !(await confirm({ title: d.useTemplate, body: d.replaceConfirm, confirmLabel: d.applyTemplate }))
-        ) {
-            return;
-        }
         const productId = salesPage.data?.productId;
         const product = productId ? (await productsById([productId]))[0] : undefined;
         const name = product?.name ?? salesPage.data?.title ?? '';
-        editor.change(fillFromProduct(template.build({ name: { bn: name, en: name } }), {}));
-        select(null);
-        toast.success(d.templateApplied);
+        applyDesign(
+            fillFromProduct(template.build({ name: { bn: name, en: name } }), {}),
+            pick(template.name, ui),
+        );
     };
 
     const publish = async (force = false) => {
@@ -717,7 +713,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                     >
                         {document.sections.length === 0 ? (
                             <EmptyLayout
-                                onAdd={() => setLibrary('sections')}
+                                onAdd={() => setLibrary('ready')}
                                 onTemplate={() => setLibrary('templates')}
                                 canTemplate={layout.type !== 'product'}
                             />
@@ -731,7 +727,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                                 onSelect={uid => select(uid)}
                                 onSelectNode={select}
                                 onChange={editor.change}
-                                onAdd={() => setLibrary('sections')}
+                                onAdd={() => setLibrary('ready')}
                                 onSaveForReuse={setSaving}
                                 onRemoved={() => toast.info(d.removed)}
                             />
@@ -746,6 +742,35 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                         mobileTab === 'sections' && 'max-lg:hidden',
                     )}
                 >
+                    {trying && (
+                        <div
+                            role="status"
+                            className="mb-2 flex flex-wrap items-center gap-2 rounded-md bg-ink px-3 py-2 text-sm text-white"
+                        >
+                            <span className="min-w-0 flex-1">{d.lib.trying(trying.name)}</span>
+                            <button
+                                type="button"
+                                className="min-h-8 rounded px-2.5 font-medium text-white/80 underline-offset-2 hover:text-white hover:underline"
+                                onClick={() => {
+                                    editor.change(trying.previous);
+                                    setTrying(null);
+                                    toast.info(d.lib.putBackDone);
+                                }}
+                            >
+                                {d.lib.putBack}
+                            </button>
+                            <button
+                                type="button"
+                                className="min-h-8 rounded bg-white px-3 font-medium text-ink hover:bg-white/90"
+                                onClick={() => {
+                                    setTrying(null);
+                                    toast.success(d.lib.kept);
+                                }}
+                            >
+                                {d.lib.keep}
+                            </button>
+                        </div>
+                    )}
                     {/* The canvas's own controls: its size, and the page alone without the panels. */}
                     <div className="mb-2 hidden items-center justify-end gap-1 text-xs lg:flex">
                         <div
@@ -908,7 +933,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
 
             <AddSectionDialog
                 open={library !== null}
-                initialTab={library ?? 'sections'}
+                initialTab={library ?? 'ready'}
                 key={library ?? 'closed'}
                 onClose={() => {
                     setLibrary(null);
@@ -916,7 +941,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                 }}
                 layoutType={layout.type}
                 onAdd={addSection}
-                onTemplate={name => void applyTemplate(name)}
+                onDesign={applyDesign}
                 onLandingTemplate={id => void applyLandingTemplate(id)}
             />
             <SaveSectionDialog section={saving} onClose={() => setSaving(null)} />

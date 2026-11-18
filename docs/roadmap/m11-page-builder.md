@@ -250,9 +250,17 @@ Several people editing at once; we keep the revision-conflict dialog.
 
 ### Done when
 
-- [ ] Template counts meet the targets.
-- [ ] Each template passes the budgets and has Bangla text.
-- [ ] A global widget edit shows up on every page that uses it.
+- [x] Template counts meet the targets: 78 ready sections (60), 11 store designs (11), 8 page designs, 31 sales templates (30).
+- [x] Each template passes the budgets and has Bangla text: every store and page design costs 3.0 KB of script (budget 30), every sales template 4.7–7.7 KB (budget 45); `packages/sections/src/library.spec.ts` checks the Bangla.
+- [ ] A global widget edit shows up on every page that uses it. **Not built yet.**
+
+### As built so far (2026-11-19)
+
+The decisions are in [decisions.md](../decisions.md) (2026-11-19, "Phase 59"). In short:
+
+- **Content is code:** `packages/sections/src/library.ts` (ready sections, store designs, page designs) and `landing-templates.ts` (sales templates).
+- **Preview before applying** became "try it": the design goes onto the real page straight away, with **Keep it** and **Put my page back**.
+- **Still to build:** My library (page templates, global widgets with "unlink", favourites and sorting). Saved sections work as before.
 
 ### Not in this phase
 

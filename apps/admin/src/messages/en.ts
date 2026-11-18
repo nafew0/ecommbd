@@ -1988,6 +1988,25 @@ export const en = {
             orderButton: '“Order now” button below',
             orderButtonHint: 'Jumps to the order form, as sales pages repeat it after most sections.',
         },
+        lib: {
+            ready: 'Ready sections',
+            storeType: 'Your kind of store',
+            allStoreTypes: 'All kinds of store',
+            category: 'Category',
+            allCategories: 'All',
+            search: 'Search',
+            readyCount: (n: number) => `${n} ready sections. Each uses your store’s colours and your real products.`,
+            noneFound: 'No ready section matches. Try another kind of store or category.',
+            designs: 'Designs',
+            designsDescription:
+                'A whole page in one click. Try it on your phone, tablet and computer views first: your page comes back with one click if you don’t like it.',
+            tryDesign: 'Try this design',
+            trying: (name: string) => `You’re trying “${name}”. Look at it on phone, tablet and computer.`,
+            keep: 'Keep it',
+            putBack: 'Put my page back',
+            kept: 'Design kept. Change anything, then publish.',
+            putBackDone: 'Your page is back as it was.',
+        },
         tour: {
             welcome: {
                 title: 'This is your page editor',
