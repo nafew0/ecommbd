@@ -198,18 +198,61 @@ function salesGallery(photo: { assetId: string; preview: string }): LayoutDocume
     Object.assign(byType('benefits').settings, { look: 'grid', columns: 4 });
     // A deadline far away; its ticking digits are masked.
     Object.assign(byType('countdown').settings, { endsAt: '2099-12-31T18:00:00.000Z' });
+    // The Custom section exactly as phase 16 stored it (version 1: columns of blocks). Phase 56
+    // reads it as a tree of containers and elements; its snapshot was taken before that, so a
+    // passing comparison proves pages made before the tree still look the same.
     const custom = byType('custom');
-    custom.style.design = {
-        ...custom.style.design,
-        background: '#0b3d2e',
-        text: '#ffffff',
-        button: '#f5b301',
-        radius: 4,
-        paddingTop: 48,
-        paddingBottom: 48,
-    };
-    custom.blocks[0]!.settings.image = photo;
-    Object.assign(custom.blocks[1]!.settings, { size: 36, color: '#f5b301' });
+    sections[sections.indexOf(custom)] = {
+        uid: custom.uid,
+        type: 'custom',
+        v: 1,
+        settings: { layout: '1-1', gap: 32, verticalAlign: 'center', phoneOrder: 'normal' },
+        blocks: [
+            { uid: 'vcustom001', settings: { kind: 'image', column: '1', image: photo } },
+            {
+                uid: 'vcustom002',
+                settings: {
+                    kind: 'heading',
+                    column: '2',
+                    heading: text('Write your heading', 'আপনার শিরোনাম লিখুন'),
+                    tag: 'h2',
+                    size: 36,
+                    color: '#f5b301',
+                },
+            },
+            {
+                uid: 'vcustom003',
+                settings: {
+                    kind: 'text',
+                    column: '2',
+                    text: text(
+                        '<p>Add text, buttons, lists or anything else, and style each one.</p>',
+                        '<p>লেখা, বাটন, তালিকা বা অন্য যেকোনো কিছু যোগ করুন, আর প্রতিটি নিজের মতো সাজান।</p>',
+                    ),
+                },
+            },
+            {
+                uid: 'vcustom004',
+                settings: {
+                    kind: 'button',
+                    column: '2',
+                    label: text('Order now', 'এখনই অর্ডার করুন'),
+                    link: { type: 'anchor', anchor: 'order' },
+                    look: 'solid',
+                },
+            },
+        ],
+        style: {
+            design: {
+                background: '#0b3d2e',
+                text: '#ffffff',
+                button: '#f5b301',
+                radius: 4,
+                paddingTop: 48,
+                paddingBottom: 48,
+            },
+        },
+    } as unknown as SectionData;
     return { sections };
 }
 

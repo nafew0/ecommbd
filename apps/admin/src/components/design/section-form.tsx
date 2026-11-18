@@ -1,11 +1,9 @@
 import {
-    type Bilingual,
     DESIGN_FIELDS,
     DESIGN_GROUPS,
-    fieldShown,
     hasDesign,
     type LayoutDocument,
-    pick,
+    opensToElements,
     readDesign,
     type SectionData,
     sectionDefinition,
@@ -13,39 +11,20 @@ import {
     type SectionStyle,
     STYLE_CHOICES,
 } from '@ecommbd/sections';
-import {
-    ArrowDown,
-    ArrowUp,
-    BadgePercent,
-    ChevronDown,
-    CirclePlay,
-    Copy,
-    Heading,
-    ImageIcon,
-    LayoutPanelTop,
-    ListChecks,
-    type LucideIcon,
-    MousePointerClick,
-    MoveVertical,
-    Plus,
-    RotateCcw,
-    SeparatorHorizontal,
-    Star,
-    Tag,
-    Timer,
-    Trash2,
-    Type,
-} from 'lucide-react';
+import { ImageIcon, RotateCcw } from 'lucide-react';
 import { useId, useState } from 'react';
 import { cn } from '../../lib/cn';
 import { useI18n } from '../../lib/i18n';
+import { useToast } from '../../lib/toast';
 import { ImageUpload } from '../form/image-upload';
 import { Button } from '../ui/button';
-import { IconButton } from './icon-button';
 import { Switch } from '../ui/switch';
 import type { LayoutWarning } from './design-api';
-import { addBlock, moveBlock, removeBlock, setBlockSetting, setSetting, setStyle } from './document-ops';
+import { openUpSection, setStyle, updateSection } from './document-ops';
+import { ElementIcon } from './element-icon';
 import { FieldControl, type Language, Segmented } from './field-controls';
+import { NodeTree } from './node-tree';
+import { SmartContent } from './smart-content';
 
 /**
  * The selected section's settings (roadmap phase 15): "Content" is generated from the section's
@@ -67,6 +46,7 @@ interface SectionFormProps {
 export function SectionForm({ section, document, language, warnings, onChange, landing }: SectionFormProps) {
     const { messages: m } = useI18n();
     const d = m.design;
+    const toast = useToast();
     const [tab, setTab] = useState<'content' | 'style' | 'design'>('content');
     const definition = sectionDefinition(section.type);
     if (!definition) return null;
@@ -118,32 +98,45 @@ export function SectionForm({ section, document, language, warnings, onChange, l
             )}
             {tab === 'content' ? (
                 <div className="space-y-5 p-4">
-                    {Object.entries(definition.fields).map(([name, field]) =>
-                        fieldShown(field, section.settings) ? (
-                            <FieldControl
-                                key={`${section.uid}-${name}`}
-                                field={field}
-                                value={section.settings[name]}
-                                language={language}
-                                document={document}
-                                issue={issueFor(name)}
-                                onChange={value =>
-                                    onChange(
-                                        setSetting(document, section.uid, name, value),
-                                        `${section.uid}.${name}.${language}`,
-                                    )
-                                }
-                            />
-                        ) : null,
-                    )}
-                    {definition.blocks && (
-                        <Blocks
+                    {definition.tree ? (
+                        <NodeTree
                             section={section}
                             document={document}
                             language={language}
-                            issueFor={issueFor}
+                            warnings={warnings}
                             onChange={onChange}
                         />
+                    ) : (
+                        <>
+                            <SmartContent
+                                section={section}
+                                document={document}
+                                language={language}
+                                issueFor={issueFor}
+                                apply={(change, key) =>
+                                    onChange(updateSection(document, section.uid, change), key)
+                                }
+                            />
+                            <div className="border-t border-line pt-4">
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className="w-full justify-center"
+                                    onClick={() => {
+                                        onChange(openUpSection(document, section.uid));
+                                        toast.info(d.tree.opened);
+                                    }}
+                                >
+                                    <ElementIcon name="open" className="size-4" />
+                                    {d.tree.openUp}
+                                </Button>
+                                <p className="mt-1.5 text-xs leading-relaxed text-ink-muted">
+                                    {opensToElements(section.type)
+                                        ? d.tree.openUpHint
+                                        : d.tree.openUpLiveHint}
+                                </p>
+                            </div>
+                        </>
                     )}
                 </div>
             ) : tab === 'style' ? (
@@ -216,294 +209,6 @@ function DesignForm({
                 </Button>
             )}
         </div>
-    );
-}
-
-/** A Custom section element's own look: under "Style this element", after its content. */
-const ELEMENT_STYLE = new Set([
-    'color',
-    'background',
-    'size',
-    'sizePhone',
-    'weight',
-    'align',
-    'width',
-    'padding',
-    'radius',
-    'borderWidth',
-    'borderColor',
-    'spaceBelow',
-]);
-
-const ELEMENT_ICONS: Record<string, LucideIcon> = {
-    heading: Heading,
-    text: Type,
-    image: ImageIcon,
-    button: MousePointerClick,
-    list: ListChecks,
-    iconbox: LayoutPanelTop,
-    video: CirclePlay,
-    countdown: Timer,
-    price: Tag,
-    badge: BadgePercent,
-    stars: Star,
-    spacer: MoveVertical,
-    divider: SeparatorHorizontal,
-};
-
-/** A few words of an element's content, for its row in the list. */
-function elementSnippet(settings: Record<string, unknown>, language: Language): string {
-    for (const name of ['heading', 'label', 'text', 'items', 'body']) {
-        const value = settings[name];
-        if (value && typeof value === 'object') {
-            const text = pick(value as Bilingual, language)
-                .replace(/<[^>]*>/g, ' ')
-                .replace(/\s+/g, ' ')
-                .trim();
-            if (text) return text.slice(0, 40);
-        }
-    }
-    return '';
-}
-
-function Blocks({
-    section,
-    document,
-    language,
-    issueFor,
-    onChange,
-}: {
-    section: SectionData;
-    document: LayoutDocument;
-    language: Language;
-    issueFor(field: string, blockUid?: string): string | undefined;
-    onChange(document: LayoutDocument, key?: string): void;
-}) {
-    const { messages: m, language: ui } = useI18n();
-    const d = m.design;
-    const definition = sectionDefinition(section.type)!;
-    const blocks = definition.blocks!;
-    const [open, setOpen] = useState<string | null>(
-        section.blocks.length === 1 ? section.blocks[0]!.uid : null,
-    );
-    const label = pick(blocks.label, ui);
-    const digits = (n: number) =>
-        ui === 'bn' ? String(n).replace(/\d/g, digit => '০১২৩৪৫৬৭৮৯'[Number(digit)]!) : String(n);
-    const custom = section.type === 'custom';
-    const kindField = blocks.fields.kind;
-    const kinds = kindField?.kind === 'select' ? kindField.options : [];
-    const kindLabel = (kind: unknown) => {
-        const option = kinds.find(item => item.value === kind);
-        return option ? option.label[ui] : label;
-    };
-    const titleOf = (settings: Record<string, unknown>, index: number) => {
-        if (custom) {
-            const snippet = elementSnippet(settings, language);
-            return snippet ? `${kindLabel(settings.kind)}: ${snippet}` : kindLabel(settings.kind);
-        }
-        const value = blocks.titleField ? settings[blocks.titleField] : undefined;
-        const text = value && typeof value === 'object' ? pick(value as Bilingual, language) : '';
-        return text || `${label} ${digits(index + 1)}`;
-    };
-    const [picking, setPicking] = useState(false);
-    const addElement = (kind: string) => {
-        const added = addBlock(document, section.uid);
-        const fresh = added.sections.find(item => item.uid === section.uid)!.blocks.at(-1)!;
-        const column = (section.blocks.at(-1)?.settings.column as string | undefined) ?? '1';
-        const withKind = setBlockSetting(added, section.uid, fresh.uid, 'kind', kind);
-        onChange(setBlockSetting(withKind, section.uid, fresh.uid, 'column', column));
-        setOpen(fresh.uid);
-        setPicking(false);
-    };
-    const fieldRow = (block: SectionData['blocks'][number], name: string) => {
-        const field = blocks.fields[name]!;
-        return fieldShown(field, block.settings) ? (
-            <FieldControl
-                key={`${block.uid}-${name}`}
-                field={field}
-                value={block.settings[name]}
-                language={language}
-                document={document}
-                issue={issueFor(name, block.uid)}
-                onChange={value =>
-                    onChange(
-                        setBlockSetting(document, section.uid, block.uid, name, value),
-                        `${block.uid}.${name}.${language}`,
-                    )
-                }
-            />
-        ) : null;
-    };
-    return (
-        <section className="border-t border-line pt-5">
-            <div className="mb-3 flex items-center justify-between">
-                <h3 className="font-semibold">{label}</h3>
-                <span className="text-xs text-ink-muted">
-                    {d.blockCount(digits(section.blocks.length), digits(blocks.max))}
-                </span>
-            </div>
-            <ul className="space-y-2">
-                {section.blocks.map((block, index) => {
-                    const expanded = open === block.uid;
-                    const hasIssue = Object.keys(blocks.fields).some(name => issueFor(name, block.uid));
-                    return (
-                        <li
-                            key={block.uid}
-                            className={cn(
-                                'rounded-md border bg-surface',
-                                hasIssue
-                                    ? 'border-danger/30'
-                                    : expanded
-                                      ? 'border-accent ring-1 ring-accent/20'
-                                      : 'border-line',
-                            )}
-                        >
-                            <div className="flex items-center gap-1 pr-1">
-                                <button
-                                    type="button"
-                                    aria-expanded={expanded}
-                                    onClick={() => setOpen(expanded ? null : block.uid)}
-                                    className="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-3 text-left text-sm"
-                                >
-                                    <ChevronDown
-                                        className={cn(
-                                            'size-4 shrink-0 text-ink-muted transition-transform',
-                                            expanded && 'rotate-180',
-                                        )}
-                                        aria-hidden
-                                    />
-                                    {custom &&
-                                        (() => {
-                                            const Icon = ELEMENT_ICONS[block.settings.kind as string] ?? Type;
-                                            return (
-                                                <Icon className="size-4 shrink-0 text-accent" aria-hidden />
-                                            );
-                                        })()}
-                                    <span className="truncate font-medium">
-                                        {titleOf(block.settings, index)}
-                                    </span>
-                                </button>
-                                <IconButton
-                                    aria-label={d.moveUp}
-                                    disabled={index === 0}
-                                    onClick={() =>
-                                        onChange(moveBlock(document, section.uid, index, index - 1))
-                                    }
-                                >
-                                    <ArrowUp className="size-4" aria-hidden />
-                                </IconButton>
-                                <IconButton
-                                    aria-label={d.moveDown}
-                                    disabled={index === section.blocks.length - 1}
-                                    onClick={() =>
-                                        onChange(moveBlock(document, section.uid, index, index + 1))
-                                    }
-                                >
-                                    <ArrowDown className="size-4" aria-hidden />
-                                </IconButton>
-                                <IconButton
-                                    aria-label={d.duplicate}
-                                    disabled={section.blocks.length >= blocks.max}
-                                    onClick={() => {
-                                        const added = addBlock(document, section.uid);
-                                        const fresh = added.sections
-                                            .find(item => item.uid === section.uid)!
-                                            .blocks.at(-1)!;
-                                        let next = added;
-                                        for (const [name, value] of Object.entries(block.settings)) {
-                                            next = setBlockSetting(
-                                                next,
-                                                section.uid,
-                                                fresh.uid,
-                                                name,
-                                                structuredClone(value),
-                                            );
-                                        }
-                                        const moved = moveBlock(
-                                            next,
-                                            section.uid,
-                                            section.blocks.length,
-                                            index + 1,
-                                        );
-                                        onChange(moved);
-                                        setOpen(fresh.uid);
-                                    }}
-                                >
-                                    <Copy className="size-4" aria-hidden />
-                                </IconButton>
-                                <IconButton
-                                    tone="danger"
-                                    aria-label={d.remove}
-                                    disabled={section.blocks.length <= (blocks.min ?? 0)}
-                                    onClick={() => onChange(removeBlock(document, section.uid, block.uid))}
-                                >
-                                    <Trash2 className="size-4" aria-hidden />
-                                </IconButton>
-                            </div>
-                            {expanded && (
-                                <div className="space-y-5 border-t border-line p-3">
-                                    {Object.keys(blocks.fields)
-                                        .filter(name => !custom || !ELEMENT_STYLE.has(name))
-                                        .map(name => fieldRow(block, name))}
-                                    {custom && block.settings.kind !== 'spacer' && (
-                                        <details className="group rounded-md border border-line">
-                                            <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 px-3 text-sm font-medium text-ink">
-                                                <ChevronDown
-                                                    className="size-4 text-ink-muted transition-transform group-open:rotate-180"
-                                                    aria-hidden
-                                                />
-                                                {d.styleElement}
-                                            </summary>
-                                            <div className="space-y-5 border-t border-line p-3">
-                                                {[...ELEMENT_STYLE].map(name => fieldRow(block, name))}
-                                            </div>
-                                        </details>
-                                    )}
-                                </div>
-                            )}
-                        </li>
-                    );
-                })}
-            </ul>
-            <Button
-                variant="secondary"
-                size="sm"
-                className="mt-3 w-full justify-center"
-                disabled={section.blocks.length >= blocks.max}
-                aria-expanded={custom ? picking : undefined}
-                onClick={() => {
-                    if (custom) {
-                        setPicking(!picking);
-                        return;
-                    }
-                    const next = addBlock(document, section.uid);
-                    onChange(next);
-                    setOpen(next.sections.find(item => item.uid === section.uid)!.blocks.at(-1)!.uid);
-                }}
-            >
-                <Plus className="size-4" aria-hidden />
-                {d.addBlock(label)}
-            </Button>
-            {custom && picking && (
-                <ul className="mt-2 grid grid-cols-3 gap-1.5" aria-label={d.chooseElement}>
-                    {kinds.map(option => {
-                        const Icon = ELEMENT_ICONS[option.value] ?? Type;
-                        return (
-                            <li key={option.value}>
-                                <button
-                                    type="button"
-                                    onClick={() => addElement(option.value)}
-                                    className="flex min-h-16 w-full flex-col items-center justify-center gap-1 rounded-md border border-line bg-surface px-1 text-center text-xs font-medium text-ink hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
-                                >
-                                    <Icon className="size-5 text-accent" aria-hidden />
-                                    {option.label[ui]}
-                                </button>
-                            </li>
-                        );
-                    })}
-                </ul>
-            )}
-        </section>
     );
 }
 

@@ -1,5 +1,5 @@
 ---
-import { type DataOf, type orderForm, pick, salesColoursCss } from '@ecommbd/sections';
+import { type DataOf, type orderForm, pick, salesColoursCss, shownSmartSections } from '@ecommbd/sections';
 import { isValidIdempotencyKey } from '@ecommbd/shared/idempotency';
 import Missing from '../../../components/Missing.astro';
 import SalesOrderForm, { type SalesFormState } from '../../../components/SalesOrderForm.astro';
@@ -32,8 +32,9 @@ privatePage(Astro);
 const { lang, s, href, format } = pageContext(Astro);
 const slug = salesSlug(Astro.params.slug ?? '');
 const loaded = await loadSalesPage(Astro, slug);
-const formSection = loaded?.layout.document.sections.find(
-    (section): section is DataOf<typeof orderForm> => section.type === 'order-form' && !section.hidden,
+// The page's one order form: a section of its own, or inside a free section's live block.
+const formSection = (loaded ? shownSmartSections(loaded.layout.document) : []).find(
+    (section): section is DataOf<typeof orderForm> => section.type === 'order-form',
 );
 const pagePath = loaded ? href(salesPath(loaded.page.slug)) : href('/');
 if (loaded && (Astro.request.method !== 'POST' || !formSection)) {

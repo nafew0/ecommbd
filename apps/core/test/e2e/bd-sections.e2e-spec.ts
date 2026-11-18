@@ -1,4 +1,4 @@
-import { createSection, type LayoutDocument } from '@ecommbd/sections';
+import { createNode, createSection, type LayoutDocument, openSection } from '@ecommbd/sections';
 import { createTestEnvironment, PostgresInitializer, registerInitializer } from '@vendure/testing';
 import gql from 'graphql-tag';
 import Redis from 'ioredis';
@@ -636,6 +636,93 @@ describe('page sections (phase 15)', () => {
             }
         `);
         expect(bdTheme).toEqual(saved.settings);
+    });
+
+    it('turns a Custom section saved before the element tree into containers and elements', async () => {
+        const home = await layoutOf('home');
+        const old = {
+            uid: 'custom01',
+            type: 'custom',
+            v: 1,
+            settings: { layout: '1-1', gap: 32 },
+            blocks: [
+                {
+                    uid: 'elem0001',
+                    settings: { kind: 'heading', column: '1', heading: { bn: 'পুরনো', en: 'Old' } },
+                },
+                {
+                    uid: 'elem0002',
+                    settings: {
+                        kind: 'button',
+                        column: '2',
+                        label: { bn: 'দেখুন', en: 'See' },
+                        link: { type: 'search' },
+                        color: '#aa0000',
+                    },
+                },
+                {
+                    uid: 'elem0003',
+                    settings: {
+                        kind: 'text',
+                        column: '2',
+                        text: { bn: '', en: '<p>Hi</p><script>x</script>' },
+                    },
+                },
+            ],
+        };
+        const saved = await saveDraft(home, { sections: [old] });
+        const [section] = (saved.layout!.draft as LayoutDocument).sections;
+        expect(section).toMatchObject({ uid: 'custom01', type: 'custom', v: 2, blocks: [] });
+        const [grid] = section!.children!;
+        expect(grid!.props).toMatchObject({ mode: 'grid', columns: '1-1', gap: 32 });
+        expect(grid!.children!.map(column => column.children!.map(node => [node.uid, node.type]))).toEqual([
+            [['elem0001', 'heading']],
+            [
+                ['elem0002', 'button'],
+                ['elem0003', 'text'],
+            ],
+        ]);
+        expect(grid!.children![1]!.children![0]!.style).toEqual({ base: { color: '#aa0000' } });
+        // Rich text in an element is sanitized like a section's.
+        expect(grid!.children![1]!.children![1]!.props.text).toEqual({ bn: '', en: '<p>Hi</p>' });
+
+        // Published, the storefront gets the tree with its links resolved.
+        const published = await publish(home.id, saved.layout!.publishedVersion, true);
+        expect(published.errors).toEqual([]);
+        const { bdLayout } = await shopClient.query(SHOP_LAYOUT, { type: 'home' });
+        const shopGrid = (bdLayout.document as LayoutDocument).sections[0]!.children![0]!;
+        expect(shopGrid.children![1]!.children![0]!.props.link).toMatchObject({
+            type: 'search',
+            href: '/search/',
+        });
+    });
+
+    it('checks a free section’s tree: live blocks warn, deep nesting and broken links stop publishing', async () => {
+        const home = await layoutOf('home');
+        const grid = createSection('product-grid');
+        grid.settings.source = 'manual';
+        const opened = openSection(grid)!;
+        const live = opened.children![0]!;
+        const button = createNode('button', { link: { type: 'url', url: 'nope' } });
+        let deep = createNode('container');
+        const outer = deep;
+        for (let level = 0; level < 3; level++) {
+            const inner = createNode('container');
+            deep.children = [inner];
+            deep = inner;
+        }
+        deep.children = [createNode('divider')];
+        opened.children!.push(button, outer);
+        const saved = await saveDraft(home, { sections: [opened] });
+        expect(saved.layout!.warnings).toEqual([
+            { sectionId: opened.uid, blockId: live.uid, field: 'products', code: 'noProducts' },
+        ]);
+        const result = await publish(home.id, saved.layout!.publishedVersion, true);
+        expect(result.layout).toBeNull();
+        expect(result.errors).toEqual([
+            { sectionId: opened.uid, blockId: button.uid, field: 'link', code: 'invalidUrl' },
+            { sectionId: opened.uid, blockId: deep.uid, field: 'sections', code: 'tooDeep' },
+        ]);
     });
 
     it('needs EditStorefront', async () => {

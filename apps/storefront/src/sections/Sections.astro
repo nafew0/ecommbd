@@ -1,36 +1,11 @@
 ---
-import { pick, sectionDefinition, type SectionData } from '@ecommbd/sections';
+import { pick, sectionDefinition, type SectionData, shownSmartSections } from '@ecommbd/sections';
 import Image from '../components/Image.astro';
 import { pageContext } from '../lib/page';
 import { type LoadedLayout, type SectionPageData, visibleSections } from '../lib/sections';
-import Banner from './Banner.astro';
-import Benefits from './Benefits.astro';
-import CollectionList from './CollectionList.astro';
-import Comparison from './Comparison.astro';
-import Contact from './Contact.astro';
+import { SMART_COMPONENTS } from './components';
 import { assetOf, type SalesContext, type SectionContext } from './context';
-import Countdown from './Countdown.astro';
 import Custom from './Custom.astro';
-import DeliveryInfo from './DeliveryInfo.astro';
-import Divider from './Divider.astro';
-import Faq from './Faq.astro';
-import FeaturedProduct from './FeaturedProduct.astro';
-import Guarantee from './Guarantee.astro';
-import Hero from './Hero.astro';
-import ImageGrid from './ImageGrid.astro';
-import ImageWithText from './ImageWithText.astro';
-import Multicolumn from './Multicolumn.astro';
-import OrderForm from './OrderForm.astro';
-import PricePacks from './PricePacks.astro';
-import ProductGrid from './ProductGrid.astro';
-import RichTextSection from './RichTextSection.astro';
-import SalesHero from './SalesHero.astro';
-import Slideshow from './Slideshow.astro';
-import Specs from './Specs.astro';
-import Testimonials from './Testimonials.astro';
-import TrustBadges from './TrustBadges.astro';
-import Video from './Video.astro';
-import WhatsappCta from './WhatsappCta.astro';
 
 /**
  * A page's sections (roadmap phase 15), each in a <section> carrying its style options as classes:
@@ -52,39 +27,10 @@ const editor = Astro.locals.preview?.mode === 'editor';
 const sections = visibleSections(layout.document);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const COMPONENTS: Record<string, any> = {
-    hero: Hero,
-    slideshow: Slideshow,
-    banner: Banner,
-    'product-grid': ProductGrid,
-    'collection-list': CollectionList,
-    'featured-product': FeaturedProduct,
-    'image-with-text': ImageWithText,
-    'rich-text': RichTextSection,
-    multicolumn: Multicolumn,
-    faq: Faq,
-    'image-grid': ImageGrid,
-    video: Video,
-    testimonials: Testimonials,
-    'trust-badges': TrustBadges,
-    'delivery-info': DeliveryInfo,
-    contact: Contact,
-    'whatsapp-cta': WhatsappCta,
-    divider: Divider,
-    // Phase 16
-    'sales-hero': SalesHero,
-    benefits: Benefits,
-    specs: Specs,
-    'price-packs': PricePacks,
-    comparison: Comparison,
-    countdown: Countdown,
-    guarantee: Guarantee,
-    'order-form': OrderForm,
-    custom: Custom,
-};
+const COMPONENTS: Record<string, any> = { ...SMART_COMPONENTS, custom: Custom };
 
 // "Order now" below a section only makes sense when the page has an order form to jump to.
-const hasOrderForm = !!sales && sections.some(section => section.type === 'order-form');
+const hasOrderForm = !!sales && shownSmartSections({ sections }).some(section => section.type === 'order-form');
 
 /** A fixed countdown that has already ended, set to hide: nothing to show at all. */
 function endedAndHidden(section: SectionData) {

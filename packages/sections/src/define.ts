@@ -1,4 +1,5 @@
 import type { Fields, Values } from './fields';
+import type { NodeData } from './nodes';
 import type { SectionStyle } from './style';
 import type { Bilingual } from './text';
 
@@ -22,6 +23,8 @@ export type SectionCategory = (typeof SECTION_CATEGORIES)[number];
 export interface RawSectionData {
     settings: Record<string, unknown>;
     blocks: Array<{ uid: string; settings: Record<string, unknown> }>;
+    /** A free section's tree, as stored (not yet checked). */
+    children?: unknown;
 }
 
 /** Turns version n's stored data into version n + 1's. Must accept whatever version n could store. */
@@ -54,10 +57,14 @@ export interface SectionDefinition<Fs extends Fields = Fields, Bs extends Fields
     layouts?: readonly LayoutType[];
     /** `migrations[n]` upgrades version n's data to version n + 1. */
     migrations?: Readonly<Record<number, SectionMigration>>;
+    /** A free section (phase 56): its content is a tree of containers and elements (`children`). */
+    tree?: boolean;
     /** Settings and blocks a newly added section starts with (fields' defaults otherwise). */
     preset?: {
         settings?: Partial<Values<Fs>>;
         blocks?: ReadonlyArray<Partial<Values<Bs>>>;
+        /** A free section's starting tree. */
+        children?: () => NodeData[];
     };
 }
 
@@ -88,6 +95,8 @@ export interface SectionData<Fs extends Fields = Fields, Bs extends Fields = Fie
     settings: Values<Fs>;
     blocks: Array<BlockData<Bs>>;
     style: SectionStyle;
+    /** A free section's tree of containers and elements (phase 56). */
+    children?: NodeData[];
 }
 
 /** The typed data of a definition's sections. */

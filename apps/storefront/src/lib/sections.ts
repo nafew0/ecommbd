@@ -10,6 +10,7 @@ import {
     readDocument,
     readThemeSettings,
     type SectionData,
+    shownSmartSections,
     type ThemeSettings,
 } from '@ecommbd/sections';
 import type { AstroGlobal } from 'astro';
@@ -143,8 +144,10 @@ export interface SectionPageData {
 const SORTS = { newest: 'NEWEST', popular: 'POPULAR', collection: 'FEATURED' } as const;
 
 /** Everything the page's sections show, in a few batched Shop API calls. */
-export async function loadSectionData(Astro: AstroGlobal, sections: SectionData[]): Promise<SectionPageData> {
+export async function loadSectionData(Astro: AstroGlobal, shown: SectionData[]): Promise<SectionPageData> {
     const { lang } = Astro.locals;
+    // The ready-made sections on the page and those inside free sections' live blocks (phase 56).
+    const sections = shownSmartSections({ sections: shown });
     const clientIp = clientIpOf(Astro.request, () => Astro.clientAddress);
     const grids = sections.filter((section): section is Grid => section.type === 'product-grid');
     const featuredIds = sections

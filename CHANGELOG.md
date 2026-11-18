@@ -16,6 +16,7 @@ All notable changes to Ecomm BD. Format: [Keep a Changelog](https://keepachangel
   - **Order list:** sort by newest, oldest, highest or lowest total; choose which columns to see; a quick look at an order without leaving the list; the risk badge beside the status; rarely used statuses under "Others".
   - **Order page:** arrows to the next and previous order, and notes that only staff see.
   - **Top bar:** your store's name, and a "View store" link.
+- **Page builder: free sections with containers (phase 56).** The Custom section is now the **Free section**: put rows, columns and grids inside each other (three deep), and fill them with headings (H1–H6), text, buttons, images, icons, lists, checklists, icon boxes, badges, quotes, lines, spaces, video, a countdown, a price and stars. Start from a layout in one click: 1 to 4 columns, wide and narrow, side by side or one below another. Columns go one below another on phones unless you switch that off. Each element has its own look, and it can be different on computers, tablets and phones. Any ready-made section has **Open up to edit freely**: a hero or a banner becomes separate elements you can move and style one by one; a product grid or the order form becomes a live block you can put your own elements around. Undo closes it again. Pages you already made look the same: an old Custom section opens as a grid with your elements in it. A page can hold 400 elements.
 
 ### Changed
 

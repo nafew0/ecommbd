@@ -1,8 +1,12 @@
 import type { LayoutDocument, SectionData } from './define';
+import { COLUMN_TEMPLATES, type ColumnTemplate } from './elements';
+import { BREAKPOINTS, effectiveStyle, type NodeStyleValues } from './node-style';
+import { eachNode, type NodeData, visibleNodes } from './nodes';
 import { readableOn } from './theme';
 
 /**
- * The stylesheet for a page's Design options and Custom section elements (roadmap phase 16).
+ * The stylesheet for a page's Design options (roadmap phase 16) and the nodes of its free
+ * sections (phase 56): each container's layout and each node's own look, per device.
  * The storefront puts it in one `<style>` allowed by its hash in the page's Content Security
  * Policy. Everything in it comes from values already checked when the layout was read: hex
  * colours, numbers within limits, fixed choices and generated IDs, so nothing else can get in.
@@ -11,16 +15,18 @@ import { readableOn } from './theme';
  * uses (`--pad-top`, `--content-width`, `--heading-size`…), so they never fight its specificity.
  */
 
-const PHONE = '@media (max-width:749px)';
+const TABLET = `@media (max-width:${BREAKPOINTS.tablet}px)`;
+const PHONE = `@media (max-width:${BREAKPOINTS.phone}px)`;
 const UID = /^[a-z0-9]{4,24}$/;
 const HEX = /^#[0-9a-f]{6}$/;
 
-type Rules = { all: string[]; phone: string[] };
+type Rules = { all: string[]; tablet: string[]; phone: string[] };
 
 const px = (value: number) => `${value}px`;
 const colour = (value: unknown): value is string => typeof value === 'string' && HEX.test(value);
 const number = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
-const weight = (value: unknown): value is string => typeof value === 'string' && /^[4-8]00$/.test(value);
+const weight = (value: unknown): value is string => typeof value === 'string' && /^[3-9]00$/.test(value);
+const align = (value: unknown): value is string => value === 'start' || value === 'center' || value === 'end';
 
 /** A heading or text size that shrinks on narrow screens when no phone size is given. */
 function fluid(size: number): string {
@@ -32,7 +38,7 @@ function fluid(size: number): string {
 
 function sectionRules(section: SectionData): Rules {
     const d = section.style.design;
-    const rules: Rules = { all: [], phone: [] };
+    const rules: Rules = { all: [], tablet: [], phone: [] };
     if (colour(d.background)) rules.all.push(`--section-bg:${d.background}`, `background:${d.background}`);
     if (colour(d.text)) rules.all.push(`--section-fg:${d.text}`, `color:${d.text}`);
     if (colour(d.button)) rules.all.push(`--accent:${d.button}`, `--on-accent:${readableOn(d.button)}`);
@@ -71,57 +77,150 @@ function insideRules(section: SectionData, selector: string): string[] {
     return rules;
 }
 
-/** An element of a Custom section, by its stored settings (already checked). */
-function elementRules(settings: Record<string, unknown>): Rules {
-    const rules: Rules = { all: [], phone: [] };
-    if (colour(settings.color)) rules.all.push(`color:${settings.color}`, `--el-color:${settings.color}`);
-    if (colour(settings.background)) rules.all.push(`background:${settings.background}`);
-    if (number(settings.size)) rules.all.push(`font-size:${fluid(settings.size)}`);
-    if (number(settings.sizePhone)) rules.phone.push(`font-size:${px(settings.sizePhone)}`);
-    if (weight(settings.weight)) rules.all.push(`font-weight:${settings.weight}`);
-    if (settings.align === 'start' || settings.align === 'center' || settings.align === 'end') {
-        rules.all.push(`text-align:${settings.align}`, `--el-align:${settings.align}`);
+/** A node's own look on computers (its checked style values). */
+function baseRules(values: NodeStyleValues): string[] {
+    const rules: string[] = [];
+    if (colour(values.color)) rules.push(`color:${values.color}`, `--el-color:${values.color}`);
+    if (colour(values.background)) rules.push(`background:${values.background}`);
+    // A large size shrinks by itself on narrow screens; a tablet or phone size replaces it there.
+    if (number(values.fontSize)) {
+        const size = fluid(values.fontSize);
+        // Headings, prices and badges have sizes of their own: they take this one through `--el-size`.
+        rules.push(`font-size:${size}`, `--el-size:${size}`);
     }
-    if (number(settings.width)) {
-        rules.all.push(`width:${settings.width}%`);
+    if (weight(values.fontWeight)) rules.push(`font-weight:${values.fontWeight}`);
+    if (align(values.textAlign))
+        rules.push(`text-align:${values.textAlign}`, `--el-align:${values.textAlign}`);
+    if (number(values.width)) {
+        rules.push(`width:${values.width}%`);
         // A narrower element sits where it's aligned.
-        if (settings.align === 'center') rules.all.push('margin-inline:auto');
-        if (settings.align === 'end') rules.all.push('margin-inline:auto 0');
+        if (values.textAlign === 'center') rules.push('margin-inline:auto');
+        if (values.textAlign === 'end') rules.push('margin-inline:auto 0');
     }
-    if (number(settings.padding)) rules.all.push(`padding:${px(settings.padding)}`);
-    if (number(settings.radius))
-        rules.all.push(`border-radius:${px(settings.radius)}`, `--radius:${px(settings.radius)}`);
-    if (number(settings.borderWidth) && settings.borderWidth > 0) {
-        const line = colour(settings.borderColor) ? settings.borderColor : 'currentColor';
-        rules.all.push(`border:${px(settings.borderWidth)} solid ${line}`);
+    if (number(values.padding)) rules.push(`padding:${px(values.padding)}`);
+    if (number(values.radius))
+        rules.push(`border-radius:${px(values.radius)}`, `--radius:${px(values.radius)}`);
+    if (number(values.borderWidth) && values.borderWidth > 0) {
+        const line = colour(values.borderColor) ? values.borderColor : 'currentColor';
+        rules.push(`border:${px(values.borderWidth)} solid ${line}`);
     }
-    if (number(settings.spaceBelow)) rules.all.push(`margin-bottom:${px(settings.spaceBelow)}`);
-    // Every element holds every field (with defaults); only a space uses its height.
-    if (settings.kind === 'spacer' && number(settings.height))
-        rules.all.push(`height:${px(settings.height)}`);
+    if (number(values.marginBottom)) rules.push(`margin-bottom:${px(values.marginBottom)}`);
     return rules;
+}
+
+/** What a narrower device changes: only the values it sets itself. */
+function deviceRules(own: NodeStyleValues, effective: NodeStyleValues): string[] {
+    const rules: string[] = [];
+    if (colour(own.color)) rules.push(`color:${own.color}`, `--el-color:${own.color}`);
+    if (colour(own.background)) rules.push(`background:${own.background}`);
+    if (number(own.fontSize)) rules.push(`font-size:${px(own.fontSize)}`, `--el-size:${px(own.fontSize)}`);
+    if (weight(own.fontWeight)) rules.push(`font-weight:${own.fontWeight}`);
+    if (align(own.textAlign)) rules.push(`text-align:${own.textAlign}`, `--el-align:${own.textAlign}`);
+    if (number(own.width)) rules.push(`width:${own.width}%`);
+    if ((number(own.width) || align(own.textAlign)) && number(effective.width)) {
+        const side = effective.textAlign;
+        rules.push(`margin-inline:${side === 'center' ? 'auto' : side === 'end' ? 'auto 0' : '0'}`);
+    }
+    if (number(own.padding)) rules.push(`padding:${px(own.padding)}`);
+    if (number(own.radius)) rules.push(`border-radius:${px(own.radius)}`, `--radius:${px(own.radius)}`);
+    if (number(own.borderWidth) || colour(own.borderColor)) {
+        const width = number(effective.borderWidth) ? effective.borderWidth : 0;
+        const line = colour(effective.borderColor) ? effective.borderColor : 'currentColor';
+        rules.push(width > 0 ? `border:${px(width)} solid ${line}` : 'border:0');
+    }
+    if (number(own.marginBottom)) rules.push(`margin-bottom:${px(own.marginBottom)}`);
+    return rules;
+}
+
+const fr = (parts: readonly number[]) =>
+    parts.every(part => part === parts[0])
+        ? parts.length === 1
+            ? 'minmax(0,1fr)'
+            : `repeat(${parts.length},minmax(0,1fr))`
+        : parts.map(part => `minmax(0,${part}fr)`).join(' ');
+
+const JUSTIFY = ['center', 'end', 'space-between', 'space-around', 'space-evenly'];
+const ALIGN = ['start', 'center', 'end'];
+
+/**
+ * A container's layout, from its checked props. The theme's stylesheet makes every container a
+ * column with 16px between its children (`.box`); only what differs is written here.
+ */
+function containerRules(node: NodeData): Rules & { phoneLast: boolean } {
+    const p = node.props;
+    const rules = { all: [] as string[], tablet: [] as string[], phone: [] as string[], phoneLast: false };
+    const gap = number(p.gap) ? p.gap : 16;
+    const stack = p.stack !== false;
+    if (p.mode === 'grid') {
+        const template = COLUMN_TEMPLATES[p.columns as ColumnTemplate] ?? COLUMN_TEMPLATES['1-1'];
+        const rowGap = number(p.rowGap) ? p.rowGap : gap;
+        rules.all.push('display:grid', `gap:${px(rowGap)} ${px(gap)}`);
+        if (template.length > 1) {
+            rules.all.push(`grid-template-columns:${fr(template)}`);
+            if (stack) {
+                // Four columns are two on tablets, then one on phones.
+                if (template.length > 3) rules.tablet.push(`grid-template-columns:${fr([1, 1])}`);
+                rules.phone.push('grid-template-columns:minmax(0,1fr)');
+            }
+        }
+        if (ALIGN.includes(p.align as string)) rules.all.push(`align-items:${p.align as string}`);
+    } else {
+        const direction = typeof p.direction === 'string' ? p.direction : 'column';
+        const row = direction === 'row' || direction === 'row-reverse';
+        if (direction !== 'column') rules.all.push(`flex-direction:${direction}`);
+        if (row && p.wrap === true) rules.all.push('flex-wrap:wrap');
+        if (gap !== 16) rules.all.push(`gap:${px(gap)}`);
+        if (JUSTIFY.includes(p.justify as string)) rules.all.push(`justify-content:${p.justify as string}`);
+        if (ALIGN.includes(p.align as string)) rules.all.push(`align-items:${p.align as string}`);
+        if (row && stack) rules.phone.push('flex-direction:column');
+    }
+    rules.phoneLast = stack && p.phoneOrder === 'reverse';
+    return rules;
+}
+
+function nodeRules(node: NodeData, out: Rules) {
+    if (!UID.test(node.uid)) return;
+    const isContainer = node.type === 'container';
+    const selector = `${isContainer ? '.box' : '.el'}[data-u="${node.uid}"]`;
+    const { style } = node;
+    const rules: Rules = { all: [], tablet: [], phone: [] };
+    if (isContainer) {
+        const layout = containerRules(node);
+        rules.all.push(...layout.all);
+        rules.tablet.push(...layout.tablet);
+        rules.phone.push(...layout.phone);
+        // On phones the last column goes on top (a photo above its text).
+        if (layout.phoneLast) out.phone.push(`${selector}>:last-child{order:-1}`);
+    }
+    rules.all.push(...baseRules(style.base));
+    if (style.tablet) rules.tablet.push(...deviceRules(style.tablet, effectiveStyle(style, 'tablet')));
+    if (style.phone) rules.phone.push(...deviceRules(style.phone, effectiveStyle(style, 'phone')));
+    if (node.type === 'spacer' && number(node.props.height))
+        rules.all.push(`height:${px(node.props.height)}`);
+    write(selector, rules, out);
 }
 
 function write(selector: string, rules: Rules, out: Rules) {
     if (rules.all.length) out.all.push(`${selector}{${rules.all.join(';')}}`);
+    if (rules.tablet.length) out.tablet.push(`${selector}{${rules.tablet.join(';')}}`);
     if (rules.phone.length) out.phone.push(`${selector}{${rules.phone.join(';')}}`);
 }
 
-/** The CSS for a layout's shown sections; empty when nothing is styled. */
+/** The CSS for a layout's shown sections and their nodes; empty when nothing is styled. */
 export function layoutCss(document: LayoutDocument): string {
-    const out: Rules = { all: [], phone: [] };
+    const out: Rules = { all: [], tablet: [], phone: [] };
     for (const section of document.sections) {
         if (section.hidden || !UID.test(section.uid)) continue;
         const selector = `.section[data-u="${section.uid}"]`;
         write(selector, sectionRules(section), out);
         out.all.push(...insideRules(section, selector));
-        if (section.type !== 'custom') continue;
-        const gap = (section.settings as { gap?: unknown }).gap;
-        if (number(gap)) out.all.push(`${selector} .custom{column-gap:${px(gap)}}`);
-        for (const block of section.blocks) {
-            if (!UID.test(block.uid)) continue;
-            write(`.el[data-u="${block.uid}"]`, elementRules(block.settings as Record<string, unknown>), out);
+        for (const { node } of eachNode(visibleNodes(section.children ?? []))) {
+            if (!node.hidden) nodeRules(node, out);
         }
     }
-    return out.all.join('') + (out.phone.length ? `${PHONE}{${out.phone.join('')}}` : '');
+    return (
+        out.all.join('') +
+        (out.tablet.length ? `${TABLET}{${out.tablet.join('')}}` : '') +
+        (out.phone.length ? `${PHONE}{${out.phone.join('')}}` : '')
+    );
 }

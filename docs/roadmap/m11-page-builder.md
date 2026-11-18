@@ -71,9 +71,19 @@ These phases are planned at a higher level. **Refine each one before starting it
 
 ### Done when
 
-- [ ] All existing pages render the same after migration.
-- [ ] A 3-level nested layout renders correctly at 360, 768 and 1280 px.
-- [ ] The budgets still pass.
+- [x] All existing pages render the same after migration. The saved screenshots of every section, the old Custom section in its stored format included, pass unchanged in both themes and languages, on a phone and a computer (`npm run test:visual`).
+- [x] A 3-level nested layout renders correctly at 360, 768 and 1280 px (`tests/browser/builder.spec.ts`).
+- [x] The budgets still pass (starters 3.0–5.9 KB, sales templates 4.7–8.4 KB of JavaScript; a free section adds none).
+
+### As built (2026-11-19)
+
+The decisions are in [decisions.md](../decisions.md) (2026-11-19, "Phase 56"). In short:
+
+- **Model:** `packages/sections`: `nodes.ts` (the tree), `elements.ts` (17 elements and the container, each with a schema), `node-style.ts` (a look per device), `open.ts` (opening a section up), and the node rules in `css.ts`.
+- **Ready-made sections are not rebuilt.** They stay exactly as they were until a merchant chooses "Open up to edit freely" on one. Eleven then become plain elements; sixteen become a live block inside a container.
+- **Breakpoints** are the theme's (989 and 749 px), not 1024 and 600.
+- **Editor:** the tree is an indented list in the settings panel, with a look per device. Phase 58 moves selecting and dragging onto the canvas.
+- **Left for later phases:** a container's own per-device layout and flex sizing (57), background images on containers (57), renaming nodes (58).
 
 ### Not in this phase
 

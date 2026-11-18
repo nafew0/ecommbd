@@ -1,4 +1,5 @@
 import type { BlockData, LayoutDocument, RawSectionData, SectionData, SectionDefinition } from './define';
+import { elementDefinition } from './elements';
 import {
     defaultValue,
     type Field,
@@ -7,12 +8,16 @@ import {
     type Fields,
     type ImageValue,
     type LinkValue,
-    readValue,
     valueIssue,
 } from './fields';
+import { copyNode, eachNode, NODE_LIMITS, type NodeData, type NodeProps, readNodes } from './nodes';
+import { newId, type ReadOptions, readSettings, UID } from './read-settings';
 import { sectionDefinition } from './registry';
+import { upgradeCustomV1 } from './sections/custom';
 import { readStyle } from './style';
 import { isRecord } from './text';
+
+export { newId, type ReadOptions } from './read-settings';
 
 /**
  * Layout documents (roadmap phase 15): reading stored data whatever its age, checking it before
@@ -21,6 +26,9 @@ import { isRecord } from './text';
  * Reading never fails: an unknown section type is dropped, older data is migrated to the current
  * version, unknown fields are ignored and missing or damaged values take their defaults. So old
  * drafts always open after an upgrade.
+ *
+ * Since phase 56 a free section holds a tree of nodes (nodes.ts), and a node can be a live block
+ * holding a ready-made section. Everything here that walks a document walks those too.
  */
 
 export const LAYOUT_LIMITS = {
@@ -29,40 +37,6 @@ export const LAYOUT_LIMITS = {
     /** Above this the editor warns that the page may get slow. */
     warnAbove: 25,
 } as const;
-
-const ID = /^[a-z0-9]{4,24}$/;
-
-/** A random ID for a new section or block (letters and digits). */
-export function newId(): string {
-    const bytes = new Uint8Array(8);
-    globalThis.crypto.getRandomValues(bytes);
-    return Array.from(bytes, byte => (byte % 36).toString(36)).join('');
-}
-
-/** An `href` the core resolved: a path on the store, an anchor or a web address. */
-const SAFE_HREF = /^(\/(?!\/)|#|https?:\/\/)\S{0,500}$/;
-
-function readSettings(fields: Fields, raw: Record<string, unknown>, options: ReadOptions) {
-    const settings: Record<string, unknown> = {};
-    for (const [name, definition] of Object.entries(fields)) {
-        let value = readValue(definition, raw[name]);
-        if (definition.kind === 'richText' && options.sanitize) {
-            const text = value as { bn: string; en: string };
-            value = { bn: text.bn && options.sanitize(text.bn), en: text.en && options.sanitize(text.en) };
-        }
-        const href = isRecord(raw[name]) ? (raw[name] as { href?: unknown }).href : undefined;
-        if (
-            definition.kind === 'link' &&
-            options.keepHrefs &&
-            typeof href === 'string' &&
-            SAFE_HREF.test(href)
-        ) {
-            value = { ...(value as LinkValue), href };
-        }
-        settings[name] = value;
-    }
-    return settings;
-}
 
 function rawData(raw: Record<string, unknown>): RawSectionData {
     return {
@@ -73,6 +47,7 @@ function rawData(raw: Record<string, unknown>): RawSectionData {
                   settings: isRecord(block.settings) ? block.settings : {},
               }))
             : [],
+        children: raw.children,
     };
 }
 
@@ -90,26 +65,17 @@ export function migrateSection(
     return migrated;
 }
 
-export interface ReadOptions {
-    /** Rich text is sanitized with this (the core and storefront pass `sanitizeRichText`). */
-    sanitize?: (html: string) => string;
-    /**
-     * Keep the `href` the core added to links (the storefront, reading what the Shop API served).
-     * Stored layouts never keep one: a link's address is always worked out again from its target.
-     */
-    keepHrefs?: boolean;
-}
-
 /** One stored section, read for the current version; null for a type this release doesn't know. */
 export function readSection(raw: unknown, options: ReadOptions = {}): SectionData | null {
     if (!isRecord(raw) || typeof raw.type !== 'string') return null;
     const definition = sectionDefinition(raw.type);
     if (!definition) return null;
     const stored = typeof raw.v === 'number' && Number.isInteger(raw.v) && raw.v >= 1 ? raw.v : 1;
+    const uid = typeof raw.uid === 'string' && UID.test(raw.uid) ? raw.uid : newId();
     const data = migrateSection(definition, rawData(raw), stored);
     const blocks: BlockData[] = definition.blocks
         ? data.blocks.slice(0, definition.blocks.max).map(block => ({
-              uid: ID.test(block.uid) ? block.uid : newId(),
+              uid: UID.test(block.uid) ? block.uid : newId(),
               settings: readSettings(
                   definition.blocks!.fields,
                   block.settings,
@@ -117,8 +83,8 @@ export function readSection(raw: unknown, options: ReadOptions = {}): SectionDat
               ) as BlockData['settings'],
           }))
         : [];
-    return {
-        uid: typeof raw.uid === 'string' && ID.test(raw.uid) ? raw.uid : newId(),
+    const section: SectionData = {
+        uid,
         type: definition.type,
         v: Math.max(stored, definition.version),
         hidden: raw.hidden === true,
@@ -126,22 +92,44 @@ export function readSection(raw: unknown, options: ReadOptions = {}): SectionDat
         blocks,
         style: readStyle(raw.style, definition.style),
     };
+    if (definition.tree) {
+        // The Custom section of phase 16 kept columns of blocks: they become a grid container.
+        const children =
+            definition.type === 'custom' && stored < 2 ? upgradeCustomV1(data, uid) : data.children;
+        // A live block holds a ready-made section, never another free one.
+        section.children = readNodes(children, options, embedded => {
+            const inner = readSection(embedded, options);
+            return inner && !sectionDefinition(inner.type)?.tree ? inner : null;
+        });
+    }
+    return section;
 }
 
 /** A stored layout, read for this release (see the file's comment). IDs are made unique. */
 export function readDocument(raw: unknown, options: ReadOptions = {}): LayoutDocument {
     const list = Array.isArray(raw) ? raw : isRecord(raw) && Array.isArray(raw.sections) ? raw.sections : [];
     const seen = new Set<string>();
+    const unique = (item: { uid: string }, ids = seen) => {
+        if (ids.has(item.uid)) item.uid = newId();
+        ids.add(item.uid);
+    };
+    const uniqueBlocks = (section: SectionData) => {
+        const blockIds = new Set<string>();
+        for (const block of section.blocks) unique(block, blockIds);
+    };
     const sections: SectionData[] = [];
     for (const item of list) {
         const section = readSection(item, options);
         if (!section) continue;
-        if (seen.has(section.uid)) section.uid = newId();
-        seen.add(section.uid);
-        const blockIds = new Set<string>();
-        for (const block of section.blocks) {
-            if (blockIds.has(block.uid)) block.uid = newId();
-            blockIds.add(block.uid);
+        unique(section);
+        uniqueBlocks(section);
+        // Nodes are found by their ID alone (the stylesheet, the editor), so no two on a page share one.
+        for (const { node } of eachNode(section.children ?? [])) {
+            unique(node);
+            if (node.section) {
+                unique(node.section);
+                uniqueBlocks(node.section);
+            }
         }
         sections.push(section);
     }
@@ -162,16 +150,19 @@ export function createSection(type: string): SectionData {
         v: definition.version,
         settings: definition.preset?.settings ?? {},
         blocks,
+        children: definition.preset?.children?.(),
     })!;
 }
 
 /** A copy with new IDs (duplicate a section, or insert a saved one). */
 export function copySection(section: SectionData): SectionData {
-    return {
+    const copy: SectionData = {
         ...structuredClone(section),
         uid: newId(),
         blocks: section.blocks.map(block => ({ uid: newId(), settings: structuredClone(block.settings) })),
     };
+    if (section.children) copy.children = section.children.map(copyNode);
+    return copy;
 }
 
 /** A new block for a section, with its fields' defaults. */
@@ -185,9 +176,120 @@ export function createBlock(type: string): BlockData {
     };
 }
 
-export interface FieldVisit {
-    section: SectionData;
+/** One set of field values somewhere in a section: its settings, a block's, a node's props. */
+interface Part {
+    /** The section on the page. */
+    top: SectionData;
+    /** The section the fields belong to: `top`, or the ready-made section inside a live block. */
+    owner: SectionData;
     block?: BlockData;
+    /** The node whose props these are, or the live block holding `owner`. */
+    node?: NodeData;
+    fields: Fields;
+    settings: Record<string, unknown>;
+}
+
+type PartMap = (part: Part) => Record<string, unknown>;
+
+function mapNodeParts(nodes: readonly NodeData[], map: PartMap, top: SectionData): NodeData[] {
+    return nodes.map(node => {
+        const fields = elementDefinition(node.type)?.fields ?? {};
+        const props = map({ top, owner: top, node, fields, settings: node.props }) as NodeProps;
+        const next: NodeData = { ...node, props };
+        if (node.children) next.children = mapNodeParts(node.children, map, top);
+        if (node.section) next.section = mapSectionParts(node.section, map, top, node);
+        return next;
+    });
+}
+
+/** A section with every set of field values in it replaced by `map`'s result. */
+function mapSectionParts(
+    section: SectionData,
+    map: PartMap,
+    top: SectionData = section,
+    node?: NodeData,
+): SectionData {
+    const definition = sectionDefinition(section.type)!;
+    const next: SectionData = {
+        ...section,
+        settings: map({
+            top,
+            owner: section,
+            node,
+            fields: definition.fields,
+            settings: section.settings,
+        }) as SectionData['settings'],
+        blocks: section.blocks.map(block => ({
+            ...block,
+            settings: map({
+                top,
+                owner: section,
+                block,
+                node,
+                fields: definition.blocks?.fields ?? {},
+                settings: block.settings,
+            }) as BlockData['settings'],
+        })),
+    };
+    if (section.children) next.children = mapNodeParts(section.children, map, top);
+    return next;
+}
+
+/** A tree without its hidden nodes. */
+function shownNodes(nodes: readonly NodeData[]): NodeData[] {
+    return nodes
+        .filter(node => !node.hidden)
+        .map(node => (node.children ? { ...node, children: shownNodes(node.children) } : node));
+}
+
+/** A document without what's hidden: sections, and nodes inside free sections. */
+function shownOnly(document: LayoutDocument): LayoutDocument {
+    return {
+        sections: document.sections
+            .filter(section => !section.hidden)
+            .map(section =>
+                section.children ? { ...section, children: shownNodes(section.children) } : section,
+            ),
+    };
+}
+
+export interface SmartSection {
+    /** A ready-made section: one on the page, or one inside a live block. */
+    section: SectionData;
+    /** The section on the page it's in (itself, when it's on the page). */
+    top: SectionData;
+    /** The live block holding it, when it's inside a free section. */
+    node?: NodeData;
+}
+
+/** Every ready-made section of a document, those inside live blocks included (hidden ones too). */
+export function smartSections(document: LayoutDocument): SmartSection[] {
+    const found: SmartSection[] = [];
+    for (const top of document.sections) {
+        if (!top.children) {
+            found.push({ section: top, top });
+            continue;
+        }
+        for (const { node } of eachNode(top.children)) {
+            if (node.section) found.push({ section: node.section, top, node });
+        }
+    }
+    return found;
+}
+
+/** The ready-made sections that show (the storefront loads their products and categories). */
+export function shownSmartSections(document: LayoutDocument): SectionData[] {
+    return smartSections(shownOnly(document)).map(item => item.section);
+}
+
+export interface FieldVisit {
+    /** The section on the page. */
+    section: SectionData;
+    /** The section the field belongs to: `section`, or the ready-made one inside a live block. */
+    owner: SectionData;
+    block?: BlockData;
+    /** The node the field belongs to, or the live block holding `owner`. */
+    node?: NodeData;
     name: string;
     field: Field;
     value: unknown;
@@ -195,49 +297,63 @@ export interface FieldVisit {
     shown: boolean;
 }
 
-/** Every field value in a document, sections and blocks. */
+/** Every field value in a document: sections, blocks, nodes and the sections inside live blocks. */
 export function* eachField(document: LayoutDocument): Generator<FieldVisit> {
     for (const section of document.sections) {
-        const definition = sectionDefinition(section.type);
-        if (!definition) continue;
-        const settings = section.settings as Record<string, unknown>;
-        for (const [name, field] of Object.entries(definition.fields)) {
-            yield { section, name, field, value: settings[name], shown: fieldShown(field, settings) };
-        }
-        for (const block of section.blocks) {
-            const blockSettings = block.settings as Record<string, unknown>;
-            for (const [name, field] of Object.entries(definition.blocks?.fields ?? {})) {
-                yield {
-                    section,
-                    block,
+        if (!sectionDefinition(section.type)) continue;
+        const visits: FieldVisit[] = [];
+        mapSectionParts(section, part => {
+            for (const [name, field] of Object.entries(part.fields)) {
+                visits.push({
+                    section: part.top,
+                    owner: part.owner,
+                    block: part.block,
+                    node: part.node,
                     name,
                     field,
-                    value: blockSettings[name],
-                    shown: fieldShown(field, blockSettings),
-                };
+                    value: part.settings[name],
+                    shown: fieldShown(field, part.settings),
+                });
             }
-        }
+            return part.settings;
+        });
+        yield* visits;
     }
 }
 
-export type LayoutIssueCode = FieldIssueCode | 'duplicateAnchor' | 'tooManySections' | 'duplicateOrderForm';
+export type LayoutIssueCode =
+    | FieldIssueCode
+    | 'duplicateAnchor'
+    | 'tooManySections'
+    | 'duplicateOrderForm'
+    | 'tooDeep'
+    | 'tooManyNodes';
 
 export interface LayoutIssue {
     sectionId: string;
+    /** A block's ID, or a node's inside a free section. */
     blockId?: string;
     /** The field's name, or `style.anchor`, or `sections`. */
     field: string;
     code: LayoutIssueCode;
 }
 
-/** What stops a layout from being published: broken links and videos, repeated anchors, too many sections. */
+/**
+ * What stops a layout from being published: broken links and videos, repeated anchors, too many
+ * sections, containers nested too deep and too many elements.
+ */
 export function documentIssues(document: LayoutDocument): LayoutIssue[] {
     const issues: LayoutIssue[] = [];
     for (const visit of eachField(document)) {
         if (!visit.shown) continue;
         const code = valueIssue(visit.field, visit.value);
         if (code) {
-            issues.push({ sectionId: visit.section.uid, blockId: visit.block?.uid, field: visit.name, code });
+            issues.push({
+                sectionId: visit.section.uid,
+                blockId: visit.node?.uid ?? visit.block?.uid,
+                field: visit.name,
+                code,
+            });
         }
     }
     const anchors = new Set<string>();
@@ -249,9 +365,14 @@ export function documentIssues(document: LayoutDocument): LayoutIssue[] {
         anchors.add(section.style.anchor);
     }
     // A sales page takes orders through one form.
-    const forms = document.sections.filter(section => section.type === 'order-form');
+    const forms = smartSections(document).filter(item => item.section.type === 'order-form');
     for (const extra of forms.slice(1)) {
-        issues.push({ sectionId: extra.uid, field: 'sections', code: 'duplicateOrderForm' });
+        issues.push({
+            sectionId: extra.top.uid,
+            blockId: extra.node?.uid,
+            field: 'sections',
+            code: 'duplicateOrderForm',
+        });
     }
     if (document.sections.length > LAYOUT_LIMITS.sections) {
         issues.push({
@@ -259,6 +380,27 @@ export function documentIssues(document: LayoutDocument): LayoutIssue[] {
             field: 'sections',
             code: 'tooManySections',
         });
+    }
+    let nodes = 0;
+    let tooMany = false;
+    for (const section of document.sections) {
+        let tooDeep = false;
+        for (const { node, depth } of eachNode(section.children ?? [])) {
+            nodes++;
+            if (!tooDeep && node.type === 'container' && depth > NODE_LIMITS.depth) {
+                tooDeep = true;
+                issues.push({
+                    sectionId: section.uid,
+                    blockId: node.uid,
+                    field: 'sections',
+                    code: 'tooDeep',
+                });
+            }
+            if (!tooMany && nodes > NODE_LIMITS.nodes) {
+                tooMany = true;
+                issues.push({ sectionId: section.uid, field: 'sections', code: 'tooManyNodes' });
+            }
+        }
     }
     return issues;
 }
@@ -279,26 +421,26 @@ export function mapDocumentIds(
         }
         return value;
     };
-    const mapSettings = (fields: Fields, settings: Record<string, unknown>, section: SectionData) => {
+    const mapSettings = ({ fields, settings, top }: Part) => {
         const mapped: Record<string, unknown> = { ...settings };
         for (const [name, field] of Object.entries(fields)) {
             const value = settings[name];
             switch (field.kind) {
                 case 'image':
-                    mapped[name] = image(value as ImageValue | null, section);
+                    mapped[name] = image(value as ImageValue | null, top);
                     break;
                 case 'product':
                 case 'collection':
-                    mapped[name] = value === null ? null : visit(field.kind, value as string, section);
+                    mapped[name] = value === null ? null : visit(field.kind, value as string, top);
                     break;
                 case 'productList':
-                    mapped[name] = (value as string[]).map(id => visit('product', id, section));
+                    mapped[name] = (value as string[]).map(id => visit('product', id, top));
                     break;
                 case 'collectionList':
-                    mapped[name] = (value as string[]).map(id => visit('collection', id, section));
+                    mapped[name] = (value as string[]).map(id => visit('collection', id, top));
                     break;
                 case 'link':
-                    mapped[name] = link(value as LinkValue, section);
+                    mapped[name] = link(value as LinkValue, top);
                     break;
             }
         }
@@ -306,22 +448,9 @@ export function mapDocumentIds(
     };
     return {
         sections: document.sections.map(section => {
-            const definition = sectionDefinition(section.type)!;
+            const mapped = mapSectionParts(section, mapSettings);
             return {
-                ...section,
-                settings: mapSettings(
-                    definition.fields,
-                    section.settings,
-                    section,
-                ) as SectionData['settings'],
-                blocks: section.blocks.map(block => ({
-                    ...block,
-                    settings: mapSettings(
-                        definition.blocks?.fields ?? {},
-                        block.settings,
-                        section,
-                    ) as BlockData['settings'],
-                })),
+                ...mapped,
                 style: { ...section.style, backgroundImage: image(section.style.backgroundImage, section) },
             };
         }),
@@ -335,7 +464,7 @@ export interface DocumentRefs {
     assets: string[];
 }
 
-/** The products, categories, pages and images a document refers to (only shown sections by default). */
+/** The products, categories, pages and images a document refers to (only what shows, by default). */
 export function documentRefs(document: LayoutDocument, { includeHidden = false } = {}): DocumentRefs {
     const sets = {
         product: new Set<string>(),
@@ -343,10 +472,7 @@ export function documentRefs(document: LayoutDocument, { includeHidden = false }
         page: new Set<string>(),
         asset: new Set<string>(),
     };
-    const shown = includeHidden
-        ? document
-        : { sections: document.sections.filter(section => !section.hidden) };
-    mapDocumentIds(shown, (kind, id) => {
+    mapDocumentIds(includeHidden ? document : shownOnly(document), (kind, id) => {
         sets[kind].add(id);
         return id;
     });
@@ -360,27 +486,12 @@ export function documentRefs(document: LayoutDocument, { includeHidden = false }
 
 /** Every link in a document replaced by `map`'s result (the core adds `href`). */
 export function mapLinks(document: LayoutDocument, map: (link: LinkValue) => LinkValue): LayoutDocument {
-    const mapSettings = (fields: Fields, settings: Record<string, unknown>) =>
+    const mapSettings = ({ fields, settings }: Part) =>
         Object.fromEntries(
             Object.entries(settings).map(([name, value]) => [
                 name,
                 fields[name]?.kind === 'link' ? map(value as LinkValue) : value,
             ]),
         );
-    return {
-        sections: document.sections.map(section => {
-            const definition = sectionDefinition(section.type)!;
-            return {
-                ...section,
-                settings: mapSettings(definition.fields, section.settings) as SectionData['settings'],
-                blocks: section.blocks.map(block => ({
-                    ...block,
-                    settings: mapSettings(
-                        definition.blocks?.fields ?? {},
-                        block.settings,
-                    ) as BlockData['settings'],
-                })),
-            };
-        }),
-    };
+    return { sections: document.sections.map(section => mapSectionParts(section, mapSettings)) };
 }

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createSection, documentIssues, readDocument } from './document';
 import { fillFromProduct, LANDING_CATEGORIES, LANDING_TEMPLATES, landingTemplate } from './landing-templates';
-import { sectionDefinition } from './registry';
 import {
     checkSalesSettings,
     defaultSalesSettings,
@@ -13,67 +12,9 @@ import {
     salesColoursCss,
     toSalesSlug,
 } from './sales-page';
-import { COLUMN_LAYOUTS, ELEMENT_KINDS } from './sections/custom';
 import { readThemeSettings } from './theme';
 
 const product = { name: { bn: 'খাঁটি সরিষার তেল', en: 'Pure mustard oil' } };
-
-describe('the Custom section', () => {
-    it('offers every element kind, with columns up to four', () => {
-        const definition = sectionDefinition('custom')!;
-        const kinds = definition.blocks!.fields.kind!;
-        expect(kinds.kind === 'select' && kinds.options.map(option => option.value)).toEqual([
-            ...ELEMENT_KINDS,
-        ]);
-        expect(Math.max(...Object.values(COLUMN_LAYOUTS).map(widths => widths.length))).toBe(4);
-        expect(definition.blocks!.max).toBe(40);
-    });
-
-    it('starts with a photo beside a heading, text and an order button', () => {
-        const section = createSection('custom');
-        expect(section.blocks.map(block => [block.settings.kind, block.settings.column])).toEqual([
-            ['image', '1'],
-            ['heading', '2'],
-            ['text', '2'],
-            ['button', '2'],
-        ]);
-        expect(section.blocks[3]!.settings.link).toEqual({ type: 'anchor', anchor: 'order' });
-    });
-
-    it('keeps only checked element values', () => {
-        const document = readDocument({
-            sections: [
-                {
-                    uid: 'custom01',
-                    type: 'custom',
-                    v: 1,
-                    settings: { layout: '9-9', gap: 500 },
-                    blocks: [
-                        {
-                            uid: 'elem0001',
-                            settings: {
-                                kind: 'marquee',
-                                color: 'url(x)',
-                                size: 400,
-                                price: 99_999,
-                                script: 'x',
-                            },
-                        },
-                    ],
-                },
-            ],
-        });
-        const section = document.sections[0]!;
-        expect(section.settings).toMatchObject({ layout: '1-1', gap: 80 });
-        expect(section.blocks[0]!.settings).toMatchObject({
-            kind: 'heading',
-            color: '',
-            size: 120,
-            price: 100_000,
-        });
-        expect(section.blocks[0]!.settings).not.toHaveProperty('script');
-    });
-});
 
 describe('sales sections', () => {
     it('only lets a page have one order form', () => {

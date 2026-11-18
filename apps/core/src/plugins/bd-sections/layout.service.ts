@@ -267,15 +267,17 @@ export class LayoutService {
         });
         for (const visit of eachField(document)) {
             if (!visit.shown) continue;
+            // `owner`: the section itself, or the ready-made one inside a free section's live block.
+            const { owner } = visit;
             if (
-                visit.section.type === 'product-grid' &&
+                owner.type === 'product-grid' &&
                 visit.name === 'products' &&
                 !(visit.value as string[]).length
             ) {
-                add(visit.section, 'products', 'noProducts');
+                add(visit.section, 'products', 'noProducts', visit.node?.uid);
             }
-            if (visit.section.type === 'featured-product' && visit.name === 'product' && !visit.value) {
-                add(visit.section, 'product', 'noProduct');
+            if (owner.type === 'featured-product' && visit.name === 'product' && !visit.value) {
+                add(visit.section, 'product', 'noProduct', visit.node?.uid);
             }
         }
         if (document.sections.length > LAYOUT_LIMITS.warnAbove) {
@@ -651,11 +653,18 @@ export class LayoutService {
             .getRepository(ctx, BdSavedSection)
             .find({ order: { createdAt: 'DESC' }, take: MAX_SAVED_SECTIONS })
             .then(rows =>
-                rows.map(row => ({
-                    ...row,
-                    section: mapDocumentIds({ sections: [row.section] }, (_kind, id) => this.encode(id))
-                        .sections[0],
-                })),
+                rows.flatMap(row => {
+                    // Read for this release: one saved before the element tree gets its tree here.
+                    const section = readSection(row.section);
+                    if (!section) return [];
+                    return [
+                        {
+                            ...row,
+                            section: mapDocumentIds({ sections: [section] }, (_kind, id) => this.encode(id))
+                                .sections[0],
+                        },
+                    ];
+                }),
             );
     }
 

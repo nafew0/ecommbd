@@ -1,0 +1,162 @@
+---
+import { type Bilingual, type HeadingTag, type IconName, type ImageValue, type LinkValue, type NodeData, nodeShows } from '@ecommbd/sections';
+import Icon from '../components/Icon.astro';
+import Image from '../components/Image.astro';
+import RichText from '../components/RichText.astro';
+import { percentOff } from '../lib/sales';
+import { SMART_COMPONENTS } from './components';
+import { assetOf, hrefOf, relOf, type SectionContext, tr } from './context';
+import CountdownClock from './parts/CountdownClock.astro';
+import EditorHint from './parts/EditorHint.astro';
+import LiteVideo from './parts/LiteVideo.astro';
+
+/**
+ * One node of a free section's tree (roadmap phase 56). A container is a `.box` holding its
+ * children; anything else is an `.el`. Both carry their uid: the layout and look of each come
+ * from the page's generated stylesheet, so there is no script and no inline style here.
+ * Interactive elements (a video, a countdown) bring their own small script, loaded only by the
+ * pages that have one.
+ */
+interface Props {
+    node: NodeData;
+    context: SectionContext;
+    /** Inside a grid, an empty container still holds its column's place. */
+    inGrid?: boolean;
+}
+
+const { node, context, inGrid = false } = Astro.props;
+const { s, format, lang, editor } = context;
+const p = node.props;
+const text = (name: string) => tr((p[name] as Bilingual | undefined) ?? { bn: '', en: '' }, context);
+const lines = (value: string) =>
+    value
+        .split('\n')
+        .map(line => line.trim())
+        .filter(Boolean);
+const buttonClass = (look: unknown) => (look === 'link' ? 'text-link' : look === 'outline' ? 'button button-secondary' : 'button');
+
+const isContainer = node.type === 'container';
+const grid = isContainer && p.mode === 'grid';
+const row = isContainer && !grid && (p.direction === 'row' || p.direction === 'row-reverse');
+// Shoppers never see hidden nodes or empty containers; the editor shows empty ones to fill.
+const children = (node.children ?? []).filter(child => !child.hidden && (editor || grid || nodeShows(child)));
+const empty = isContainer && children.length === 0;
+
+const image = assetOf((p.image as ImageValue | null) ?? null, context);
+const href = p.link ? hrefOf(p.link as LinkValue, context) : null;
+const Live = node.section ? SMART_COMPONENTS[node.section.type] : undefined;
+const HeadingTag = (node.type === 'heading' && typeof p.tag === 'string' ? p.tag : 'h2') as HeadingTag;
+/** The class each element had as a Custom section block (phase 16), so its styles still apply. */
+const CLASSES: Record<string, string> = { 'icon-list': 'list', 'icon-box': 'iconbox', list: 'bullets' };
+const kind = CLASSES[node.type] ?? node.type;
+const price = typeof p.price === 'number' ? p.price : null;
+const oldPrice = typeof p.oldPrice === 'number' ? p.oldPrice : null;
+const rating = typeof p.rating === 'number' ? p.rating : 0;
+const editorName = editor ? node.type : undefined;
+---
+
+{
+    isContainer ? (
+        (!empty || editor || inGrid) && (
+            <div class:list={['box', { 'box-row': row, 'box-empty': empty && editor }]} data-u={node.uid} data-node={editorName}>
+                {children.map(child => (
+                    <Astro.self node={child} context={context} inGrid={grid} />
+                ))}
+            </div>
+        )
+    ) : (
+        <div class:list={['el', `el-${kind}`]} data-u={node.uid} data-node={editorName}>
+            {node.type === 'heading' && text('text') && <HeadingTag class="el-heading">{text('text')}</HeadingTag>}
+            {node.type === 'text' && <RichText content={text('text')} />}
+            {node.type === 'image' &&
+                (image ? (
+                    href ? (
+                        <a href={href} rel={relOf(href)}>
+                            <Image asset={image} alt={text('alt')} lang={lang} sizes="(min-width: 990px) 50vw, 100vw" preferredWidth={960} />
+                        </a>
+                    ) : (
+                        <Image asset={image} alt={text('alt')} lang={lang} sizes="(min-width: 990px) 50vw, 100vw" preferredWidth={960} />
+                    )
+                ) : (
+                    editor && <EditorHint text={s.editorAddImage} />
+                ))}
+            {node.type === 'button' && text('label') && href && (
+                <a class={buttonClass(p.look)} href={href} rel={relOf(href)} data-order-link={href === '#order' ? '' : undefined}>
+                    {text('label')}
+                </a>
+            )}
+            {node.type === 'icon' && (
+                <span class="el-icon-mark">
+                    <Icon name={p.icon as IconName} size={Number(p.size) || 32} />
+                </span>
+            )}
+            {node.type === 'icon-list' && (
+                <ul class="el-list">
+                    {lines(text('items')).map(item => (
+                        <li>
+                            <Icon name={p.icon as IconName} size={18} />
+                            <span>{item}</span>
+                        </li>
+                    ))}
+                </ul>
+            )}
+            {node.type === 'list' &&
+                (p.marker === 'number' ? (
+                    <ol>
+                        {lines(text('items')).map(item => (
+                            <li>{item}</li>
+                        ))}
+                    </ol>
+                ) : (
+                    <ul>
+                        {lines(text('items')).map(item => (
+                            <li>{item}</li>
+                        ))}
+                    </ul>
+                ))}
+            {node.type === 'icon-box' && (
+                <div class="el-iconbox">
+                    <span class="el-iconbox-icon">
+                        {image ? <Image asset={image} alt="" lang={lang} sizes="64px" preferredWidth={160} /> : <Icon name={p.icon as IconName} size={28} />}
+                    </span>
+                    {text('heading') && <h3>{text('heading')}</h3>}
+                    {text('body') && <p>{text('body')}</p>}
+                </div>
+            )}
+            {node.type === 'quote' && text('text') && (
+                <blockquote>
+                    <p>{text('text')}</p>
+                    {text('author') && <footer>{text('author')}</footer>}
+                </blockquote>
+            )}
+            {node.type === 'video' && <LiteVideo context={context} url={String(p.video ?? '')} title={text('title')} />}
+            {node.type === 'countdown' &&
+                (p.endsAt ? (
+                    <CountdownClock context={context} uid={node.uid} endsAt={String(p.endsAt)} expired="message" expiredText={s.offerEnded} />
+                ) : (
+                    editor && <EditorHint text={s.editorSetDeadline} icon="clock" />
+                ))}
+            {node.type === 'price' && price != null && (
+                <p class="el-price">
+                    <span class="price-now">{format.price(price)}</span>
+                    {oldPrice != null && oldPrice > price && (
+                        <>
+                            <s class="price-old">{format.price(oldPrice)}</s>
+                            <span class="el-price-off">{s.percentOff(format.number(percentOff(price, oldPrice)))}</span>
+                        </>
+                    )}
+                </p>
+            )}
+            {node.type === 'badge' && text('label') && <span class="el-badge">{text('label')}</span>}
+            {node.type === 'stars' && (
+                <span class="el-stars" role="img" aria-label={s.stars(rating)}>
+                    {[1, 2, 3, 4, 5].map(n => (
+                        <Icon name={n <= rating ? 'star-filled' : 'star'} size={20} />
+                    ))}
+                </span>
+            )}
+            {node.type === 'divider' && <hr class="el-divider" />}
+            {node.type === 'live' && Live && node.section && <Live section={node.section} context={{ ...context, first: false, heading: 'h2' }} />}
+        </div>
+    )
+}

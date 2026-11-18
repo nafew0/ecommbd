@@ -1,5 +1,5 @@
 ---
-import { pick, salesColoursCss, type SectionData } from '@ecommbd/sections';
+import { pick, salesColoursCss, type SectionData, shownSmartSections } from '@ecommbd/sections';
 import Missing from '../../../components/Missing.astro';
 import Layout from '../../../layouts/Layout.astro';
 import { imageAttributes, largestImageUrl } from '../../../lib/images';
@@ -55,7 +55,9 @@ const title = (settings && pick(settings.seo.title, lang)) || page?.title || '';
 const heroText = hero ? pick((hero.settings as { text: { bn: string; en: string } }).text, lang) : '';
 const description = settings ? metaDescription(pick(settings.seo.description, lang), heroText || page?.product.name || '') : '';
 // FAQ sections as FAQPage structured data.
-const questions = shown
+// The ready-made sections on the page, those inside free sections' live blocks included.
+const smart = shownSmartSections({ sections: shown });
+const questions = smart
     .filter(section => section.type === 'faq')
     .flatMap(section => section.blocks)
     .map(block => block.settings as { question: { bn: string; en: string }; answer: { bn: string; en: string } })
@@ -81,7 +83,7 @@ const startPrice = page
 const metaVariant = page ? startingVariant(page.product.variants) : undefined;
 const metaEvents = metaVariant && startPrice != null ? [viewContentEvent(metaVariant.id, startPrice)] : [];
 const sticky =
-    settings?.stickyBar && page?.available && startPrice != null && shown.some(section => section.type === 'order-form')
+    settings?.stickyBar && page?.available && startPrice != null && smart.some(section => section.type === 'order-form')
         ? format.price(startPrice)
         : null;
 ---

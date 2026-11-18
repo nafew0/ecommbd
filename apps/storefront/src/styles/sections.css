@@ -2048,67 +2048,34 @@ body[data-preview='editor'] [data-section].preview-selected::before {
     font-weight: 600;
 }
 
-/* Custom section: columns of elements. */
-.custom {
+/*
+ * Free section (phase 56): a tree of containers (.box) and elements (.el). Every container
+ * stacks its children with 16px between them; a row, a grid, other gaps and alignment come from
+ * the page's generated stylesheet, by each node's uid.
+ */
+.tree {
     display: grid;
-    gap: 24px 32px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
 }
 
-@media (max-width: 749px) {
-    .custom-reverse > .custom-column:last-child {
-        order: -1;
-    }
-}
-
-@media (min-width: 750px) {
-    .custom[data-columns='1-1'] {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .custom[data-columns='1-2'] {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-    }
-
-    .custom[data-columns='2-1'] {
-        grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-    }
-
-    .custom[data-columns='1-1-1'] {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .custom[data-columns='1-2-1'] {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
-    }
-
-    .custom[data-columns='1-1-1-1'] {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
-@media (min-width: 990px) {
-    .custom[data-columns='1-1-1-1'] {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-}
-
-.valign-start {
-    align-items: start;
-}
-
-.valign-center {
-    align-items: center;
-}
-
-.valign-end {
-    align-items: end;
-}
-
-.custom-column {
-    display: grid;
-    align-content: start;
+.box {
+    display: flex;
+    flex-direction: column;
     gap: 16px;
     min-width: 0;
+}
+
+/* Containers side by side in a row share its width. */
+.box-row > .box {
+    flex: 1 1 0;
+}
+
+/* Only in the page editor's preview: an empty container shows where things can go. */
+.box-empty {
+    min-height: 72px;
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius);
 }
 
 .el {
@@ -2128,12 +2095,24 @@ body[data-preview='editor'] [data-section].preview-selected::before {
     line-height: 1.2;
 }
 
+h1.el-heading {
+    font-size: var(--el-size, clamp(1.875rem, 1.4rem + 2.2vw, 3rem));
+}
+
 h2.el-heading {
-    font-size: clamp(1.5rem, 1.2rem + 1.4vw, 2.25rem);
+    font-size: var(--el-size, clamp(1.5rem, 1.2rem + 1.4vw, 2.25rem));
 }
 
 h3.el-heading {
-    font-size: 1.25rem;
+    font-size: var(--el-size, 1.25rem);
+}
+
+h4.el-heading {
+    font-size: var(--el-size, 1.125rem);
+}
+
+:is(h5, h6).el-heading {
+    font-size: var(--el-size, 1rem);
 }
 
 p.el-heading {
@@ -2191,7 +2170,7 @@ p.el-heading {
     align-items: baseline;
     gap: 6px 10px;
     margin: 0;
-    font-size: 1.75rem;
+    font-size: var(--el-size, 1.75rem);
     font-weight: 700;
     color: var(--el-color, var(--sale));
 }
@@ -2213,7 +2192,7 @@ p.el-heading {
     background: var(--sale);
     color: var(--on-sale);
     font-weight: 600;
-    font-size: 0.875rem;
+    font-size: var(--el-size, 0.875rem);
 }
 
 .el-stars {
@@ -2230,6 +2209,42 @@ p.el-heading {
 
 .el-spacer {
     height: 32px;
+}
+
+.el-icon-mark {
+    display: inline-flex;
+    color: var(--el-color, var(--accent));
+}
+
+.el-bullets :is(ul, ol) {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding-inline-start: 1.25em;
+}
+
+.el-quote blockquote {
+    margin: 0;
+    padding-inline-start: 16px;
+    border-inline-start: 2px solid var(--line-strong);
+}
+
+.el-quote p {
+    margin: 0;
+    font-size: 1.125rem;
+    line-height: 1.5;
+}
+
+.el-quote footer {
+    margin-top: 8px;
+    font-size: 0.9rem;
+    color: var(--text-soft);
+}
+
+/* A ready-made section inside a container fills it: the container already keeps the page's margins. */
+.el-live .section-inner {
+    max-width: none;
+    padding-inline: 0;
 }
 
 /* The order form section */
