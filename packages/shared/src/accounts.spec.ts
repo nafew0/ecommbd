@@ -214,6 +214,29 @@ describe('profit and loss', () => {
         expect(both.notes).toEqual([]);
     });
 
+    it('keeps the courier, COD and gateway charges when an order comes back', () => {
+        const report = profitAndLoss({
+            days: ['2026-10-15', '2026-11-05'],
+            movements: [sale({ deliveryAndCod: 8000, gatewayFee: 500, returnDate: '2026-11-05' })],
+            expenses: [],
+        });
+        expect(report.sales.amount).toBe(0);
+        expect(report.productCost.amount).toBe(0);
+        expect(report.deliveryAndCod.amount).toBe(8000);
+        expect(report.gatewayFees.amount).toBe(500);
+        expect(report.profit.amount).toBe(-8500);
+    });
+
+    it('counts an order that came back undelivered as its charges only', () => {
+        const report = profitAndLoss({
+            days,
+            movements: [sale({ saleDate: '2026-10-20', sales: 0, productCost: 0, deliveryAndCod: 7000 })],
+            expenses: [],
+        });
+        expect(report.sales.amount).toBe(0);
+        expect(report.profit.amount).toBe(-7000);
+    });
+
     it('keeps an unknown cost unknown, never zero, and sorts extra heads after the defaults', () => {
         const report = profitAndLoss({
             days,

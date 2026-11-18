@@ -301,11 +301,40 @@ describe('profit and loss for a month', () => {
         expect(june.notes).toEqual([]);
 
         const september = await report('2026-09-01', '2026-09-30');
-        expect(september.profit).toEqual({ known: true, amount: -(sale.profit.amount ?? 0) });
-        expect(september.sales.amount).toBe(-(sale.sellingPrice.amount - sale.discount.amount + sale.deliveryCharged.amount + sale.codFeeCharged.amount));
+        const sold =
+            sale.sellingPrice.amount - sale.discount.amount + sale.deliveryCharged.amount + sale.codFeeCharged.amount;
+        // The return gives back the sale and the goods; the courier and COD charges were still paid.
+        expect(september.sales.amount).toBe(-sold);
+        expect(september.productCost.amount).toBe(-(sale.productCost.amount ?? 0));
+        expect(september.profit).toEqual({ known: true, amount: -(sold - (sale.productCost.amount ?? 0)) });
         expect(september.notes).toEqual([
             { orderCode: row.code, saleDate: '2026-06-10', returnDate: '2026-09-04' },
         ]);
+    });
+
+    it('counts the courier charge of an order that came back undelivered, on the return day', async () => {
+        const settings = (courierFlat: number) =>
+            adminClient.query(COST_SETTINGS, {
+                input: { courierFlat, codCharge: { type: 'flat', flat: 0, percent: null }, gatewayFeePercent: 0 },
+            });
+        await settings(tk(70));
+        try {
+            const placed = await place();
+            await step(placed.id, 'confirmBdOrder');
+            await step(placed.id, 'packBdOrder');
+            await step(placed.id, 'markBdOrderShipped');
+            await step(placed.id, 'markBdOrderReturned');
+            const row = await rawOrder(placed.id);
+            await backdate(row.rawId, 'Returned', '2026-04-12 06:00:00');
+
+            const april = await report('2026-04-01', '2026-04-30');
+            expect(april.sales).toEqual({ known: true, amount: 0 });
+            expect(april.productCost).toEqual({ known: true, amount: 0 });
+            expect(april.deliveryAndCod).toEqual({ known: true, amount: tk(70) });
+            expect(april.profit).toEqual({ known: true, amount: -tk(70) });
+        } finally {
+            await settings(0);
+        }
     });
 
     it('shows unknown, never ৳0, when a delivered order has no cost', async () => {

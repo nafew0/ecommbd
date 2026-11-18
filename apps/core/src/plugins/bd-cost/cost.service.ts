@@ -74,6 +74,33 @@ export class CostService {
         return orderIds.map(id => byId.get(String(id))).filter((view): view is OrderProfitView => !!view);
     }
 
+    /**
+     * `recognized` for many orders, loaded 100 at a time. A null mode uses the order's state now
+     * (an order that came back undelivered). Orders that are gone or never placed are left out.
+     */
+    async recognizedMany(
+        ctx: RequestContext,
+        items: Array<{ orderId: ID; mode: 'delivered' | 'partial' | null }>,
+    ): Promise<Map<string, OrderProfitView>> {
+        const views = new Map<string, OrderProfitView>();
+        for (let start = 0; start < items.length; start += PROFIT_BATCH) {
+            const chunk = items.slice(start, start + PROFIT_BATCH);
+            const orders = await this.load(
+                ctx,
+                chunk.map(item => item.orderId),
+            );
+            const byId = new Map(orders.map(order => [String(order.id), order]));
+            const done = await Promise.all(
+                chunk.map(item => {
+                    const order = byId.get(String(item.orderId));
+                    return order?.orderPlacedAt ? this.one(ctx, order, item.mode ?? undefined) : null;
+                }),
+            );
+            for (const view of done) if (view) views.set(String(view.orderId), view);
+        }
+        return views;
+    }
+
     private load(ctx: RequestContext, ids: ID[]): Promise<Order[]> {
         if (!ids.length) return Promise.resolve([]);
         return this.connection.getRepository(ctx, Order).find({

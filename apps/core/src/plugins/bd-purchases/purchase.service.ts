@@ -292,7 +292,8 @@ export class PurchaseService {
         const adds = new Map(parsed.data.lines.map(line => [String(this.raw(line.lineId)), line.quantity]));
         if (![...adds.values()].some(quantity => quantity > 0)) fail('nothing');
         const purchase = await this.connection.withTransaction(ctx, async tx => {
-            const row = await this.repo(tx, BdPurchase).findOne({ where: { id } });
+            // Locked so two clicks at once can't both read the same received count.
+            const row = await this.repo(tx, BdPurchase).findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });
             if (!row) fail('not-found');
             if (row.status === 'draft') fail('not-ordered');
             const lines = await this.lines(tx, [row.id]);
@@ -352,7 +353,7 @@ export class PurchaseService {
         const qtyOf = new Map(parsed.data.lines.map(line => [String(this.raw(line.lineId)), line.quantity]));
         if (![...qtyOf.values()].some(quantity => quantity > 0)) fail('nothing');
         const purchase = await this.connection.withTransaction(ctx, async tx => {
-            const row = await this.repo(tx, BdPurchase).findOne({ where: { id } });
+            const row = await this.repo(tx, BdPurchase).findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });
             if (!row) fail('not-found');
             const lines = await this.lines(tx, [row.id]);
             const method = (await this.settings.get(tx)).costMethod;

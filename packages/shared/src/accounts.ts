@@ -126,9 +126,12 @@ export function previousDhakaRange(dateFrom: string, dateTo: string): { dateFrom
 
 export interface PlMovement {
     orderCode: string;
-    /** Dhaka day the sale was recognized (first delivery). */
+    /**
+     * Dhaka day the sale was recognized (first delivery). For an order that came back without
+     * being delivered, the return day: sales and product cost are 0 and only the charges count.
+     */
     saleDate: string;
-    /** Dhaka day of a later return, if the order was returned after that sale. */
+    /** Dhaka day of a later return, if the order was returned after that sale. It reverses sales and product cost only. */
     returnDate: string | null;
     /** What the customer paid for the delivered goods. Null when any piece is unknown. */
     sales: number | null;
@@ -283,6 +286,12 @@ function fresh(): Record<Piece, Acc> {
     };
 }
 
+/**
+ * A return gives back the sale and puts the goods back on the shelf, so it reverses sales and
+ * product cost. The courier, COD and gateway charges were still paid: they stay.
+ */
+const REVERSED_ON_RETURN: readonly Piece[] = ['sales', 'productCost'];
+
 function apply(target: Record<Piece, Acc>, movement: PlMovement, sign: 1 | -1) {
     const values: Record<Piece, number | null> = {
         sales: movement.sales,
@@ -290,7 +299,7 @@ function apply(target: Record<Piece, Acc>, movement: PlMovement, sign: 1 | -1) {
         deliveryAndCod: movement.deliveryAndCod,
         gatewayFee: movement.gatewayFee,
     };
-    for (const key of PIECES) {
+    for (const key of sign === 1 ? PIECES : REVERSED_ON_RETURN) {
         const value = values[key];
         if (value == null) target[key].known = false;
         else target[key].amount += sign * value;

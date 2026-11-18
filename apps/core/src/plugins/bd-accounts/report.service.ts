@@ -48,7 +48,9 @@ interface HistoryEvent {
 /**
  * Profit and loss for a Dhaka date range (phase 53). Phase 41's report list is not built,
  * so this report is its own screen. The numbers are phase 51's `orderProfit`, recognized on
- * the delivery day and reversed on a later return day. Transfers are not included.
+ * the delivery day. A later return takes back the sale and the product cost on its own day; the
+ * charges stay. An order that came back undelivered counts its charges on the return day.
+ * Transfers are not included.
  */
 @Injectable()
 export class ReportService {
@@ -94,46 +96,78 @@ export class ReportService {
     }
 
     private async movements(ctx: RequestContext, windowFrom: string, windowTo: string): Promise<PlMovement[]> {
-        const grouped = await this.history();
-        const wanted = [...grouped.values()].filter(events => {
+        const grouped = await this.history(windowFrom, windowTo);
+        type Wanted = { orderId: string; saleDay: string; returnDay: string | null; mode: 'delivered' | 'partial' | null };
+        const wanted: Wanted[] = [];
+        for (const events of grouped.values()) {
             const sale = recognize(events);
-            if (!sale) return false;
-            const back = events.find(event => event.to === 'Returned' && event.at > sale.at);
-            return inWindow(sale.day, windowFrom, windowTo) || (back != null && inWindow(back.day, windowFrom, windowTo));
-        });
-        const movements: PlMovement[] = [];
-        if (!wanted.length) return movements;
+            if (sale) {
+                const back = events.find(event => event.to === 'Returned' && event.at > sale.at);
+                if (!inWindow(sale.day, windowFrom, windowTo) && !(back && inWindow(back.day, windowFrom, windowTo))) {
+                    continue;
+                }
+                wanted.push({
+                    orderId: sale.orderId,
+                    saleDay: sale.day,
+                    returnDay: back?.day ?? null,
+                    mode: events.some(event => event.to === 'Delivered') ? 'delivered' : 'partial',
+                });
+                continue;
+            }
+            // Came back without being delivered: nothing was sold, but the courier was still paid.
+            const back = events.find(event => event.to === 'Returned');
+            if (back && inWindow(back.day, windowFrom, windowTo)) {
+                wanted.push({ orderId: back.orderId, saleDay: back.day, returnDay: null, mode: null });
+            }
+        }
+        if (!wanted.length) return [];
+        const profits = await this.costs.recognizedMany(
+            ctx,
+            wanted.map(item => ({ orderId: item.orderId, mode: item.mode })),
+        );
         const orders = await this.connection.getRepository(ctx, Order).find({
-            where: { id: In(wanted.map(events => events[0]!.orderId)) },
+            where: { id: In(wanted.map(item => item.orderId)) },
+            select: { id: true, code: true },
         });
         const codes = new Map(orders.map(order => [String(order.id), order.code]));
-        for (const events of wanted) {
-            const sale = recognize(events);
-            if (!sale) continue;
-            if (!codes.has(sale.orderId)) continue;
-            const back = events.find(event => event.to === 'Returned' && event.at > sale.at);
-            const mode = events.some(event => event.to === 'Delivered') ? 'delivered' : 'partial';
-            const profit = await this.costs.recognized(ctx, sale.orderId, mode);
+        const movements: PlMovement[] = [];
+        for (const item of wanted) {
+            const profit = profits.get(item.orderId);
+            if (!profit) continue;
             movements.push(
                 plMovement(profit, {
-                    orderCode: codes.get(sale.orderId) ?? sale.orderId,
-                    saleDate: sale.day,
-                    returnDate: back?.day ?? null,
+                    orderCode: codes.get(item.orderId) ?? item.orderId,
+                    saleDate: item.saleDay,
+                    returnDate: item.returnDay,
                 }),
             );
         }
         return movements;
     }
 
-    /** Delivery and return transitions. The payload key `to` is what the order e2e reads. */
-    private async history(): Promise<Map<string, HistoryEvent[]>> {
+    /**
+     * Delivery and return transitions of the orders that had one inside the window, with all of
+     * their earlier ones too (a return in the window needs the delivery day before it).
+     * The payload key `to` is what the order e2e reads.
+     */
+    private async history(windowFrom: string, windowTo: string): Promise<Map<string, HistoryEvent[]>> {
+        const from = dhakaDayStart(windowFrom);
+        const until = endOfDhakaDay(dhakaDayStart(windowTo));
         const rows: Array<{ orderId: string | number; at: Date | string; data: unknown }> = await this.connection
             .rawConnection.query(
                 `SELECT h."orderId" AS "orderId", h."createdAt" AS "at", h.data AS "data"
                  FROM history_entry h
                  WHERE h.discriminator = 'OrderHistoryEntry'
                    AND h.type = 'ORDER_STATE_TRANSITION'
-                   AND (h.data::jsonb->>'to') IN ('Delivered', 'PartiallyDelivered', 'Returned')`,
+                   AND (h.data::jsonb->>'to') IN ('Delivered', 'PartiallyDelivered', 'Returned')
+                   AND h."orderId" IN (
+                       SELECT w."orderId" FROM history_entry w
+                       WHERE w.discriminator = 'OrderHistoryEntry'
+                         AND w.type = 'ORDER_STATE_TRANSITION'
+                         AND (w.data::jsonb->>'to') IN ('Delivered', 'PartiallyDelivered', 'Returned')
+                         AND w."createdAt" >= $1 AND w."createdAt" < $2
+                   )`,
+                [from, until],
             );
         const grouped = new Map<string, HistoryEvent[]>();
         for (const row of rows) {
