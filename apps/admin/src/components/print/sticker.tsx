@@ -1,5 +1,5 @@
 import { STICKER_GRID, STICKER_PAGES, type StickerSize } from '@ecommbd/shared/print-settings';
-import type { PrintOrder } from '../../lib/print';
+import { type PrintOrder, quantityWithUnit } from '../../lib/print';
 import { Barcode } from './barcode';
 import { FitText } from './fit-text';
 import { Page, ReprintStamp, storeName, type TemplateProps } from './common';
@@ -63,7 +63,7 @@ function Sticker({
     const style = STYLE[size];
     const sheet = size.startsWith('a4');
     const show = settings.sticker;
-    const items = order.lines.map(line => `${line.name} × ${format.number(line.quantity)}`).join(', ');
+    const items = order.lines.map(line => `${line.name} × ${quantityWithUnit(format.number(line.quantity), line.unit)}`).join(', ');
     return (
         <article
             data-sticker={order.orderNumber}

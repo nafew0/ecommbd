@@ -6,6 +6,7 @@ import {
     VARIATION_TYPES,
     type VariationType,
 } from '@ecommbd/shared/catalog';
+import { allUnits, PRODUCT_STATUSES, type ProductSettings, type ProductStatus } from '@ecommbd/shared/product-settings';
 import { banglaToAsciiDigits } from '@ecommbd/shared/text';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, X } from 'lucide-react';
@@ -34,6 +35,8 @@ const SAVE = `
     }
 `;
 const CATEGORIES = `{ bdCategories { id name { bn en } } }`;
+const BRANDS = `{ bdBrands { id name { bn en } } }`;
+const PRODUCT_SETTINGS = `{ bdProductSettings }`;
 const PREVIEWS = `
     query Previews($ids: [String!]!) {
         assets(options: { filter: { id: { in: $ids } }, take: 100 }) { items { id preview } }
@@ -87,6 +90,17 @@ export function ProductFormPage() {
         queryKey: ['categories'],
         queryFn: () => adminApi<{ bdCategories: Category[] }>(CATEGORIES).then(r => r.bdCategories),
     });
+    const brands = useQuery({
+        queryKey: ['brands'],
+        queryFn: () => adminApi<{ bdBrands: Category[] }>(BRANDS).then(r => r.bdBrands),
+    });
+    const productSettings = useQuery({
+        queryKey: ['productSettings'],
+        queryFn: () =>
+            adminApi<{ bdProductSettings: ProductSettings }>(PRODUCT_SETTINGS).then(r => r.bdProductSettings),
+    });
+    const units = allUnits(productSettings.data ?? { customUnits: [] });
+    const shippingClasses = productSettings.data?.shippingClasses ?? [];
     const [draft, setDraftState] = useState<ProductForm | null>(isNew ? emptyProductForm() : null);
     // What was last loaded or saved: the save bar shows when the form differs from it.
     const [baseline, setBaseline] = useState(() => JSON.stringify(draft));
@@ -176,7 +190,10 @@ export function ProductFormPage() {
             <PageHeader
                 back={{ to: '/products', label: f.back }}
                 title={isNew ? f.newTitle : draft.name[language] || draft.name.bn || draft.name.en}
-                badges={!isNew && !draft.enabled && <Badge>{f.hidden}</Badge>}
+                badges={
+                    !isNew &&
+                    draft.status !== 'published' && <Badge>{f.statuses[draft.status as ProductStatus]}</Badge>
+                }
             />
             {!canEdit && (
                 <div className="mb-4">
@@ -465,7 +482,10 @@ export function ProductFormPage() {
                                 forceOpen={
                                     draft.delivery.free ||
                                     ownDelivery ||
-                                    Object.keys(errors).some(key => key.startsWith('delivery.'))
+                                    !!draft.shippingClass ||
+                                    Object.keys(errors).some(
+                                        key => key.startsWith('delivery.') || key === 'shippingClass',
+                                    )
                                 }
                             >
                                 <p className="text-[13px] text-ink-muted">{f.deliveryHint}</p>
@@ -538,6 +558,30 @@ export function ProductFormPage() {
                                             )}
                                         </Field>
                                     </div>
+                                )}
+                                {(shippingClasses.length > 0 || draft.shippingClass) && (
+                                    <Field
+                                        label={f.shippingClass}
+                                        hint={f.shippingClassHint}
+                                        error={errors.shippingClass}
+                                        optional
+                                    >
+                                        {control => (
+                                            <Select
+                                                {...control}
+                                                value={draft.shippingClass ?? ''}
+                                                disabled={!canEdit}
+                                                onChange={e => set({ shippingClass: e.target.value || null })}
+                                            >
+                                                <option value="">{f.noShippingClass}</option>
+                                                {shippingClasses.map(item => (
+                                                    <option key={item.code} value={item.code}>
+                                                        {item.name[language] || item.name.bn || item.name.en}
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                        )}
+                                    </Field>
                                 )}
                             </CollapsibleCard>
 
@@ -883,7 +927,7 @@ export function ProductFormPage() {
                             <CollapsibleCard
                                 title={f.more}
                                 forceOpen={Object.keys(errors).some(
-                                    key => key.startsWith('seo.') || key.endsWith('weightGrams'),
+                                    key => key.startsWith('seo.') || /(weightGrams|lengthCm|widthCm|heightCm)$/.test(key),
                                 )}
                             >
                                 <div className="space-y-4">
@@ -936,6 +980,28 @@ export function ProductFormPage() {
                                                     />
                                                 )}
                                             </Field>
+                                            <div className="grid grid-cols-3 gap-3 sm:col-span-3">
+                                                {(['lengthCm', 'widthCm', 'heightCm'] as const).map(side => (
+                                                    <Field
+                                                        key={side}
+                                                        label={f.size[side]}
+                                                        error={errors[`variants.${index}.${side}`]}
+                                                        optional
+                                                    >
+                                                        {control => (
+                                                            <Input
+                                                                {...control}
+                                                                inputMode="numeric"
+                                                                value={variant[side] === null ? '' : digits(variant[side])}
+                                                                disabled={!canEdit}
+                                                                onChange={e =>
+                                                                    setVariant(index, { [side]: number(e.target.value) })
+                                                                }
+                                                            />
+                                                        )}
+                                                    </Field>
+                                                ))}
+                                            </div>
                                         </div>
                                     ))}
                                     {single && (
@@ -1030,13 +1096,25 @@ export function ProductFormPage() {
                                             disabled={!canEdit}
                                             onChange={isNew => set({ isNew })}
                                         />
-                                        <Switch
-                                            label={f.enabled}
-                                            description={f.enabledHint}
-                                            checked={draft.enabled}
-                                            disabled={!canEdit}
-                                            onChange={enabled => set({ enabled })}
-                                        />
+                                        <Field label={f.status} hint={f.statusHints[draft.status as ProductStatus]}>
+                                            {control => (
+                                                <Select
+                                                    {...control}
+                                                    value={draft.status}
+                                                    disabled={!canEdit}
+                                                    onChange={e => {
+                                                        const status = e.target.value as ProductStatus;
+                                                        set({ status, enabled: status === 'published' });
+                                                    }}
+                                                >
+                                                    {PRODUCT_STATUSES.map(status => (
+                                                        <option key={status} value={status}>
+                                                            {f.statuses[status]}
+                                                        </option>
+                                                    ))}
+                                                </Select>
+                                            )}
+                                        </Field>
                                     </div>
                                 </CardBody>
                             </Card>
@@ -1054,6 +1132,40 @@ export function ProductFormPage() {
                                                 {categories.data?.map(category => (
                                                     <option key={category.id} value={category.id}>
                                                         {categoryName(category)}
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                        )}
+                                    </Field>
+                                    <Field label={f.brand} error={errors.brandId} optional>
+                                        {control => (
+                                            <Select
+                                                {...control}
+                                                value={draft.brandId ?? ''}
+                                                disabled={!canEdit}
+                                                onChange={e => set({ brandId: e.target.value || null })}
+                                            >
+                                                <option value="">{f.noBrand}</option>
+                                                {brands.data?.map(brand => (
+                                                    <option key={brand.id} value={brand.id}>
+                                                        {categoryName(brand)}
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                        )}
+                                    </Field>
+                                    <Field label={f.unit} hint={f.unitHint} error={errors.unit} optional>
+                                        {control => (
+                                            <Select
+                                                {...control}
+                                                value={draft.unit ?? ''}
+                                                disabled={!canEdit}
+                                                onChange={e => set({ unit: e.target.value || null })}
+                                            >
+                                                <option value="">{f.noUnit}</option>
+                                                {units.map(unit => (
+                                                    <option key={unit.code} value={unit.code}>
+                                                        {unit.name[language] || unit.name.bn || unit.name.en}
                                                     </option>
                                                 ))}
                                             </Select>

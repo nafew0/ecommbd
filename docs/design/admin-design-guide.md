@@ -135,7 +135,7 @@ Line height stays 1.6 for Bangla. Numbers in tables use `tabular-nums`.
 |---|---|---|
 | Home | (one link) | |
 | Orders | All orders · Confirm orders · Incomplete orders · Verify payments | Payment reviews · Orders by campaign · Unmapped addresses · WooCommerce orders |
-| Products | All products · Categories · Stock | (Reviews, when phase 35 ships) |
+| Products | All products · Categories · Stock | Brands · Purchases · Suppliers · (Reviews, when phase 35 ships) |
 | Customers | Customer list · Block list | |
 | Sales pages | (one link) | |
 | Marketing | Tracking | (Coupons, when phase 35 ships) |
@@ -385,7 +385,10 @@ A starting point for each existing screen. **Before changing a screen, read it, 
 | `order-detail` | B | main: items, profit breakdown (ReadCost only), **one "next step" button** from the status table (`packages/shared/src/order-status.ts`), payment, courier, history. Side: customer with copy buttons, address, risk | other status moves, edit, print choices, SMS, cancel → `ActionMenu`; attribution as a collapsed side card |
 | `confirm-orders`, `phone-order` | own | as today | — |
 | `incomplete-orders`, `verify-payments`, `payment-reviews`, `unmapped-addresses`, `order-campaigns`, `woo-orders` | A | as today, in the new `ListPage` look | — |
-| `products` | A | photo, name, price, stock, status. Main button "Add product". Cost and margin (ReadCost only, hidden on phones) | "Cost missing" filter |
+| `products` | A | photo, name, price, stock, status badge. Tabs: All, Published, Draft, Archived; Trash under "Others" with Bring back and Delete for good. Main button "Add product". Cost and margin (ReadCost only, hidden on phones) | "Cost missing" filter |
+| `brands` | A | logo, name, page address, product count. Main button "Add brand" | — |
+| `brand` | C | names, logo. Delete in the header menu | page address and description (collapsed) |
+| `product-settings` | C | shipping classes (name, extra charge) | units, SKU prefix (collapsed, summary shows the count or an example) |
 | `cost-settings` | C | courier charge fallback | COD charge we pay, gateway fee (collapsed, summary shows the current value or "not set") |
 | `suppliers` | A | name, phone, balance owed. Main button "Add supplier" | — |
 | `supplier` | B | name, phone, address, note, balance, purchase history. Main button "New purchase" | payments (collapsed) |
@@ -399,7 +402,7 @@ A starting point for each existing screen. **Before changing a screen, read it, 
 | `transactions` | A | date, account, source, amount, note. Account and source filters | date range behind Filters; export in the header menu |
 | `profit-loss` | own | Dhaka range, sales, cost, delivery and COD, gateway fees, expenses, profit, previous period, one bar chart | — |
 | `account-settings` | C | which account receives cash on delivery, the gateway, bKash, Nagad and Rocket | — |
-| `product-form` | B | main: name, description, photos, price, sale price, stock, cost (ReadCost only), variations. Side: status (shown or hidden), category. "Same cost for every variation" when there are variations | SKU, weight and per-product delivery rules, slug and other search fields → `MoreFields` in their card or a collapsed "Delivery" card |
+| `product-form` | B | main: name, description, photos, price, sale price, stock, cost (ReadCost only), variations. Side: status (Published, Draft, Archived), category, brand, unit. "Same cost for every variation" when there are variations | SKU, weight, size and per-product delivery rules (with the shipping class), slug and other search fields → `MoreFields` in their card or a collapsed "Delivery" card |
 | `categories`, `stock` | A | as today | — |
 | `customers` | A | name, phone, orders, total spent, last order | — |
 | `customer-detail` | B | main: recent orders, notes. Side: contact, block status | SMS opt-out as a collapsed side card |

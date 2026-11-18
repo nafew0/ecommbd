@@ -1,6 +1,6 @@
 import { pageSizeMm } from '@ecommbd/shared/print-settings';
 import { useLayoutEffect, useRef, useState } from 'react';
-import type { PrintOrder } from '../../lib/print';
+import { type PrintOrder, quantityWithUnit } from '../../lib/print';
 import { paginateRows, PX_PER_MM } from '../../lib/paginate';
 import { Barcode } from './barcode';
 import { footerLine, Page, ReprintStamp, storeName, type TemplateProps } from './common';
@@ -219,7 +219,7 @@ function LineRow({
                 {line.name}
                 {line.sku && <span className="block text-[8pt] text-black/60">{line.sku}</span>}
             </td>
-            <td className={`${cell} text-right`}>{format.number(line.quantity)}</td>
+            <td className={`${cell} text-right`}>{quantityWithUnit(format.number(line.quantity), line.unit)}</td>
             {kind === 'invoice' ? (
                 <>
                     <td className={`${cell} text-right whitespace-nowrap`}>

@@ -31,6 +31,7 @@ export const ProductCardFields = graphql(
             id
             name
             slug
+            bdUnit
             customFields {
                 isNew
             }
@@ -174,6 +175,7 @@ export const PRODUCT = graphql(
                 id
                 name
                 slug
+                bdUnit
                 description
                 updatedAt
                 customFields {
@@ -361,6 +363,33 @@ export const SITEMAP_PRODUCTS = graphql(`
                     slug
                 }
             }
+        }
+    }
+`);
+
+/** A brand's page (phase 55): its products come from BD_SEARCH with the `brand` filter. */
+export const BRAND = graphql(
+    `
+        query Brand($code: String!) {
+            bdBrand(code: $code) {
+                id
+                code
+                name
+                description
+                logo {
+                    ...AssetFields
+                }
+            }
+        }
+    `,
+    [AssetFields],
+);
+
+/** Brands with a product on sale, for the sitemap. */
+export const SITEMAP_BRANDS = graphql(`
+    query SitemapBrands {
+        bdBrands {
+            code
         }
     }
 `);

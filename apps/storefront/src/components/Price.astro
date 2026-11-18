@@ -8,13 +8,15 @@ interface Props {
     /** The old price (phase 05's field): shown struck through only when it's higher. */
     oldPrice?: number | null;
     large?: boolean;
+    /** The product's unit (phase 55), e.g. কেজি: "৳500 / কেজি". */
+    unit?: string | null;
 }
 
-const { min, max, format, oldPrice, large = false } = Astro.props;
+const { min, max, format, oldPrice, large = false, unit } = Astro.props;
 const showOld = oldPrice != null && oldPrice > max;
 ---
 
 <p class:list={['price', { 'price-large': large }]}>
-    <span class="price-now">{format.priceRange(min, max)}</span>
+    <span class="price-now">{format.priceRange(min, max)}{unit && <span class="price-unit"> / {unit}</span>}</span>
     {showOld && <s class="price-old">{format.price(oldPrice!)}</s>}
 </p>

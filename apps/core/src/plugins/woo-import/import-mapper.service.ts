@@ -1,5 +1,7 @@
 import { getDistricts, getThanas } from '@ecommbd/bd-geo';
 import {
+    BRAND_FACET_CODE,
+    brandCode,
     createHttpClient,
     isPlaceholderEmail,
     placeholderEmailFor,
@@ -23,6 +25,7 @@ import {
     isGraphQlErrorResult,
     LanguageCode,
     ProductOptionGroupService,
+    Product,
     ProductOptionService,
     ProductService,
     ProductVariant,
@@ -33,8 +36,10 @@ import {
     StockLocationService,
     TransactionalConnection,
 } from '@vendure/core';
+import { createHash } from 'node:crypto';
 import { IsNull } from 'typeorm';
 import sharp from 'sharp';
+import { BrandService } from '../bd-brands';
 import { BdImageService } from '../bd-images';
 import { LegacyOrder, WooIssue, WooMapping, WooRun, WooSource } from './entities';
 import {
@@ -46,6 +51,7 @@ import {
     pathOf,
     phoneOf,
     readWooUnitCost,
+    wooBrand,
     recordPhone,
     restoreWordPressEmoji,
     safeDescription,
@@ -117,6 +123,7 @@ export class ImportMapperService {
         private channels: ChannelService,
         private stock: StockLevelService,
         private locations: StockLocationService,
+        private brands: BrandService,
     ) {}
 
     async issue(
@@ -277,6 +284,36 @@ export class ImportMapperService {
             sourcePath: pathOf(row.link, source.url),
         });
     }
+    /**
+     * The product's facet values with its WooCommerce brand (phase 55), or undefined when the
+     * product has no brand there, so a brand set here after the import is left alone.
+     */
+    private async brandFacets(ctx: RequestContext, row: WooRecord, productId: ID | null): Promise<ID[] | undefined> {
+        const brand = wooBrand(row);
+        if (!brand) return undefined;
+        let slug = brand.slug;
+        try {
+            slug = decodeURIComponent(slug);
+        } catch {
+            // A slug that isn't percent-encoded stays as it is.
+        }
+        const code =
+            brandCode(slug) ||
+            brandCode(brand.name) ||
+            `brand-${createHash('sha256').update(brand.name).digest('hex').slice(0, 10)}`;
+        const brandId = await this.brands.ensure(ctx, { name: brand.name, code });
+        const current = productId
+            ? await this.connection.getRepository(ctx, Product).findOne({
+                  where: { id: productId },
+                  relations: { facetValues: { facet: true } },
+              })
+            : null;
+        const kept = (current?.facetValues ?? [])
+            .filter(value => value.facet?.code !== BRAND_FACET_CODE)
+            .map(value => value.id);
+        return [...kept, brandId];
+    }
+
     private async tag(ctx: RequestContext, source: WooSource, row: WooRecord) {
         const old = await this.mapping(ctx, source, 'tags', String(row.id));
         let facet = await this.mapping(ctx, source, 'facets', 'tags');
@@ -440,7 +477,9 @@ export class ImportMapperService {
                 'TAX_EXCLUSIVE_PRICE_REQUIRES_REVIEW',
                 'error',
             );
+        const facetValueIds = await this.brandFacets(ctx, row, old?.targetId ?? null);
         const input = {
+            ...(facetValueIds ? { facetValueIds } : {}),
             enabled:
                 row.status === 'publish' && row.catalog_visibility !== 'hidden' && !sharedStock && !taxReview,
             featuredAssetId: assetIds[0],

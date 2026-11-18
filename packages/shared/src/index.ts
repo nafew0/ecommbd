@@ -1,6 +1,7 @@
 export * from './accounts';
 export * from './attribution';
 export * from './barcode';
+export * from './brands';
 export * from './catalog';
 export * from './checkout';
 export * from './circuit-breaker';
@@ -24,6 +25,7 @@ export * from './payments';
 export * from './phone';
 export * from './placeholder-email';
 export * from './print-settings';
+export * from './product-settings';
 export * from './purchases';
 export * from './rate-limit';
 export * from './redact';

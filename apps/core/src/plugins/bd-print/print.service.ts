@@ -4,6 +4,9 @@ import {
     PRINT_DOCUMENTS,
     type PrintDocument,
     type PrintSettings,
+    PRODUCT_SETTINGS_KEY,
+    type ProductSettings,
+    unitName,
 } from '@ecommbd/shared';
 import { Injectable } from '@nestjs/common';
 import {
@@ -12,6 +15,7 @@ import {
     Order,
     PaymentMethodService,
     RequestContext,
+    SettingsStoreService,
     TransactionalConnection,
     TranslatorService,
     UserInputError,
@@ -29,6 +33,8 @@ export interface PrintLine {
     /** Null on packing slips: they never carry prices. */
     unitPrice: number | null;
     linePrice: number | null;
+    /** The product's unit in the print's language (phase 55), e.g. কেজি. Null: none. */
+    unit: string | null;
 }
 
 /** One order, exactly as the print views show it. */
@@ -98,14 +104,18 @@ export class PrintService {
         private storeSettings: StoreSettingsService,
         private assets: AssetService,
         private settings: PrintSettingsService,
+        private settingsStore: SettingsStoreService,
     ) {}
 
     async data(ctx: RequestContext, orderIds: ID[], document: string): Promise<PrintData> {
         const doc = this.checkInput(orderIds, document);
         const orders = await this.connection.getRepository(ctx, Order).find({
             where: { id: In(orderIds), orderPlacedAt: Not(IsNull()), channels: { id: ctx.channelId } },
-            relations: { lines: { productVariant: { translations: true } }, payments: true },
+            relations: { lines: { productVariant: { translations: true, product: true } }, payments: true },
         });
+        // Read straight from the settings store, like delivery does, so printing doesn't depend on the catalog.
+        const productSettings = await this.settingsStore.get<Partial<ProductSettings>>(ctx, PRODUCT_SETTINGS_KEY);
+        const units = { customUnits: Array.isArray(productSettings?.customUnits) ? productSettings.customUnits : [] };
         const byId = new Map(orders.map(order => [String(order.id), order]));
         const methodNames = await this.methodNames(ctx);
         const store = await this.storeSettings.get(ctx);
@@ -113,7 +123,7 @@ export class PrintService {
         const printed = orderIds
             .map(id => byId.get(String(id)))
             .filter((order): order is Order => !!order)
-            .map(order => this.toPrintOrder(ctx, order, doc, methodNames));
+            .map(order => this.toPrintOrder(ctx, order, doc, methodNames, units));
         // The courier's consignment ID once booked (phase 19), for the sticker's barcode.
         for (const order of printed) {
             order.courierConsignment = (await shipmentInfo(ctx, order.id))?.consignmentId ?? null;
@@ -169,6 +179,7 @@ export class PrintService {
         order: Order,
         document: PrintDocument,
         methodNames: Map<string, string>,
+        units: Pick<ProductSettings, 'customUnits'>,
     ): PrintOrder {
         const money = document !== 'slip';
         const address = order.shippingAddress ?? {};
@@ -197,6 +208,11 @@ export class PrintService {
                 quantity: line.quantity,
                 unitPrice: money ? line.unitPriceWithTax : null,
                 linePrice: money ? line.linePriceWithTax : null,
+                unit: unitName(
+                    line.productVariant.product?.customFields.unit,
+                    units,
+                    ctx.languageCode === 'en' ? 'en' : 'bn',
+                ),
             })),
             subtotal: money ? subtotal : null,
             discount: money ? Math.max(0, subtotal - order.subTotalWithTax) : null,

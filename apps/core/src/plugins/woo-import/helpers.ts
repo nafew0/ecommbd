@@ -198,3 +198,16 @@ export function sourceSettings(row: WooRecord) {
             : [],
     };
 }
+
+/**
+ * A product's first brand (phase 55): WooCommerce's own `brands` (REST, WooCommerce 9.6+) or the
+ * helper plugin's `_brands` (WooCommerce Brands, Perfect Brands, YITH Brands). Null when none.
+ */
+export function wooBrand(row: WooRecord): { name: string; slug: string } | null {
+    const all = [...(Array.isArray(row.brands) ? row.brands : []), ...(Array.isArray(row._brands) ? row._brands : [])];
+    for (const brand of all as Array<{ name?: unknown; slug?: unknown }>) {
+        const name = typeof brand.name === 'string' ? brand.name.trim() : '';
+        if (name) return { name, slug: typeof brand.slug === 'string' ? brand.slug : '' };
+    }
+    return null;
+}

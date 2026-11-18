@@ -1,6 +1,10 @@
 import {
+    allUnits,
+    autoSku,
+    BRAND_FACET_CODE,
     parseProductForm,
     type ProductForm,
+    productStatusOf,
     type SettingsFieldError,
     slugify,
     type VariationType,
@@ -9,6 +13,7 @@ import { Injectable } from '@nestjs/common';
 import {
     Collection,
     ConfigService,
+    FacetValue,
     type ID,
     isGraphQlErrorResult,
     LanguageCode,
@@ -25,6 +30,7 @@ import {
 } from '@vendure/core';
 import { IsNull } from 'typeorm';
 import { readCostPermission } from '../bd-cost/constants';
+import { ProductSettingsService } from './product-settings.service';
 import { StockService } from './stock.service';
 
 /** A pre-order variant can go this far below zero. */
@@ -67,6 +73,7 @@ function mapIds(form: ProductForm, map: (id: string) => string, idKeys: boolean)
         galleryAssetIds: form.galleryAssetIds.map(map),
         feedbackAssetIds: form.feedbackAssetIds.map(map),
         categoryId: one(form.categoryId),
+        brandId: one(form.brandId),
         variants: form.variants.map(variant => ({
             ...variant,
             id: key(variant.id),
@@ -101,6 +108,7 @@ export class ProductFormService {
         private stockLevels: StockLevelService,
         private stock: StockService,
         private configService: ConfigService,
+        private productSettings: ProductSettingsService,
     ) {}
 
     /**
@@ -131,6 +139,15 @@ export class ProductFormService {
             } as never,
         });
         if (!product) return null;
+        const status = productStatusOf({
+            enabled: product.enabled,
+            status: product.customFields.status,
+            trashedAt: product.customFields.trashedAt,
+        });
+        // A product in the trash is restored from the list, not edited.
+        if (status === 'trash') return null;
+        // Its own small query: one more to-many join in the load above multiplies its rows.
+        const brand = await this.brandOf(ctx, product.id);
         const text = (field: string, language: 'bn' | 'en') => {
             const translation = pick(product.translations, language);
             const value = field.startsWith('cf:')
@@ -152,6 +169,10 @@ export class ProductFormService {
             shortDescription: bilingual('cf:shortDescription'),
             description: bilingual('description'),
             enabled: product.enabled,
+            status,
+            brandId: brand ? String(brand.id) : null,
+            unit: fields.unit ?? null,
+            shippingClass: fields.shippingClass ?? null,
             featuredAssetId: product.featuredAsset ? String(product.featuredAsset.id) : null,
             galleryAssetIds: product.assets
                 .sort((a, b) => a.position - b.position)
@@ -198,6 +219,9 @@ export class ProductFormService {
                         allowBackorder:
                             !variant.useGlobalOutOfStockThreshold && variant.outOfStockThreshold < 0,
                         weightGrams: variant.customFields.weightGrams ?? null,
+                        lengthCm: variant.customFields.lengthCm ?? null,
+                        widthCm: variant.customFields.widthCm ?? null,
+                        heightCm: variant.customFields.heightCm ?? null,
                         unitCost: canSeeCost ? (variant.customFields.unitCost ?? null) : null,
                     };
                 }),
@@ -214,6 +238,8 @@ export class ProductFormService {
         // Decoded IDs keep the strategy's own type (numbers by default): TypeORM treats "1" and 1 as
         // different rows when saving, and would try to insert instead of update.
         const form = mapIds(parsed.product, id => strategy.decodeId(id) as unknown as string, true);
+        const refused = await this.checkPhase55(ctx, form);
+        if (refused) return { product: null, errors: [refused] };
         if (form.categoryId) {
             const category = await this.connection
                 .getRepository(ctx, Collection)
@@ -226,10 +252,63 @@ export class ProductFormService {
         return { product: (await this.load(ctx, productId))!, errors: [] };
     }
 
+    /** Brand, unit and shipping class must exist; a product in the trash can't be saved (phase 55). */
+    private async checkPhase55(ctx: RequestContext, form: ProductForm): Promise<SettingsFieldError | null> {
+        if (form.id) {
+            const current = await this.connection.getRepository(ctx, Product).findOne({
+                where: { id: form.id, deletedAt: IsNull() },
+                select: { id: true, customFields: { trashedAt: true } } as never,
+            });
+            if (!current || current.customFields.trashedAt) return { path: 'id', code: 'notFound' };
+        }
+        const settings = await this.productSettings.get(ctx);
+        if (form.unit && !allUnits(settings).some(unit => unit.code === form.unit)) {
+            return { path: 'unit', code: 'notFound' };
+        }
+        if (form.shippingClass && !settings.shippingClasses.some(item => item.code === form.shippingClass)) {
+            return { path: 'shippingClass', code: 'notFound' };
+        }
+        if (form.brandId) {
+            const brand = await this.connection.getRepository(ctx, FacetValue).findOne({
+                where: { id: form.brandId, facet: { code: BRAND_FACET_CODE } },
+                relations: { facet: true },
+            });
+            if (!brand) return { path: 'brandId', code: 'notFound' };
+        }
+        return null;
+    }
+
+    private async brandOf(ctx: RequestContext, productId: ID): Promise<FacetValue | undefined> {
+        const [row] = (await this.connection.getRepository(ctx, FacetValue).query(
+            `SELECT fv.id FROM product_facet_values_facet_value pf
+             JOIN facet_value fv ON fv.id = pf."facetValueId"
+             JOIN facet f ON f.id = fv."facetId"
+             WHERE pf."productId" = $1 AND f.code = $2
+             ORDER BY fv.id LIMIT 1`,
+            [productId, BRAND_FACET_CODE],
+        )) as Array<{ id: number }>;
+        return row ? ({ id: row.id } as FacetValue) : undefined;
+    }
+
+    /** The product's facet values with its brand replaced (tags and other facets stay). */
+    private async facetValueIds(ctx: RequestContext, productId: ID | null, brandId: ID | null): Promise<ID[]> {
+        const current = productId
+            ? await this.connection.getRepository(ctx, Product).findOne({
+                  where: { id: productId },
+                  relations: { facetValues: { facet: true } },
+              })
+            : null;
+        const kept = (current?.facetValues ?? [])
+            .filter(value => value.facet?.code !== BRAND_FACET_CODE)
+            .map(value => value.id);
+        return brandId ? [...kept, brandId] : kept;
+    }
+
     private async write(ctx: RequestContext, form: ProductForm): Promise<ID> {
         const slug = slugify(form.name.en) || slugify(form.seo.title.en) || `p-${Date.now().toString(36)}`;
         const productInput = {
-            enabled: form.enabled,
+            enabled: form.status === 'published',
+            facetValueIds: await this.facetValueIds(ctx, form.id, form.brandId),
             featuredAssetId: form.featuredAssetId ?? undefined,
             assetIds: [
                 ...new Set(
@@ -255,6 +334,9 @@ export class ProductFormService {
                 deliveryInsideDhaka: form.delivery.insideDhaka,
                 deliveryOutsideDhaka: form.delivery.outsideDhaka,
                 deliverySurcharge: form.delivery.surcharge,
+                status: form.status,
+                unit: form.unit,
+                shippingClass: form.shippingClass,
             },
         };
         let productId: ID;
@@ -342,6 +424,7 @@ export class ProductFormService {
             .getRepository(ctx, ProductVariant)
             .find({ where: { productId, deletedAt: IsNull() } });
         const kept = new Set(form.variants.filter(variant => variant.id).map(variant => String(variant.id)));
+        const { skuPrefix } = await this.productSettings.get(ctx);
         for (const variant of current.filter(v => !kept.has(String(v.id)))) {
             await this.variants.softDelete(ctx, variant.id);
         }
@@ -352,7 +435,7 @@ export class ProductFormService {
                 return option ? `${base} - ${option}` : base;
             };
             const common = {
-                sku: variant.sku || `P${productId}-${index + 1}`,
+                sku: variant.sku || autoSku(skuPrefix, String(productId), index + 1),
                 price: variant.price,
                 enabled: variant.enabled,
                 featuredAssetId: variant.assetId ?? undefined,
@@ -366,6 +449,9 @@ export class ProductFormService {
                     oldPrice: variant.oldPrice,
                     isDefault: variant.isDefault,
                     weightGrams: variant.weightGrams,
+                    lengthCm: variant.lengthCm,
+                    widthCm: variant.widthCm,
+                    heightCm: variant.heightCm,
                     // Without ReadCost the field is left as it is, so a save can't clear or set it.
                     ...(ctx.userHasPermissions([readCostPermission.Permission])
                         ? { unitCost: variant.unitCost }

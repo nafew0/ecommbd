@@ -1,6 +1,7 @@
 import { OnApplicationBootstrap } from '@nestjs/common';
 import { I18nService, PluginCommonModule, RoleService, ScheduledTask, VendurePlugin } from '@vendure/core';
 import { registerStoreDefaults } from '../bd-core';
+import { BdBrandsPlugin } from '../bd-brands';
 import { BdImagesPlugin } from '../bd-images';
 import { WooHelperService } from './helper.service';
 import { WooHelperController } from './helper.controller';
@@ -93,7 +94,7 @@ const bn: Record<keyof typeof en, string> = {
 };
 
 @VendurePlugin({
-    imports: [PluginCommonModule, BdImagesPlugin],
+    imports: [PluginCommonModule, BdImagesPlugin, BdBrandsPlugin],
     entities: [
         WooSource,
         WooRun,

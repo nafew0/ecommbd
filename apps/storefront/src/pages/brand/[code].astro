@@ -1,0 +1,114 @@
+---
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
+import Image from '../../components/Image.astro';
+import Listing from '../../components/Listing.astro';
+import Missing from '../../components/Missing.astro';
+import Layout from '../../layouts/Layout.astro';
+import { clientIpOf, type ResultOf, shopQuery } from '../../lib/core';
+import { canonicalListingSearch, isRefined, parseListing, SEARCH_SORT_ENUM } from '../../lib/filters';
+import { largestImageUrl } from '../../lib/images';
+import { alternates, canonicalRedirect, pageContext } from '../../lib/page';
+import { BD_SEARCH, BRAND, type ProductCardFields, PRODUCTS_BY_ID } from '../../lib/queries';
+import { breadcrumbList, metaDescription } from '../../lib/seo';
+import { brandPath } from '../../lib/urls';
+
+/**
+ * A brand's page (roadmap phase 55): its name, logo and description, then its products with the
+ * same filters and sorting as a category. Brands are a facet, so search does the filtering.
+ */
+
+const PER_PAGE = 24;
+const { lang, s, href, absolute } = pageContext(Astro);
+
+const code = (Astro.params.code ?? '').toLowerCase();
+const { bdBrand: brand } = code ? await shopQuery(BRAND, { code }, lang) : { bdBrand: null };
+
+if (brand) {
+    const redirect = canonicalRedirect(Astro, brandPath(brand.code));
+    if (redirect) return redirect;
+    const search = canonicalListingSearch(Astro.url, 'category');
+    if (search !== null) return Astro.redirect(`${href(brandPath(brand.code))}${search}`, 301);
+} else {
+    Astro.response.status = 404;
+}
+
+const state = parseListing(Astro.url.searchParams, 'category');
+const refined = isRefined(state, 'category');
+const { bdSearch: found } = brand
+    ? await shopQuery(
+          BD_SEARCH,
+          {
+              input: {
+                  // The brand is always applied; the other filters come from the address.
+                  filters: [...state.filters.filter(filter => filter.key !== 'brand'), { key: 'brand', values: [brand.code] }],
+                  priceMin: state.priceMin,
+                  priceMax: state.priceMax,
+                  inStockOnly: state.inStock,
+                  sort: SEARCH_SORT_ENUM[state.sort],
+                  take: PER_PAGE,
+                  skip: (state.page - 1) * PER_PAGE,
+              },
+          },
+          lang,
+          { clientIp: clientIpOf(Astro.request, () => Astro.clientAddress) },
+      )
+    : { bdSearch: null };
+// The brand filter is the page itself, so it isn't offered again.
+const result = found ? { ...found, filters: found.filters.filter(filter => filter.key !== 'brand') } : null;
+let products: Array<ResultOf<typeof ProductCardFields>> = [];
+if (result?.productIds.length) {
+    const items = (await shopQuery(PRODUCTS_BY_ID, { ids: result.productIds, take: result.productIds.length }, lang))
+        .products.items;
+    products = result.productIds.map(id => items.find(product => product.id === id)).filter(product => !!product);
+}
+// Cache tags (phase 17): a listing, purged on any catalog change.
+Astro.response.headers.set('xkey', 'listing');
+const pages = Math.max(1, Math.ceil((result?.totalItems ?? 0) / PER_PAGE));
+const missing = !brand || state.page > pages;
+if (brand && missing) Astro.response.status = 404;
+
+const path = brand ? brandPath(brand.code) : null;
+const pageQuery = (n: number) => (n > 1 ? `?page=${n}` : '');
+const crumbs = brand ? [{ name: s.home, href: href('/') }, { name: brand.name, href: href(path!) }] : [];
+---
+
+{
+    brand && result && !missing ? (
+        <Layout
+            title={brand.name}
+            description={metaDescription(null, brand.description)}
+            canonicalPath={!refined ? `${path}${pageQuery(state.page)}` : null}
+            noindex={refined}
+            alternates={refined ? [] : alternates(Astro, { bn: `${path}${pageQuery(state.page)}`, en: `${path}${pageQuery(state.page)}` })}
+            image={brand.logo ? largestImageUrl(brand.logo) : undefined}
+            structuredData={[breadcrumbList(crumbs.map(crumb => ({ name: crumb.name, url: absolute(crumb.href) })))]}
+        >
+            <Breadcrumbs crumbs={crumbs} label={s.breadcrumb} />
+            <header class="page-header brand-header">
+                {brand.logo && (
+                    <Image asset={brand.logo} alt="" lang={lang} sizes="72px" preferredWidth={160} class="brand-logo" />
+                )}
+                <div>
+                    <h1>{brand.name}</h1>
+                    {brand.description && <p class="muted">{brand.description}</p>}
+                </div>
+            </header>
+            <Listing
+                kind="category"
+                state={state}
+                result={result}
+                products={products}
+                basePath={href(path!)}
+                perPage={PER_PAGE}
+            >
+                <p slot="empty" class="muted">
+                    {s.noProducts}
+                </p>
+            </Listing>
+        </Layout>
+    ) : (
+        <Layout title={s.notFoundTitle} noindex>
+            <Missing kind="not-found" />
+        </Layout>
+    )
+}

@@ -7,6 +7,7 @@ import {
     recordPhone,
     digest,
     readWooUnitCost,
+    wooBrand,
     restoreWordPressEmoji,
     safeDescription,
 } from '../../src/plugins/woo-import/helpers';
@@ -114,5 +115,17 @@ describe('WooCommerce migration boundaries', () => {
         expect(readWooUnitCost({ meta_data: [] }, parent)).toBe(45000);
         expect(readWooUnitCost({ meta_data: [{ key: '_purchase_price', value: '12.50' }] }, parent)).toBeNull();
         expect(readWooUnitCost({ meta_data: [{ key: '_yith_cog_cost', value: '1,250.00' }] })).toBe(125000);
+    });
+});
+
+describe('WooCommerce brands (phase 55)', () => {
+    it('reads WooCommerce’s own brands first, then the helper plugin’s, and skips empty names', () => {
+        expect(wooBrand({ brands: [{ id: 3, name: 'Aarong', slug: 'aarong' }] })).toEqual({ name: 'Aarong', slug: 'aarong' });
+        expect(wooBrand({ _brands: [{ name: ' ', slug: 'x' }, { name: 'আড়ং', slug: '%e0%a6%86' }] })).toEqual({
+            name: 'আড়ং',
+            slug: '%e0%a6%86',
+        });
+        expect(wooBrand({ brands: [], _brands: [] })).toBeNull();
+        expect(wooBrand({})).toBeNull();
     });
 });

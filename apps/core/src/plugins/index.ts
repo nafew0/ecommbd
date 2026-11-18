@@ -1,6 +1,7 @@
 import type { StoreLanguage } from '@ecommbd/shared';
 import type { VendureConfig } from '@vendure/core';
 import path from 'node:path';
+import { BdBrandsPlugin } from './bd-brands';
 import { BdCatalogPlugin } from './bd-catalog';
 import { BdManualOrdersPlugin } from './bd-manual-orders';
 import { BdCheckoutPlugin, type BdCheckoutPluginOptions, type RedisConnectionOptions } from './bd-checkout';
@@ -114,6 +115,7 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
         ShippingBdPlugin,
         PaymentsBdPlugin,
         BdCatalogPlugin,
+        BdBrandsPlugin,
         BdManualOrdersPlugin,
         NotificationsPlugin.init({ driver: options.smsDriver, storefrontUrl: options.storefrontUrl }),
         FraudGuardPlugin,

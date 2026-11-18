@@ -16,7 +16,7 @@ import { breadcrumbList, metaDescription, product as productLd } from '../../lib
 import { loadLayout, loadSectionData, pageStyle, setCacheTags, visibleSections } from '../../lib/sections';
 import { storeName } from '../../lib/store';
 import Sections from '../../sections/Sections.astro';
-import { categoryPath, lookupSlug, productPath } from '../../lib/urls';
+import { brandPath, categoryPath, lookupSlug, productPath } from '../../lib/urls';
 
 const { lang, settings, s, href, absolute, format } = pageContext(Astro);
 const slug = lookupSlug(Astro.params.slug ?? '');
@@ -56,6 +56,8 @@ const optionLabel = (variant: NonNullable<typeof product>['variants'][number]) =
     variant.options.map(option => option.name).join(' / ') || variant.name;
 // Tags (the "tag" facet; the Shop API leaves private facets out) lead to every product with that tag.
 const tags = (product?.facetValues ?? []).filter(value => value.facet.code === 'tag');
+// The product's brand (phase 55): a value of the public "brand" facet, linking to the brand's page.
+const brand = (product?.facetValues ?? []).find(value => value.facet.code === 'brand');
 const soldOut = !!product && product.variants.every(variant => variant.stockLevel === 'OUT_OF_STOCK');
 const lowStock = !!product && !soldOut && product.variants.some(variant => variant.stockLevel === 'LOW_STOCK');
 
@@ -123,7 +125,7 @@ const css = template && templateData ? pageStyle(Astro, template.document) : '';
                     description: product.description,
                     images,
                     variants: product.variants,
-                    brand: storeName(settings, lang),
+                    brand: brand?.name ?? storeName(settings, lang),
                 }),
                 breadcrumbList(crumbs.map(crumb => ({ name: crumb.name, url: absolute(crumb.href) }))),
             ]}
@@ -145,9 +147,22 @@ const css = template && templateData ? pageStyle(Astro, template.document) : '';
                     )}
                 </div>
                 <div class="product-info">
+                    {brand && (
+                        <p class="product-brand">
+                            <span class="visually-hidden">{s.brand}: </span>
+                            <a href={href(brandPath(brand.code))}>{brand.name}</a>
+                        </p>
+                    )}
                     <h1>{product.name}</h1>
                     {prices.length > 0 && (
-                        <Price min={Math.min(...prices)} max={Math.max(...prices)} oldPrice={oldPrice} format={format} large />
+                        <Price
+                            min={Math.min(...prices)}
+                            max={Math.max(...prices)}
+                            oldPrice={oldPrice}
+                            format={format}
+                            unit={product.bdUnit}
+                            large
+                        />
                     )}
                     <p class:list={['stock', { 'stock-out': soldOut, 'stock-low': lowStock }]}>
                         {soldOut ? s.outOfStock : lowStock ? s.lowStock : s.inStock}

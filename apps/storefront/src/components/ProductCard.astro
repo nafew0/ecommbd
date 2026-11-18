@@ -45,6 +45,6 @@ const badge = soldOut
             {badge && <span class:list={['badge', badge.kind]}>{badge.text}</span>}
         </div>
         <h3 class="card-title">{product.name}</h3>
-        {prices.length > 0 && <Price min={prices[0]!} max={prices[prices.length - 1]!} oldPrice={onSale ? oldPrice : null} format={format} />}
+        {prices.length > 0 && <Price min={prices[0]!} max={prices[prices.length - 1]!} oldPrice={onSale ? oldPrice : null} format={format} unit={product.bdUnit} />}
     </a>
 </li>

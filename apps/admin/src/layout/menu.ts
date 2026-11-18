@@ -96,6 +96,7 @@ export const MENU: MenuGroup[] = [
             link('allProducts', '/products', '05', true, 'ReadProduct'),
             link('categories', '/products/categories', '05', true, 'ReadCatalog'),
             link('stock', '/products/stock', '05', true, 'ReadProduct'),
+            link('brands', '/products/brands', '55', true, 'ReadCatalog', more),
             link('purchases', '/products/purchases', '52', true, 'ReadPurchase', more),
             link('suppliers', '/products/suppliers', '52', true, 'ReadPurchase', more),
             link('reviews', '/products/reviews', '35', false, 'ReadProduct', more),
@@ -153,6 +154,7 @@ export const MENU: MenuGroup[] = [
         children: [
             link('store', '/settings/store', '02', true, 'ReadSettings', { section: 'secStore' }),
             link('staff', '/settings/staff', '32', false, 'ReadAdministrator', { section: 'secStore' }),
+            link('productSettings', '/settings/products', '55', true, 'ReadCatalog', { section: 'secStore' }),
             link('orderSettings', '/settings/orders', '04', true, 'ReadSettings', { section: 'secOrders' }),
             link('cost', '/settings/cost', '51', true, 'ReadCost', { section: 'secOrders', more: true }),
             link('purchaseSettings', '/settings/purchases', '52', true, 'ReadPurchase', {

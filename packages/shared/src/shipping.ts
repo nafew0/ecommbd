@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { shippingClassCharge } from './product-settings';
 import { isWholeTaka, percentOfWholeTaka, takaToMinor } from './money';
 import { type SettingsFieldError, toSettingsFieldErrors } from './store-settings';
 
@@ -157,6 +158,8 @@ export interface DeliveryLine {
     outsideDhaka: number | null;
     /** Extra charge per unit (heavy or fragile items). */
     surcharge: number;
+    /** The product's shipping class code (phase 55), or null. */
+    shippingClass?: string | null;
 }
 
 export interface DeliveryQuoteInput {
@@ -168,6 +171,8 @@ export interface DeliveryQuoteInput {
     /** Order subtotal after discounts, before delivery. */
     subTotal: number;
     lines: readonly DeliveryLine[];
+    /** The shop's shipping classes (phase 55): each class in the cart adds its charge once. */
+    shippingClasses?: ReadonlyArray<{ code: string; charge: number }>;
 }
 
 export const DELIVERY_UNAVAILABLE_REASONS = [
@@ -187,6 +192,8 @@ export type DeliveryQuote =
           base: number;
           weightSurcharge: number;
           productSurcharge: number;
+          /** Shipping classes in the cart (phase 55). */
+          classSurcharge: number;
       }
     | { ok: false; reason: DeliveryUnavailableReason };
 
@@ -204,8 +211,8 @@ export function totalWeightGrams(lines: readonly DeliveryLine[]): number {
  *
  * Standard delivery: each product's charge is its own inside/outside-Dhaka charge, or the store's
  * rate (a thana override, else a district override, else the zone's rate); free-delivery products
- * count as 0, and the highest charge in the cart applies. Weight and product surcharges come on
- * top. Reaching the zone's free-delivery threshold, or a cart of only free-delivery products, makes
+ * count as 0, and the highest charge in the cart applies. Weight and product surcharges, and each
+ * shipping class in the cart once, come on top. Reaching the zone's free-delivery threshold, or a cart of only free-delivery products, makes
  * the whole charge 0. Express has its own zone rates plus the surcharges, and is never free. Store
  * pickup is always 0.
  */
@@ -218,7 +225,15 @@ export function quoteDelivery(settings: ShippingSettings, input: DeliveryQuoteIn
         return { ok: false, reason: 'METHOD_OFF' };
     }
     if (method === 'pickup') {
-        return { ok: true, price: 0, free: false, base: 0, weightSurcharge: 0, productSurcharge: 0 };
+        return {
+            ok: true,
+            price: 0,
+            free: false,
+            base: 0,
+            weightSurcharge: 0,
+            productSurcharge: 0,
+            classSurcharge: 0,
+        };
     }
     if (!zone) {
         return { ok: false, reason: 'NO_DISTRICT' };
@@ -262,21 +277,27 @@ export function quoteDelivery(settings: ShippingSettings, input: DeliveryQuoteIn
         (sum, line) => sum + (line.freeDelivery ? 0 : line.surcharge * line.quantity),
         0,
     );
+    // A free-delivery product's class adds nothing, like its surcharge.
+    const classSurcharge = shippingClassCharge(
+        lines.filter(line => !line.freeDelivery).map(line => line.shippingClass),
+        input.shippingClasses ?? [],
+    );
 
     if (method === 'standard') {
         const threshold = settings.freeAbove[priceZone];
         const allFree = lines.length > 0 && lines.every(line => line.freeDelivery);
         if (allFree || (threshold !== null && input.subTotal >= threshold)) {
-            return { ok: true, price: 0, free: true, base, weightSurcharge, productSurcharge };
+            return { ok: true, price: 0, free: true, base, weightSurcharge, productSurcharge, classSurcharge };
         }
     }
     return {
         ok: true,
-        price: base + weightSurcharge + productSurcharge,
+        price: base + weightSurcharge + productSurcharge + classSurcharge,
         free: false,
         base,
         weightSurcharge,
         productSurcharge,
+        classSurcharge,
     };
 }
 

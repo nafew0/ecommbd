@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { isWholeTaka, takaToMinor } from './money';
 import { type SettingsFieldError, toSettingsFieldErrors } from './store-settings';
+import { PRODUCT_STATUSES } from './product-settings';
 import { cleanText } from './text';
 
 /**
@@ -38,6 +39,8 @@ export const CATALOG_LIMITS = {
     maxPrice: takaToMinor(1_00_00_000),
     maxStock: 1_000_000,
     maxGrams: 1_000_000,
+    maxCm: 10_000,
+    code: 40,
 } as const;
 
 const text = (max: number, options: { multiline?: boolean } = {}) =>
@@ -80,6 +83,23 @@ const youtube = z.string().transform((value, context) => {
     return parsed;
 });
 
+const centimetres = z
+    .number()
+    .int('invalid')
+    .min(1, 'invalid')
+    .max(CATALOG_LIMITS.maxCm, 'invalid')
+    .nullable()
+    .default(null);
+
+/** A unit or shipping class code (phase 55). Empty is none. */
+const code = z
+    .string()
+    .trim()
+    .max(CATALOG_LIMITS.code)
+    .nullable()
+    .default(null)
+    .transform(value => value || null);
+
 const variantSchema = z.object({
     id: id.nullable(),
     /** The option's name, e.g. "XL", "লাল", "২ পিস". Empty without variations. */
@@ -102,6 +122,10 @@ const variantSchema = z.object({
         .min(0, 'invalid')
         .max(CATALOG_LIMITS.maxGrams, 'invalid')
         .nullable(),
+    /** Parcel size in whole centimetres (phase 55), next to the weight. Omitted input stays null. */
+    lengthCm: centimetres,
+    widthCm: centimetres,
+    heightCm: centimetres,
 });
 
 export const productFormSchema = z
@@ -110,7 +134,19 @@ export const productFormSchema = z
         name: bilingual(CATALOG_LIMITS.name),
         shortDescription: bilingual(CATALOG_LIMITS.shortDescription, { multiline: true }),
         description: bilingual(CATALOG_LIMITS.description, { multiline: true }),
+        /** Kept for older callers. The server sets it from `status`: published is enabled. */
         enabled: z.boolean(),
+        /**
+         * Phase 55: published, draft or archived. Omitted (older callers): published when
+         * `enabled`, draft when not.
+         */
+        status: z.enum(PRODUCT_STATUSES).optional(),
+        /** A brand (a value of the `brand` facet), or null. */
+        brandId: id.nullable().default(null),
+        /** A unit code (built-in or the shop's own), shown next to the price. Null: none. */
+        unit: code,
+        /** A shipping class code from the product settings. Null: none. */
+        shippingClass: code,
         featuredAssetId: id.nullable(),
         galleryAssetIds: z.array(id).max(CATALOG_LIMITS.gallery, 'tooMany'),
         feedbackAssetIds: z.array(id).max(CATALOG_LIMITS.feedback, 'tooMany'),
@@ -178,8 +214,11 @@ export const productFormSchema = z
             0,
             value.variants.findIndex(variant => variant.isDefault),
         );
+        const status = value.status ?? (value.enabled ? 'published' : 'draft');
         return {
             ...value,
+            status,
+            enabled: status === 'published',
             variants: value.variants.map((variant, index) => ({ ...variant, isDefault: index === first })),
         };
     });
@@ -210,6 +249,9 @@ export function emptyVariant(): ProductFormVariant {
         enabled: true,
         allowBackorder: false,
         weightGrams: null,
+        lengthCm: null,
+        widthCm: null,
+        heightCm: null,
         unitCost: null,
     };
 }
@@ -221,6 +263,10 @@ export function emptyProductForm(): ProductForm {
         shortDescription: { bn: '', en: '' },
         description: { bn: '', en: '' },
         enabled: true,
+        status: 'published',
+        brandId: null,
+        unit: null,
+        shippingClass: null,
         featuredAssetId: null,
         galleryAssetIds: [],
         feedbackAssetIds: [],

@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
 import { PX_PER_MM } from '../../lib/paginate';
+import { quantityWithUnit } from '../../lib/print';
 import { Barcode } from './barcode';
 import { footerLine, ReprintStamp, storeName, type TemplateProps } from './common';
 
@@ -53,7 +54,7 @@ export function ReceiptDocuments(props: TemplateProps & { onHeight(mm: number): 
                             <p className="break-words">{line.name}</p>
                             <p className={row}>
                                 <span>
-                                    {format.number(line.quantity)} × {format.money(line.unitPrice ?? 0)}
+                                    {quantityWithUnit(format.number(line.quantity), line.unit)} × {format.money(line.unitPrice ?? 0)}
                                 </span>
                                 <span>{format.money(line.linePrice ?? 0)}</span>
                             </p>

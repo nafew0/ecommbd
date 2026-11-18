@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Package, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Copy, Package, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useDigits } from '../components/form/inputs';
@@ -17,10 +17,13 @@ import { useToast } from '../lib/toast';
 import { useDebounced } from '../lib/use-debounced';
 
 const PRODUCTS = `
-    query Products($search: String, $skip: Int, $take: Int, $costMissing: Boolean) {
-        bdProducts(search: $search, skip: $skip, take: $take, costMissing: $costMissing) {
+    query Products($search: String, $skip: Int, $take: Int, $costMissing: Boolean, $status: String) {
+        bdProducts(search: $search, skip: $skip, take: $take, costMissing: $costMissing, status: $status) {
             totalItems
-            items { id name banglaMissing preview categoryName price oldPrice stock variantCount featured isNew enabled cost margin costMissing }
+            items {
+                id name banglaMissing preview categoryName price oldPrice stock variantCount featured isNew enabled
+                status trashExpiresAt cost margin costMissing
+            }
         }
     }
 `;
@@ -37,7 +40,13 @@ const DUPLICATE = `
     }
 `;
 
-const DELETE = `mutation Delete($id: ID!) { deleteProduct(id: $id) { result message } }`;
+const TRASH = `mutation Trash($id: ID!) { trashBdProduct(id: $id) }`;
+const RESTORE = `mutation Restore($id: ID!) { restoreBdProduct(id: $id) }`;
+const DELETE_FOREVER = `mutation DeleteForever($id: ID!) { deleteBdProductForever(id: $id) }`;
+
+/** The list's tabs (phase 55); the trash sits under "Others". */
+const TABS = ['all', 'published', 'draft', 'archived', 'trash'] as const;
+type Tab = (typeof TABS)[number];
 
 interface ProductRow {
     id: string;
@@ -52,6 +61,8 @@ interface ProductRow {
     featured: boolean;
     isNew: boolean;
     enabled: boolean;
+    status: 'published' | 'draft' | 'archived' | 'trash';
+    trashExpiresAt: string | null;
     cost: number | null;
     margin: number | null;
     costMissing: boolean | null;
@@ -73,15 +84,18 @@ export function ProductsPage() {
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const [costMissing, setCostMissing] = useState(false);
+    const [tab, setTab] = useState<Tab>('all');
+    const inTrash = tab === 'trash';
     const term = useDebounced(search.trim());
     const query = useQuery({
-        queryKey: ['products', term, page, costMissing, can('ReadCost')],
+        queryKey: ['products', term, page, costMissing, can('ReadCost'), tab],
         queryFn: () =>
             adminApi<{ bdProducts: { totalItems: number; items: ProductRow[] } }>(PRODUCTS, {
                 search: term || null,
                 skip: (page - 1) * PAGE_SIZE,
                 take: PAGE_SIZE,
                 costMissing: can('ReadCost') && costMissing ? true : null,
+                status: tab === 'all' ? null : tab,
             }).then(result => result.bdProducts),
     });
     const refresh = () => void queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -99,22 +113,41 @@ export function ProductsPage() {
         }
     };
 
-    const remove = async (row: ProductRow) => {
+    const act = async (mutation: string, row: ProductRow, done: string) => {
+        await adminApi(mutation, { id: row.id }).then(
+            () => toast.success(done),
+            () => toast.error(m.errors.generic),
+        );
+        refresh();
+    };
+
+    /** Moves it to the trash: off the store, restorable for 30 days (phase 55). */
+    const trash = async (row: ProductRow) => {
         if (
             !(await confirm({
-                title: p.deleteTitle(row.name),
-                body: p.deleteBody,
-                confirmLabel: m.common.delete,
+                title: p.trashTitle(row.name),
+                body: p.trashBody,
+                confirmLabel: p.trash,
                 danger: true,
             }))
         ) {
             return;
         }
-        await adminApi(DELETE, { id: row.id }).then(
-            () => toast.success(p.deleted),
-            () => toast.error(m.errors.generic),
-        );
-        refresh();
+        await act(TRASH, row, p.trashed);
+    };
+
+    const deleteForever = async (row: ProductRow) => {
+        if (
+            !(await confirm({
+                title: p.deleteTitle(row.name),
+                body: p.deleteBody,
+                confirmLabel: p.deleteForever,
+                danger: true,
+            }))
+        ) {
+            return;
+        }
+        await act(DELETE_FOREVER, row, p.deleted);
     };
 
     const columns: Column<ProductRow>[] = [
@@ -135,13 +168,24 @@ export function ProductsPage() {
                         </div>
                     )}
                     <div className="min-w-0">
-                        <Link to={`/products/${row.id}`} className="font-medium text-accent hover:underline">
-                            {row.name}
-                        </Link>
+                        {row.status === 'trash' ? (
+                            <span className="font-medium">{row.name}</span>
+                        ) : (
+                            <Link to={`/products/${row.id}`} className="font-medium text-accent hover:underline">
+                                {row.name}
+                            </Link>
+                        )}
                         <div className="mt-1 flex flex-wrap gap-1">
                             {row.featured && <Badge tone="violet">{p.featured}</Badge>}
                             {row.isNew && <Badge tone="sky">{p.isNew}</Badge>}
-                            {!row.enabled && <Badge tone="slate">{p.hidden}</Badge>}
+                            {row.status !== 'published' && (
+                                <Badge tone={row.status === 'trash' ? 'red' : 'slate'}>{p.statuses[row.status]}</Badge>
+                            )}
+                            {row.trashExpiresAt && (
+                                <span className="text-sm text-ink-muted">
+                                    {p.trashUntil(format.date(row.trashExpiresAt))}
+                                </span>
+                            )}
                             {row.banglaMissing && <Badge tone="amber">{p.banglaMissing}</Badge>}
                         </div>
                     </div>
@@ -210,38 +254,52 @@ export function ProductsPage() {
         {
             key: 'actions',
             header: '',
-            cell: row => (
-                <div className="flex justify-end gap-1">
-                    <Button
-                        size="icon"
-                        variant="ghost"
-                        aria-label={p.edit}
-                        onClick={() => navigate(`/products/${row.id}`)}
-                    >
-                        <Pencil className="size-4" aria-hidden />
-                    </Button>
-                    {can('CreateProduct') && (
+            cell: row =>
+                row.status === 'trash' ? (
+                    <div className="flex justify-end gap-1">
+                        {can('DeleteProduct') && (
+                            <>
+                                <Button variant="secondary" size="sm" onClick={() => void act(RESTORE, row, p.restored)}>
+                                    <RotateCcw className="size-4" aria-hidden /> {p.restore}
+                                </Button>
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    aria-label={p.deleteForever}
+                                    onClick={() => void deleteForever(row)}
+                                >
+                                    <Trash2 className="size-4 text-danger" aria-hidden />
+                                </Button>
+                            </>
+                        )}
+                    </div>
+                ) : (
+                    <div className="flex justify-end gap-1">
                         <Button
                             size="icon"
                             variant="ghost"
-                            aria-label={p.duplicate}
-                            onClick={() => void duplicate(row)}
+                            aria-label={p.edit}
+                            onClick={() => navigate(`/products/${row.id}`)}
                         >
-                            <Copy className="size-4" aria-hidden />
+                            <Pencil className="size-4" aria-hidden />
                         </Button>
-                    )}
-                    {can('DeleteProduct') && (
-                        <Button
-                            size="icon"
-                            variant="ghost"
-                            aria-label={m.common.delete}
-                            onClick={() => void remove(row)}
-                        >
-                            <Trash2 className="size-4 text-danger" aria-hidden />
-                        </Button>
-                    )}
-                </div>
-            ),
+                        {can('CreateProduct') && (
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                aria-label={p.duplicate}
+                                onClick={() => void duplicate(row)}
+                            >
+                                <Copy className="size-4" aria-hidden />
+                            </Button>
+                        )}
+                        {can('DeleteProduct') && (
+                            <Button size="icon" variant="ghost" aria-label={p.trash} onClick={() => void trash(row)}>
+                                <Trash2 className="size-4 text-danger" aria-hidden />
+                            </Button>
+                        )}
+                    </div>
+                ),
         },
     ];
 
@@ -262,6 +320,15 @@ export function ProductsPage() {
                 rows={query.data?.items ?? []}
                 rowId={row => row.id}
                 columns={columns}
+                tabs={{
+                    items: TABS.map(key => ({ key, label: p.tabs[key] })),
+                    active: tab,
+                    more: ['trash'],
+                    onChange: key => {
+                        setTab(key as Tab);
+                        setPage(1);
+                    },
+                }}
                 loading={query.isPending}
                 search={{
                     value: search,
@@ -275,7 +342,11 @@ export function ProductsPage() {
                     onChange: setPage,
                 }}
                 empty={
-                    <EmptyState icon={<Package className="size-6" aria-hidden />} title={p.empty} body="" />
+                    <EmptyState
+                        icon={<Package className="size-6" aria-hidden />}
+                        title={inTrash ? p.trashEmpty : p.empty}
+                        body={inTrash ? p.trashEmptyBody : ''}
+                    />
                 }
                 moreFilters={
                     can('ReadCost')

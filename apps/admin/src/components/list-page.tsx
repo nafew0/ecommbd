@@ -149,9 +149,14 @@ export function ListPage<T>(props: ListPageProps<T>) {
                                 activeMore && 'bg-surface-muted font-semibold text-ink',
                             )}
                             label={
+                                // Counts only when the tabs have them (the product list's tabs don't).
                                 activeMore
-                                    ? `${activeMore.label} ${n(activeMore.count ?? 0)}`
-                                    : `${m.list.others} ${n(moreTabs.reduce((sum, tab) => sum + (tab.count ?? 0), 0))}`
+                                    ? activeMore.count === undefined
+                                        ? activeMore.label
+                                        : `${activeMore.label} ${n(activeMore.count)}`
+                                    : moreTabs.every(tab => tab.count === undefined)
+                                      ? m.list.others
+                                      : `${m.list.others} ${n(moreTabs.reduce((sum, tab) => sum + (tab.count ?? 0), 0))}`
                             }
                             items={moreTabs.map(tab => ({
                                 label: tab.count === undefined ? tab.label : `${tab.label} · ${n(tab.count)}`,
