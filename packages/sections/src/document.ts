@@ -356,13 +356,27 @@ export function documentIssues(document: LayoutDocument): LayoutIssue[] {
             });
         }
     }
+    // An ID belongs to one thing on the page: a section, or a node inside a free section.
     const anchors = new Set<string>();
     for (const section of document.sections) {
-        if (!section.style.anchor) continue;
-        if (anchors.has(section.style.anchor)) {
-            issues.push({ sectionId: section.uid, field: 'style.anchor', code: 'duplicateAnchor' });
+        if (section.style.anchor) {
+            if (anchors.has(section.style.anchor)) {
+                issues.push({ sectionId: section.uid, field: 'style.anchor', code: 'duplicateAnchor' });
+            }
+            anchors.add(section.style.anchor);
         }
-        anchors.add(section.style.anchor);
+        for (const { node } of eachNode(section.children ?? [])) {
+            if (!node.anchor) continue;
+            if (anchors.has(node.anchor)) {
+                issues.push({
+                    sectionId: section.uid,
+                    blockId: node.uid,
+                    field: 'anchor',
+                    code: 'duplicateAnchor',
+                });
+            }
+            anchors.add(node.anchor);
+        }
     }
     // A sales page takes orders through one form.
     const forms = smartSections(document).filter(item => item.section.type === 'order-form');

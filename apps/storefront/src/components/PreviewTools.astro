@@ -1,9 +1,25 @@
 ---
+import { pageContext } from '../lib/page';
+
 /**
- * The page editor's side of the preview (phase 15): only rendered, so only loaded, on preview pages
- * in the editor's frame. See scripts/preview.ts.
+ * The page editor's side of the preview (phases 15 and 58): only rendered, so only loaded, on
+ * preview pages in the editor's frame. See scripts/preview.ts. The words on the canvas's own
+ * controls (the toolbar over a selected element, "Add section") come from here, in the page's
+ * language.
  */
+const { s } = pageContext(Astro);
+const labels = {
+    addSection: s.editorAddSection,
+    parent: s.editorSelectParent,
+    up: s.editorMoveUp,
+    down: s.editorMoveDown,
+    duplicate: s.editorDuplicate,
+    remove: s.editorRemove,
+    drag: s.editorDrag,
+};
 ---
+
+<div id="preview-labels" hidden data-labels={JSON.stringify(labels)}></div>
 
 <script>
     import '../scripts/preview';

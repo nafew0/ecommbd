@@ -8,7 +8,7 @@ import {
     NODE_LIMITS,
     STRUCTURE_PRESETS,
 } from '@ecommbd/sections';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
     addBlock,
     anchorsOf,
@@ -17,9 +17,12 @@ import {
     insertNode,
     insertSection,
     moveNode,
+    moveNodeTo,
+    moveTargets,
     nodeName,
     nodePath,
     openUpSection,
+    readClip,
     removeNode,
     setNodeProp,
     setNodeStyle,
@@ -34,6 +37,7 @@ import {
     setHidden,
     setSetting,
     setStyle,
+    writeClip,
 } from './document-ops';
 
 function page(): LayoutDocument {
@@ -244,5 +248,112 @@ describe('changes to a free section’s tree', () => {
             })).sections[0]!,
         }));
         expect(renamed.sections[0]!.children![0]!.section!.hidden).toBe(true);
+    });
+});
+
+describe('moving nodes, anchors and the clipboard (phase 58)', () => {
+    const free = () => {
+        const section = createSection('custom');
+        const [grid] = section.children!;
+        const [left, right] = grid!.children!;
+        return {
+            document: { sections: [section] } as LayoutDocument,
+            section,
+            grid: grid!,
+            left: left!,
+            right: right!,
+        };
+    };
+    const types = (document: LayoutDocument, uid: string) =>
+        findNode(document.sections[0]!.children!, uid)!.node.children!.map(node => node.type);
+
+    it('moves a node to another container, and within its own', () => {
+        const { document, section, left, right } = free();
+        const [heading, text, button] = right.children!;
+        // Into the left column, before its image.
+        let next = moveNodeTo(document, section.uid, button!.uid, left.uid, 0).document;
+        expect(types(next, left.uid)).toEqual(['button', 'image']);
+        expect(types(next, right.uid)).toEqual(['heading', 'text']);
+        // Down within the same container: the place is among what is there now.
+        next = moveNodeTo(document, section.uid, heading!.uid, right.uid, 3).document;
+        expect(types(next, right.uid)).toEqual(['text', 'button', 'heading']);
+        next = moveNodeTo(document, section.uid, button!.uid, right.uid, 0).document;
+        expect(types(next, right.uid)).toEqual(['button', 'heading', 'text']);
+        // To the top of the section.
+        next = moveNodeTo(document, section.uid, text!.uid, null, 0).document;
+        expect(next.sections[0]!.children!.map(node => node.type)).toEqual(['text', 'container']);
+        // Dropped where it already is: nothing changes.
+        expect(moveNodeTo(document, section.uid, heading!.uid, right.uid, 0).document).toBe(document);
+        expect(moveNodeTo(document, section.uid, heading!.uid, right.uid, 1).document).toBe(document);
+    });
+
+    it('refuses a container inside itself, and nesting too deep', () => {
+        const { document, section, grid, left, right } = free();
+        expect(moveNodeTo(document, section.uid, grid.uid, left.uid, 0).refused).toBe('insideItself');
+        expect(moveNodeTo(document, section.uid, grid.uid, grid.uid, 0).refused).toBe('insideItself');
+        // A column (with nothing nested in it) fits inside the other; a third level under that doesn't.
+        const nested = moveNodeTo(document, section.uid, left.uid, right.uid, 0);
+        expect(nested.refused).toBeUndefined();
+        const deep = createStructure(STRUCTURE_PRESETS[1]);
+        const withDeep = insertNode(document, section.uid, null, deep).document;
+        expect(moveNodeTo(withDeep, section.uid, deep.uid, left.uid, 0).refused).toBe('tooDeep');
+        // An element can't hold anything.
+        const heading = right.children![0]!;
+        expect(moveNodeTo(document, section.uid, left.uid, heading.uid, 0).document).toBe(document);
+    });
+
+    it('lists where a node can move to, by path', () => {
+        const { section, grid, left, right } = free();
+        expect(moveTargets(section, right.children![0]!.uid, 'en')).toEqual([
+            { uid: grid.uid, label: 'Grid', count: 2 },
+            { uid: left.uid, label: 'Grid / Column', count: 1 },
+            { uid: right.uid, label: 'Grid / Column', count: 2 },
+        ]);
+        // A container can't move into itself or into what it holds.
+        expect(moveTargets(section, grid.uid, 'en')).toEqual([]);
+        expect(moveTargets(section, left.uid, 'en').map(target => target.uid)).toEqual([grid.uid, right.uid]);
+    });
+
+    it('offers the IDs of sections and of nodes to buttons', () => {
+        const { document, section, right } = free();
+        section.style.anchor = 'offer';
+        const withAnchor = updateNode(document, section.uid, right.children![0]!.uid, node => ({
+            ...node,
+            anchor: 'sizes',
+        }));
+        expect(anchorsOf(withAnchor, 'en')).toEqual([
+            { anchor: 'offer', label: 'Free section' },
+            { anchor: 'sizes', label: 'Heading' },
+        ]);
+    });
+
+    it('copies a node or a section and pastes it with new IDs, read again for this release', () => {
+        const store = new Map<string, string>();
+        vi.stubGlobal('window', {
+            localStorage: {
+                getItem: (key: string) => store.get(key) ?? null,
+                setItem: (key: string, value: string) => void store.set(key, value),
+            },
+        });
+        expect(readClip()).toBeNull();
+        const { section, right } = free();
+        expect(writeClip({ kind: 'node', node: right })).toBe(true);
+        const pasted = readClip()!;
+        expect(pasted.kind).toBe('node');
+        const node = pasted.kind === 'node' ? pasted.node : null;
+        expect(node!.children!.map(child => child.type)).toEqual(['heading', 'text', 'button']);
+        expect(node!.uid).not.toBe(right.uid);
+        expect(node!.children![0]!.uid).not.toBe(right.children![0]!.uid);
+
+        writeClip({ kind: 'section', section });
+        const copied = readClip()!;
+        expect(copied.kind === 'section' && copied.section.type).toBe('custom');
+        expect(copied.kind === 'section' && copied.section.uid).not.toBe(section.uid);
+        // Anything else that got in there is ignored.
+        store.set('ecommbd:builder-clipboard', '{"kind":"node","node":{"type":"marquee"}}');
+        expect(readClip()).toBeNull();
+        store.set('ecommbd:builder-clipboard', 'not json');
+        expect(readClip()).toBeNull();
+        vi.unstubAllGlobals();
     });
 });

@@ -1,4 +1,4 @@
-import { LAYOUT_LIMITS, type LayoutDocument, type SectionData } from '@ecommbd/sections';
+import { eachNode, LAYOUT_LIMITS, type LayoutDocument, type SectionData } from '@ecommbd/sections';
 import {
     ArrowDown,
     ArrowUp,
@@ -17,17 +17,26 @@ import { cn } from '../../lib/cn';
 import { useI18n } from '../../lib/i18n';
 import type { LayoutWarning } from './design-api';
 import { duplicateSection, moveSection, removeSection, sectionLabel, setHidden } from './document-ops';
+import { ElementIcon } from './element-icon';
+import { Navigator, nodeMatches } from './navigator';
 import { SectionIcon } from './section-icon';
 
 /**
  * The page's sections in the sidebar (roadmap phase 15): drag by the handle (mouse or finger) or
  * use the arrow keys on it to reorder; hide without deleting; duplicate, save for reuse or remove
  * from the menu. Sections with a problem show a red or amber mark.
+ *
+ * Since phase 58 it is also the Navigator: a free section's containers and elements are layers
+ * under its row (navigator.tsx), and the box on top finds a section or a layer by its name or
+ * its words.
  */
 
 interface SectionListProps {
     document: LayoutDocument;
     selected: string | null;
+    /** The node chosen inside the selected free section, if any. */
+    selectedNode: string | null;
+    onSelectNode(sectionUid: string, nodeUid: string): void;
     warnings: LayoutWarning[];
     language: 'bn' | 'en';
     onSelect(uid: string): void;
@@ -56,11 +65,35 @@ export function SectionList(props: SectionListProps) {
     const [drag, setDrag] = useState<Drag | null>(null);
     const [announcement, setAnnouncement] = useState('');
     const full = document.sections.length >= LAYOUT_LIMITS.sections;
+    const [search, setSearch] = useState('');
+    const query = search.trim().toLowerCase();
+    /** Free sections and containers folded shut in the Navigator. */
+    const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+    const toggle = (uid: string) =>
+        setCollapsed(current => {
+            const next = new Set(current);
+            if (!next.delete(uid)) next.add(uid);
+            return next;
+        });
+    const trees = document.sections.filter(section => section.children?.length);
+    const foldable = trees.flatMap(section => [
+        section.uid,
+        ...[...eachNode(section.children!)].filter(({ node }) => node.children).map(({ node }) => node.uid),
+    ]);
+    const matches = (section: SectionData) => {
+        if (!query) return true;
+        const label = sectionLabel(section, language);
+        return (
+            `${label.name} ${label.detail}`.toLowerCase().includes(query) ||
+            (section.children ?? []).some(node => nodeMatches(node, query, language, ui))
+        );
+    };
     const digits = (n: number) =>
         ui === 'bn' ? String(n).replace(/\d/g, digit => '০১২৩৪৫৬৭৮৯'[Number(digit)]!) : String(n);
 
     const startDrag = (event: PointerEvent<HTMLButtonElement>, index: number) => {
-        if (event.button !== 0) return;
+        // While searching, some rows are left out: their places don't match the page's.
+        if (event.button !== 0 || query) return;
         const rows = [...(list.current?.children ?? [])].map(row => {
             const box = row.getBoundingClientRect();
             return { top: box.top, height: box.height };
@@ -119,8 +152,39 @@ export function SectionList(props: SectionListProps) {
                     {d.sectionCount(digits(document.sections.length), digits(LAYOUT_LIMITS.sections))}
                 </span>
             </div>
+            <div className="px-3 pb-2">
+                <input
+                    type="search"
+                    value={search}
+                    onChange={event => setSearch(event.target.value)}
+                    placeholder={d.tree.searchLayers}
+                    aria-label={d.tree.searchLayers}
+                    className="h-9 w-full rounded-md border border-line-strong bg-surface px-3 text-sm outline-none placeholder:text-ink-faint focus:border-accent"
+                />
+                {foldable.length > 0 && !query && (
+                    <div className="mt-1.5 flex gap-3 px-1 text-xs font-medium text-ink-muted">
+                        <button
+                            type="button"
+                            className="underline-offset-2 hover:text-ink hover:underline"
+                            onClick={() => setCollapsed(new Set())}
+                        >
+                            {d.tree.expandAll}
+                        </button>
+                        <button
+                            type="button"
+                            className="underline-offset-2 hover:text-ink hover:underline"
+                            onClick={() => setCollapsed(new Set(foldable))}
+                        >
+                            {d.tree.collapseAll}
+                        </button>
+                    </div>
+                )}
+            </div>
             <ul ref={list} className="flex-1 space-y-1 overflow-y-auto px-2 pb-2" aria-label={d.sections}>
                 {document.sections.map((section, index) => {
+                    if (!matches(section)) return null;
+                    const layers = !!section.children?.length;
+                    const layersOpen = layers && (!!query || !collapsed.has(section.uid));
                     const label = sectionLabel(section, language);
                     const sectionWarnings = warnings.filter(item => item.sectionId === section.uid);
                     const error = sectionWarnings.some(item => ERRORS.includes(item.code));
@@ -131,119 +195,162 @@ export function SectionList(props: SectionListProps) {
                             key={section.uid}
                             style={{ transform: `translateY(${shift(index)}px)` }}
                             className={cn(
-                                'group relative flex items-center gap-1 rounded-md border pr-1',
+                                'group relative rounded-md border',
                                 !dragging && drag && 'transition-transform duration-150',
                                 dragging ? 'z-10 border-accent bg-surface shadow-lg' : 'border-transparent',
                                 isSelected && !dragging && 'border-accent bg-accent-soft',
-                                !isSelected && !dragging && 'hover:bg-surface-muted',
+                                !isSelected && !dragging && !layersOpen && 'hover:bg-surface-muted',
+                                !isSelected && !dragging && layersOpen && 'bg-surface-muted',
                             )}
                         >
-                            <button
-                                type="button"
-                                data-drag-handle
-                                aria-label={`${d.dragToReorder}: ${label.name}`}
-                                title={d.dragToReorder}
-                                onPointerDown={event => startDrag(event, index)}
-                                onPointerMove={moveDrag}
-                                onPointerUp={endDrag}
-                                onPointerCancel={() => setDrag(null)}
-                                onKeyDown={event => keyMove(event, index)}
-                                className="flex h-11 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded text-ink-faint hover:text-ink-muted active:cursor-grabbing"
-                            >
-                                <GripVertical className="size-4" aria-hidden />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => onSelect(section.uid)}
-                                aria-current={isSelected ? 'true' : undefined}
-                                className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 py-1.5 text-left"
-                            >
-                                <span
+                            <div className="flex items-center gap-1 pr-1">
+                                <button
+                                    type="button"
+                                    data-drag-handle
+                                    aria-label={`${d.dragToReorder}: ${label.name}`}
+                                    title={d.dragToReorder}
+                                    onPointerDown={event => startDrag(event, index)}
+                                    onPointerMove={moveDrag}
+                                    onPointerUp={endDrag}
+                                    onPointerCancel={() => setDrag(null)}
+                                    onKeyDown={event => keyMove(event, index)}
+                                    className="flex h-11 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded text-ink-faint hover:text-ink-muted active:cursor-grabbing"
+                                >
+                                    <GripVertical className="size-4" aria-hidden />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onSelect(section.uid)}
+                                    aria-current={isSelected ? 'true' : undefined}
+                                    className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 py-1.5 text-left"
+                                >
+                                    <span
+                                        className={cn(
+                                            'flex size-8 shrink-0 items-center justify-center rounded-md',
+                                            isSelected
+                                                ? 'bg-accent text-white'
+                                                : 'bg-surface-muted text-ink-muted',
+                                            section.hidden && 'opacity-50',
+                                        )}
+                                    >
+                                        <SectionIcon type={section.type} className="size-4" />
+                                    </span>
+                                    <span
+                                        className={cn('min-w-0 flex-1', section.hidden && 'text-ink-faint')}
+                                    >
+                                        <span className="block truncate text-sm font-medium">
+                                            {label.name}
+                                        </span>
+                                        {(label.detail || section.hidden) && (
+                                            <span className="block truncate text-xs text-ink-muted">
+                                                {section.hidden ? d.hidden : label.detail}
+                                            </span>
+                                        )}
+                                    </span>
+                                    {sectionWarnings.length > 0 && (
+                                        <CircleAlert
+                                            className={cn(
+                                                'size-4 shrink-0',
+                                                error ? 'text-danger' : 'text-warn',
+                                            )}
+                                            aria-label={sectionWarnings
+                                                .map(item => d.issues[item.code] ?? item.code)
+                                                .join(' ')}
+                                        />
+                                    )}
+                                </button>
+                                {layers && !query && (
+                                    <button
+                                        type="button"
+                                        aria-expanded={layersOpen}
+                                        aria-label={`${layersOpen ? d.tree.collapse : d.tree.expand}: ${label.name}`}
+                                        title={layersOpen ? d.tree.collapse : d.tree.expand}
+                                        onClick={() => toggle(section.uid)}
+                                        className="flex size-8 shrink-0 items-center justify-center rounded text-ink-muted hover:bg-surface hover:text-ink"
+                                    >
+                                        <ElementIcon
+                                            name="chevron"
+                                            className={cn(
+                                                'size-4 transition-transform duration-150',
+                                                layersOpen && 'rotate-90',
+                                            )}
+                                        />
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        onChange(setHidden(document, section.uid, !section.hidden))
+                                    }
+                                    aria-label={`${section.hidden ? d.show : d.hide}: ${label.name}`}
+                                    title={section.hidden ? d.show : d.hide}
                                     className={cn(
-                                        'flex size-8 shrink-0 items-center justify-center rounded-md',
-                                        isSelected
-                                            ? 'bg-accent text-white'
-                                            : 'bg-surface-muted text-ink-muted',
-                                        section.hidden && 'opacity-50',
+                                        'flex size-8 shrink-0 items-center justify-center rounded text-ink-muted hover:bg-surface hover:text-ink',
+                                        !section.hidden &&
+                                            'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 max-lg:opacity-100',
                                     )}
                                 >
-                                    <SectionIcon type={section.type} className="size-4" />
-                                </span>
-                                <span className={cn('min-w-0 flex-1', section.hidden && 'text-ink-faint')}>
-                                    <span className="block truncate text-sm font-medium">{label.name}</span>
-                                    {(label.detail || section.hidden) && (
-                                        <span className="block truncate text-xs text-ink-muted">
-                                            {section.hidden ? d.hidden : label.detail}
-                                        </span>
+                                    {section.hidden ? (
+                                        <EyeOff className="size-4" aria-hidden />
+                                    ) : (
+                                        <Eye className="size-4" aria-hidden />
                                     )}
-                                </span>
-                                {sectionWarnings.length > 0 && (
-                                    <CircleAlert
-                                        className={cn('size-4 shrink-0', error ? 'text-danger' : 'text-warn')}
-                                        aria-label={sectionWarnings
-                                            .map(item => d.issues[item.code] ?? item.code)
-                                            .join(' ')}
-                                    />
-                                )}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => onChange(setHidden(document, section.uid, !section.hidden))}
-                                aria-label={`${section.hidden ? d.show : d.hide}: ${label.name}`}
-                                title={section.hidden ? d.show : d.hide}
-                                className={cn(
-                                    'flex size-8 shrink-0 items-center justify-center rounded text-ink-muted hover:bg-surface hover:text-ink',
-                                    !section.hidden &&
-                                        'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 max-lg:opacity-100',
-                                )}
-                            >
-                                {section.hidden ? (
-                                    <EyeOff className="size-4" aria-hidden />
-                                ) : (
-                                    <Eye className="size-4" aria-hidden />
-                                )}
-                            </button>
-                            <RowMenu
-                                label={d.sectionActions(label.name)}
-                                items={[
-                                    {
-                                        label: d.moveUp,
-                                        icon: ArrowUp,
-                                        disabled: index === 0,
-                                        run: () => onChange(moveSection(document, index, index - 1)),
-                                    },
-                                    {
-                                        label: d.moveDown,
-                                        icon: ArrowDown,
-                                        disabled: index === document.sections.length - 1,
-                                        run: () => onChange(moveSection(document, index, index + 1)),
-                                    },
-                                    {
-                                        label: d.duplicate,
-                                        icon: Copy,
-                                        disabled: full,
-                                        run: () => {
-                                            const result = duplicateSection(document, section.uid);
-                                            onChange(result.document);
-                                            if (result.copy) onSelect(result.copy.uid);
+                                </button>
+                                <RowMenu
+                                    label={d.sectionActions(label.name)}
+                                    items={[
+                                        {
+                                            label: d.moveUp,
+                                            icon: ArrowUp,
+                                            disabled: index === 0,
+                                            run: () => onChange(moveSection(document, index, index - 1)),
                                         },
-                                    },
-                                    {
-                                        label: d.saveForReuse,
-                                        icon: Bookmark,
-                                        run: () => props.onSaveForReuse(section),
-                                    },
-                                    {
-                                        label: d.remove,
-                                        icon: Trash2,
-                                        danger: true,
-                                        run: () => {
-                                            onChange(removeSection(document, section.uid));
-                                            props.onRemoved();
+                                        {
+                                            label: d.moveDown,
+                                            icon: ArrowDown,
+                                            disabled: index === document.sections.length - 1,
+                                            run: () => onChange(moveSection(document, index, index + 1)),
                                         },
-                                    },
-                                ]}
-                            />
+                                        {
+                                            label: d.duplicate,
+                                            icon: Copy,
+                                            disabled: full,
+                                            run: () => {
+                                                const result = duplicateSection(document, section.uid);
+                                                onChange(result.document);
+                                                if (result.copy) onSelect(result.copy.uid);
+                                            },
+                                        },
+                                        {
+                                            label: d.saveForReuse,
+                                            icon: Bookmark,
+                                            run: () => props.onSaveForReuse(section),
+                                        },
+                                        {
+                                            label: d.remove,
+                                            icon: Trash2,
+                                            danger: true,
+                                            run: () => {
+                                                onChange(removeSection(document, section.uid));
+                                                props.onRemoved();
+                                            },
+                                        },
+                                    ]}
+                                />
+                            </div>
+                            {layersOpen && (
+                                <Navigator
+                                    section={section}
+                                    document={document}
+                                    language={language}
+                                    selected={isSelected ? props.selectedNode : null}
+                                    query={query}
+                                    collapsed={collapsed}
+                                    onToggle={toggle}
+                                    onSelect={nodeUid => props.onSelectNode(section.uid, nodeUid)}
+                                    onChange={onChange}
+                                />
+                            )}
                         </li>
                     );
                 })}

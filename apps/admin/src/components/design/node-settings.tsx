@@ -28,6 +28,7 @@ import { fetchTheme, type LayoutWarning } from './design-api';
 import { nodePath, setNodeProp, setNodeStyle, updateNode } from './document-ops';
 import { ElementIcon } from './element-icon';
 import { FieldControl, type Language } from './field-controls';
+import { NodeAdvanced } from './node-advanced';
 import { SmartContent } from './smart-content';
 
 /**
@@ -62,7 +63,7 @@ export function NodeSettings(props: NodeSettingsProps) {
     const d = m_.design;
     const t = d.tree;
     const toast = useToast();
-    const [tab, setTab] = useState<'content' | 'design'>('content');
+    const [tab, setTab] = useState<'content' | 'design' | 'advanced'>('content');
     const [query, setQuery] = useState('');
     const [open, setOpen] = useState<string | null>(null);
     const theme = useQuery({ queryKey: ['themeSettings'], queryFn: fetchTheme, staleTime: 60_000 });
@@ -239,7 +240,7 @@ export function NodeSettings(props: NodeSettingsProps) {
 
     return (
         <div className="space-y-4">
-            {groups.length > 0 && (
+            {
                 <div className="space-y-3">
                     <Input
                         type="search"
@@ -250,7 +251,13 @@ export function NodeSettings(props: NodeSettingsProps) {
                     />
                     {!searching && (
                         <div role="tablist" className="flex rounded-md bg-surface-muted p-0.5">
-                            {(['content', 'design'] as const).map(key => (
+                            {(
+                                [
+                                    'content',
+                                    ...(groups.length ? (['design'] as const) : []),
+                                    'advanced',
+                                ] as const
+                            ).map(key => (
                                 <button
                                     key={key}
                                     type="button"
@@ -264,13 +271,17 @@ export function NodeSettings(props: NodeSettingsProps) {
                                             : 'text-ink-muted hover:text-ink',
                                     )}
                                 >
-                                    {key === 'content' ? d.content : d.designTab}
+                                    {key === 'content'
+                                        ? d.content
+                                        : key === 'design'
+                                          ? d.designTab
+                                          : t.advanced}
                                 </button>
                             ))}
                         </div>
                     )}
                 </div>
-            )}
+            }
 
             {found ? (
                 <div className="space-y-5 pl-3">
@@ -280,6 +291,16 @@ export function NodeSettings(props: NodeSettingsProps) {
                         <p className="text-sm text-ink-muted">{t.noSettingsFound}</p>
                     )}
                 </div>
+            ) : tab === 'advanced' ? (
+                <NodeAdvanced
+                    section={section}
+                    node={node}
+                    document={document}
+                    language={language}
+                    onChange={onChange}
+                    device={device}
+                    anchorIssue={issue('anchor')}
+                />
             ) : tab === 'content' || groups.length === 0 ? (
                 <div className="space-y-5">
                     {content}

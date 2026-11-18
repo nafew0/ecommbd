@@ -589,3 +589,55 @@ export function ConflictDialog({
         />
     );
 }
+
+/** The shortcut sheet (roadmap phase 58): how the editor is used, in four steps, then the keys. */
+export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose(): void }) {
+    const { messages: m } = useI18n();
+    const t = m.design.tree;
+    const mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+    const mod = mac ? '⌘' : 'Ctrl';
+    const rows: Array<[string, string[]]> = [
+        [t.shortcutList.undo!, [mod, 'Z']],
+        [t.shortcutList.redo!, [mod, 'Shift', 'Z']],
+        [t.shortcutList.save!, [mod, 'S']],
+        [t.shortcutList.copy!, [mod, 'C']],
+        [t.shortcutList.paste!, [mod, 'V']],
+        [t.shortcutList.duplicate!, [mod, 'D']],
+        [t.shortcutList.remove!, ['Delete']],
+        [t.shortcutList.arrows!, ['↑', '↓']],
+        [t.shortcutList.escape!, ['Esc']],
+        [t.shortcutList.preview!, ['P']],
+        [t.shortcutList.help!, ['?']],
+    ];
+    return (
+        <Dialog open={open} onClose={onClose} title={t.shortcuts}>
+            <ol className="mb-5 space-y-2 text-sm text-ink-muted">
+                {t.shortcutSteps.map((step, index) => (
+                    <li key={step} className="flex gap-3">
+                        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-surface-muted text-xs font-semibold text-ink">
+                            {index + 1}
+                        </span>
+                        <span>{step}</span>
+                    </li>
+                ))}
+            </ol>
+            <dl className="divide-y divide-line border-t border-line text-sm">
+                {rows.map(([label, keys]) => (
+                    <div key={label} className="flex items-center justify-between gap-4 py-2">
+                        <dt className="text-ink">{label}</dt>
+                        <dd className="flex shrink-0 gap-1">
+                            {keys.map(key => (
+                                <kbd
+                                    key={key}
+                                    className="min-w-6 rounded border border-line-strong bg-surface-muted px-1.5 py-0.5 text-center font-sans text-xs font-medium text-ink"
+                                >
+                                    {key}
+                                </kbd>
+                            ))}
+                        </dd>
+                    </div>
+                ))}
+            </dl>
+        </Dialog>
+    );
+}

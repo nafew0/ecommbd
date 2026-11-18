@@ -24,10 +24,18 @@ import { readableOn } from './theme';
 
 const TABLET = `@media (max-width:${BREAKPOINTS.tablet}px)`;
 const PHONE = `@media (max-width:${BREAKPOINTS.phone}px)`;
+/** Each screen size alone: computers, tablets (between the two widths), phones. */
+const ONLY: Record<string, string> = {
+    base: `@media (min-width:${BREAKPOINTS.tablet + 1}px)`,
+    tablet: `@media (min-width:${BREAKPOINTS.phone + 1}px) and (max-width:${BREAKPOINTS.tablet}px)`,
+    phone: PHONE,
+};
 const UID = /^[a-z0-9]{4,24}$/;
 const HEX = /^#[0-9a-f]{6}$/;
 
 type Rules = { all: string[]; tablet: string[]; phone: string[] };
+/** A whole layout's rules, plus those for one screen size only (hiding a node there). */
+type Sheet = Rules & { only: string[] };
 
 const px = (value: number) => `${value}px`;
 const colour = (value: unknown): value is string => typeof value === 'string' && HEX.test(value);
@@ -251,7 +259,7 @@ function containerRules(node: NodeData): Rules & { phoneLast: boolean } {
     return rules;
 }
 
-function nodeRules(node: NodeData, parent: NodeData | null, out: Rules) {
+function nodeRules(node: NodeData, parent: NodeData | null, out: Sheet) {
     if (!UID.test(node.uid)) return;
     const isContainer = node.type === 'container';
     const selector = `${isContainer ? '.box' : '.el'}[data-u="${node.uid}"]`;
@@ -282,6 +290,10 @@ function nodeRules(node: NodeData, parent: NodeData | null, out: Rules) {
         rules[device].push(...(looks[device][''] ?? []));
     }
     write(selector, rules, out);
+    // Hidden on a screen size: on that size only, not on the narrower ones too.
+    for (const device of node.hideOn ?? []) {
+        if (device in ONLY) out.only.push(`${ONLY[device]}{${selector}{display:none}}`);
+    }
     // What's inside the node: its image, its button.
     for (const device of ['all', 'tablet', 'phone'] as const) {
         for (const [target, declarations] of Object.entries(looks[device])) {
@@ -298,7 +310,7 @@ function write(selector: string, rules: Rules, out: Rules) {
 
 /** The CSS for a layout's shown sections and their nodes; empty when nothing is styled. */
 export function layoutCss(document: LayoutDocument): string {
-    const out: Rules = { all: [], tablet: [], phone: [] };
+    const out: Sheet = { all: [], tablet: [], phone: [], only: [] };
     for (const section of document.sections) {
         if (section.hidden || !UID.test(section.uid)) continue;
         const selector = `.section[data-u="${section.uid}"]`;
@@ -311,6 +323,7 @@ export function layoutCss(document: LayoutDocument): string {
     return (
         out.all.join('') +
         (out.tablet.length ? `${TABLET}{${out.tablet.join('')}}` : '') +
-        (out.phone.length ? `${PHONE}{${out.phone.join('')}}` : '')
+        (out.phone.length ? `${PHONE}{${out.phone.join('')}}` : '') +
+        out.only.join('')
     );
 }

@@ -1502,6 +1502,171 @@ body[data-preview='editor'] [data-section].preview-selected::before {
         sans-serif;
 }
 
+/*
+ * The canvas (phase 58), only in the page editor's preview: outlines, a name tag and a toolbar
+ * drawn over the page by scripts/preview.ts. Plain colours and square corners, like the rest.
+ */
+body[data-preview='editor'] [data-node] {
+    cursor: pointer;
+}
+
+/* Hidden means hidden, whatever display an overlay has when it shows. */
+[data-canvas-ui][hidden] {
+    display: none;
+}
+
+.canvas-frame,
+.canvas-hover {
+    position: absolute;
+    z-index: 30;
+    pointer-events: none;
+    outline: 2px solid #0f766e;
+    outline-offset: 1px;
+}
+
+.canvas-hover {
+    z-index: 29;
+    outline: 1px dashed #14b8a6;
+}
+
+.canvas-tag,
+.canvas-tools {
+    position: absolute;
+    bottom: calc(100% + 3px);
+    display: flex;
+    align-items: center;
+    height: 24px;
+    background: #0f766e;
+    color: #fff;
+    font:
+        500 12px/1 system-ui,
+        sans-serif;
+    white-space: nowrap;
+}
+
+.canvas-tag {
+    left: -3px;
+    padding: 0 8px;
+}
+
+.canvas-hover .canvas-tag {
+    background: #14b8a6;
+}
+
+.canvas-tools {
+    right: -3px;
+    pointer-events: auto;
+}
+
+/* At the very top of the page there is no room above: they sit inside the outline. */
+.canvas-inside :is(.canvas-tag, .canvas-tools) {
+    top: 0;
+    bottom: auto;
+}
+
+.canvas-tools button {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    transition: background-color 120ms ease-out;
+}
+
+.canvas-tools button:hover,
+.canvas-tools button:focus-visible {
+    background: #115e59;
+}
+
+.canvas-tools [data-tool='drag'] {
+    cursor: grab;
+}
+
+.canvas-tools [data-tool='remove']:hover {
+    background: #b3261e;
+}
+
+/* "Add section", on the lower edge of the section under the pointer. */
+.canvas-add {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 28;
+    display: flex;
+    justify-content: center;
+    height: 0;
+    pointer-events: none;
+}
+
+.canvas-add::before {
+    content: '';
+    position: absolute;
+    inset: -1px 0 auto;
+    border-top: 1px dashed #14b8a6;
+}
+
+.canvas-add button,
+.box-add {
+    position: relative;
+    min-height: 28px;
+    padding: 0 12px;
+    border: 1px solid #0f766e;
+    border-radius: 2px;
+    background: #fff;
+    color: #0f766e;
+    font:
+        500 12px/1 system-ui,
+        sans-serif;
+    cursor: pointer;
+    pointer-events: auto;
+    transition:
+        background-color 120ms ease-out,
+        color 120ms ease-out;
+}
+
+.canvas-add button {
+    transform: translateY(-50%);
+}
+
+.canvas-add button:hover,
+.box-add:hover {
+    background: #0f766e;
+    color: #fff;
+}
+
+/* An empty container's own "Add inside". */
+.box-empty {
+    align-items: center;
+    justify-content: center;
+}
+
+/* Where a dragged element would land. */
+.canvas-drop {
+    position: absolute;
+    z-index: 31;
+    background: #0f766e;
+    pointer-events: none;
+}
+
+/* Words being changed in place. */
+[data-edit][contenteditable] {
+    outline: 2px solid #0f766e;
+    outline-offset: 2px;
+    cursor: text;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .canvas-tools button,
+    .canvas-add button,
+    .box-add {
+        transition: none;
+    }
+}
+
 /* The shared preview's notice, at the bottom of the screen */
 .preview-bar {
     position: sticky;

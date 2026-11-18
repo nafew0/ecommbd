@@ -13,7 +13,7 @@ import {
     type SectionData,
     STRUCTURE_PRESETS,
 } from '@ecommbd/sections';
-import { useState } from 'react';
+import { type DragEvent, useEffect, useState } from 'react';
 import { cn } from '../../lib/cn';
 import { useI18n } from '../../lib/i18n';
 import { AnimatePresence, expand, m, rise } from '../../lib/motion';
@@ -34,10 +34,11 @@ import { IconButton } from './icon-button';
 import { NodeSettings } from './node-settings';
 
 /**
- * A free section's tree (roadmap phase 56): its containers and elements as an indented list.
- * Choosing a node opens its own settings in place of the list (node-settings.tsx), with the way
- * back along the top. "Add" under a container opens the picker right
- * there, so it's always clear where the new element goes.
+ * A free section in the settings panel (roadmap phases 56 and 58). With nothing chosen it offers
+ * what can be added to the section. With a node chosen (on the canvas, in the Navigator, or from
+ * a container's own list here) it shows that node's settings (node-settings.tsx), with the way
+ * back along the top. "Add inside" under a container opens the picker right there, so it's
+ * always clear where the new element goes.
  */
 
 interface NodeTreeProps {
@@ -49,6 +50,10 @@ interface NodeTreeProps {
     /** The node whose settings are open (null: the list). */
     selected: string | null;
     onSelect(uid: string | null): void;
+    /** "Add inside" pressed on the canvas: open this container's picker (null: the section's own). */
+    addInside?: { uid: string | null; at: number } | null;
+    /** An element or layout picked up from the list, to drop on the canvas (null: let go). */
+    onDragNew?(make: (() => NodeData) | null): void;
     /** The screen size being styled: the same one the preview shows. */
     device: Device;
     onDevice(device: Device): void;
@@ -65,6 +70,11 @@ export function NodeTree(props: NodeTreeProps) {
     const [adding, setAdding] = useState<string | null>(null);
     const nodes = section.children ?? [];
     const current = selected ? findNode(nodes, selected) : null;
+    // The canvas asked for something new inside a container: its picker opens here.
+    const request = props.addInside;
+    useEffect(() => {
+        if (request) setAdding(request.uid ?? 'root');
+    }, [request]);
 
     const add = (parent: string | null, node: NodeData) => {
         const result = insertNode(document, section.uid, parent, node);
@@ -85,7 +95,7 @@ export function NodeTree(props: NodeTreeProps) {
         <AnimatePresence initial={false}>
             {adding === (parent ?? 'root') && (
                 <m.div {...expand} className="overflow-hidden">
-                    <Picker onPick={node => add(parent, node)} />
+                    <Picker onPick={node => add(parent, node)} onDragNew={props.onDragNew} />
                 </m.div>
             )}
         </AnimatePresence>
@@ -306,23 +316,36 @@ export function NodeTree(props: NodeTreeProps) {
         );
     }
 
+    // The section itself: its layers are in the Navigator on the left and on the page; here is
+    // where something new is added to the end of it.
     return (
         <div>
-            {nodes.length === 0 ? (
-                <p className="mb-3 text-sm text-ink-muted">{t.empty}</p>
-            ) : (
-                <ul className="-mx-2">{rows(nodes, 0)}</ul>
-            )}
-            <div className={cn(nodes.length > 0 && '-mx-2 mt-1 border-t border-line pt-1')}>
-                {addButton(null, t.add)}
-                {picker(null)}
-            </div>
+            <p className="mb-3 text-sm leading-relaxed text-ink-muted">
+                {nodes.length === 0 ? t.empty : t.pickHint}
+            </p>
+            {addButton(null, t.add)}
+            {picker(null)}
         </div>
     );
 }
 
 /** What can be added: a layout to start from, or one element. */
-function Picker({ onPick }: { onPick(node: NodeData): void }) {
+function Picker({
+    onPick,
+    onDragNew,
+}: {
+    onPick(node: NodeData): void;
+    onDragNew?(make: (() => NodeData) | null): void;
+}) {
+    const drag = (make: () => NodeData) => ({
+        draggable: !!onDragNew,
+        onDragStart: (event: DragEvent<HTMLButtonElement>) => {
+            event.dataTransfer.effectAllowed = 'copy';
+            event.dataTransfer.setData('text/plain', 'new');
+            onDragNew?.(make);
+        },
+        onDragEnd: () => onDragNew?.(null),
+    });
     const { messages: m_, language: ui } = useI18n();
     const t = m_.design.tree;
     const elements = ELEMENTS.filter(definition => !definition.internal && definition.type !== 'container');
@@ -346,6 +369,7 @@ function Picker({ onPick }: { onPick(node: NodeData): void }) {
                                     title={name}
                                     aria-label={name}
                                     onClick={() => onPick(createStructure(preset))}
+                                    {...drag(() => createStructure(preset))}
                                     className="flex w-full rounded border border-line p-1.5 text-ink transition-colors hover:border-ink focus-visible:outline-2 focus-visible:outline-accent"
                                 >
                                     <StructureDiagram parts={parts} vertical={preset.key === 'flex-column'} />
@@ -370,6 +394,7 @@ function Picker({ onPick }: { onPick(node: NodeData): void }) {
                                         type="button"
                                         title={pick(definition.description, ui)}
                                         onClick={() => onPick(createNode(definition.type))}
+                                        {...drag(() => createNode(definition.type))}
                                         className="flex min-h-16 w-full flex-col items-center justify-center gap-1 rounded border border-line px-1 text-center text-xs font-medium text-ink transition-colors hover:border-ink focus-visible:outline-2 focus-visible:outline-accent"
                                     >
                                         <ElementIcon

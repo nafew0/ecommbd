@@ -197,7 +197,18 @@ Raw custom CSS (later, if ever). A **custom CSS class** field ships in 58's Adva
 
 ### Done when
 
-- [ ] A merchant builds a 2-column section with a nested container using only the canvas, then rearranges it from the Navigator, all with undo.
+- [x] A merchant builds a 2-column section with a nested container, then rearranges it from the Navigator, all with undo (`tests/browser/builder.spec.ts`: selecting on the page, words changed in place, the toolbar, layers dragged, Move to, shortcuts, copy and paste, a drop onto the page). New elements are chosen from the list in the settings panel; "Add inside" on the page opens that list for the container clicked.
+
+### As built (2026-11-19)
+
+The decisions are in [decisions.md](../decisions.md) (2026-11-19, "Phase 58"). In short:
+
+- **Canvas:** `apps/storefront/src/scripts/preview.ts` draws the outline, name tag and toolbar and reports what the merchant did; `apps/admin/src/components/design/use-canvas.ts` changes the draft.
+- **Navigator:** the section list, with a free section's layers nested under it (`navigator.tsx`). The settings panel no longer repeats the tree.
+- **No drag library:** the browser's own drag and drop, in the layers and on the page.
+- **Advanced tab:** Move to, hide per screen size, ID, name in the editor, opacity, CSS class.
+- **Rich text** is edited in the panel; headings, buttons and badges in place.
+- **To check by hand:** a real mouse drag from the element list onto the page (the automated test sends the drag's events instead).
 
 ### Not in this phase
 

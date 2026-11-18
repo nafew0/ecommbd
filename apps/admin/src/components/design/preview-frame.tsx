@@ -38,6 +38,10 @@ interface PreviewFrameProps {
     device: Device;
     title: string;
     onMessage?(message: PreviewMessage): void;
+    /** Percent of real size (phase 58), or null to fit the space. */
+    zoom?: number | null;
+    /** Says what "fit" comes to, in percent, for the zoom readout. */
+    onFit?(percent: number): void;
 }
 
 const DESKTOP_WIDTH = 1280;
@@ -45,7 +49,7 @@ const PHONE_WIDTH = 390;
 const TABLET_WIDTH = 768;
 
 export const PreviewFrame = forwardRef<PreviewHandle, PreviewFrameProps>(function PreviewFrame(
-    { src, device, title, onMessage },
+    { src, device, title, onMessage, zoom = null, onFit },
     ref,
 ) {
     const { messages: m } = useI18n();
@@ -114,16 +118,24 @@ export const PreviewFrame = forwardRef<PreviewHandle, PreviewFrameProps>(functio
     const handheld = device !== 'desktop';
     const frameWidth =
         device === 'desktop' ? DESKTOP_WIDTH : device === 'tablet' ? TABLET_WIDTH : PHONE_WIDTH;
-    const scale = Math.max(0.3, Math.min(1, (size.width - (handheld ? 24 : 0)) / frameWidth));
+    const fitScale = Math.max(0.3, Math.min(1, (size.width - (handheld ? 24 : 0)) / frameWidth));
+    const scale = zoom ? zoom / 100 : fitScale;
+    const fitPercent = Math.round(fitScale * 100);
+    useEffect(() => {
+        if (size.width) onFit?.(fitPercent);
+        // Only when what "fit" comes to changes (not when the parent passes a new function).
+    }, [fitPercent, size.width]);
     const tallest = device === 'tablet' ? 1024 : 844;
     const frameHeight = handheld ? Math.min((size.height - 32) / scale, tallest) : size.height / scale;
 
     return (
-        <div ref={area} className="relative h-full w-full overflow-hidden">
+        <div ref={area} className={cn('relative h-full w-full', zoom ? 'overflow-auto' : 'overflow-clip')}>
             {src && (
                 <div
                     className={cn(
-                        'absolute top-0 overflow-hidden bg-surface transition-[width,height] duration-300',
+                        // Clipped, not hidden: a hidden box can still be scrolled by a focus or a
+                        // scroll-into-view inside the frame, which would slide the page out of view.
+                        'absolute top-0 overflow-clip bg-surface transition-[width,height] duration-300',
                         device === 'phone'
                             ? 'top-4 rounded-[18px] shadow-2xl ring-8 ring-ink'
                             : device === 'tablet'
@@ -133,7 +145,7 @@ export const PreviewFrame = forwardRef<PreviewHandle, PreviewFrameProps>(functio
                     style={{
                         width: frameWidth * scale,
                         height: frameHeight * scale,
-                        left: handheld ? Math.max(0, (size.width - frameWidth * scale) / 2) : 0,
+                        left: handheld || zoom ? Math.max(0, (size.width - frameWidth * scale) / 2) : 0,
                     }}
                 >
                     <iframe
@@ -147,7 +159,7 @@ export const PreviewFrame = forwardRef<PreviewHandle, PreviewFrameProps>(functio
                         style={{
                             width: frameWidth,
                             height: frameHeight,
-                            transform: scale < 1 ? `scale(${scale})` : undefined,
+                            transform: scale !== 1 ? `scale(${scale})` : undefined,
                         }}
                     />
                 </div>

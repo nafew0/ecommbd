@@ -5,6 +5,7 @@ import {
     hasDesign,
     type Device as StyleDevice,
     type LayoutDocument,
+    type NodeData,
     opensToElements,
     readDesign,
     type SectionData,
@@ -43,6 +44,13 @@ interface SectionFormProps {
     onChange(document: LayoutDocument, key?: string): void;
     /** A sales page (phase 16): sections can have an "Order now" button below them. */
     landing?: boolean;
+    /** The node chosen inside a free section (on the canvas, in the Navigator or here). */
+    node: string | null;
+    onNode(uid: string | null): void;
+    /** "Add inside" pressed on the canvas: the container whose picker should open. */
+    addInside?: { uid: string | null; at: number } | null;
+    /** An element or layout picked up from the list, to drop on the canvas. */
+    onDragNew?(make: (() => NodeData) | null): void;
     /** The screen size being styled in a free section: the same one the preview shows. */
     device: StyleDevice;
     onDevice(device: StyleDevice): void;
@@ -55,7 +63,7 @@ export function SectionForm(props: SectionFormProps) {
     const toast = useToast();
     const [tab, setTab] = useState<'content' | 'style' | 'design'>('content');
     // A free section's open node: its settings take the panel over, so the section's tabs step aside.
-    const [nodeUid, setNodeUid] = useState<string | null>(null);
+    const { node: nodeUid, onNode: setNodeUid } = props;
     const inNode = tab === 'content' && !!nodeUid && !!findNode(section.children ?? [], nodeUid);
     const definition = sectionDefinition(section.type);
     if (!definition) return null;
@@ -120,6 +128,8 @@ export function SectionForm(props: SectionFormProps) {
                             onDevice={onDevice}
                             selected={nodeUid}
                             onSelect={setNodeUid}
+                            addInside={props.addInside}
+                            onDragNew={props.onDragNew}
                         />
                     ) : (
                         <>

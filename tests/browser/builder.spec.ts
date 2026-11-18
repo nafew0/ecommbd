@@ -75,9 +75,12 @@ async function openEditor(page: Page) {
     await expect(preview(page).locator('body[data-preview="editor"]')).toBeAttached({ timeout: 15_000 });
 }
 
-/** Opens the picker under the nth container and picks from it (once a closing picker has gone). */
-async function addInside(page: Page, index: number, name: string) {
-    await page.getByRole('button', { name: 'Add inside' }).nth(index).click();
+const layersOf = (page: Page) => page.getByRole('list', { name: 'Layers' });
+
+/** Selects a layer by its name, then adds something inside it from its own picker. */
+async function addIn(page: Page, layer: RegExp, nth: number, name: string) {
+    await layersOf(page).getByRole('button', { name: layer }).nth(nth).click();
+    await page.getByRole('button', { name: 'Add inside' }).last().click();
     const option = page.getByRole('button', { name, exact: true });
     await expect(option).toHaveCount(1);
     await option.click();
@@ -179,8 +182,9 @@ test.describe('the element tree', () => {
         // A two-column layout, then a heading inside its first column.
         await page.getByRole('button', { name: 'Add a layout or element' }).click();
         await page.getByRole('button', { name: 'Two columns', exact: true }).click();
-        await expect(page.getByRole('button', { name: 'Add inside' })).toHaveCount(3);
-        await addInside(page, 0, 'Heading');
+        // Its layers show under the section: a grid holding two columns.
+        await expect(layersOf(page).getByRole('button', { name: /^(Grid|Column)$/ })).toHaveCount(3);
+        await addIn(page, /^Column$/, 0, 'Heading');
         const title = `Winter shawls ${Math.random().toString(36).slice(2, 8)}`;
         await page.getByRole('textbox', { name: 'Heading', exact: true }).fill(title);
         await expect(preview(page).getByRole('heading', { name: title })).toBeVisible({ timeout: 15_000 });
@@ -204,8 +208,7 @@ test.describe('the element tree', () => {
         await page.getByRole('radio', { name: 'Computer', exact: true }).last().click();
         await page.getByRole('button', { name: 'Text colour: #b3261e' }).click();
         await page.getByRole('button', { name: 'Copy design' }).click();
-        await page.getByRole('button', { name: 'All elements' }).click();
-        await addInside(page, 0, 'Heading');
+        await addIn(page, /^Column$/, 0, 'Heading');
         await page.getByRole('tab', { name: 'Design' }).last().click();
         await page.getByRole('button', { name: 'Paste design' }).click();
         await expect(page.getByRole('radio', { name: 'Phone (1)' })).toBeVisible();
@@ -219,17 +222,15 @@ test.describe('the element tree', () => {
         await expect(page.getByRole('slider', { name: 'Size' })).toHaveCount(0);
         await page.getByRole('searchbox', { name: 'Search settings' }).fill('');
 
-        // Back to the list: the heading is named by its words. A button goes in the second column.
-        await page.getByRole('button', { name: 'All elements' }).click();
-        await expect(page.getByRole('button', { name: `Heading ${title}` })).toBeVisible();
-        await addInside(page, 1, 'Button');
+        // In the layers the heading is named by its words. A button goes in the second column.
+        await expect(layersOf(page).getByRole('button', { name: `Heading ${title}` })).toBeVisible();
+        await addIn(page, /^Column$/, 1, 'Button');
         await expect(preview(page).getByRole('link', { name: 'Shop now' })).toBeVisible({ timeout: 15_000 });
 
         // Containers go three deep; a fourth is refused with the reason.
-        await page.getByRole('button', { name: 'All elements' }).click();
-        await addInside(page, 1, 'One below another');
-        // The new container's own "Add inside" now comes before its parent's.
-        await addInside(page, 1, 'One below another');
+        await addIn(page, /^Column$/, 1, 'One below another');
+        await expect(layersOf(page).getByRole('button', { name: /^Column$/ })).toHaveCount(3);
+        await addIn(page, /^Column$/, 2, 'One below another');
         await expect(page.getByText('Containers can go three deep at most.')).toBeVisible();
 
         await expect(page.getByText('Draft saved')).toBeVisible();
@@ -259,7 +260,7 @@ test.describe('the element tree', () => {
         await page.getByRole('button', { name: 'Open up to edit freely' }).click();
         await expect(page.getByText('Opened up. Each part can now be changed on its own.')).toBeVisible();
         // Now a free section: its heading and text are elements of their own.
-        await expect(page.getByRole('button', { name: 'Heading About our shop' })).toBeVisible();
+        await expect(layersOf(page).getByRole('button', { name: 'Heading About our shop' })).toBeVisible();
         await expect(
             page.getByRole('button', { name: 'Text We stitch everything ourselves.' }),
         ).toBeVisible();
@@ -272,5 +273,174 @@ test.describe('the element tree', () => {
         await expect(page.getByRole('button', { name: 'Open up to edit freely' })).toBeVisible();
         await expect(preview(page).locator('.section-rich-text')).toBeVisible({ timeout: 15_000 });
         expect(errors).toEqual([]);
+    });
+    test('a merchant edits on the canvas: selects, changes words in place, uses the toolbar, layers and Move to', async ({
+        page,
+        isMobile,
+    }) => {
+        test.skip(isMobile, 'The phone layout of the editor has its own test');
+        test.setTimeout(120_000);
+        const errors = watchForErrors(page);
+        const section = createSection('custom');
+        const [left, right] = section.children![0]!.children as [NodeData, NodeData];
+        await setDraft(admin, 'home', { sections: [section] });
+        await signIn(page, 'en');
+        // A wide window and the tablet view: the page is shown at its real size (Playwright can't
+        // aim at a scaled-down frame), with the two columns side by side.
+        await page.setViewportSize({ width: 1700, height: 900 });
+        await openEditor(page);
+        await page.getByRole('radio', { name: 'Tablet', exact: true }).first().click();
+        const canvas = preview(page);
+        const layers = layersOf(page);
+
+        // A click on the page selects the element: its settings open and its layer is marked.
+        await canvas.getByRole('heading', { name: 'Write your heading' }).click();
+        await expect(page.getByRole('textbox', { name: 'Heading', exact: true })).toHaveValue(
+            'Write your heading',
+        );
+        await expect(layers.getByRole('button', { name: /^Heading Write your heading/ })).toHaveAttribute(
+            'aria-current',
+            'true',
+        );
+        await expect(canvas.locator('.canvas-frame .canvas-tag')).toHaveText('Heading');
+
+        // Double-click to change the words right there; Enter finishes, and the panel has them too.
+        await canvas.getByRole('heading', { name: 'Write your heading' }).dblclick();
+        const editing = canvas.locator('[data-edit][contenteditable]');
+        await editing.fill('Winter shawls are here');
+        await editing.press('Enter');
+        await expect(page.getByRole('textbox', { name: 'Heading', exact: true })).toHaveValue(
+            'Winter shawls are here',
+        );
+        await expect(canvas.getByRole('heading', { name: 'Winter shawls are here' })).toBeVisible({
+            timeout: 15_000,
+        });
+        // Escape leaves the words as they were.
+        await canvas.getByRole('heading', { name: 'Winter shawls are here' }).dblclick();
+        await editing.fill('Something else');
+        await editing.press('Escape');
+        await expect(canvas.getByRole('heading', { name: 'Winter shawls are here' })).toBeVisible();
+
+        // The toolbar on the selected element: duplicate, then undo takes the copy away.
+        await canvas.locator('.canvas-tools').getByRole('button', { name: 'Duplicate' }).click();
+        await expect(canvas.getByRole('heading', { name: 'Winter shawls are here' })).toHaveCount(2, {
+            timeout: 15_000,
+        });
+        await page.getByRole('button', { name: 'Undo' }).click();
+        await expect(canvas.getByRole('heading', { name: 'Winter shawls are here' })).toHaveCount(1, {
+            timeout: 15_000,
+        });
+
+        // Layers: select the text from the list, give it a name of its own, and find it by that name.
+        await layers.getByRole('button', { name: /^Text Add text/ }).click();
+        await layers.getByRole('button', { name: /^Text Add text/ }).dblclick();
+        await page.getByRole('textbox', { name: 'Name in the editor' }).fill('Intro words');
+        await page.getByRole('textbox', { name: 'Name in the editor' }).press('Enter');
+        await expect(layers.getByRole('button', { name: /^Intro words/ })).toBeVisible();
+        await page.getByRole('searchbox', { name: 'Search names or content' }).fill('intro');
+        // Only the match and what holds it are left.
+        await expect(layers.getByRole('button', { name: /^(Heading|Button|Image)/ })).toHaveCount(0);
+        await expect(layers.getByRole('button', { name: /^(Grid|Column)$/ })).toHaveCount(2);
+        await page.getByRole('searchbox', { name: 'Search names or content' }).fill('');
+
+        // Selecting from the list scrolls the page inside its frame, never the frame itself.
+        expect(
+            await page
+                .locator(`iframe[title="${PREVIEW}"]`)
+                .evaluate(frame => frame.parentElement!.scrollLeft),
+        ).toBe(0);
+
+        // Move to: the text goes into the first column, chosen from lists instead of dragged.
+        await page.getByRole('tab', { name: 'Advanced' }).click();
+        await page.getByRole('combobox', { name: 'Where' }).selectOption({ index: 2 });
+        await page.getByRole('combobox', { name: 'Position' }).selectOption({ index: 0 });
+        await page.getByRole('button', { name: 'Move here' }).click();
+        await expect(canvas.locator(`[data-u="${left.uid}"] > .el`).first()).toContainText(
+            'Add text, buttons',
+            { timeout: 15_000 },
+        );
+        // Hidden on phones, with an ID a button can jump to.
+        await page.getByText('Hide on phones').click();
+        await expect(page.getByRole('switch', { name: 'Hide on phones' })).toBeChecked();
+        await page.getByRole('textbox', { name: 'Section ID' }).fill('Intro Words');
+        await expect(canvas.locator('#intro-words')).toBeAttached({ timeout: 15_000 });
+
+        // Drag in the layers: the button goes above the heading.
+        await layers
+            .getByRole('button', { name: /^Button Order now/ })
+            .dragTo(layers.getByRole('button', { name: /^Heading Winter/ }), {
+                targetPosition: { x: 40, y: 3 },
+            });
+        await expect(canvas.locator(`[data-u="${right.uid}"] > .el`).first()).toContainText('Order now', {
+            timeout: 15_000,
+        });
+
+        // Keys: ? shows the list, P expands the canvas and brings the panels back.
+        await page.getByRole('heading', { name: 'Sections' }).click();
+        await page.keyboard.press('?');
+        await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeVisible();
+        await page.keyboard.press('Escape');
+        await page.keyboard.press('p');
+        await expect(page.getByRole('list', { name: 'Sections' })).toBeHidden();
+        await page.getByRole('button', { name: 'Back to editing' }).click();
+        await expect(page.getByRole('list', { name: 'Sections' })).toBeVisible();
+
+        // Copy the selected element, and paste it: on this page here, on any other page the same way.
+        await layers.getByRole('button', { name: /^Button Order now/ }).click();
+        await page.getByRole('heading', { name: 'Sections' }).click();
+        await page.keyboard.press('ControlOrMeta+c');
+        await expect(page.getByText('Copied. Paste it here or on another page.')).toBeVisible();
+        await page.keyboard.press('ControlOrMeta+v');
+        await expect(canvas.getByRole('link', { name: 'Order now' })).toHaveCount(2, { timeout: 15_000 });
+        expect(errors).toEqual([]);
+    });
+
+    test('an element is dragged from the list onto the page, into the container under the pointer', async ({
+        page,
+        isMobile,
+    }) => {
+        test.skip(isMobile, 'Dragging needs a mouse; phones use Move to');
+        const section = createSection('custom');
+        const [left] = section.children![0]!.children as [NodeData, NodeData];
+        await setDraft(admin, 'home', { sections: [section] });
+        await signIn(page, 'en');
+        await page.setViewportSize({ width: 1700, height: 900 });
+        await openEditor(page);
+        await page.getByRole('radio', { name: 'Tablet', exact: true }).first().click();
+        await page
+            .getByRole('list', { name: 'Sections' })
+            .getByRole('button', { name: /^Free section/ })
+            .first()
+            .click();
+        await page.getByRole('button', { name: 'Add a layout or element' }).click();
+        const canvas = preview(page);
+        // Playwright can't carry a real drag from one frame into another, so the drag's own events
+        // are sent: picked up in the editor's list, then over and onto the first column on the page.
+        const data = await page.evaluateHandle(() => new DataTransfer());
+        await page
+            .getByRole('button', { name: 'Badge', exact: true })
+            .dispatchEvent('dragstart', { dataTransfer: data });
+        const column = canvas.locator(`[data-u="${left.uid}"]`);
+        await column.scrollIntoViewIfNeeded();
+        const dropLine = canvas.locator('.canvas-drop');
+        await expect(async () => {
+            await column.evaluate(element => {
+                const box = element.getBoundingClientRect();
+                const at = { bubbles: true, cancelable: true, clientX: box.left + 30, clientY: box.top + 4 };
+                element.dispatchEvent(new DragEvent('dragover', at));
+            });
+            // A line shows where it would land: above the image.
+            await expect(dropLine).toBeVisible({ timeout: 500 });
+        }).toPass({ timeout: 5000 });
+        await column.evaluate(element => {
+            const box = element.getBoundingClientRect();
+            const at = { bubbles: true, cancelable: true, clientX: box.left + 30, clientY: box.top + 4 };
+            element.dispatchEvent(new DragEvent('drop', at));
+        });
+        await expect(canvas.locator(`[data-u="${left.uid}"] > .el`).first()).toHaveClass(/el-badge/, {
+            timeout: 15_000,
+        });
+        // What was dropped is selected, ready to change.
+        await expect(page.getByRole('textbox', { name: 'Label', exact: true })).toHaveValue('New');
     });
 });

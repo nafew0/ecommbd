@@ -15,7 +15,7 @@ import {
     smartSections,
 } from './document';
 import { ELEMENTS, elementDefinition, STRUCTURE_PRESETS } from './elements';
-import { effectiveStyle, readNodeStyle, styleCount, withStyleValue } from './node-style';
+import { type Device, effectiveStyle, readNodeStyle, styleCount, withStyleValue } from './node-style';
 import {
     columnCount,
     copyNode,
@@ -29,6 +29,7 @@ import {
     nodeDepth,
     nodeShows,
     nodeSnippet,
+    readClasses,
     visibleNodes,
 } from './nodes';
 import { openSection, opensToElements } from './open';
@@ -703,5 +704,56 @@ describe('opening a section up', () => {
             expect(documentIssues(opened)).toEqual(documentIssues(layout));
             expect(readDocument(JSON.parse(JSON.stringify(opened)))).toEqual(opened);
         }
+    });
+});
+
+describe('a node’s own options (phase 58)', () => {
+    it('reads an anchor, class names and the screen sizes it hides on, leaving them out when empty', () => {
+        const section = readSection({
+            type: 'custom',
+            v: 2,
+            children: [
+                {
+                    uid: 'head0001',
+                    type: 'heading',
+                    anchor: ' Size Guide! ',
+                    cssClass: 'promo  big-title 9bad "x" promo a{b} one two three four',
+                    hideOn: ['phone', 'watch', 'phone', 'base'],
+                },
+                { uid: 'head0002', type: 'heading', anchor: '', cssClass: 42, hideOn: 'phone' },
+            ],
+        })!;
+        expect(section.children![0]).toMatchObject({
+            anchor: 'size-guide',
+            cssClass: 'promo big-title one two three',
+            hideOn: ['base', 'phone'],
+        });
+        const plain = section.children![1]!;
+        expect('anchor' in plain || 'cssClass' in plain || 'hideOn' in plain).toBe(false);
+        expect(readClasses('ok also-ok _no -no')).toBe('ok also-ok');
+    });
+
+    it('hides a node on one screen size only', () => {
+        const heading = { ...createNode('heading'), uid: 'head0001', hideOn: ['tablet'] as Device[] };
+        const everywhere = { ...createNode('text'), uid: 'text0001', hideOn: ['base', 'phone'] as Device[] };
+        expect(layoutCss({ sections: [free([heading, everywhere])] })).toBe(
+            [
+                '@media (min-width:750px) and (max-width:989px){.el[data-u="head0001"]{display:none}}',
+                '@media (min-width:990px){.el[data-u="text0001"]{display:none}}',
+                '@media (max-width:749px){.el[data-u="text0001"]{display:none}}',
+            ].join(''),
+        );
+    });
+
+    it('refuses an ID used twice, by a section or by a node', () => {
+        const first = { ...createNode('heading'), anchor: 'offer' };
+        const second = { ...createNode('heading'), anchor: 'offer' };
+        const third = { ...createNode('heading'), anchor: 'order' };
+        const form = createSection('order-form');
+        expect(form.style.anchor).toBe('order');
+        expect(documentIssues({ sections: [form, free([first, second, third])] })).toEqual([
+            { sectionId: 'free0001', blockId: second.uid, field: 'anchor', code: 'duplicateAnchor' },
+            { sectionId: 'free0001', blockId: third.uid, field: 'anchor', code: 'duplicateAnchor' },
+        ]);
     });
 });

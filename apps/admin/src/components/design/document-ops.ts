@@ -18,6 +18,7 @@ import {
     type NodeStyleProp,
     openSection,
     pick,
+    readSection,
     type SectionData,
     sectionDefinition,
     type SectionStyle,
@@ -301,6 +302,39 @@ export function duplicateNode(
     return { ...result, copy: result.refused ? null : copy };
 }
 
+/**
+ * Moves a node to another place: inside the container `parentUid` (null: the top of the section)
+ * of `toUid` (its own section by default), at `index` among what is there now. Refused when it
+ * would go inside itself, or would nest containers too deep.
+ */
+export function moveNodeTo(
+    document: LayoutDocument,
+    uid: string,
+    nodeUid: string,
+    parentUid: string | null,
+    index: number,
+    toUid = uid,
+): { document: LayoutDocument; refused?: NodeRefusal | 'insideItself' } {
+    const from = document.sections.find(item => item.uid === uid);
+    const to = document.sections.find(item => item.uid === toUid);
+    const found = from?.children ? findNode(from.children, nodeUid) : null;
+    if (!found || !to?.children) return { document };
+    const { node } = found;
+    if (parentUid === nodeUid || (parentUid && findNode(node.children ?? [], parentUid))) {
+        return { document, refused: 'insideItself' };
+    }
+    const parent = parentUid ? findNode(to.children, parentUid) : null;
+    if (parentUid && parent?.node.type !== 'container') return { document };
+    if ((parent?.depth ?? 0) + nodeDepth([node]) > NODE_LIMITS.depth) return { document, refused: 'tooDeep' };
+    // Taking it out first shifts what comes after it in the same list down by one.
+    const siblings = parent ? parent.node.children! : to.children;
+    const was = uid === toUid ? siblings.indexOf(node) : -1;
+    const at = was >= 0 && was < index ? index - 1 : index;
+    if (was === at) return { document };
+    const without = removeNode(document, uid, nodeUid);
+    return { document: insertNode(without, toUid, parentUid, node, at).document };
+}
+
 /** A ready-made section opened up into a free section (undo puts it back). */
 export function openUpSection(document: LayoutDocument, uid: string): LayoutDocument {
     return mapSection(document, uid, section => openSection(section) ?? section);
@@ -360,9 +394,74 @@ export function sectionLabel(section: SectionData, language: 'bn' | 'en'): { nam
     return { name, detail: heading ? pick(heading, language) : '' };
 }
 
-/** Anchors (section IDs) on the page, for buttons that jump to a section. */
+/** Anchors (the IDs of sections and of nodes) on the page, for buttons that jump to one. */
 export function anchorsOf(document: LayoutDocument, language: 'bn' | 'en') {
-    return document.sections
-        .filter(section => section.style.anchor)
-        .map(section => ({ anchor: section.style.anchor, label: sectionLabel(section, language).name }));
+    return document.sections.flatMap(section => [
+        ...(section.style.anchor
+            ? [{ anchor: section.style.anchor, label: sectionLabel(section, language).name }]
+            : []),
+        ...[...eachNode(section.children ?? [])]
+            .filter(({ node }) => node.anchor)
+            .map(({ node }) => ({ anchor: node.anchor!, label: nodeName(node, language) })),
+    ]);
+}
+
+/** The containers a node could move into (not itself, not inside itself), each with its path as a name. */
+export function moveTargets(
+    section: SectionData,
+    nodeUid: string,
+    ui: 'bn' | 'en',
+): Array<{ uid: string; label: string; count: number }> {
+    const moving = findNode(section.children ?? [], nodeUid)?.node;
+    const targets: Array<{ uid: string; label: string; count: number }> = [];
+    for (const { node } of eachNode(section.children ?? [])) {
+        if (node.type !== 'container' || node.uid === nodeUid) continue;
+        if (moving && findNode(moving.children ?? [], node.uid)) continue;
+        const label = nodePath(section.children ?? [], node.uid)
+            .map(item => nodeName(item, ui))
+            .join(' / ');
+        targets.push({
+            uid: node.uid,
+            label,
+            count: node.children!.filter(item => item.uid !== nodeUid).length,
+        });
+    }
+    return targets;
+}
+
+/** What the editor's own clipboard holds: a node or a section, copied on any page of the store. */
+export type Clip = { kind: 'node'; node: NodeData } | { kind: 'section'; section: SectionData };
+
+const CLIP_KEY = 'ecommbd:builder-clipboard';
+
+export function writeClip(clip: Clip): boolean {
+    try {
+        window.localStorage.setItem(CLIP_KEY, JSON.stringify(clip));
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+/** The copied node or section, read again for this release, with new IDs; null when there is none. */
+export function readClip(): Clip | null {
+    try {
+        const raw = JSON.parse(window.localStorage.getItem(CLIP_KEY) ?? 'null') as Record<
+            string,
+            unknown
+        > | null;
+        if (raw?.kind === 'section') {
+            const section = readSection(raw.section);
+            return section ? { kind: 'section', section: copySection(section) } : null;
+        }
+        if (raw?.kind === 'node') {
+            // Read as the only node of a free section, so it gets the same checks as a stored one.
+            const holder = readSection({ type: 'custom', v: 2, children: [raw.node] });
+            const node = holder?.children?.[0];
+            return node ? { kind: 'node', node: copyNode(node) } : null;
+        }
+    } catch {
+        // Nothing usable there.
+    }
+    return null;
 }

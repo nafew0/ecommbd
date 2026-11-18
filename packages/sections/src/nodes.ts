@@ -5,8 +5,8 @@ import {
     elementDefinition,
     type StructurePreset,
 } from './elements';
-import { defaultValue, type Field, type FieldValue } from './fields';
-import { type NodeStyle, readNodeStyle } from './node-style';
+import { defaultValue, type Field, type FieldValue, toAnchor } from './fields';
+import { type Device, DEVICES, type NodeStyle, readNodeStyle } from './node-style';
 import { newId, type ReadOptions, readSettings, UID } from './read-settings';
 import { cleanText, isRecord } from './text';
 
@@ -42,6 +42,12 @@ export interface NodeData {
     label: string;
     props: NodeProps;
     style: NodeStyle;
+    /** For buttons that jump here (`#sizes`). Left out when there is none. */
+    anchor?: string;
+    /** The merchant's own CSS class names, for their theme's custom CSS. Left out when empty. */
+    cssClass?: string;
+    /** The screen sizes it doesn't show on. Left out when it shows everywhere. */
+    hideOn?: Device[];
     /** A container's contents, in order. */
     children?: NodeData[];
     /** A live block's ready-made section (its type, settings and blocks). */
@@ -66,6 +72,14 @@ function migrateProps(definition: ElementDefinition, props: Record<string, unkno
     return migrated;
 }
 
+const CLASS = /^[a-zA-Z][\w-]{0,39}$/;
+
+/** Up to five plain class names, as typed with spaces between; anything else is dropped. */
+export function readClasses(value: unknown): string {
+    if (typeof value !== 'string') return '';
+    return [...new Set(value.split(/\s+/).filter(name => CLASS.test(name)))].slice(0, 5).join(' ');
+}
+
 function readNode(raw: unknown, state: ReadState, depth: number): NodeData | null {
     if (!isRecord(raw) || typeof raw.type !== 'string') return null;
     const definition = elementDefinition(raw.type);
@@ -84,6 +98,12 @@ function readNode(raw: unknown, state: ReadState, depth: number): NodeData | nul
         props: readSettings(definition.fields, props, state.options) as NodeProps,
         style: readNodeStyle(raw.style),
     };
+    const anchor = typeof raw.anchor === 'string' ? toAnchor(raw.anchor) : '';
+    if (anchor) node.anchor = anchor;
+    const cssClass = readClasses(raw.cssClass);
+    if (cssClass) node.cssClass = cssClass;
+    const hideOn = DEVICES.filter(device => Array.isArray(raw.hideOn) && raw.hideOn.includes(device));
+    if (hideOn.length) node.hideOn = hideOn;
     if (isContainer) {
         node.children = (Array.isArray(raw.children) ? raw.children : [])
             .map(child => readNode(child, state, depth + 1))

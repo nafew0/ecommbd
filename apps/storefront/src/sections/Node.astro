@@ -1,5 +1,16 @@
 ---
-import { type Bilingual, type HeadingTag, type IconName, type ImageValue, type LinkValue, type NodeData, nodeShows } from '@ecommbd/sections';
+import {
+    type Bilingual,
+    elementDefinition,
+    type HeadingTag,
+    type IconName,
+    type ImageValue,
+    type LinkValue,
+    type NodeData,
+    nodeShows,
+    pick,
+    sectionDefinition,
+} from '@ecommbd/sections';
 import Icon from '../components/Icon.astro';
 import Image from '../components/Image.astro';
 import RichText from '../components/RichText.astro';
@@ -53,12 +64,26 @@ const price = typeof p.price === 'number' ? p.price : null;
 const oldPrice = typeof p.oldPrice === 'number' ? p.oldPrice : null;
 const rating = typeof p.rating === 'number' ? p.rating : 0;
 const editorName = editor ? node.type : undefined;
+// In the editor's frame each node says what it is, for its name tag on the canvas.
+const definition = elementDefinition(node.section ? 'live' : node.type);
+const smart = node.section ? sectionDefinition(node.section.type) : undefined;
+const nodeName = !editor
+    ? undefined
+    : node.label || (isContainer ? (grid ? s.editorGrid : row ? s.editorRow : s.editorColumn) : pick((smart ?? definition)!.name, lang));
+/** Text a merchant can change on the canvas itself: the prop it belongs to. */
+const edit = (name: string) => (editor ? name : undefined);
 ---
 
 {
     isContainer ? (
         (!empty || editor || inGrid) && (
-            <div class:list={['box', { 'box-row': row, 'box-bg': !!image, 'box-empty': empty && editor }]} data-u={node.uid} data-node={editorName}>
+            <div
+                id={node.anchor || undefined}
+                class:list={['box', { 'box-row': row, 'box-bg': !!image, 'box-empty': empty && editor }, node.cssClass]}
+                data-u={node.uid}
+                data-node={editorName}
+                data-node-name={nodeName}
+            >
                 {image && (
                     <div class="box-media" aria-hidden="true">
                         <Image asset={image} alt="" lang={lang} sizes="100vw" preferredWidth={1600} />
@@ -67,11 +92,20 @@ const editorName = editor ? node.type : undefined;
                 {children.map(child => (
                     <Astro.self node={child} context={context} inGrid={grid} />
                 ))}
+                {empty && editor && (
+                    <button type="button" class="box-add" data-add-inside>
+                        {s.editorAddInside}
+                    </button>
+                )}
             </div>
         )
     ) : (
-        <div class:list={['el', `el-${kind}`]} data-u={node.uid} data-node={editorName}>
-            {node.type === 'heading' && text('text') && <HeadingTag class="el-heading">{text('text')}</HeadingTag>}
+        <div id={node.anchor || undefined} class:list={['el', `el-${kind}`, node.cssClass]} data-u={node.uid} data-node={editorName} data-node-name={nodeName}>
+            {node.type === 'heading' && (text('text') || editor) && (
+                <HeadingTag class="el-heading" data-edit={edit('text')}>
+                    {text('text')}
+                </HeadingTag>
+            )}
             {node.type === 'text' && <RichText content={text('text')} />}
             {node.type === 'image' &&
                 (image ? (
@@ -86,7 +120,7 @@ const editorName = editor ? node.type : undefined;
                     editor && <EditorHint text={s.editorAddImage} />
                 ))}
             {node.type === 'button' && text('label') && href && (
-                <a class={buttonClass(p.look)} href={href} rel={relOf(href)} data-order-link={href === '#order' ? '' : undefined}>
+                <a class={buttonClass(p.look)} href={href} rel={relOf(href)} data-order-link={href === '#order' ? '' : undefined} data-edit={edit('label')}>
                     {text('label')}
                 </a>
             )}
@@ -152,7 +186,11 @@ const editorName = editor ? node.type : undefined;
                     )}
                 </p>
             )}
-            {node.type === 'badge' && text('label') && <span class="el-badge">{text('label')}</span>}
+            {node.type === 'badge' && text('label') && (
+                <span class="el-badge" data-edit={edit('label')}>
+                    {text('label')}
+                </span>
+            )}
             {node.type === 'stars' && (
                 <span class="el-stars" role="img" aria-label={s.stars(rating)}>
                     {[1, 2, 3, 4, 5].map(n => (

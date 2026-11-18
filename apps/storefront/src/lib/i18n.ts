@@ -326,6 +326,17 @@ const en = {
     offerEnded: 'The offer has ended.',
     editorSetDeadline: 'Choose when the offer ends.',
     editorAddElements: 'Add elements to this section: headings, text, images, buttons and more.',
+    editorAddInside: 'Add inside',
+    editorAddSection: 'Add section',
+    editorSelectParent: 'Select the container around it',
+    editorMoveUp: 'Move up',
+    editorMoveDown: 'Move down',
+    editorDuplicate: 'Duplicate',
+    editorRemove: 'Remove',
+    editorDrag: 'Drag to move',
+    editorGrid: 'Grid',
+    editorRow: 'Row',
+    editorColumn: 'Column',
 };
 
 export type Strings = typeof en;
@@ -637,6 +648,17 @@ const bn: Strings = {
     offerEnded: 'অফার শেষ হয়ে গেছে।',
     editorSetDeadline: 'অফার কখন শেষ হবে, তা ঠিক করুন।',
     editorAddElements: 'এই সেকশনে এলিমেন্ট যোগ করুন: শিরোনাম, লেখা, ছবি, বাটন আর আরও অনেক কিছু।',
+    editorAddInside: 'ভেতরে যোগ করুন',
+    editorAddSection: 'সেকশন যোগ করুন',
+    editorSelectParent: 'চারপাশের কনটেইনার বেছে নিন',
+    editorMoveUp: 'ওপরে নিন',
+    editorMoveDown: 'নিচে নিন',
+    editorDuplicate: 'কপি করুন',
+    editorRemove: 'সরিয়ে দিন',
+    editorDrag: 'টেনে সরান',
+    editorGrid: 'গ্রিড',
+    editorRow: 'সারি',
+    editorColumn: 'কলাম',
 };
 
 export const STRINGS: Record<Lang, Strings> = { bn, en };
