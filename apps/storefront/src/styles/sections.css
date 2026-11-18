@@ -189,6 +189,48 @@
     }
 }
 
+/*
+ * An element's own entrance (phase 58): it fades, rises or grows into place as it scrolls into
+ * view. CSS only, like the section's; where the browser can't do it the element is simply there.
+ */
+@media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+        :is(.anim-fade, .anim-rise, .anim-zoom) {
+            animation: node-fade linear both;
+            animation-timeline: view();
+            animation-range: entry 0% entry 35%;
+        }
+
+        .anim-rise {
+            animation-name: node-rise;
+        }
+
+        .anim-zoom {
+            animation-name: node-zoom;
+        }
+    }
+}
+
+@keyframes node-fade {
+    from {
+        opacity: 0;
+    }
+}
+
+@keyframes node-rise {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+}
+
+@keyframes node-zoom {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+}
+
 /* Shared parts: heading row, intro text, buttons */
 .section-head {
     margin-bottom: 20px;

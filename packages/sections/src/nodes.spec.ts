@@ -720,7 +720,15 @@ describe('a node’s own options (phase 58)', () => {
                     cssClass: 'promo  big-title 9bad "x" promo a{b} one two three four',
                     hideOn: ['phone', 'watch', 'phone', 'base'],
                 },
-                { uid: 'head0002', type: 'heading', anchor: '', cssClass: 42, hideOn: 'phone' },
+                {
+                    uid: 'head0002',
+                    type: 'heading',
+                    anchor: '',
+                    cssClass: 42,
+                    hideOn: 'phone',
+                    animate: 'spin',
+                },
+                { uid: 'head0003', type: 'heading', animate: 'rise' },
             ],
         })!;
         expect(section.children![0]).toMatchObject({
@@ -729,7 +737,11 @@ describe('a node’s own options (phase 58)', () => {
             hideOn: ['base', 'phone'],
         });
         const plain = section.children![1]!;
-        expect('anchor' in plain || 'cssClass' in plain || 'hideOn' in plain).toBe(false);
+        expect('anchor' in plain || 'cssClass' in plain || 'hideOn' in plain || 'animate' in plain).toBe(
+            false,
+        );
+        // An entrance animation is one of the few we ship, or none.
+        expect(section.children![2]!.animate).toBe('rise');
         expect(readClasses('ok also-ok _no -no')).toBe('ok also-ok');
     });
 

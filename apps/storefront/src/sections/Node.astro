@@ -79,7 +79,7 @@ const edit = (name: string) => (editor ? name : undefined);
         (!empty || editor || inGrid) && (
             <div
                 id={node.anchor || undefined}
-                class:list={['box', { 'box-row': row, 'box-bg': !!image, 'box-empty': empty && editor }, node.cssClass]}
+                class:list={['box', { 'box-row': row, 'box-bg': !!image, 'box-empty': empty && editor }, node.cssClass, node.animate && `anim-${node.animate}`]}
                 data-u={node.uid}
                 data-node={editorName}
                 data-node-name={nodeName}
@@ -100,7 +100,7 @@ const edit = (name: string) => (editor ? name : undefined);
             </div>
         )
     ) : (
-        <div id={node.anchor || undefined} class:list={['el', `el-${kind}`, node.cssClass]} data-u={node.uid} data-node={editorName} data-node-name={nodeName}>
+        <div id={node.anchor || undefined} class:list={['el', `el-${kind}`, node.cssClass, node.animate && `anim-${node.animate}`]} data-u={node.uid} data-node={editorName} data-node-name={nodeName}>
             {node.type === 'heading' && (text('text') || editor) && (
                 <HeadingTag class="el-heading" data-edit={edit('text')}>
                     {text('text')}

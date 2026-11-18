@@ -3,6 +3,7 @@ import {
     DEVICES,
     findNode,
     type LayoutDocument,
+    NODE_ANIMATIONS,
     NODE_STYLE_FIELDS,
     type NodeData,
     readClasses,
@@ -48,7 +49,7 @@ export function NodeAdvanced({
     const d = m.design;
     const t = d.tree;
     const toast = useToast();
-    const ids = { name: useId(), to: useId(), at: useId(), anchor: useId(), css: useId() };
+    const ids = { name: useId(), to: useId(), at: useId(), anchor: useId(), css: useId(), animate: useId() };
     const nodes = section.children ?? [];
     const here = findNode(nodes, node.uid);
     const targets = moveTargets(section, node.uid, ui);
@@ -151,6 +152,34 @@ export function NodeAdvanced({
             </fieldset>
 
             <div className="space-y-5 border-t border-line pt-5">
+                <div>
+                    <label htmlFor={ids.animate} className={title}>
+                        {t.animate}
+                    </label>
+                    <Select
+                        id={ids.animate}
+                        value={node.animate ?? ''}
+                        onChange={event => {
+                            const animate = NODE_ANIMATIONS.find(name => name === event.target.value);
+                            onChange(
+                                updateNode(document, section.uid, node.uid, item => {
+                                    const next = { ...item };
+                                    if (animate) next.animate = animate;
+                                    else delete next.animate;
+                                    return next;
+                                }),
+                            );
+                        }}
+                    >
+                        <option value="">{t.animations.none}</option>
+                        {NODE_ANIMATIONS.map(name => (
+                            <option key={name} value={name}>
+                                {t.animations[name]}
+                            </option>
+                        ))}
+                    </Select>
+                    <p className="mt-1.5 text-xs text-ink-muted">{t.animateHint}</p>
+                </div>
                 <div>
                     <label htmlFor={ids.anchor} className={title}>
                         {d.styleLabels.anchor}

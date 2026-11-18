@@ -48,6 +48,8 @@ export interface NodeData {
     cssClass?: string;
     /** The screen sizes it doesn't show on. Left out when it shows everywhere. */
     hideOn?: Device[];
+    /** How it comes into view as the shopper scrolls to it. Left out for no animation. */
+    animate?: NodeAnimation;
     /** A container's contents, in order. */
     children?: NodeData[];
     /** A live block's ready-made section (its type, settings and blocks). */
@@ -71,6 +73,13 @@ function migrateProps(definition: ElementDefinition, props: Record<string, unkno
     }
     return migrated;
 }
+
+/**
+ * Entrance animations (phase 58): short, subtle, CSS only (the storefront's stylesheet), and off
+ * for shoppers who ask their device for reduced motion. Nothing starts hidden waiting for a script.
+ */
+export const NODE_ANIMATIONS = ['fade', 'rise', 'zoom'] as const;
+export type NodeAnimation = (typeof NODE_ANIMATIONS)[number];
 
 const CLASS = /^[a-zA-Z][\w-]{0,39}$/;
 
@@ -104,6 +113,8 @@ function readNode(raw: unknown, state: ReadState, depth: number): NodeData | nul
     if (cssClass) node.cssClass = cssClass;
     const hideOn = DEVICES.filter(device => Array.isArray(raw.hideOn) && raw.hideOn.includes(device));
     if (hideOn.length) node.hideOn = hideOn;
+    const animate = NODE_ANIMATIONS.find(name => name === raw.animate);
+    if (animate) node.animate = animate;
     if (isContainer) {
         node.children = (Array.isArray(raw.children) ? raw.children : [])
             .map(child => readNode(child, state, depth + 1))
