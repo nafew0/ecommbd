@@ -33,6 +33,7 @@ registerStoreDefaults(costPermissionsStep);
 @VendurePlugin({
     imports: [PluginCommonModule],
     providers: [CostSettingsService, CostSnapshotService, CostService],
+    exports: [CostService],
     adminApiExtensions: {
         schema: costAdminApiExtensions,
         resolvers: [CostAdminResolver],

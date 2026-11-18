@@ -34,6 +34,7 @@ import { assetUrl } from '../bd-catalog/asset-url';
 import { StockService } from '../bd-catalog/stock.service';
 import { StoreSettingsService } from '../bd-core';
 import '../bd-cost/types';
+import { insertTransaction } from '../bd-accounts/ledger';
 import { PURCHASE_SEQUENCE, RETURN_SEQUENCE } from './constants';
 import {
     BdPurchase,
@@ -94,6 +95,13 @@ const paymentSchema = z.object({
         .string()
         .optional()
         .transform(value => cleanText(value ?? '').slice(0, 500)),
+    accountId: z
+        .string()
+        .trim()
+        .max(40)
+        .nullable()
+        .optional()
+        .transform(value => (value ? value : null)),
 });
 
 type FieldResult<T> = { value: T; errors: [] } | { value: null; errors: SettingsFieldError[] };
@@ -413,14 +421,28 @@ export class PurchaseService {
                 where: { id: this.raw(parsed.data.supplierId) },
             });
             if (!supplier) fail('not-found');
-            await this.repo(tx, BdSupplierPayment).save(
+            const accountId = parsed.data.accountId ? this.raw(parsed.data.accountId) : null;
+            const payment = await this.repo(tx, BdSupplierPayment).save(
                 new BdSupplierPayment({
                     supplierId: supplier.id,
                     amount: parsed.data.amount,
                     paidOn: parsed.data.paidOn,
                     note: parsed.data.note,
+                    accountId,
                 }),
             );
+            if (accountId != null) {
+                await insertTransaction(tx, this.connection, {
+                    accountId,
+                    direction: 'out',
+                    amount: parsed.data.amount,
+                    day: parsed.data.paidOn,
+                    source: 'purchase',
+                    sourceId: String(payment.id),
+                    note: parsed.data.note,
+                    idempotencyKey: `purchase:${payment.id}`,
+                });
+            }
             return supplier.id;
         });
         return this.supplier(ctx, supplierId);

@@ -9,6 +9,7 @@ import {
     Settings,
     ShoppingBag,
     Users,
+    Wallet,
 } from 'lucide-react';
 import type { Messages } from '../messages/en';
 
@@ -109,6 +110,16 @@ export const MENU: MenuGroup[] = [
         ],
     },
     {
+        label: 'accounts',
+        icon: Wallet,
+        children: [
+            link('accountList', '/accounts', '53', true, 'ManageAccounts'),
+            link('profitAndLoss', '/accounts/profit', '53', true, 'ManageAccounts'),
+            link('expenses', '/accounts/expenses', '53', true, 'ManageAccounts', more),
+            link('transactions', '/accounts/transactions', '53', true, 'ManageAccounts', more),
+        ],
+    },
+    {
         label: 'salesPages',
         icon: PanelsTopLeft,
         link: link('landingPages', '/sales-pages', '16', true, 'EditStorefront'),
@@ -156,6 +167,10 @@ export const MENU: MenuGroup[] = [
             link('payments', '/settings/payments', '08', true, 'ReadSettings', { section: 'secPayments' }),
             link('onlinePayments', '/settings/online-payments', '18', true, 'ReadSettings', {
                 section: 'secPayments',
+            }),
+            link('accountSettings', '/settings/accounts', '53', true, 'ManageAccounts', {
+                section: 'secMoney',
+                more: true,
             }),
             link('sms', '/settings/sms', '10', true, 'ReadSettings', { section: 'secMessages' }),
             link('migration', '/settings/woocommerce', '21', true, 'RunMigration', {

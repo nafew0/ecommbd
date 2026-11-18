@@ -52,6 +52,18 @@ export class CostService {
         return this.one(ctx, found);
     }
 
+    /**
+     * The sale as it counted when it was delivered. A later return makes `profit()` zero, so the
+     * profit and loss report uses this instead of the live number. `partial` keeps the delivered
+     * split; `delivered` counts the whole order.
+     */
+    async recognized(ctx: RequestContext, orderId: ID, mode: 'delivered' | 'partial'): Promise<OrderProfitView> {
+        const order = await this.load(ctx, [orderId]);
+        const found = order[0];
+        if (!found?.orderPlacedAt) throw new UserInputError('error.entity-not-found', { entityName: 'Order' });
+        return this.one(ctx, found, mode);
+    }
+
     async profits(ctx: RequestContext, orderIds: ID[]): Promise<OrderProfitView[]> {
         if (orderIds.length > PROFIT_BATCH) {
             throw new UserInputError('error.bd-cost.too-many', { max: String(PROFIT_BATCH) });
@@ -74,7 +86,11 @@ export class CostService {
         });
     }
 
-    private async one(ctx: RequestContext, order: Order): Promise<OrderProfitView> {
+    private async one(
+        ctx: RequestContext,
+        order: Order,
+        mode?: 'delivered' | 'partial',
+    ): Promise<OrderProfitView> {
         const settings = await this.settings.get(ctx);
         const payments = order.payments ?? [];
         const paid = settledAmount({ payments });
@@ -91,7 +107,8 @@ export class CostService {
                 return sum + Math.max(0, payment.amount - refunded);
             }, 0);
         const booking = await this.booking(ctx, order.id);
-        const state = profitCountState(bdStatusOf(order.state));
+        const state =
+            mode === 'delivered' ? 'delivered' : mode === 'partial' ? 'partiallyDelivered' : profitCountState(bdStatusOf(order.state));
         const delivered = state === 'partiallyDelivered' ? await this.deliveredByLine(ctx, order) : null;
         const paymentType =
             pendingOnline > 0 && codDue === 0 ? 'prepaid' : bdPaymentType(order.totalWithTax, paid);
@@ -99,7 +116,7 @@ export class CostService {
             state,
             lines: order.lines.map(line => ({
                 quantity: line.quantity,
-                returnedQuantity: this.keptBack(line, state, delivered),
+                returnedQuantity: mode === 'delivered' ? 0 : this.keptBack(line, state, delivered),
                 linePriceWithTax: line.linePriceWithTax,
                 proratedLinePriceWithTax: line.proratedLinePriceWithTax,
                 unitCost: line.customFields.unitCost ?? null,

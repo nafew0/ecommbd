@@ -144,7 +144,7 @@ Purchase orders emailed to suppliers; supplier portals.
 
 ### Done when
 
-- [ ] A month of pilot data produces a profit and loss the owner agrees with when checked against their own notebook.
+- [x] A month of pilot data produces a profit and loss the owner agrees with when checked against their own notebook.
 
 ### Not in this phase
 

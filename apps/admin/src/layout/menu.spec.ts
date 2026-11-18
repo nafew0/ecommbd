@@ -12,6 +12,7 @@ describe('menu', () => {
             'orders',
             'products',
             'customers',
+            'accounts',
             'salesPages',
             'marketing',
             'onlineStore',
@@ -46,10 +47,17 @@ describe('menu', () => {
             '/products/suppliers',
         ]);
         expect(menu[3]!.children!.map(child => child.to)).toEqual(['/customers', '/customers/blocked']);
-        expect(menu[4]!.link!.to).toBe('/sales-pages');
-        expect(menu[5]!.children!.map(child => child.to)).toEqual(['/marketing/tracking']);
-        expect(menu[6]!.area).toBe('store');
-        expect(menu[6]!.children!.map(child => child.to)).toEqual([
+        expect(menu[4]!.children!.map(child => child.to)).toEqual([
+            '/accounts',
+            '/accounts/profit',
+            '/accounts/expenses',
+            '/accounts/transactions',
+        ]);
+        expect(menu[4]!.children!.map(child => Boolean(child.more))).toEqual([false, false, true, true]);
+        expect(menu[5]!.link!.to).toBe('/sales-pages');
+        expect(menu[6]!.children!.map(child => child.to)).toEqual(['/marketing/tracking']);
+        expect(menu[7]!.area).toBe('store');
+        expect(menu[7]!.children!.map(child => child.to)).toEqual([
             '/store/theme',
             '/store/design/home',
             '/store/design/product',
@@ -57,8 +65,8 @@ describe('menu', () => {
             '/store/pages',
             '/store/search',
         ]);
-        expect(menu[7]!.area).toBe('settings');
-        expect(menu[7]!.children!.map(child => child.to)).toEqual([
+        expect(menu[8]!.area).toBe('settings');
+        expect(menu[8]!.children!.map(child => child.to)).toEqual([
             '/settings/store',
             '/settings/orders',
             '/settings/cost',
@@ -69,11 +77,12 @@ describe('menu', () => {
             '/settings/couriers',
             '/settings/payments',
             '/settings/online-payments',
+            '/settings/accounts',
             '/settings/sms',
             '/settings/woocommerce',
         ]);
         // Every settings screen sits under a heading.
-        expect(menu[7]!.children!.every(child => child.section)).toBe(true);
+        expect(menu[8]!.children!.every(child => child.section)).toBe(true);
     });
 
     it('hides a screen the role may not open', () => {
@@ -95,6 +104,7 @@ describe('menu', () => {
                     'BookCourier',
                     'ReadCost',
                     'ReadPurchase',
+                    'ManageAccounts',
                 ].includes(permission),
         );
         expect(menu.map(group => group.label)).toEqual(['home']);
@@ -166,6 +176,7 @@ describe('menu', () => {
             'orders',
             'products',
             'customers',
+            'accounts',
             'salesPages',
             'marketing',
             'onlineStore',

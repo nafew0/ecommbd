@@ -237,6 +237,7 @@ describe('running the initializer again', () => {
             'courier-permissions',
             'cost-permissions',
             'purchase-permissions',
+            'accounts-permissions',
             'woo-import-permission-v1',
             'search-synonyms',
             'storefront-permissions',

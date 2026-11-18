@@ -5,7 +5,7 @@ import { Field } from '../components/form/field';
 import { PhoneInput, TakaInput } from '../components/form/inputs';
 import { Button } from '../components/ui/button';
 import { CollapsibleCard } from '../components/ui/disclosure';
-import { Input, Textarea } from '../components/ui/input';
+import { Input, Select, Textarea } from '../components/ui/input';
 import { Page, TwoColumn } from '../components/ui/layout';
 import { Card, CardBody, CardHeader, PageHeader, PageSkeleton } from '../components/ui/misc';
 import { SaveBar } from '../components/ui/save-bar';
@@ -230,14 +230,24 @@ function PaymentCard({ supplierId }: { supplierId: string }) {
     const p = m.purchases;
     const toast = useToast();
     const queryClient = useQueryClient();
+    const { can } = useAuth();
     const [amount, setAmount] = useState<number | null>(null);
     const [paidOn, setPaidOn] = useState(dhakaDateKey(new Date()));
     const [note, setNote] = useState('');
+    const [accountId, setAccountId] = useState('');
+    const accounts = useQuery({
+        queryKey: ['accountOptions'],
+        enabled: can('ManageAccounts'),
+        queryFn: () =>
+            adminApi<{ bdAccounts: { items: Array<{ id: string; name: string }> } }>(
+                `{ bdAccounts(take: 100) { items { id name } } }`,
+            ).then(result => result.bdAccounts.items),
+    });
     const save = useMutation({
         mutationFn: () =>
             adminApi(
                 `mutation ($input: JSON!) { recordBdSupplierPayment(input: $input) { id } }`,
-                { input: { supplierId, amount, paidOn, note } },
+                { input: { supplierId, amount, paidOn, note, accountId: accountId || null } },
             ),
         onSuccess: () => {
             toast.success(p.paymentSaved);
@@ -261,6 +271,20 @@ function PaymentCard({ supplierId }: { supplierId: string }) {
                 <Field label={p.note} optional>
                     {control => <Input {...control} value={note} onChange={event => setNote(event.target.value)} />}
                 </Field>
+                {can('ManageAccounts') && (accounts.data?.length ?? 0) > 0 && (
+                    <Field label={p.paymentAccount} optional>
+                        {control => (
+                            <Select {...control} value={accountId} onChange={event => setAccountId(event.target.value)}>
+                                <option value="">{p.paymentAccountNone}</option>
+                                {accounts.data?.map(account => (
+                                    <option key={account.id} value={account.id}>
+                                        {account.name}
+                                    </option>
+                                ))}
+                            </Select>
+                        )}
+                    </Field>
+                )}
                 <Button type="button" disabled={!amount || save.isPending} onClick={() => save.mutate()}>
                     {p.recordPayment}
                 </Button>

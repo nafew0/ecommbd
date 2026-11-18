@@ -167,4 +167,8 @@ export class BdSupplierPayment extends VendureEntity {
 
     @Column({ type: 'varchar', length: 500, default: '' })
     note: string;
+
+    /** The account the money left, when the shop recorded one (phase 53). Null on older payments. */
+    @Column({ type: 'int', nullable: true })
+    accountId: number | null;
 }

@@ -27,7 +27,7 @@ registerStoreDefaults(purchasePermissionsStep);
  * - a purchase (draft, ordered, partly received, received) whose receiving adds stock
  *   through the phase 05 adjustment (reason "purchase") and updates the variation's cost;
  * - a return, which takes that stock and cost back;
- * - a payment recorded against the supplier. Accounts that hold the money come in phase 53.
+ * - a payment recorded against the supplier. An optional account (phase 53) is written on the ledger.
  */
 @VendurePlugin({
     imports: [PluginCommonModule, BdCatalogPlugin, BdCorePlugin],

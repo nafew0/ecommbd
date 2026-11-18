@@ -38,6 +38,11 @@ One word per idea everywhere: storefront, Dashboard, SMS, help articles. Banglad
 | Purchase return | ক্রয় ফেরত |
 | Balance owed | বাকি |
 | Profit | লাভ |
+| Account | অ্যাকাউন্ট |
+| Expense | খরচ |
+| Expense head | খরচের খাত |
+| Transfer (between accounts) | স্থানান্তর |
+| Profit and loss | লাভ-লোকসান |
 | Margin | মার্জিন |
 | Unknown (a figure we don't have) | অজানা |
 | Courier charge (what we pay) | কুরিয়ার চার্জ |

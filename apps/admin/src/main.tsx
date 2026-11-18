@@ -104,6 +104,13 @@ const router = createBrowserRouter(
                                     Component: module.PurchasePrintPage,
                                 })),
                         },
+                        {
+                            path: 'profit',
+                            lazy: () =>
+                                import('./pages/profit-print').then(module => ({
+                                    Component: module.ProfitPrintPage,
+                                })),
+                        },
                     ],
                 },
                 {
@@ -272,6 +279,13 @@ const router = createBrowserRouter(
                                 })),
                         },
                         {
+                            path: 'settings/accounts',
+                            lazy: () =>
+                                import('./pages/account-settings').then(module => ({
+                                    Component: module.AccountSettingsPage,
+                                })),
+                        },
+                        {
                             path: 'settings/purchases',
                             lazy: () =>
                                 import('./pages/purchase-settings').then(module => ({
@@ -347,6 +361,50 @@ const router = createBrowserRouter(
                                 import('./pages/delivery-settings').then(module => ({
                                     Component: module.DeliverySettingsPage,
                                 })),
+                        },
+                        {
+                            path: 'accounts',
+                            lazy: () =>
+                                import('./pages/accounts').then(module => ({ Component: module.AccountsPage })),
+                        },
+                        {
+                            path: 'accounts/new',
+                            lazy: () =>
+                                import('./pages/account').then(module => ({ Component: module.AccountPage })),
+                        },
+                        {
+                            path: 'accounts/expenses',
+                            lazy: () =>
+                                import('./pages/expenses').then(module => ({ Component: module.ExpensesPage })),
+                        },
+                        {
+                            path: 'accounts/expenses/new',
+                            lazy: () =>
+                                import('./pages/expense').then(module => ({ Component: module.ExpensePage })),
+                        },
+                        {
+                            path: 'accounts/expenses/:id',
+                            lazy: () =>
+                                import('./pages/expense').then(module => ({ Component: module.ExpensePage })),
+                        },
+                        {
+                            path: 'accounts/transactions',
+                            lazy: () =>
+                                import('./pages/transactions').then(module => ({
+                                    Component: module.TransactionsPage,
+                                })),
+                        },
+                        {
+                            path: 'accounts/profit',
+                            lazy: () =>
+                                import('./pages/profit-loss').then(module => ({
+                                    Component: module.ProfitLossPage,
+                                })),
+                        },
+                        {
+                            path: 'accounts/:id',
+                            lazy: () =>
+                                import('./pages/account').then(module => ({ Component: module.AccountPage })),
                         },
                         {
                             path: 'customers',

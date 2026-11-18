@@ -392,6 +392,13 @@ A starting point for each existing screen. **Before changing a screen, read it, 
 | `purchases` | A | number, supplier, status, total. Tabs by status. Main button "New purchase" | — |
 | `purchase` | B | supplier, date, lines (product, quantity, cost). After it is ordered: receive quantities, main button "Receive stock" | charges, discount, paid, bill photo, note (collapsed). Return and delete under More |
 | `purchase-settings` | C | how cost updates (average or latest) | number prefixes (collapsed) |
+| `accounts` | A | name, kind, balance. Main button "Add account" | — |
+| `account` | B | name, kind, opening balance, balance, recent movements. Main button is Save | transfer and a manual entry in the header menu |
+| `expenses` | A | date, head, amount, account. Main button "Add expense" | expense heads (collapsed): rename or add |
+| `expense` | B | date, head, amount, account, note. Main button is Save | receipt photo under More |
+| `transactions` | A | date, account, source, amount, note. Account and source filters | date range behind Filters; export in the header menu |
+| `profit-loss` | own | Dhaka range, sales, cost, delivery and COD, gateway fees, expenses, profit, previous period, one bar chart | — |
+| `account-settings` | C | which account receives cash on delivery, the gateway, bKash, Nagad and Rocket | — |
 | `product-form` | B | main: name, description, photos, price, sale price, stock, cost (ReadCost only), variations. Side: status (shown or hidden), category. "Same cost for every variation" when there are variations | SKU, weight and per-product delivery rules, slug and other search fields → `MoreFields` in their card or a collapsed "Delivery" card |
 | `categories`, `stock` | A | as today | — |
 | `customers` | A | name, phone, orders, total spent, last order | — |
