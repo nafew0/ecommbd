@@ -185,15 +185,39 @@ test.describe('the element tree', () => {
         await page.getByRole('textbox', { name: 'Heading', exact: true }).fill(title);
         await expect(preview(page).getByRole('heading', { name: title })).toBeVisible({ timeout: 15_000 });
 
-        // Its size on phones only: the dot on the phone button says something is set there.
+        // Its size on phones only. The screen-size switch is the preview's too: styling phones
+        // shows the phone. The number beside the phone says one thing is set there.
+        await page.getByRole('tab', { name: 'Design' }).last().click();
         await page.getByRole('radio', { name: 'Phone', exact: true }).last().click();
         await page.getByRole('slider', { name: 'Size' }).fill('18');
-        await expect(page.locator('output', { hasText: '18 px' })).toBeVisible();
-        await page.getByRole('radio', { name: 'Computer', exact: true }).last().click();
-        await expect(page.locator('output', { hasText: '18 px' })).toHaveCount(0);
+        await expect(page.getByRole('radio', { name: 'Phone (1)' })).toBeVisible();
+        await expect(page.locator(`iframe[title="${PREVIEW}"]`)).toHaveJSProperty('offsetWidth', 390);
         await expect(preview(page).getByRole('heading', { name: title })).toHaveCSS('font-size', '18px', {
             timeout: 15_000,
         });
+        // On tablets nothing is set: the size there follows the computer, and the preview is 768 px.
+        await page.getByRole('radio', { name: 'Tablet', exact: true }).last().click();
+        await expect(page.locator('output', { hasText: '18 px' })).toHaveCount(0);
+        await expect(page.locator(`iframe[title="${PREVIEW}"]`)).toHaveJSProperty('offsetWidth', 768);
+
+        // A colour from the theme's own palette, then the design copied to a new heading.
+        await page.getByRole('radio', { name: 'Computer', exact: true }).last().click();
+        await page.getByRole('button', { name: 'Text colour: #b3261e' }).click();
+        await page.getByRole('button', { name: 'Copy design' }).click();
+        await page.getByRole('button', { name: 'All elements' }).click();
+        await addInside(page, 0, 'Heading');
+        await page.getByRole('tab', { name: 'Design' }).last().click();
+        await page.getByRole('button', { name: 'Paste design' }).click();
+        await expect(page.getByRole('radio', { name: 'Phone (1)' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Text colour: #b3261e' })).toHaveAttribute(
+            'aria-pressed',
+            'true',
+        );
+        // Searching finds a setting in any group, on either tab.
+        await page.getByRole('searchbox', { name: 'Search settings' }).fill('corner');
+        await expect(page.getByRole('slider', { name: 'Corners' })).toBeVisible();
+        await expect(page.getByRole('slider', { name: 'Size' })).toHaveCount(0);
+        await page.getByRole('searchbox', { name: 'Search settings' }).fill('');
 
         // Back to the list: the heading is named by its words. A button goes in the second column.
         await page.getByRole('button', { name: 'All elements' }).click();

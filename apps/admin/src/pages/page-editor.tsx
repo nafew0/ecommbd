@@ -23,6 +23,7 @@ import {
     Settings2,
     Share2,
     Smartphone,
+    Tablet,
     Trash2,
     Undo2,
     X,
@@ -478,6 +479,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                         {(
                             [
                                 { key: 'phone', icon: Smartphone, label: d.phone },
+                                { key: 'tablet', icon: Tablet, label: d.tablet },
                                 { key: 'desktop', icon: Monitor, label: d.desktop },
                             ] as const
                         ).map(item => (
@@ -595,6 +597,8 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                                     warnings={editor.warnings}
                                     onChange={editor.change}
                                     landing={landing}
+                                    device={device === 'desktop' ? 'base' : device}
+                                    onDevice={next => setDevice(next === 'base' ? 'desktop' : next)}
                                 />
                             </div>
                         </div>
@@ -676,6 +680,8 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                                     warnings={editor.warnings}
                                     onChange={editor.change}
                                     landing={landing}
+                                    device={device === 'desktop' ? 'base' : device}
+                                    onDevice={next => setDevice(next === 'base' ? 'desktop' : next)}
                                 />
                             </div>
                         </>

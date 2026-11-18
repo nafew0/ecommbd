@@ -150,7 +150,8 @@ export interface SizeField extends FieldBase {
     min: number;
     max: number;
     step: number;
-    unit: 'px' | '%' | 'h';
+    /** `h` hours, `x` a multiple (line height), `°` degrees. */
+    unit: 'px' | '%' | 'h' | 'x' | '°';
 }
 
 /** A moment (a countdown's end), stored as an ISO date-time in UTC; entered in Dhaka time. */

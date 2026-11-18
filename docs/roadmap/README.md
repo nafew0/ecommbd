@@ -191,7 +191,7 @@ Status values: **Not started** · **In progress** · **Review** · **Done**.
 | [54](m10-back-office.md#phase-54--branches-and-stock-transfers) | Branches and stock transfers | M10 | Several stock locations, transfers | 05, 19, 52 | L | Not started |
 | [55](m10-back-office.md#phase-55--product-depth) | Product depth | M10 | Multi-kind variations, units, brands, shipping classes, media library | 05, 07, 09, 13, 21 | L | Not started |
 | [56](m11-page-builder.md#phase-56--element-tree-and-containers) | Element tree and containers | M11 | Nested flex/grid containers, basic elements, migration | 15, 16 | XL (56a, 56b) | **Review** (built 2026-11-19; the editor's tree is a list in the panel until phase 58 puts it on the canvas) |
-| [57](m11-page-builder.md#phase-57--responsive-style-system) | Responsive style system | M11 | Desktop/tablet/phone styles, full style groups | 56 | L | Not started |
+| [57](m11-page-builder.md#phase-57--responsive-style-system) | Responsive style system | M11 | Desktop/tablet/phone styles, full style groups | 56 | L | **Review** (built 2026-11-19) |
 | [58](m11-page-builder.md#phase-58--canvas-editing) | Canvas editing | M11 | Select and edit on canvas, drag and drop, Navigator | 56 | L | Not started |
 | [59](m11-page-builder.md#phase-59--library-and-templates) | Library and templates | M11 | 60+ ready sections, store/page/sales designs, global widgets | 15, 16 | L | Not started |
 | [60](m11-page-builder.md#phase-60--system-pages-in-the-builder) | System pages in the builder | M11 | Header, footer, product, category, cart, checkout, thank-you layouts | 56, 13, 14 | XL | Not started |

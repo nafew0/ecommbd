@@ -1,7 +1,9 @@
 import {
     DESIGN_FIELDS,
     DESIGN_GROUPS,
+    findNode,
     hasDesign,
+    type Device as StyleDevice,
     type LayoutDocument,
     opensToElements,
     readDesign,
@@ -41,13 +43,20 @@ interface SectionFormProps {
     onChange(document: LayoutDocument, key?: string): void;
     /** A sales page (phase 16): sections can have an "Order now" button below them. */
     landing?: boolean;
+    /** The screen size being styled in a free section: the same one the preview shows. */
+    device: StyleDevice;
+    onDevice(device: StyleDevice): void;
 }
 
-export function SectionForm({ section, document, language, warnings, onChange, landing }: SectionFormProps) {
+export function SectionForm(props: SectionFormProps) {
+    const { section, document, language, warnings, onChange, landing, device, onDevice } = props;
     const { messages: m } = useI18n();
     const d = m.design;
     const toast = useToast();
     const [tab, setTab] = useState<'content' | 'style' | 'design'>('content');
+    // A free section's open node: its settings take the panel over, so the section's tabs step aside.
+    const [nodeUid, setNodeUid] = useState<string | null>(null);
+    const inNode = tab === 'content' && !!nodeUid && !!findNode(section.children ?? [], nodeUid);
     const definition = sectionDefinition(section.type);
     if (!definition) return null;
     const tabs = [
@@ -70,25 +79,27 @@ export function SectionForm({ section, document, language, warnings, onChange, l
 
     return (
         <div>
-            <div role="tablist" className="sticky top-0 z-10 flex border-b border-line bg-surface px-4">
-                {tabs.map(item => (
-                    <button
-                        key={item.key}
-                        type="button"
-                        role="tab"
-                        aria-selected={tab === item.key}
-                        onClick={() => setTab(item.key)}
-                        className={cn(
-                            '-mb-px border-b-2 px-3 py-2.5 text-sm font-medium transition-colors',
-                            tab === item.key
-                                ? 'border-accent text-accent'
-                                : 'border-transparent text-ink-muted hover:text-ink',
-                        )}
-                    >
-                        {item.label}
-                    </button>
-                ))}
-            </div>
+            {!inNode && (
+                <div role="tablist" className="sticky top-0 z-10 flex border-b border-line bg-surface px-4">
+                    {tabs.map(item => (
+                        <button
+                            key={item.key}
+                            type="button"
+                            role="tab"
+                            aria-selected={tab === item.key}
+                            onClick={() => setTab(item.key)}
+                            className={cn(
+                                '-mb-px border-b-2 px-3 py-2.5 text-sm font-medium transition-colors',
+                                tab === item.key
+                                    ? 'border-accent text-accent'
+                                    : 'border-transparent text-ink-muted hover:text-ink',
+                            )}
+                        >
+                            {item.label}
+                        </button>
+                    ))}
+                </div>
+            )}
             {general.length > 0 && (
                 <ul className="mx-4 mt-4 space-y-1 rounded-md border border-warn/30 bg-warn-soft px-3 py-2 text-sm text-warn">
                     {general.map(item => (
@@ -105,6 +116,10 @@ export function SectionForm({ section, document, language, warnings, onChange, l
                             language={language}
                             warnings={warnings}
                             onChange={onChange}
+                            device={device}
+                            onDevice={onDevice}
+                            selected={nodeUid}
+                            onSelect={setNodeUid}
                         />
                     ) : (
                         <>

@@ -58,7 +58,12 @@ const editorName = editor ? node.type : undefined;
 {
     isContainer ? (
         (!empty || editor || inGrid) && (
-            <div class:list={['box', { 'box-row': row, 'box-empty': empty && editor }]} data-u={node.uid} data-node={editorName}>
+            <div class:list={['box', { 'box-row': row, 'box-bg': !!image, 'box-empty': empty && editor }]} data-u={node.uid} data-node={editorName}>
+                {image && (
+                    <div class="box-media" aria-hidden="true">
+                        <Image asset={image} alt="" lang={lang} sizes="100vw" preferredWidth={1600} />
+                    </div>
+                )}
                 {children.map(child => (
                     <Astro.self node={child} context={context} inGrid={grid} />
                 ))}

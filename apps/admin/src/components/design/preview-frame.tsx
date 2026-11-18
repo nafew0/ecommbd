@@ -18,10 +18,11 @@ import { Button } from '../ui/button';
  * only to the storefront's origin and are accepted only from that frame and origin
  * (scripts/preview.ts on the storefront is the other side).
  *
- * Phone view is 390 px wide; computer view renders 1280 px wide and is scaled down to fit.
+ * Phone view is 390 px wide and tablet view 768 px (phase 57); computer view renders 1280 px
+ * wide and is scaled down to fit.
  */
 
-export type Device = 'phone' | 'desktop';
+export type Device = 'phone' | 'tablet' | 'desktop';
 
 export interface PreviewMessage {
     type: string;
@@ -41,6 +42,7 @@ interface PreviewFrameProps {
 
 const DESKTOP_WIDTH = 1280;
 const PHONE_WIDTH = 390;
+const TABLET_WIDTH = 768;
 
 export const PreviewFrame = forwardRef<PreviewHandle, PreviewFrameProps>(function PreviewFrame(
     { src, device, title, onMessage },
@@ -108,13 +110,13 @@ export const PreviewFrame = forwardRef<PreviewHandle, PreviewFrameProps>(functio
         return () => observer.disconnect();
     }, []);
 
-    // Both views shrink to fit a narrow window; the page inside keeps its real width.
-    const scale = Math.max(
-        0.3,
-        Math.min(1, device === 'desktop' ? size.width / DESKTOP_WIDTH : (size.width - 24) / PHONE_WIDTH),
-    );
-    const frameWidth = device === 'desktop' ? DESKTOP_WIDTH : PHONE_WIDTH;
-    const frameHeight = device === 'desktop' ? size.height / scale : Math.min(size.height - 32, 844) / scale;
+    // Every view shrinks to fit a narrow window; the page inside keeps its real width.
+    const handheld = device !== 'desktop';
+    const frameWidth =
+        device === 'desktop' ? DESKTOP_WIDTH : device === 'tablet' ? TABLET_WIDTH : PHONE_WIDTH;
+    const scale = Math.max(0.3, Math.min(1, (size.width - (handheld ? 24 : 0)) / frameWidth));
+    const tallest = device === 'tablet' ? 1024 : 844;
+    const frameHeight = handheld ? Math.min((size.height - 32) / scale, tallest) : size.height / scale;
 
     return (
         <div ref={area} className="relative h-full w-full overflow-hidden">
@@ -122,12 +124,16 @@ export const PreviewFrame = forwardRef<PreviewHandle, PreviewFrameProps>(functio
                 <div
                     className={cn(
                         'absolute top-0 overflow-hidden bg-surface transition-[width,height] duration-300',
-                        device === 'phone' ? 'top-4 rounded-[18px] shadow-2xl ring-8 ring-ink' : 'shadow-sm',
+                        device === 'phone'
+                            ? 'top-4 rounded-[18px] shadow-2xl ring-8 ring-ink'
+                            : device === 'tablet'
+                              ? 'top-4 rounded-[12px] shadow-2xl ring-8 ring-ink'
+                              : 'shadow-sm',
                     )}
                     style={{
                         width: frameWidth * scale,
                         height: frameHeight * scale,
-                        left: device === 'phone' ? Math.max(0, (size.width - frameWidth * scale) / 2) : 0,
+                        left: handheld ? Math.max(0, (size.width - frameWidth * scale) / 2) : 0,
                     }}
                 >
                     <iframe

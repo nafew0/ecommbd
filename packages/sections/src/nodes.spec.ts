@@ -518,16 +518,16 @@ describe('the stylesheet for a tree', () => {
             [
                 '.box[data-u="grid0001"]{display:grid;gap:24px 24px;grid-template-columns:repeat(4,minmax(0,1fr))}',
                 '.box[data-u="cell0001"]{flex-direction:row;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center}',
-                '.el[data-u="head0001"]{color:#aa0000;--el-color:#aa0000;font-size:clamp(40px,5vw,64px);--el-size:clamp(40px,5vw,64px);font-weight:300;text-align:center;--el-align:center;width:80%;margin-inline:auto;border:1px solid currentColor}',
+                '.el[data-u="head0001"]{color:#aa0000;--el-color:#aa0000;font-size:clamp(40px,5vw,64px);--el-size:clamp(40px,5vw,64px);font-weight:300;--el-weight:300;text-align:center;--el-align:center;width:80%;flex:none;border:1px solid currentColor}',
                 '.el[data-u="space001"]{height:48px}',
                 '@media (max-width:989px){',
                 '.box[data-u="grid0001"]{grid-template-columns:repeat(2,minmax(0,1fr))}',
-                '.el[data-u="head0001"]{font-size:40px;--el-size:40px;text-align:end;--el-align:end;margin-inline:auto 0}',
+                '.el[data-u="head0001"]{font-size:40px;--el-size:40px;text-align:end;--el-align:end}',
                 '}@media (max-width:749px){',
                 '.box[data-u="grid0001"]>:last-child{order:-1}',
                 '.box[data-u="grid0001"]{grid-template-columns:minmax(0,1fr)}',
                 '.box[data-u="cell0001"]{flex-direction:column}',
-                '.el[data-u="head0001"]{font-size:32px;--el-size:32px;width:100%;margin-inline:auto 0;border:1px solid #dddddd}',
+                '.el[data-u="head0001"]{font-size:32px;--el-size:32px;width:100%;flex:none;border:1px solid #dddddd}',
                 '}',
             ].join(''),
         );
@@ -582,8 +582,8 @@ describe('pages made before the tree', () => {
         ]);
         expect(right!.children![0]).toMatchObject({
             props: { text: { bn: 'শিরোনাম', en: 'Heading' }, tag: 'h3' },
-            // A size never applied to a heading before the tree, so it isn't carried over.
-            style: { base: { color: '#aa0000', fontWeight: '700' } },
+            // A size or weight never applied to a heading before the tree, so it isn't carried over.
+            style: { base: { color: '#aa0000' } },
         });
         expect(right!.children![1]!.props).toEqual({
             items: { bn: 'এক\nদুই', en: 'One\nTwo' },
@@ -604,7 +604,7 @@ describe('pages made before the tree', () => {
         expect(css).toContain(
             '.el[data-u="elem0001"]{text-align:center;--el-align:center;width:80%;margin-inline:auto;border-radius:12px;--radius:12px}',
         );
-        expect(css).toContain('.el[data-u="elem0002"]{color:#aa0000;--el-color:#aa0000;font-weight:700}');
+        expect(css).toContain('.el[data-u="elem0002"]{color:#aa0000;--el-color:#aa0000}');
         expect(css).toContain('.el[data-u="elem0004"]{height:48px}');
         expect(css).toContain(
             '@media (max-width:749px){.box[data-u="custom01g"]>:last-child{order:-1}.box[data-u="custom01g"]{grid-template-columns:minmax(0,1fr)}.el[data-u="elem0003"]{font-size:16px;--el-size:16px}}',

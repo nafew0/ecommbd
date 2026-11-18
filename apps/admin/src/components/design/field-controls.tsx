@@ -650,7 +650,7 @@ function SizeControl({ field, value, onChange }: FieldControlProps) {
     const id = useId();
     if (field.kind !== 'size') return null;
     const size = value as number | null;
-    const unit = field.unit === '%' ? '%' : field.unit === 'h' ? m.design.hoursShort : 'px';
+    const unit = field.unit === 'h' ? m.design.hoursShort : field.unit === 'x' ? '×' : field.unit;
     const shown = (n: number) =>
         ui === 'bn' ? String(n).replace(/\d/g, digit => '০১২৩৪৫৬৭৮৯'[Number(digit)]!) : String(n);
     return (

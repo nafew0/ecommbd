@@ -2071,6 +2071,38 @@ body[data-preview='editor'] [data-section].preview-selected::before {
     flex: 1 1 0;
 }
 
+/* A container's background image fills it, behind what's inside, under an optional shade. */
+.box-bg {
+    position: relative;
+    isolation: isolate;
+}
+
+.box-media {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    border-radius: inherit;
+}
+
+.box-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.box-media::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: #000;
+    opacity: var(--box-shade, 0);
+}
+
+.el-button .button {
+    font-weight: var(--el-weight, 500);
+}
+
 /* Only in the page editor's preview: an empty container shows where things can go. */
 .box-empty {
     min-height: 72px;
@@ -2092,7 +2124,13 @@ body[data-preview='editor'] [data-section].preview-selected::before {
 
 .el-heading {
     margin: 0;
-    line-height: 1.2;
+    line-height: var(--el-leading, 1.2);
+}
+
+/* A heading keeps the theme's weight and spacing unless the element sets its own. */
+:is(h1, h2, h3, h4, h5, h6).el-heading {
+    font-weight: var(--el-weight, 600);
+    letter-spacing: var(--el-tracking, -0.01em);
 }
 
 h1.el-heading {
@@ -2116,7 +2154,7 @@ h4.el-heading {
 }
 
 p.el-heading {
-    font-weight: 600;
+    font-weight: var(--el-weight, 600);
 }
 
 .el-image img,

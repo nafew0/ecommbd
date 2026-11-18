@@ -1,6 +1,13 @@
 import type { LayoutDocument, SectionData } from './define';
 import { COLUMN_TEMPLATES, type ColumnTemplate } from './elements';
-import { BREAKPOINTS, effectiveStyle, type NodeStyleValues } from './node-style';
+import {
+    BREAKPOINTS,
+    effectiveStyle,
+    FOCUS_POINTS,
+    NODE_FONTS,
+    NODE_SHADOWS,
+    type NodeStyleValues,
+} from './node-style';
 import { eachNode, type NodeData, visibleNodes } from './nodes';
 import { readableOn } from './theme';
 
@@ -77,59 +84,125 @@ function insideRules(section: SectionData, selector: string): string[] {
     return rules;
 }
 
-/** A node's own look on computers (its checked style values). */
-function baseRules(values: NodeStyleValues): string[] {
-    const rules: string[] = [];
-    if (colour(values.color)) rules.push(`color:${values.color}`, `--el-color:${values.color}`);
-    if (colour(values.background)) rules.push(`background:${values.background}`);
-    // A large size shrinks by itself on narrow screens; a tablet or phone size replaces it there.
-    if (number(values.fontSize)) {
-        const size = fluid(values.fontSize);
-        // Headings, prices and badges have sizes of their own: they take this one through `--el-size`.
-        rules.push(`font-size:${size}`, `--el-size:${size}`);
-    }
-    if (weight(values.fontWeight)) rules.push(`font-weight:${values.fontWeight}`);
-    if (align(values.textAlign))
-        rules.push(`text-align:${values.textAlign}`, `--el-align:${values.textAlign}`);
-    if (number(values.width)) {
-        rules.push(`width:${values.width}%`);
-        // A narrower element sits where it's aligned.
-        if (values.textAlign === 'center') rules.push('margin-inline:auto');
-        if (values.textAlign === 'end') rules.push('margin-inline:auto 0');
-    }
-    if (number(values.padding)) rules.push(`padding:${px(values.padding)}`);
-    if (number(values.radius))
-        rules.push(`border-radius:${px(values.radius)}`, `--radius:${px(values.radius)}`);
-    if (number(values.borderWidth) && values.borderWidth > 0) {
-        const line = colour(values.borderColor) ? values.borderColor : 'currentColor';
-        rules.push(`border:${px(values.borderWidth)} solid ${line}`);
-    }
-    if (number(values.marginBottom)) rules.push(`margin-bottom:${px(values.marginBottom)}`);
-    return rules;
-}
+/** Declarations by what they style: the node itself (''), its image, its button. */
+type Look = Record<string, string[]>;
 
-/** What a narrower device changes: only the values it sets itself. */
-function deviceRules(own: NodeStyleValues, effective: NodeStyleValues): string[] {
-    const rules: string[] = [];
-    if (colour(own.color)) rules.push(`color:${own.color}`, `--el-color:${own.color}`);
-    if (colour(own.background)) rules.push(`background:${own.background}`);
-    if (number(own.fontSize)) rules.push(`font-size:${px(own.fontSize)}`, `--el-size:${px(own.fontSize)}`);
-    if (weight(own.fontWeight)) rules.push(`font-weight:${own.fontWeight}`);
-    if (align(own.textAlign)) rules.push(`text-align:${own.textAlign}`, `--el-align:${own.textAlign}`);
-    if (number(own.width)) rules.push(`width:${own.width}%`);
-    if ((number(own.width) || align(own.textAlign)) && number(effective.width)) {
-        const side = effective.textAlign;
-        rules.push(`margin-inline:${side === 'center' ? 'auto' : side === 'end' ? 'auto 0' : '0'}`);
+const SIDES = ['Top', 'Right', 'Bottom', 'Left'] as const;
+const SELF: Record<string, string> = {
+    start: 'flex-start',
+    center: 'center',
+    end: 'flex-end',
+    stretch: 'stretch',
+};
+const TRANSFORMS = ['uppercase', 'lowercase', 'capitalize'];
+const BORDERS = ['dashed', 'dotted'];
+const FITS = ['cover', 'contain', 'fill', 'none', 'scale-down'];
+const ASPECT = /^\d{1,2}\/\d{1,2}$/;
+const has = <T extends object>(map: T, key: unknown): key is keyof T => typeof key === 'string' && key in map;
+
+/**
+ * The CSS for what one device sets (`own`), given everything that applies there (`all`). On
+ * computers the two are the same. A narrower device writes only its own values, but a value that
+ * is one part of a declaration (a border's colour, a gradient's second colour) needs the other
+ * parts from `all`.
+ */
+function lookRules(own: NodeStyleValues, all: NodeStyleValues, base: boolean, inRow: boolean): Look {
+    const look: Look = {};
+    const add = (target: string, ...rules: string[]) => (look[target] ??= []).push(...rules);
+    const set = (name: keyof NodeStyleValues) => own[name] !== undefined;
+
+    if (colour(own.color)) add('', `color:${own.color}`, `--el-color:${own.color}`);
+    if (set('background') || set('gradientTo') || set('gradientAngle')) {
+        if (colour(all.background) && colour(all.gradientTo)) {
+            const angle = number(all.gradientAngle) ? all.gradientAngle : 180;
+            add('', `background:linear-gradient(${angle}deg,${all.background},${all.gradientTo})`);
+        } else if (colour(all.background)) add('', `background:${all.background}`);
     }
-    if (number(own.padding)) rules.push(`padding:${px(own.padding)}`);
-    if (number(own.radius)) rules.push(`border-radius:${px(own.radius)}`, `--radius:${px(own.radius)}`);
-    if (number(own.borderWidth) || colour(own.borderColor)) {
-        const width = number(effective.borderWidth) ? effective.borderWidth : 0;
-        const line = colour(effective.borderColor) ? effective.borderColor : 'currentColor';
-        rules.push(width > 0 ? `border:${px(width)} solid ${line}` : 'border:0');
+    if (number(own.fontSize)) {
+        // A large size shrinks by itself on narrow screens; a tablet or phone size replaces it there.
+        const size = base ? fluid(own.fontSize) : px(own.fontSize);
+        // Headings, prices and badges have sizes of their own: they take this one through `--el-size`.
+        add('', `font-size:${size}`, `--el-size:${size}`);
     }
-    if (number(own.marginBottom)) rules.push(`margin-bottom:${px(own.marginBottom)}`);
-    return rules;
+    if (weight(own.fontWeight)) add('', `font-weight:${own.fontWeight}`, `--el-weight:${own.fontWeight}`);
+    // Headings and buttons keep a weight, line height and spacing of their own: they take these
+    // through `--el-weight`, `--el-leading` and `--el-tracking`.
+    if (number(own.lineHeight)) add('', `line-height:${own.lineHeight}`, `--el-leading:${own.lineHeight}`);
+    if (number(own.letterSpacing)) {
+        add('', `letter-spacing:${px(own.letterSpacing)}`, `--el-tracking:${px(own.letterSpacing)}`);
+    }
+    if (has(NODE_FONTS, own.fontFamily)) add('', `font-family:${NODE_FONTS[own.fontFamily]}`);
+    if (TRANSFORMS.includes(own.textTransform as string)) add('', `text-transform:${own.textTransform}`);
+    if (align(own.textAlign)) add('', `text-align:${own.textAlign}`, `--el-align:${own.textAlign}`);
+
+    if (number(own.width)) {
+        add('', `width:${own.width}%`);
+        // Beside others in a row, a set width is kept instead of sharing the row evenly.
+        if (inRow) add('', 'flex:none');
+    }
+    if (number(own.maxWidth)) add('', `max-width:${px(own.maxWidth)}`);
+    // Something narrower than its place sits where it's aligned.
+    const narrow = number(all.width) || number(all.maxWidth);
+    if (narrow && !inRow && (set('width') || set('maxWidth') || set('textAlign'))) {
+        if (all.textAlign === 'center') add('', 'margin-inline:auto');
+        else if (all.textAlign === 'end') add('', 'margin-inline:auto 0');
+        else if (!base) add('', 'margin-inline:0');
+    }
+    if (has(SELF, own.alignSelf)) add('', `align-self:${SELF[own.alignSelf]}`);
+    if (number(own.flexGrow)) add('', `flex-grow:${own.flexGrow}`);
+    if (number(own.minHeight)) add('', `min-height:${px(own.minHeight)}`);
+
+    if (number(own.padding)) add('', `padding:${px(own.padding)}`);
+    for (const side of SIDES) {
+        const value = (number(own.padding) ? all : own)[`padding${side}`];
+        if (number(value)) add('', `padding-${side.toLowerCase()}:${px(value)}`);
+    }
+    for (const side of SIDES) {
+        const value = own[`margin${side}`];
+        if (number(value)) add('', `margin-${side.toLowerCase()}:${px(value)}`);
+    }
+
+    if (number(own.radius)) add('', `border-radius:${px(own.radius)}`, `--radius:${px(own.radius)}`);
+    if (set('borderWidth') || set('borderStyle') || set('borderColor')) {
+        const width = number(all.borderWidth) ? all.borderWidth : 0;
+        const style = BORDERS.includes(all.borderStyle as string) ? all.borderStyle : 'solid';
+        const line = colour(all.borderColor) ? all.borderColor : 'currentColor';
+        if (width > 0) add('', `border:${px(width)} ${style} ${line}`);
+        else if (!base) add('', 'border:0');
+    }
+    if (has(NODE_SHADOWS, own.shadow)) add('', `box-shadow:${NODE_SHADOWS[own.shadow]}`);
+    if (number(own.opacity)) add('', `opacity:${own.opacity / 100}`);
+
+    if (typeof own.aspect === 'string' && ASPECT.test(own.aspect)) {
+        add(' img', `aspect-ratio:${own.aspect}`);
+        // A frame of another shape is filled, unless the merchant chose otherwise.
+        if (!FITS.includes(all.objectFit as string)) add(' img', 'object-fit:cover');
+    }
+    if (FITS.includes(own.objectFit as string)) add(' img', `object-fit:${own.objectFit}`);
+    if (has(FOCUS_POINTS, own.objectPosition))
+        add(' img', `object-position:${FOCUS_POINTS[own.objectPosition]}`);
+
+    // A button's colour is its border's too, unless the border has its own.
+    if (colour(own.buttonBg)) add(' .button', `background:${own.buttonBg}`, `border-color:${own.buttonBg}`);
+    if (colour(own.buttonText)) add(' .button', `color:${own.buttonText}`);
+    if (set('buttonBorder') || set('buttonBg')) {
+        if (colour(all.buttonBorder)) add(' .button', `border-color:${all.buttonBorder}`);
+    }
+    if (set('buttonPaddingX') || set('buttonPaddingY')) {
+        const x = number(all.buttonPaddingX) ? all.buttonPaddingX : 24;
+        const y = number(all.buttonPaddingY) ? all.buttonPaddingY : 0;
+        add(' .button', `padding:${px(y)} ${px(x)}`);
+    }
+    if (colour(own.buttonHoverBg)) {
+        add(
+            ' .button:hover',
+            `background:${own.buttonHoverBg}`,
+            `border-color:${own.buttonHoverBg}`,
+            'opacity:1',
+        );
+    }
+    if (colour(own.buttonHoverText)) add(' .button:hover', `color:${own.buttonHoverText}`);
+    return look;
 }
 
 const fr = (parts: readonly number[]) =>
@@ -178,7 +251,7 @@ function containerRules(node: NodeData): Rules & { phoneLast: boolean } {
     return rules;
 }
 
-function nodeRules(node: NodeData, out: Rules) {
+function nodeRules(node: NodeData, parent: NodeData | null, out: Rules) {
     if (!UID.test(node.uid)) return;
     const isContainer = node.type === 'container';
     const selector = `${isContainer ? '.box' : '.el'}[data-u="${node.uid}"]`;
@@ -191,13 +264,30 @@ function nodeRules(node: NodeData, out: Rules) {
         rules.phone.push(...layout.phone);
         // On phones the last column goes on top (a photo above its text).
         if (layout.phoneLast) out.phone.push(`${selector}>:last-child{order:-1}`);
+        // The shade over a container's background image.
+        if (node.props.image && number(node.props.shade))
+            rules.all.push(`--box-shade:${node.props.shade / 100}`);
     }
-    rules.all.push(...baseRules(style.base));
-    if (style.tablet) rules.tablet.push(...deviceRules(style.tablet, effectiveStyle(style, 'tablet')));
-    if (style.phone) rules.phone.push(...deviceRules(style.phone, effectiveStyle(style, 'phone')));
     if (node.type === 'spacer' && number(node.props.height))
         rules.all.push(`height:${px(node.props.height)}`);
+    const inRow =
+        parent?.props.mode !== 'grid' &&
+        (parent?.props.direction === 'row' || parent?.props.direction === 'row-reverse');
+    const looks = {
+        all: lookRules(style.base, style.base, true, inRow),
+        tablet: style.tablet ? lookRules(style.tablet, effectiveStyle(style, 'tablet'), false, inRow) : {},
+        phone: style.phone ? lookRules(style.phone, effectiveStyle(style, 'phone'), false, inRow) : {},
+    };
+    for (const device of ['all', 'tablet', 'phone'] as const) {
+        rules[device].push(...(looks[device][''] ?? []));
+    }
     write(selector, rules, out);
+    // What's inside the node: its image, its button.
+    for (const device of ['all', 'tablet', 'phone'] as const) {
+        for (const [target, declarations] of Object.entries(looks[device])) {
+            if (target) out[device].push(`${selector}${target}{${declarations.join(';')}}`);
+        }
+    }
 }
 
 function write(selector: string, rules: Rules, out: Rules) {
@@ -214,8 +304,8 @@ export function layoutCss(document: LayoutDocument): string {
         const selector = `.section[data-u="${section.uid}"]`;
         write(selector, sectionRules(section), out);
         out.all.push(...insideRules(section, selector));
-        for (const { node } of eachNode(visibleNodes(section.children ?? []))) {
-            if (!node.hidden) nodeRules(node, out);
+        for (const { node, parent } of eachNode(visibleNodes(section.children ?? []))) {
+            if (!node.hidden) nodeRules(node, parent, out);
         }
     }
     return (

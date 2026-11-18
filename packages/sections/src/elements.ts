@@ -147,6 +147,15 @@ export const container = defineElement({
             'normal',
             { when: { stack: [true] } },
         ),
+        image: field.image(label('Background image', 'ব্যাকগ্রাউন্ডের ছবি'), {
+            hint: label(
+                'Fills the container, behind what is in it',
+                'পুরো কনটেইনার জুড়ে থাকে, ভেতরের জিনিসের পেছনে',
+            ),
+        }),
+        shade: field.range(label('Image shade', 'ছবির ওপর ছায়া'), { min: 0, max: 80, step: 10 }, 0, {
+            hint: label('Makes text on the image easier to read', 'ছবির ওপরের লেখা পড়তে সুবিধা হয়'),
+        }),
     },
 });
 

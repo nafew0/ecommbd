@@ -156,10 +156,12 @@ export function upgradeCustomV1(data: RawSectionData, sectionUid: string): unkno
             for (const [from, to] of Object.entries(V1_STYLE)) base[to] = s[from];
         }
         const style: Record<string, unknown> = { base };
-        // Version 1 never applied a size to headings, prices and badges (they kept their own), so
-        // it's left out here: the page looks as it did. Set again in the editor, it now applies.
+        // Version 1 never applied a size to headings, prices and badges, or a weight to headings
+        // and buttons (each kept its own), so those are left out here: the page looks as it did.
+        // Set again in the editor, they now apply.
         const sized = !(kind === 'price' || kind === 'badge' || (kind === 'heading' && s.tag !== 'p'));
         if (!sized) delete base.fontSize;
+        if (kind === 'heading' || kind === 'button') delete base.fontWeight;
         if (sized && s.sizePhone !== undefined && s.sizePhone !== null && s.sizePhone !== '') {
             style.phone = { fontSize: s.sizePhone };
         }

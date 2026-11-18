@@ -3,21 +3,15 @@ import {
     createNode,
     createStructure,
     type Device,
-    DEVICES,
     ELEMENT_CATEGORIES,
-    elementDefinition,
     ELEMENTS,
-    fieldShown,
     findNode,
     type LayoutDocument,
-    NODE_STYLE_FIELDS,
     type NodeData,
     nodeSnippet,
-    type NodeStyleProp,
     pick,
     type SectionData,
     STRUCTURE_PRESETS,
-    styleCount,
 } from '@ecommbd/sections';
 import { useState } from 'react';
 import { cn } from '../../lib/cn';
@@ -32,19 +26,17 @@ import {
     nodeName,
     nodePath,
     removeNode,
-    setNodeProp,
-    setNodeStyle,
     updateNode,
 } from './document-ops';
 import { ElementIcon, StructureDiagram } from './element-icon';
-import { FieldControl, type Language } from './field-controls';
+import type { Language } from './field-controls';
 import { IconButton } from './icon-button';
-import { SmartContent } from './smart-content';
+import { NodeSettings } from './node-settings';
 
 /**
  * A free section's tree (roadmap phase 56): its containers and elements as an indented list.
- * Choosing a node opens its own settings in place of the list (its content, then its look for
- * each device), with the way back along the top. "Add" under a container opens the picker right
+ * Choosing a node opens its own settings in place of the list (node-settings.tsx), with the way
+ * back along the top. "Add" under a container opens the picker right
  * there, so it's always clear where the new element goes.
  */
 
@@ -54,62 +46,23 @@ interface NodeTreeProps {
     language: Language;
     warnings: LayoutWarning[];
     onChange(document: LayoutDocument, key?: string): void;
+    /** The node whose settings are open (null: the list). */
+    selected: string | null;
+    onSelect(uid: string | null): void;
+    /** The screen size being styled: the same one the preview shows. */
+    device: Device;
+    onDevice(device: Device): void;
 }
 
-/** Style properties that make sense for each kind of node. */
-const TEXT_LOOK: NodeStyleProp[] = [
-    'color',
-    'fontSize',
-    'fontWeight',
-    'textAlign',
-    'background',
-    'width',
-    'padding',
-    'radius',
-    'borderWidth',
-    'borderColor',
-    'marginBottom',
-];
-const BOX_LOOK: NodeStyleProp[] = [
-    'background',
-    'color',
-    'textAlign',
-    'padding',
-    'radius',
-    'borderWidth',
-    'borderColor',
-    'marginBottom',
-];
-const MEDIA_LOOK: NodeStyleProp[] = [
-    'textAlign',
-    'width',
-    'padding',
-    'radius',
-    'borderWidth',
-    'borderColor',
-    'marginBottom',
-];
-const LOOK: Record<string, NodeStyleProp[]> = {
-    container: BOX_LOOK,
-    live: ['background', 'padding', 'radius', 'borderWidth', 'borderColor', 'marginBottom'],
-    image: MEDIA_LOOK,
-    video: MEDIA_LOOK,
-    icon: ['color', 'textAlign', 'marginBottom'],
-    divider: ['width', 'textAlign', 'marginBottom'],
-    spacer: [],
-};
-
-const DEVICE_ICON: Record<Device, string> = { base: 'desktop', tablet: 'tablet', phone: 'phone' };
-
-export function NodeTree({ section, document, language, warnings, onChange }: NodeTreeProps) {
+export function NodeTree(props: NodeTreeProps) {
+    const { section, document, language, warnings, onChange, device, onDevice } = props;
+    const { selected, onSelect: setSelected } = props;
     const { messages: m_, language: ui } = useI18n();
     const d = m_.design;
     const t = d.tree;
     const toast = useToast();
-    const [selected, setSelected] = useState<string | null>(null);
     /** Where the picker is open: a container's uid, or `root` for the section itself. */
     const [adding, setAdding] = useState<string | null>(null);
-    const [device, setDevice] = useState<Device>('base');
     const nodes = section.children ?? [];
     const current = selected ? findNode(nodes, selected) : null;
 
@@ -220,17 +173,9 @@ export function NodeTree({ section, document, language, warnings, onChange }: No
 
     if (current) {
         const { node } = current;
-        const definition = elementDefinition(node.type)!;
         const siblings = current.parent?.children ?? nodes;
         const index = siblings.indexOf(node);
         const path = nodePath(nodes, node.uid);
-        const look = LOOK[node.type] ?? TEXT_LOOK;
-        const issue = (field: string) => {
-            const warning = warnings.find(
-                item => item.sectionId === section.uid && item.blockId === node.uid && item.field === field,
-            );
-            return warning ? (d.issues[warning.code] ?? warning.code) : undefined;
-        };
         const general = warnings.filter(
             item =>
                 item.sectionId === section.uid &&
@@ -330,123 +275,33 @@ export function NodeTree({ section, document, language, warnings, onChange }: No
                         ))}
                     </ul>
                 )}
-                {node.section ? (
-                    <>
-                        <p className="text-sm text-ink-muted">{t.liveHint}</p>
-                        <SmartContent
-                            section={node.section}
-                            document={document}
-                            language={language}
-                            issueFor={issue}
-                            apply={(change, key) =>
-                                onChange(
-                                    updateNode(document, section.uid, node.uid, item => ({
-                                        ...item,
-                                        section: change(item.section!),
-                                    })),
-                                    key,
-                                )
-                            }
-                        />
-                    </>
-                ) : (
-                    Object.entries(definition.fields).map(([name, field]) =>
-                        fieldShown(field, node.props) ? (
-                            <FieldControl
-                                key={`${node.uid}-${name}`}
-                                field={field}
-                                value={node.props[name]}
-                                language={language}
-                                document={document}
-                                issue={issue(name)}
-                                onChange={value =>
-                                    onChange(
-                                        setNodeProp(document, section.uid, node.uid, name, value),
-                                        `${node.uid}.${name}.${language}`,
-                                    )
-                                }
-                            />
-                        ) : null,
-                    )
-                )}
-                {node.children && (
-                    <section className="border-t border-line pt-4">
-                        <h4 className="mb-1 text-xs font-semibold tracking-wide text-ink-muted uppercase">
-                            {t.inside}
-                        </h4>
-                        <ul>
-                            {rows(node.children, 0)}
-                            <li>
-                                {addButton(node.uid, t.addInside)}
-                                {picker(node.uid)}
-                            </li>
-                        </ul>
-                    </section>
-                )}
-                {look.length > 0 && (
-                    <section className="space-y-4 border-t border-line pt-4">
-                        <div className="flex items-center justify-between gap-2">
-                            <h4 className="text-xs font-semibold tracking-wide text-ink-muted uppercase">
-                                {t.look}
-                            </h4>
-                            <div
-                                className="flex rounded-md bg-surface-muted p-0.5"
-                                role="radiogroup"
-                                aria-label={t.device}
-                            >
-                                {DEVICES.map(item => {
-                                    const count = styleCount(node.style, item);
-                                    return (
-                                        <button
-                                            key={item}
-                                            type="button"
-                                            role="radio"
-                                            aria-checked={device === item}
-                                            aria-label={t.devices[item]}
-                                            title={t.devices[item]}
-                                            onClick={() => setDevice(item)}
-                                            className={cn(
-                                                'relative flex h-8 w-9 items-center justify-center rounded transition-colors',
-                                                device === item
-                                                    ? 'bg-surface text-ink shadow-sm'
-                                                    : 'text-ink-muted hover:text-ink',
-                                            )}
-                                        >
-                                            <ElementIcon name={DEVICE_ICON[item]} className="size-4" />
-                                            {count > 0 && (
-                                                <span
-                                                    className="absolute top-1 right-1 size-1.5 rounded-full bg-accent"
-                                                    aria-hidden
-                                                />
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                        {device !== 'base' && (
-                            <p className="text-xs text-ink-muted">{t.deviceHint[device]}</p>
-                        )}
-                        {look.map(name => (
-                            <FieldControl
-                                key={`${node.uid}-${device}-${name}`}
-                                field={NODE_STYLE_FIELDS[name]}
-                                value={
-                                    node.style[device]?.[name] ??
-                                    (NODE_STYLE_FIELDS[name].kind === 'size' ? null : '')
-                                }
-                                language={language}
-                                document={document}
-                                onChange={value =>
-                                    onChange(
-                                        setNodeStyle(document, section.uid, node.uid, device, name, value),
-                                        `${node.uid}.style.${device}.${name}`,
-                                    )
-                                }
-                            />
-                        ))}
-                    </section>
-                )}
+                <NodeSettings
+                    key={node.uid}
+                    section={section}
+                    node={node}
+                    document={document}
+                    language={language}
+                    warnings={warnings}
+                    onChange={onChange}
+                    device={device}
+                    onDevice={onDevice}
+                    inside={
+                        node.children && (
+                            <section className="border-t border-line pt-4">
+                                <h4 className="mb-1 text-xs font-semibold tracking-wide text-ink-muted uppercase">
+                                    {t.inside}
+                                </h4>
+                                <ul>
+                                    {rows(node.children, 0)}
+                                    <li>
+                                        {addButton(node.uid, t.addInside)}
+                                        {picker(node.uid)}
+                                    </li>
+                                </ul>
+                            </section>
+                        )
+                    }
+                />
             </m.div>
         );
     }

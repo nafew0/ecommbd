@@ -133,7 +133,18 @@ The style panel for each device (57), editing on the canvas (58).
 
 ### Done when
 
-- [ ] One heading styled differently on desktop, tablet and phone renders correctly at each width, and the CSS stays within the page's limit.
+- [x] One heading styled differently on desktop, tablet and phone renders correctly at each width (`tests/browser/builder.spec.ts`: 40, 30 and 22 px at 1280, 768 and 360 px), and the CSS stays within the page's limit (a node's whole look is one short rule per screen size, in the page's hashed `<style>`).
+
+### As built (2026-11-19)
+
+The decisions are in [decisions.md](../decisions.md) (2026-11-19, "Phase 57"). In short:
+
+- **One switch** in the top bar sizes the preview and chooses which screen size is styled. Tablet is ≤989 px and phone ≤749 px (phase 56's breakpoints, the theme's own).
+- **Seven style groups** (`STYLE_GROUPS` in `packages/sections/src/node-style.ts`); each element is offered only the groups that mean something for it.
+- **Inheritance:** a dot marks what is set on this screen size; an unset value shows the wider screen's value; one sentence says the rest follows the theme.
+- **Container background image** with a shade, drawn as an `<img>`.
+- **Contrast** warns; it doesn't block.
+- **Left for later:** saved, named styles (62), a container's own layout per screen size (not in this milestone's list).
 
 ### Not in this phase
 
