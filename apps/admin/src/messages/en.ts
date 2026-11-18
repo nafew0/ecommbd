@@ -1988,6 +1988,32 @@ export const en = {
             orderButton: '“Order now” button below',
             orderButtonHint: 'Jumps to the order form, as sales pages repeat it after most sections.',
         },
+        tour: {
+            welcome: {
+                title: 'This is your page editor',
+                body: 'Five short steps show you how to build a page. It takes under a minute, and you can skip it any time.',
+            },
+            editorSections: {
+                title: 'Your page, top to bottom',
+                body: 'A page is a list of sections. Add one, drag to reorder, hide or remove. A free section also shows its layers here.',
+            },
+            editorCanvas: {
+                title: 'Your real store, live',
+                body: 'Click anything to select it. In a free section, double-click words to change them right on the page.',
+            },
+            editorSettings: {
+                title: 'Settings for what you selected',
+                body: 'Content first: words, photos, products. Design and Advanced are there when you want more control.',
+            },
+            editorDevices: {
+                title: 'Phone, tablet, computer',
+                body: 'Most shoppers buy on a phone, so the preview starts there. Switch to check the other sizes, and style each one separately.',
+            },
+            editorPublish: {
+                title: 'Publish when you’re ready',
+                body: 'Everything saves to a draft by itself. Shoppers see nothing until you publish, and you can restore an older version any time.',
+            },
+        },
         tree: {
             add: 'Add a layout or element',
             addInside: 'Add inside',

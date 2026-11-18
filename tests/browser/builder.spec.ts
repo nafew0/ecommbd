@@ -443,4 +443,34 @@ test.describe('the element tree', () => {
         // What was dropped is selected, ready to change.
         await expect(page.getByRole('textbox', { name: 'Label', exact: true })).toHaveValue('New');
     });
+    test('the editor has a short tour that can be started again and skipped', async ({ page, isMobile }) => {
+        test.skip(isMobile, 'The tour points at the three panels, which a phone shows one at a time');
+        await setDraft(admin, 'home', { sections: [createSection('custom')] });
+        await signIn(page, 'en');
+        await openEditor(page);
+        // It starts by itself on a first visit, never for an automated browser: here, from "More".
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        await page.getByRole('button', { name: 'More', exact: true }).click();
+        await page.getByRole('menuitem', { name: 'Take the tour' }).click();
+        const tour = page.getByRole('dialog');
+        await expect(tour.getByRole('heading', { name: 'This is your page editor' })).toBeVisible();
+        await tour.getByRole('button', { name: 'Show me around' }).click();
+        for (const title of [
+            'Your page, top to bottom',
+            'Your real store, live',
+            'Settings for what you selected',
+            'Phone, tablet, computer',
+        ]) {
+            await expect(tour.getByRole('heading', { name: title })).toBeVisible();
+            await tour.getByRole('button', { name: 'Next' }).click();
+        }
+        await expect(tour.getByRole('heading', { name: 'Publish when you’re ready' })).toBeVisible();
+        await tour.getByRole('button', { name: 'Start working' }).click();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        // Skipped at any step.
+        await page.getByRole('button', { name: 'More', exact: true }).click();
+        await page.getByRole('menuitem', { name: 'Take the tour' }).click();
+        await page.getByRole('dialog').getByRole('button', { name: 'Skip the tour' }).last().click();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+    });
 });

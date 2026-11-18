@@ -21,19 +21,21 @@ export const TOUR_STEPS: TourStep[] = [
 ];
 
 const DONE_KEY = 'ecommbd-admin-tour-done';
+/** The page editor has a tour of its own (phase 62), remembered separately. */
+export const EDITOR_TOUR_KEY = 'ecommbd-editor-tour-done';
 
-/** The tour starts by itself once per device, and never for automated browsers (the tests). */
-export function shouldStartTour(): boolean {
+/** A tour starts by itself once per device, and never for automated browsers (the tests). */
+export function shouldStartTour(key = DONE_KEY): boolean {
     try {
-        return !navigator.webdriver && localStorage.getItem(DONE_KEY) !== '1';
+        return !navigator.webdriver && localStorage.getItem(key) !== '1';
     } catch {
         return false;
     }
 }
 
-export function markTourDone() {
+export function markTourDone(key = DONE_KEY) {
     try {
-        localStorage.setItem(DONE_KEY, '1');
+        localStorage.setItem(key, '1');
     } catch {
         // Not remembered: the tour shows again next time, and can be skipped again.
     }
@@ -49,7 +51,7 @@ interface Box {
 const CARD_WIDTH = 340;
 const GAP = 16;
 
-function findTarget(step: TourStep): Box | null {
+function findTarget(step: string): Box | null {
     if (step === 'welcome') return null;
     const element = [...document.querySelectorAll<HTMLElement>(`[data-tour="${step}"]`)].find(
         candidate => candidate.getClientRects().length > 0,
@@ -82,21 +84,24 @@ function cardPosition(target: Box | null, cardHeight: number): { top: number; le
     return { top: clampTop(below), left: clampLeft(target.left + target.width / 2 - width / 2) };
 }
 
-interface TourProps {
+interface TourProps<S extends string> {
     open: boolean;
     /** Steps whose menu item this role can't see are left out. */
-    steps: TourStep[];
-    onStep(step: TourStep | undefined): void;
+    steps: readonly S[];
+    onStep?(step: S | undefined): void;
     onClose(): void;
+    /** Each step's words, for a tour other than the menu's (the page editor's). */
+    copy?: Record<S, { title: string; body: string }>;
 }
 
 /**
- * A short, skippable tour of the menu for a merchant's first visit. A spotlight glides from one
+ * A short, skippable tour for a merchant's first visit: of the menu, or (with `copy`) of the page
+ * editor. A spotlight glides from one
  * menu item to the next while a small card explains it. On phones, where the menu is in a drawer,
  * the card shows alone in the middle. Skip, Escape or the last step ends it; it can be started
  * again from the account menu or from search.
  */
-export function Tour({ open, steps, onStep, onClose }: TourProps) {
+export function Tour<S extends string>({ open, steps, onStep, onClose, copy: words }: TourProps<S>) {
     const { messages: t } = useI18n();
     const titleId = useId();
     const card = useRef<HTMLDivElement>(null);
@@ -104,7 +109,7 @@ export function Tour({ open, steps, onStep, onClose }: TourProps) {
     const [index, setIndex] = useState(0);
     const [target, setTarget] = useState<Box | null>(null);
     const [cardHeight, setCardHeight] = useState(220);
-    const step = steps[Math.min(index, steps.length - 1)] ?? 'welcome';
+    const step = steps[Math.min(index, steps.length - 1)] ?? ('welcome' as S);
     const last = index >= steps.length - 1;
 
     useEffect(() => {
@@ -112,7 +117,7 @@ export function Tour({ open, steps, onStep, onClose }: TourProps) {
     }, [open]);
 
     useEffect(() => {
-        onStep(open ? step : undefined);
+        onStep?.(open ? step : undefined);
     }, [open, step, onStep]);
 
     // The menu group a step points at opens with an animation, so the target is followed for as
@@ -153,7 +158,7 @@ export function Tour({ open, steps, onStep, onClose }: TourProps) {
     }, [open, last, onClose]);
 
     const position = cardPosition(target, cardHeight);
-    const copy = t.tour.steps[step];
+    const copy = (words ?? (t.tour.steps as Record<string, { title: string; body: string }>))[step]!;
 
     return createPortal(
         <AnimatePresence>

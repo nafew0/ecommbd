@@ -195,7 +195,7 @@ export function AppLayout() {
             </div>
 
             <CommandSearch open={searchOpen} onClose={() => setSearchOpen(false)} onStartTour={startTour} />
-            <Tour open={tourOpen} steps={tourSteps} onStep={setTourStep} onClose={closeTour} />
+            <Tour<TourStep> open={tourOpen} steps={tourSteps} onStep={setTourStep} onClose={closeTour} />
         </div>
     );
 }

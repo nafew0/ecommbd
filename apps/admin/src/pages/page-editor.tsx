@@ -13,6 +13,7 @@ import {
     ArrowLeft,
     CloudCheck,
     CloudOff,
+    Compass,
     Copy,
     ExternalLink,
     Keyboard,
@@ -67,6 +68,7 @@ import { RowMenu, SectionList } from '../components/design/section-list';
 import { useCanvas } from '../components/design/use-canvas';
 import { useLayoutEditor } from '../components/design/use-layout-editor';
 import { Button } from '../components/ui/button';
+import { EDITOR_TOUR_KEY, markTourDone, shouldStartTour, Tour } from '../layout/tour';
 import { PageSkeleton } from '../components/ui/misc';
 import { useAuth } from '../lib/auth';
 import { cn } from '../lib/cn';
@@ -128,6 +130,16 @@ export function PageEditorPage() {
 
 const RENEW_PREVIEW_MS = 12 * 60_000;
 
+/** The editor's tour, in this order: each step after the welcome points at its `data-tour` part. */
+const EDITOR_TOUR = [
+    'welcome',
+    'editorSections',
+    'editorCanvas',
+    'editorSettings',
+    'editorDevices',
+    'editorPublish',
+] as const;
+
 function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: string }) {
     const { messages: m, language: ui } = useI18n();
     const d = m.design;
@@ -157,6 +169,13 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
     const [zoom, setZoom] = useState<number | null>(null);
     const [fit, setFit] = useState(100);
     const [shortcutsOpen, setShortcutsOpen] = useState(false);
+    // A first visit to the editor gets a short tour (phase 62); it can be skipped at any step and
+    // started again from the "More" menu.
+    const [tourOpen, setTourOpen] = useState(() => shouldStartTour(EDITOR_TOUR_KEY));
+    const closeTour = useCallback(() => {
+        markTourDone(EDITOR_TOUR_KEY);
+        setTourOpen(false);
+    }, []);
     const [mobileTab, setMobileTab] = useState<'sections' | 'preview'>('sections');
     const [library, setLibrary] = useState<null | 'sections' | 'templates'>(null);
     const [historyOpen, setHistoryOpen] = useState(false);
@@ -407,6 +426,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
     const moreItems = [
         { label: d.history, icon: History, run: () => setHistoryOpen(true) },
         { label: d.tree.shortcuts, icon: Keyboard, run: () => setShortcutsOpen(true) },
+        { label: m.tour.again, icon: Compass, run: () => setTourOpen(true) },
         { label: d.share, icon: Share2, run: () => setShareOpen(true) },
         ...(liveUrl && layout.publishedVersion
             ? [
@@ -536,6 +556,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                         className="hidden rounded-md bg-surface-muted p-0.5 lg:flex"
                         role="radiogroup"
                         aria-label={d.previewSize}
+                        data-tour="editorDevices"
                     >
                         {(
                             [
@@ -623,6 +644,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                     <RowMenu label={d.more} items={moreItems} />
                     <Button
                         size="sm"
+                        data-tour="editorPublish"
                         loading={publishing}
                         disabled={publishing || (!editor.hasChanges && layout.publishedVersion > 0)}
                         onClick={() => void publish()}
@@ -637,6 +659,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
             <div className="flex min-h-0 flex-1">
                 {/* Sections (and, on phones, the selected section's settings over them) */}
                 <aside
+                    data-tour="editorSections"
                     className={cn(
                         'flex w-full min-w-0 flex-col border-r border-line bg-surface lg:w-[300px] lg:shrink-0',
                         mobileTab === 'preview' && 'max-lg:hidden',
@@ -774,7 +797,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                             {expanded ? d.tree.exitExpanded : d.tree.expandCanvas}
                         </button>
                     </div>
-                    <div className="min-h-0 flex-1">
+                    <div className="min-h-0 flex-1" data-tour="editorCanvas">
                         <PreviewFrame
                             ref={preview}
                             src={src}
@@ -789,6 +812,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
 
                 {/* Selected section's settings (computers) */}
                 <aside
+                    data-tour="editorSettings"
                     className={cn(
                         'hidden w-[360px] shrink-0 flex-col border-l border-line bg-surface',
                         !expanded && 'lg:flex',
@@ -912,6 +936,12 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                 language={language}
             />
             <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+            <Tour
+                open={tourOpen && wide && !expanded}
+                steps={EDITOR_TOUR}
+                copy={d.tour}
+                onClose={closeTour}
+            />
             <ConflictDialog
                 conflict={editor.conflict}
                 onClose={editor.dismissConflict}
