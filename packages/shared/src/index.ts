@@ -1,6 +1,7 @@
 export * from './accounts';
 export * from './attribution';
 export * from './barcode';
+export * from './branches';
 export * from './catalog';
 export * from './checkout';
 export * from './circuit-breaker';

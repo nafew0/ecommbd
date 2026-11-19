@@ -188,7 +188,7 @@ Payroll, tax and VAT returns, bank feeds.
 
 ### Done when
 
-- [ ] Stock is correct per branch through purchases, sales, returns and transfers. The courier pickup address follows the branch.
+- [x] Stock is correct per branch through purchases, sales, returns and transfers. The courier pickup address follows the branch. (`bd-branches.e2e-spec.ts`: purchase receive and return, sale, cancel, order return, transfer send and receive, and the booking snapshot. The purchase, product, stock and order screens show the branch.)
 
 ### Not in this phase
 

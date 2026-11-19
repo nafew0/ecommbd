@@ -21,8 +21,8 @@ import { useToast } from '../lib/toast';
 import { useDebounced } from '../lib/use-debounced';
 
 const STOCK = `
-    query Stock($search: String, $lowOnly: Boolean) {
-        bdStock(search: $search, lowOnly: $lowOnly, take: 200) {
+    query Stock($search: String, $lowOnly: Boolean, $branchId: ID) {
+        bdStock(search: $search, lowOnly: $lowOnly, branchId: $branchId, take: 200) {
             variantId productId name sku preview stockOnHand allocated available backorder low
         }
     }
@@ -70,11 +70,24 @@ export function StockPage() {
     const queryClient = useQueryClient();
     const [search, setSearch] = useState('');
     const [lowOnly, setLowOnly] = useState(false);
+    const [branchId, setBranchId] = useState('');
     const term = useDebounced(search.trim());
-    const query = useQuery({
-        queryKey: ['stock', term, lowOnly],
+    const branches = useQuery({
+        queryKey: ['branchOptions'],
+        enabled: can('ReadBranch'),
         queryFn: () =>
-            adminApi<{ bdStock: StockRow[] }>(STOCK, { search: term || null, lowOnly }).then(r => r.bdStock),
+            adminApi<{ bdBranches: Array<{ id: string; name: string }> }>(`{ bdBranches { id name } }`).then(
+                result => result.bdBranches,
+            ),
+    });
+    const query = useQuery({
+        queryKey: ['stock', term, lowOnly, branchId],
+        queryFn: () =>
+            adminApi<{ bdStock: StockRow[] }>(STOCK, {
+                search: term || null,
+                lowOnly,
+                branchId: branchId || null,
+            }).then(r => r.bdStock),
     });
     const [adjusting, setAdjusting] = useState<StockRow | null>(null);
     const [change, setChange] = useState('');
@@ -97,7 +110,13 @@ export function StockPage() {
         setBusy(true);
         try {
             await adminApi(ADJUST, {
-                input: { variantId: adjusting.variantId, change: amount, reason, note: note.trim() || null },
+                input: {
+                    variantId: adjusting.variantId,
+                    change: amount,
+                    reason,
+                    note: note.trim() || null,
+                    stockLocationId: branchId || null,
+                },
             });
             toast.success(s.saved);
             setAdjusting(null);
@@ -186,7 +205,25 @@ export function StockPage() {
                 columns={columns}
                 loading={query.isPending}
                 search={{ value: search, onChange: setSearch, placeholder: s.search }}
-                filters={<Switch label={s.lowOnly} checked={lowOnly} onChange={setLowOnly} />}
+                filters={
+                    <>
+                        {can('ReadBranch') && (branches.data?.length ?? 0) > 0 && (
+                            <Select
+                                value={branchId}
+                                aria-label={s.branch}
+                                onChange={event => setBranchId(event.target.value)}
+                            >
+                                <option value="">{s.allBranches}</option>
+                                {branches.data?.map(branch => (
+                                    <option key={branch.id} value={branch.id}>
+                                        {branch.name}
+                                    </option>
+                                ))}
+                            </Select>
+                        )}
+                        <Switch label={s.lowOnly} checked={lowOnly} onChange={setLowOnly} />
+                    </>
+                }
                 empty={<EmptyState icon={<Boxes className="size-6" aria-hidden />} title={s.empty} body="" />}
             />
             <Dialog

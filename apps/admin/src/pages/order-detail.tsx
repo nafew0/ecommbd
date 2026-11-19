@@ -153,6 +153,15 @@ export function OrderDetailPage() {
         queryFn: () => adminApi<OrderData>(ORDER, { id }),
         refetchInterval: 30_000,
     });
+    const branchQuery = useQuery({
+        queryKey: ['orderBranch', id],
+        enabled: can('ReadBranch') && !!id,
+        queryFn: () =>
+            adminApi<{ bdOrderBranch: { name: string; transferNeeded: boolean } | null }>(
+                `query ($orderId: ID!) { bdOrderBranch(orderId: $orderId) { name transferNeeded } }`,
+                { orderId: id },
+            ).then(result => result.bdOrderBranch),
+    });
     const profitQuery = useQuery({
         queryKey: ['orderProfit', id],
         enabled: can('ReadCost') && !!id,
@@ -286,6 +295,7 @@ export function OrderDetailPage() {
                 {order.bd.suggestCancel && <Badge tone="red">{m.orders.badges.suggestCancel}</Badge>}
                 {order.bd.callAttempts > 0 && <Badge>{m.orders.badges.calls(order.bd.callAttempts)}</Badge>}
                 {order.bd.imported && <Badge>{m.orders.badges.imported}</Badge>}
+                {branchQuery.data?.transferNeeded && <Badge tone="amber">{m.branches.transferNeeded}</Badge>}
                 <RiskBadge risk={order.bdRisk} otpStatus={order.bdOtpStatus} />
             </div>
             {order.bd.status === 'cancelled' && order.bd.cancelReason && (
@@ -438,6 +448,12 @@ export function OrderDetailPage() {
                                     >
                                         {m.orders.openCustomer}
                                     </Link>
+                                )}
+                                {branchQuery.data?.name && (
+                                    <p className="text-sm">
+                                        <span className="text-ink-muted">{m.branches.shipsFrom}: </span>
+                                        {branchQuery.data.name}
+                                    </p>
                                 )}
                                 <div>
                                     <h3 className="flex items-center justify-between text-[13px] text-ink-muted">

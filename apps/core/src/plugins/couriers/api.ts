@@ -88,6 +88,9 @@ export const courierAdminApiExtensions = gql`
         errorMessage: String
         bookedBy: String
         events: [BdCourierEvent!]!
+        "The branch address copied onto the booking. Later branch edits do not change it."
+        pickupAddress: String
+        pickupBranchId: ID
     }
 
     "A courier action was refused. message is in the request's language."

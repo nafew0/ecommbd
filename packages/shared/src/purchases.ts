@@ -249,6 +249,14 @@ export const purchaseDraftSchema = z.object({
         .nullable()
         .optional()
         .transform(value => value ?? null),
+    /** Where the goods arrive. Empty means the store's original location. */
+    branchId: z
+        .string()
+        .trim()
+        .max(40)
+        .nullable()
+        .optional()
+        .transform(value => value || null),
 });
 
 export type PurchaseDraftInput = z.infer<typeof purchaseDraftSchema>;

@@ -216,6 +216,34 @@ const router = createBrowserRouter(
                                 import('./pages/purchase').then(module => ({ Component: module.PurchasePage })),
                         },
                         {
+                            path: 'products/branches',
+                            lazy: () =>
+                                import('./pages/branches').then(module => ({ Component: module.BranchesPage })),
+                        },
+                        {
+                            path: 'products/branches/new',
+                            lazy: () => import('./pages/branch').then(module => ({ Component: module.BranchPage })),
+                        },
+                        {
+                            path: 'products/branches/:id',
+                            lazy: () => import('./pages/branch').then(module => ({ Component: module.BranchPage })),
+                        },
+                        {
+                            path: 'products/transfers',
+                            lazy: () =>
+                                import('./pages/transfers').then(module => ({ Component: module.TransfersPage })),
+                        },
+                        {
+                            path: 'products/transfers/new',
+                            lazy: () =>
+                                import('./pages/transfer').then(module => ({ Component: module.TransferPage })),
+                        },
+                        {
+                            path: 'products/transfers/:id',
+                            lazy: () =>
+                                import('./pages/transfer').then(module => ({ Component: module.TransferPage })),
+                        },
+                        {
                             path: 'products/:id',
                             lazy: () =>
                                 import('./pages/product-form').then(module => ({
@@ -283,6 +311,13 @@ const router = createBrowserRouter(
                             lazy: () =>
                                 import('./pages/account-settings').then(module => ({
                                     Component: module.AccountSettingsPage,
+                                })),
+                        },
+                        {
+                            path: 'settings/branches',
+                            lazy: () =>
+                                import('./pages/branch-settings').then(module => ({
+                                    Component: module.BranchSettingsPage,
                                 })),
                         },
                         {

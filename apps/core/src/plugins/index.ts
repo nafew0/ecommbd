@@ -14,6 +14,8 @@ import { MerchantAdminPlugin } from './merchant-admin/merchant-admin.plugin';
 import { NotificationsPlugin, type SmsDriver } from './notifications';
 import { PaymentsBdPlugin } from './payments-bd';
 import { PaymentsOnlinePlugin } from './payments-online';
+// Before couriers, so the branch-setup store default runs before courier-permissions.
+import { BdBranchesPlugin } from './bd-branches';
 import { CouriersPlugin } from './couriers';
 import { BdCostPlugin } from './bd-cost';
 import { BdPurchasesPlugin } from './bd-purchases';
@@ -125,6 +127,7 @@ export function customPlugins(options: CustomPluginOptions): NonNullable<Vendure
             redis: options.cacheRedis,
             redisKeyPrefix: options.redisKeyPrefix,
         }),
+        BdBranchesPlugin,
         CouriersPlugin.init({
             publicUrl: options.storefrontUrl,
             keyring: options.secretsKeyring,

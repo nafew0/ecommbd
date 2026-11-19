@@ -14,6 +14,7 @@ import path from 'node:path';
 import { requestIdMiddleware } from '../../src/logging/request-context';
 import { type CustomPluginOptions, customPlugins } from '../../src/plugins';
 import { CREATE_ORDER_NUMBER_SEQUENCE_SQL } from '../../src/plugins/bd-orders';
+import { CREATE_TRANSFER_SEQUENCE_SQL } from '../../src/plugins/bd-branches';
 import { CREATE_PURCHASE_SEQUENCES_SQL } from '../../src/plugins/bd-purchases';
 import { LogSmsDriver } from '../../src/plugins/notifications';
 
@@ -105,4 +106,5 @@ export const testProductsCsvPath = path.join(__dirname, '../fixtures/products.cs
 export async function addMigrationOnlyObjects(server: TestServer) {
     await server.app.get(TransactionalConnection).rawConnection.query(CREATE_ORDER_NUMBER_SEQUENCE_SQL);
     await server.app.get(TransactionalConnection).rawConnection.query(CREATE_PURCHASE_SEQUENCES_SQL);
+    await server.app.get(TransactionalConnection).rawConnection.query(CREATE_TRANSFER_SEQUENCE_SQL);
 }

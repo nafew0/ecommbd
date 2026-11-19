@@ -68,7 +68,14 @@ export class CatalogAdminResolver {
     @Allow(Permission.ReadProduct, Permission.ReadCatalog)
     bdStock(
         @Ctx() ctx: RequestContext,
-        @Args() args: { search?: string; lowOnly?: boolean; take?: number; includeArchived?: boolean },
+        @Args()
+        args: {
+            search?: string;
+            lowOnly?: boolean;
+            take?: number;
+            includeArchived?: boolean;
+            branchId?: ID;
+        },
     ) {
         return this.stock.list(ctx, args);
     }
@@ -83,7 +90,16 @@ export class CatalogAdminResolver {
     @Allow(Permission.UpdateProduct, Permission.UpdateCatalog)
     adjustBdStock(
         @Ctx() ctx: RequestContext,
-        @Args() args: { input: { variantId: ID; change: number; reason: string; note?: string | null } },
+        @Args()
+        args: {
+            input: {
+                variantId: ID;
+                change: number;
+                reason: string;
+                note?: string | null;
+                stockLocationId?: ID | null;
+            };
+        },
     ) {
         return this.stock.adjust(ctx, args.input);
     }

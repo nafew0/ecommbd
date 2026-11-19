@@ -38,6 +38,7 @@ import {
     TransactionalConnection,
 } from '@vendure/core';
 import { timingSafeEqual } from 'node:crypto';
+import { BranchService } from '../bd-branches';
 import { In, IsNull, LessThan, LessThanOrEqual, MoreThanOrEqual, Not } from 'typeorm';
 import { OrderActionsService, settledAmount } from '../bd-orders';
 import type { ShipmentInfo } from '../bd-orders/shipment-info';
@@ -108,6 +109,7 @@ export class CourierService implements OnModuleInit {
         private administrators: AdministratorService,
         private jobQueueService: JobQueueService,
         private eventBus: EventBus,
+        private branches: BranchService,
     ) {}
 
     async onModuleInit() {
@@ -195,6 +197,7 @@ export class CourierService implements OnModuleInit {
             return parcel.shown();
         }
         const repository = this.connection.getRepository(ctx, BdCourierBooking);
+        const pickup = await this.pickupSnapshot(ctx, courier, order);
         let booking: BdCourierBooking;
         try {
             booking = await repository.save(
@@ -210,6 +213,8 @@ export class CourierService implements OnModuleInit {
                     outcome: 'booked',
                     bookedBy: by ?? (await this.staffName(ctx)),
                     events: [],
+                    pickupAddress: pickup.address,
+                    pickupBranchId: pickup.branchId,
                 }),
             );
         } catch (error) {
@@ -464,6 +469,7 @@ export class CourierService implements OnModuleInit {
         if (order.state !== 'Packed' && order.state !== 'Confirmed')
             return new CourierActionError('NOT_READY');
         const known = COURIERS.find(courier => COURIER_NAMES[courier].toLowerCase() === name.toLowerCase());
+        const pickup = await this.pickupSnapshot(ctx, known ?? null, order);
         try {
             const booking = await this.connection.getRepository(ctx, BdCourierBooking).save(
                 new BdCourierBooking({
@@ -480,6 +486,8 @@ export class CourierService implements OnModuleInit {
                     outcome: 'booked',
                     bookedBy: await this.staffName(ctx),
                     events: withEvent([], 'manual', 'booked', { courier: name }),
+                    pickupAddress: pickup.address,
+                    pickupBranchId: pickup.branchId,
                 }),
             );
             await this.history(ctx, order.id, name, 'manual', { consignmentId: code });
@@ -599,6 +607,7 @@ export class CourierService implements OnModuleInit {
         reason: CourierActionError,
         by: string | null,
     ) {
+        const pickup = await this.pickupSnapshot(ctx, isCourier(courier) ? courier : null, order);
         await this.connection.getRepository(ctx, BdCourierBooking).save(
             new BdCourierBooking({
                 orderId: order.id,
@@ -613,8 +622,16 @@ export class CourierService implements OnModuleInit {
                 errorMessage: reason.detail?.slice(0, 500) ?? null,
                 bookedBy: by ?? (await this.staffName(ctx)),
                 events: [],
+                pickupAddress: pickup.address,
+                pickupBranchId: pickup.branchId,
             }),
         );
+    }
+
+    /** Copied onto the booking. The courier's HTTP body is unchanged. */
+    private async pickupSnapshot(ctx: RequestContext, courier: 'steadfast' | 'pathao' | null, order: Order) {
+        const pickup = await this.branches.pickupFor(ctx, courier, order);
+        return { address: pickup.address, branchId: pickup.branchId };
     }
 
     // ── COD changes after booking ─────────────────────────────────────────────────────────────

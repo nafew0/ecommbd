@@ -105,6 +105,9 @@ export const purchaseAdminApiExtensions = gql`
         owed: Int!
         lines: [BdPurchaseLineView!]!
         returns: [BdPurchaseReturnView!]!
+        "Where the goods arrive. Null means the original location."
+        branchId: ID
+        branchName: String!
     }
 
     type BdPurchaseResult {

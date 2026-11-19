@@ -39,6 +39,7 @@ interface Draft {
     paid: number | null;
     lines: LineDraft[];
     bill: UploadedImage | null;
+    branchId: string;
 }
 
 interface LineView {
@@ -70,6 +71,8 @@ interface PurchaseView {
     total: number;
     owed: number;
     lines: LineView[];
+    branchId: string | null;
+    branchName: string;
 }
 
 const TONE = { draft: 'slate', ordered: 'sky', partial: 'amber', received: 'green' } as const;
@@ -85,6 +88,7 @@ function blank(supplierId: string): Draft {
         paid: null,
         lines: [],
         bill: null,
+        branchId: '',
     };
 }
 
@@ -107,6 +111,7 @@ export function PurchasePage() {
                         id number supplierId supplierName purchasedOn status note receiveNote
                         delivery other discount paid billAssetId billPreview total owed
                         lines { id variantId name sku quantity received returned unitCost }
+                        branchId branchName
                     }
                 }`,
                 { id },
@@ -136,6 +141,14 @@ function PurchaseForm({ id, initial, supplierId }: { id?: string; initial?: Purc
                 `{ bdSuppliers(take: 100) { items { id name } } }`,
             ).then(result => result.bdSuppliers.items),
     });
+    const branches = useQuery({
+        queryKey: ['branchOptions'],
+        enabled: can('ReadBranch'),
+        queryFn: () =>
+            adminApi<{ bdBranches: Array<{ id: string; name: string }> }>(`{ bdBranches { id name } }`).then(
+                result => result.bdBranches,
+            ),
+    });
     const { draft, setDraft, load, dirty, discard } = useDraft<Draft>(null);
     useEffect(() => {
         if (draft) return;
@@ -156,6 +169,7 @@ function PurchaseForm({ id, initial, supplierId }: { id?: string; initial?: Purc
                     quantity: digits(line.quantity),
                     unitCost: line.unitCost,
                 })),
+                branchId: initial.branchId ?? '',
             });
         } else if (!id) {
             load(blank(supplierId));
@@ -172,6 +186,7 @@ function PurchaseForm({ id, initial, supplierId }: { id?: string; initial?: Purc
                 discount: input.discount ?? 0,
                 paid: input.paid ?? 0,
                 billAssetId: input.bill?.id ?? null,
+                branchId: input.branchId || null,
                 lines: input.lines.map(line => ({
                     id: null,
                     variantId: line.variantId,
@@ -272,6 +287,25 @@ function PurchaseForm({ id, initial, supplierId }: { id?: string; initial?: Purc
                                         />
                                     )}
                                 </Field>
+                                {can('ReadBranch') && (
+                                    <Field label={m.branches.branch}>
+                                        {control => (
+                                            <Select
+                                                {...control}
+                                                value={draft.branchId}
+                                                disabled={!canEdit}
+                                                onChange={event => setDraft({ ...draft, branchId: event.target.value })}
+                                            >
+                                                <option value="">{m.branches.originalLocation}</option>
+                                                {(branches.data ?? []).map(branch => (
+                                                    <option key={branch.id} value={branch.id}>
+                                                        {branch.name}
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                        )}
+                                    </Field>
+                                )}
                             </div>
                         </CardBody>
                     </Card>
@@ -443,6 +477,7 @@ function PurchaseDetail({ purchase }: { purchase: PurchaseView }) {
             <PageHeader
                 back={{ to: '/products/purchases', label: p.backPurchases }}
                 title={purchase.number}
+                description={purchase.branchName ? m.branches.arrivesAt(purchase.branchName) : undefined}
                 badges={<Badge tone={TONE[purchase.status]}>{p.statuses[purchase.status]}</Badge>}
                 actions={
                     canEdit ? (

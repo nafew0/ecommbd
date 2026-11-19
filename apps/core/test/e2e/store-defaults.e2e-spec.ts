@@ -234,6 +234,7 @@ describe('running the initializer again', () => {
             'fraud-permissions',
             'online-payment-methods',
             'online-payment-permissions',
+            'branch-setup',
             'courier-permissions',
             'cost-permissions',
             'purchase-permissions',

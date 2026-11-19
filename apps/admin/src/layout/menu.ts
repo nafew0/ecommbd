@@ -98,6 +98,8 @@ export const MENU: MenuGroup[] = [
             link('stock', '/products/stock', '05', true, 'ReadProduct'),
             link('purchases', '/products/purchases', '52', true, 'ReadPurchase', more),
             link('suppliers', '/products/suppliers', '52', true, 'ReadPurchase', more),
+            link('branches', '/products/branches', '54', true, 'ReadBranch', more),
+            link('transfers', '/products/transfers', '54', true, 'ReadBranch', more),
             link('reviews', '/products/reviews', '35', false, 'ReadProduct', more),
         ],
     },
@@ -163,6 +165,10 @@ export const MENU: MenuGroup[] = [
             link('invoice', '/settings/invoice', '06', true, 'ReadSettings', { section: 'secOrders' }),
             link('checkout', '/settings/checkout', '14', false, undefined, { section: 'secOrders' }),
             link('delivery', '/settings/delivery', '07', true, 'ReadSettings', { section: 'secDelivery' }),
+            link('branchSettings', '/settings/branches', '54', true, 'ReadBranch', {
+                section: 'secDelivery',
+                more: true,
+            }),
             link('couriers', '/settings/couriers', '19', true, 'ReadSettings', { section: 'secDelivery' }),
             link('payments', '/settings/payments', '08', true, 'ReadSettings', { section: 'secPayments' }),
             link('onlinePayments', '/settings/online-payments', '18', true, 'ReadSettings', {

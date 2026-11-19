@@ -188,7 +188,7 @@ Status values: **Not started** · **In progress** · **Review** · **Done**.
 | [51](m10-back-office.md#phase-51--cost-and-profit) | Cost and profit | M10 | Cost per item, profit per order | 05, 21 | M | **Review** (built 2026-11-15) |
 | [52](m10-back-office.md#phase-52--purchases-and-suppliers) | Purchases and suppliers | M10 | Suppliers, purchases, purchase returns | 51 | L | **Review** (built 2026-11-16) |
 | [53](m10-back-office.md#phase-53--accounts-expenses-and-profit-and-loss) | Accounts, expenses and profit and loss | M10 | Accounts, expenses, P&L report | 51, 52, 41 | L | **Review** (built 2026-11-18) |
-| [54](m10-back-office.md#phase-54--branches-and-stock-transfers) | Branches and stock transfers | M10 | Several stock locations, transfers | 05, 19, 52 | L | Not started |
+| [54](m10-back-office.md#phase-54--branches-and-stock-transfers) | Branches and stock transfers | M10 | Several stock locations, transfers | 05, 19, 52 | L | **Review** (built 2026-11-19) |
 | [55](m10-back-office.md#phase-55--product-depth) | Product depth | M10 | Multi-kind variations, units, brands, shipping classes, media library | 05, 07, 09, 13, 21 | L | Not started |
 | [56](m11-page-builder.md#phase-56--element-tree-and-containers) | Element tree and containers | M11 | Nested flex/grid containers, basic elements, migration | 15, 16 | XL (56a, 56b) | **Review** (built 2026-11-19; the editor's tree is a list in the panel until phase 58 puts it on the canvas) |
 | [57](m11-page-builder.md#phase-57--responsive-style-system) | Responsive style system | M11 | Desktop/tablet/phone styles, full style groups | 56 | L | **Review** (built 2026-11-19) |

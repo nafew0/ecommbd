@@ -87,6 +87,24 @@ export function ProductFormPage() {
         queryKey: ['categories'],
         queryFn: () => adminApi<{ bdCategories: Category[] }>(CATEGORIES).then(r => r.bdCategories),
     });
+    const branchStock = useQuery({
+        queryKey: ['productBranchStock', id],
+        enabled: !isNew && can('ReadBranch'),
+        queryFn: () =>
+            adminApi<{
+                bdProductBranchStock: Array<{
+                    variantId: string;
+                    branches: Array<{ name: string; stockOnHand: number }>;
+                }>;
+            }>(
+                `query ($productId: ID!) {
+                    bdProductBranchStock(productId: $productId) { variantId branches { name stockOnHand } }
+                }`,
+                { productId: id },
+            ).then(result => result.bdProductBranchStock),
+    });
+    const levelsFor = (variantId: string | null) =>
+        branchStock.data?.find(row => row.variantId === variantId)?.branches;
     const [draft, setDraftState] = useState<ProductForm | null>(isNew ? emptyProductForm() : null);
     // What was last loaded or saved: the save bar shows when the form differs from it.
     const [baseline, setBaseline] = useState(() => JSON.stringify(draft));
@@ -446,6 +464,7 @@ export function ProductFormPage() {
                                                 )}
                                             </Field>
                                         </div>
+                                        <BranchStockLine rows={levelsFor(first.id)} />
                                         {canCost && below(first.price, first.unitCost) && (
                                             <p className="text-sm text-warn">{f.belowCost}</p>
                                         )}
@@ -768,6 +787,7 @@ export function ProductFormPage() {
                                                             )}
                                                         </Field>
                                                     </div>
+                                                    <BranchStockLine rows={levelsFor(variant.id)} />
                                                     {canCost &&
                                                         !sameCost &&
                                                         below(variant.price, variant.unitCost) && (
@@ -1075,6 +1095,18 @@ export function ProductFormPage() {
                 )}
             </form>
         </Page>
+    );
+}
+
+/** Read-only stock at each branch. The stock box itself still edits the original location. */
+function BranchStockLine({ rows }: { rows: Array<{ name: string; stockOnHand: number }> | undefined }) {
+    const { messages: m } = useI18n();
+    const digits = useDigits();
+    if (!rows?.length) return null;
+    return (
+        <p className="text-sm text-ink-muted">
+            {m.productForm.byBranch}: {rows.map(row => `${row.name} ${digits(row.stockOnHand)}`).join(' · ')}
+        </p>
     );
 }
 

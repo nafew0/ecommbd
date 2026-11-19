@@ -98,6 +98,8 @@ export const catalogAdminApiExtensions = gql`
         change: Int!
         reason: String!
         note: String
+        "Which branch the change applies to. Empty means the original location."
+        stockLocationId: ID
     }
 
     extend type Query {
@@ -107,7 +109,7 @@ export const catalogAdminApiExtensions = gql`
         bdProductForm(id: ID!): JSON
         bdCategories: [BdCategory!]!
         "includeArchived also lists soft-deleted products, so a purchase can receive into one."
-        bdStock(search: String, lowOnly: Boolean, take: Int, includeArchived: Boolean): [BdStockRow!]!
+        bdStock(search: String, lowOnly: Boolean, take: Int, includeArchived: Boolean, branchId: ID): [BdStockRow!]!
         bdStockHistory(variantId: ID!): [BdStockAdjustment!]!
     }
 

@@ -9,6 +9,7 @@ import {
     type Type,
     VendurePlugin,
 } from '@vendure/core';
+import { BdBranchesPlugin } from '../bd-branches';
 import { registerStoreDefaults, type StoreDefaultsStep } from '../bd-core';
 import { BdOrdersPlugin, registerShipmentInfo } from '../bd-orders';
 import { registerOrderEditGuard } from '../bd-manual-orders/edit-guard';
@@ -99,7 +100,7 @@ const locationsTask = new ScheduledTask({
  * consignment on stickers and the courier's link on the tracking page, and the home widget.
  */
 @VendurePlugin({
-    imports: [PluginCommonModule, BdOrdersPlugin],
+    imports: [PluginCommonModule, BdOrdersPlugin, BdBranchesPlugin],
     entities: [BdCourierBooking, BdCourierLocation, BdCourierLocationMap],
     controllers: [CourierWebhookController],
     providers: [

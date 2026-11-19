@@ -382,7 +382,7 @@ A starting point for each existing screen. **Before changing a screen, read it, 
 |---|---|---|---|
 | `home` | D | to-do tiles, setup checklist, order and courier widgets | — (remove "coming soon") |
 | `orders` | A | tabs by status, search, columns: order, customer, total, profit (ReadCost only, hidden on phones), payment, status, date. Main button "Create order" | date range, source and courier filters behind "Filters"; export in the header menu |
-| `order-detail` | B | main: items, profit breakdown (ReadCost only), **one "next step" button** from the status table (`packages/shared/src/order-status.ts`), payment, courier, history. Side: customer with copy buttons, address, risk | other status moves, edit, print choices, SMS, cancel → `ActionMenu`; attribution as a collapsed side card |
+| `order-detail` | B | main: items, profit breakdown (ReadCost only), **one "next step" button** from the status table (`packages/shared/src/order-status.ts`), payment, courier, history. Side: customer with copy buttons, address, risk, which branch ships the order (and "transfer needed" when the goods were held elsewhere) | other status moves, edit, print choices, SMS, cancel → `ActionMenu`; attribution as a collapsed side card |
 | `confirm-orders`, `phone-order` | own | as today | — |
 | `incomplete-orders`, `verify-payments`, `payment-reviews`, `unmapped-addresses`, `order-campaigns`, `woo-orders` | A | as today, in the new `ListPage` look | — |
 | `products` | A | photo, name, price, stock, status. Main button "Add product". Cost and margin (ReadCost only, hidden on phones) | "Cost missing" filter |
@@ -390,7 +390,7 @@ A starting point for each existing screen. **Before changing a screen, read it, 
 | `suppliers` | A | name, phone, balance owed. Main button "Add supplier" | — |
 | `supplier` | B | name, phone, address, note, balance, purchase history. Main button "New purchase" | payments (collapsed) |
 | `purchases` | A | number, supplier, status, total. Tabs by status. Main button "New purchase" | — |
-| `purchase` | B | supplier, date, lines (product, quantity, cost). After it is ordered: receive quantities, main button "Receive stock" | charges, discount, paid, bill photo, note (collapsed). Return and delete under More |
+| `purchase` | B | supplier, date, which branch receives the goods, lines (product, quantity, cost). After it is ordered: receive quantities, main button "Receive stock" | charges, discount, paid, bill photo, note (collapsed). Return and delete under More |
 | `purchase-settings` | C | how cost updates (average or latest) | number prefixes (collapsed) |
 | `accounts` | A | name, kind, balance. Main button "Add account" | — |
 | `account` | B | name, kind, opening balance, balance, recent movements. Main button is Save | transfer and a manual entry in the header menu |
@@ -399,8 +399,14 @@ A starting point for each existing screen. **Before changing a screen, read it, 
 | `transactions` | A | date, account, source, amount, note. Account and source filters | date range behind Filters; export in the header menu |
 | `profit-loss` | own | Dhaka range, sales, cost, delivery and COD, gateway fees, expenses, profit, previous period, one bar chart | — |
 | `account-settings` | C | which account receives cash on delivery, the gateway, bKash, Nagad and Rocket | — |
-| `product-form` | B | main: name, description, photos, price, sale price, stock, cost (ReadCost only), variations. Side: status (shown or hidden), category. "Same cost for every variation" when there are variations | SKU, weight and per-product delivery rules, slug and other search fields → `MoreFields` in their card or a collapsed "Delivery" card |
-| `categories`, `stock` | A | as today | — |
+| `branches` | A | name, district, phone, sells online. Main button "Add branch" | — |
+| `branch` | B | name, district, thana, phone, sells online. Main button is Save | address line and note in `MoreFields`. Delete in the header menu |
+| `transfers` | A | number, from, to, status, date. Tabs by status. Main button "New transfer" | — |
+| `transfer` | B | from, to, lines. Main button "Send", then "Receive" on a sent transfer | note in `MoreFields` |
+| `branch-settings` | C | default branch for each delivery zone | transfer number prefix, and the pickup branch for each courier, in collapsed cards |
+| `product-form` | B | main: name, description, photos, price, sale price, stock (the default branch), cost (ReadCost only), variations. Side: status (shown or hidden), category. "Same cost for every variation" when there are variations. Other branches are a read-only line under stock | SKU, weight and per-product delivery rules, slug and other search fields → `MoreFields` in their card or a collapsed "Delivery" card |
+| `categories` | A | as today | — |
+| `stock` | A | photo, name, stock, the branch filter. Main action is the stock adjustment | — |
 | `customers` | A | name, phone, orders, total spent, last order | — |
 | `customer-detail` | B | main: recent orders, notes. Side: contact, block status | SMS opt-out as a collapsed side card |
 | `block-list` | A | as today | — |

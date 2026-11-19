@@ -25,6 +25,7 @@ import {
     type ID,
     ProductVariant,
     RequestContext,
+    StockLocation,
     TransactionalConnection,
     UserInputError,
 } from '@vendure/core';
@@ -218,6 +219,17 @@ export class PurchaseService {
                 const asset = await this.repo(tx, Asset).findOne({ where: { id: billAssetId } });
                 if (!asset) return null;
             }
+            let stockLocationId: ID | null = null;
+            if (draft.branchId) {
+                const location = await this.connection.findOneInChannel(
+                    tx,
+                    StockLocation,
+                    this.raw(draft.branchId),
+                    tx.channelId,
+                );
+                if (!location) fail('not-found');
+                stockLocationId = location.id;
+            }
             const repo = this.repo(tx, BdPurchase);
             const purchase = id ? await repo.findOne({ where: { id } }) : null;
             if (id && !purchase) fail('not-found');
@@ -237,6 +249,7 @@ export class PurchaseService {
             row.discount = draft.discount;
             row.paid = draft.paid;
             row.billAssetId = billAssetId;
+            row.stockLocationId = stockLocationId;
             const savedPurchase = await repo.save(row);
             const lineRepo = this.repo(tx, BdPurchaseLine);
             if (purchase) await lineRepo.delete({ purchaseId: savedPurchase.id });
@@ -322,14 +335,16 @@ export class PurchaseService {
                     line.priorUnitCost = costs.get(String(variantId)) ?? null;
                     line.priorKnown = true;
                 }
-                const moved = await this.stock.adjust(tx, {
+                const stockBefore = await this.stock.totalOnHand(tx, variantId);
+                await this.stock.adjust(tx, {
                     variantId,
                     change: add,
                     reason: 'purchase',
                     note: row.number,
+                    stockLocationId: row.stockLocationId,
                 });
                 const next = costAfterReceive({
-                    stock: moved.stockAfter - moved.change,
+                    stock: stockBefore,
                     cost: costs.get(String(variantId)) ?? null,
                     qty: add,
                     unitCost: line.unitCost,
@@ -379,15 +394,17 @@ export class PurchaseService {
                 const qty = qtyOf.get(String(line.id)) ?? 0;
                 const variantId = line.productVariantId;
                 if (!costs.has(String(variantId))) costs.set(String(variantId), await this.readCost(tx, variantId));
-                const moved = await this.stock.adjust(tx, {
+                const stockBefore = await this.stock.totalOnHand(tx, variantId);
+                await this.stock.adjust(tx, {
                     variantId,
                     change: -qty,
                     reason: 'purchaseReturn',
                     note: record.number,
+                    stockLocationId: row.stockLocationId,
                 });
                 const remaining = line.received - line.returned - qty;
                 const next = costAfterReturn({
-                    stock: moved.stockAfter - moved.change,
+                    stock: stockBefore,
                     cost: costs.get(String(variantId)) ?? null,
                     qty,
                     unitCost: line.unitCost,
@@ -591,6 +608,9 @@ export class PurchaseService {
         const asset = purchase.billAssetId
             ? await this.repo(ctx, Asset).findOne({ where: { id: purchase.billAssetId } })
             : null;
+        const branch = purchase.stockLocationId
+            ? await this.repo(ctx, StockLocation).findOne({ where: { id: purchase.stockLocationId } })
+            : null;
         const money = this.money(purchase, lines);
         const nameOf = (variant: ProductVariant | undefined) =>
             variant?.translations.find(row => row.languageCode === ctx.languageCode)?.name ??
@@ -616,6 +636,8 @@ export class PurchaseService {
             billPreview: assetUrl(this.config, ctx, asset?.preview),
             total: billTotal(money),
             owed: purchaseOwed(money),
+            branchId: purchase.stockLocationId,
+            branchName: branch?.name ?? '',
             lines: lines.map(line => {
                 const variant = variantOf.get(String(line.productVariantId));
                 return {

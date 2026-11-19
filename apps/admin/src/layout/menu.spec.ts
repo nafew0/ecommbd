@@ -45,6 +45,8 @@ describe('menu', () => {
             '/products/stock',
             '/products/purchases',
             '/products/suppliers',
+            '/products/branches',
+            '/products/transfers',
         ]);
         expect(menu[3]!.children!.map(child => child.to)).toEqual(['/customers', '/customers/blocked']);
         expect(menu[4]!.children!.map(child => child.to)).toEqual([
@@ -74,6 +76,7 @@ describe('menu', () => {
             '/settings/fraud',
             '/settings/invoice',
             '/settings/delivery',
+            '/settings/branches',
             '/settings/couriers',
             '/settings/payments',
             '/settings/online-payments',
@@ -105,6 +108,7 @@ describe('menu', () => {
                     'ReadCost',
                     'ReadPurchase',
                     'ManageAccounts',
+                    'ReadBranch',
                 ].includes(permission),
         );
         expect(menu.map(group => group.label)).toEqual(['home']);

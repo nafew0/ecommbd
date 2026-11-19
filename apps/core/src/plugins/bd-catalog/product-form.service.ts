@@ -20,7 +20,6 @@ import {
     ProductVariant,
     ProductVariantService,
     RequestContext,
-    StockLevelService,
     TransactionalConnection,
 } from '@vendure/core';
 import { IsNull } from 'typeorm';
@@ -98,7 +97,6 @@ export class ProductFormService {
         private variants: ProductVariantService,
         private groups: ProductOptionGroupService,
         private options: ProductOptionService,
-        private stockLevels: StockLevelService,
         private stock: StockService,
         private configService: ConfigService,
     ) {}
@@ -181,7 +179,7 @@ export class ProductFormService {
             variants: await Promise.all(
                 variants.map(async variant => {
                     const option = variant.options[0];
-                    const { stockOnHand } = await this.stockLevels.getAvailableStock(ctx, variant.id);
+                    const stockOnHand = await this.stock.onHand(ctx, variant.id);
                     return {
                         id: String(variant.id),
                         option: {
@@ -373,7 +371,7 @@ export class ProductFormService {
                 },
             };
             if (variant.id) {
-                const { stockOnHand } = await this.stockLevels.getAvailableStock(ctx, variant.id);
+                const stockOnHand = await this.stock.onHand(ctx, variant.id);
                 await this.variants.update(ctx, [{ id: variant.id, ...common }]);
                 if (stockOnHand !== variant.stock) {
                     await this.stock.adjust(ctx, {

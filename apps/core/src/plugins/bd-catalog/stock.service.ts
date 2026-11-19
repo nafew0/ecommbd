@@ -4,9 +4,10 @@ import {
     ConfigService,
     type ID,
     ProductVariant,
-    ProductVariantService,
     RequestContext,
     StockLevelService,
+    StockLocationService,
+    StockMovementService,
     TransactionalConnection,
     UserInputError,
 } from '@vendure/core';
@@ -22,15 +23,27 @@ export const LOW_STOCK_AT = 5;
 export class StockService {
     constructor(
         private connection: TransactionalConnection,
-        private variants: ProductVariantService,
         private stockLevels: StockLevelService,
+        private locations: StockLocationService,
+        private movements: StockMovementService,
         private config: ConfigService,
     ) {}
 
-    /** Adds or removes units, recording why. Stock never goes below zero this way. */
+    /**
+     * Adds or removes units at one location, recording why. With no location, that is the
+     * store's original one (Vendure's default). Stock never goes below zero this way.
+     * `keepPromised` also refuses to take units already reserved for an order.
+     */
     async adjust(
         ctx: RequestContext,
-        input: { variantId: ID; change: number; reason: string; note?: string | null },
+        input: {
+            variantId: ID;
+            change: number;
+            reason: string;
+            note?: string | null;
+            stockLocationId?: ID | null;
+            keepPromised?: boolean;
+        },
     ): Promise<BdStockAdjustment> {
         if (!(STOCK_REASONS as readonly string[]).includes(input.reason)) {
             throw new UserInputError('message.bd-catalog.stock-reason');
@@ -40,14 +53,27 @@ export class StockService {
         }
         const note = cleanText(input.note ?? '').slice(0, 500);
         return this.connection.withTransaction(ctx, async txCtx => {
-            const { stockOnHand } = await this.stockLevels.getAvailableStock(txCtx, input.variantId, {
-                lockStockLevels: true,
+            const location = input.stockLocationId
+                ? await this.locations.findOne(txCtx, input.stockLocationId)
+                : await this.locations.defaultStockLocation(txCtx);
+            if (!location) throw new UserInputError('message.bd-catalog.stock-missing');
+            const variant = await this.connection.getRepository(txCtx, ProductVariant).findOne({
+                where: { id: input.variantId },
+                withDeleted: true,
             });
-            const after = stockOnHand + input.change;
-            if (after < 0) {
-                throw new UserInputError('message.bd-catalog.stock-negative');
+            if (!variant) throw new UserInputError('message.bd-catalog.stock-missing');
+            const locked = await this.stockLevels.getLockedStockLevelsForVariant(txCtx, input.variantId);
+            const row = locked.find(level => String(level.stockLocationId) === String(location.id));
+            const onHand = row?.stockOnHand ?? 0;
+            const allocated = row?.stockAllocated ?? 0;
+            const after = onHand + input.change;
+            if (after < 0) throw new UserInputError('message.bd-catalog.stock-negative');
+            if (input.keepPromised && after < allocated) {
+                throw new UserInputError('message.bd-catalog.stock-promised');
             }
-            await this.writeStock(txCtx, input.variantId, after);
+            await this.movements.adjustProductVariantStock(txCtx, input.variantId, [
+                { stockLocationId: location.id, stockOnHand: after },
+            ]);
             return this.connection.getRepository(txCtx, BdStockAdjustment).save(
                 new BdStockAdjustment({
                     productVariantId: input.variantId,
@@ -59,6 +85,35 @@ export class StockService {
                 }),
             );
         });
+    }
+
+    /** On-hand at the original location: what the product form shows and saves. */
+    async onHand(ctx: RequestContext, variantId: ID, locationId?: ID | null): Promise<number> {
+        const id = locationId ?? (await this.locations.defaultStockLocation(ctx)).id;
+        return (await this.levelAt(ctx, variantId, id)).stockOnHand;
+    }
+
+    /** On-hand across every location of this channel. Cost averaging uses this, not one branch. */
+    async totalOnHand(ctx: RequestContext, variantId: ID): Promise<number> {
+        const { stockOnHand } = await this.stockLevels.getAvailableStock(ctx, variantId);
+        return stockOnHand;
+    }
+
+    async levelAt(
+        ctx: RequestContext,
+        variantId: ID,
+        locationId: ID,
+    ): Promise<{ stockOnHand: number; stockAllocated: number }> {
+        const rows = (await this.connection.getRepository(ctx, ProductVariant).query(
+            `SELECT "stockOnHand", "stockAllocated" FROM stock_level
+             WHERE "productVariantId" = $1 AND "stockLocationId" = $2`,
+            [variantId, locationId],
+        )) as Array<{ stockOnHand: number | string; stockAllocated: number | string }>;
+        const row = rows[0];
+        return {
+            stockOnHand: Number(row?.stockOnHand ?? 0),
+            stockAllocated: Number(row?.stockAllocated ?? 0),
+        };
     }
 
     history(ctx: RequestContext, variantId: ID) {
@@ -77,6 +132,7 @@ export class StockService {
             lowOnly?: boolean | null;
             take?: number | null;
             includeArchived?: boolean | null;
+            branchId?: ID | null;
         },
     ) {
         const qb = this.connection
@@ -97,10 +153,9 @@ export class StockService {
         const variants = await qb.orderBy('variant.id', 'ASC').take(500).getMany();
         const rows = await Promise.all(
             variants.map(async variant => {
-                const { stockOnHand, stockAllocated } = await this.stockLevels.getAvailableStock(
-                    ctx,
-                    variant.id,
-                );
+                const { stockOnHand, stockAllocated } = options.branchId
+                    ? await this.levelAt(ctx, variant.id, options.branchId)
+                    : await this.stockLevels.getAvailableStock(ctx, variant.id);
                 const name =
                     variant.translations.find(t => t.languageCode === ctx.languageCode)?.name ??
                     variant.translations[0]?.name ??
@@ -125,31 +180,6 @@ export class StockService {
         return filtered
             .sort((a, b) => a.available - b.available)
             .slice(0, Math.min(options.take ?? 100, 500));
-    }
-
-    /**
-     * Writes the new on-hand count. A hidden product uses the usual update. An archived
-     * (soft-deleted) one is skipped by that update, so its stock row is written directly.
-     * Purchases receive into both (phase 52).
-     */
-    private async writeStock(ctx: RequestContext, variantId: ID, stockOnHand: number): Promise<void> {
-        const variant = await this.connection.getRepository(ctx, ProductVariant).findOne({
-            where: { id: variantId },
-            withDeleted: true,
-        });
-        if (!variant) throw new UserInputError('message.bd-catalog.stock-missing');
-        if (!variant.deletedAt) {
-            await this.variants.update(ctx, [{ id: variantId, stockOnHand }]);
-            return;
-        }
-        const rows = (await this.connection.getRepository(ctx, ProductVariant).query(
-            `UPDATE stock_level SET "stockOnHand" = $1, "updatedAt" = now()
-             WHERE "productVariantId" = $2 RETURNING id`,
-            [stockOnHand, variant.id],
-        )) as unknown[];
-        if (!Array.isArray(rows) || rows.length === 0) {
-            throw new UserInputError('message.bd-catalog.stock-missing');
-        }
     }
 
     private async staffName(ctx: RequestContext): Promise<string> {

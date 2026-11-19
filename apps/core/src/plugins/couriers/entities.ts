@@ -118,6 +118,16 @@ export class BdCourierBooking extends VendureEntity {
 
     @Column({ type: 'jsonb', default: () => "'[]'" })
     events: CourierEvent[];
+
+    /**
+     * The branch the courier was asked to collect from, written when the booking was saved.
+     * Later edits to the branch do not change a booking that already exists. Not sent to the courier API.
+     */
+    @Column({ type: 'varchar', length: 500, nullable: true })
+    pickupAddress: string | null;
+
+    @Column({ type: 'int', nullable: true })
+    pickupBranchId: ID | null;
 }
 
 /** Pathao's cities and zones, fetched from Pathao and refreshed weekly. */

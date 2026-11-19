@@ -66,6 +66,10 @@ export class BdPurchase extends VendureEntity {
 
     @Column({ type: 'int', nullable: true })
     billAssetId: ID | null;
+
+    /** Where received goods are added. Null means the store's original location. */
+    @Column({ type: 'int', nullable: true })
+    stockLocationId: ID | null;
 }
 
 @Entity('bd_purchase_line')

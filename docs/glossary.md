@@ -48,6 +48,12 @@ One word per idea everywhere: storefront, Dashboard, SMS, help articles. Banglad
 | Courier charge (what we pay) | কুরিয়ার চার্জ |
 | Gateway fee | গেটওয়ে ফি |
 | Stock / In stock / Out of stock | স্টক / স্টকে আছে / স্টকে নেই |
+| Branch | শাখা |
+| Stock transfer | স্টক ট্রান্সফার |
+| In transit | পথে আছে |
+| Transfer needed | ট্রান্সফার লাগবে |
+| Sells online | অনলাইনে বিক্রি |
+| Pickup branch | পিকআপ শাখা |
 | Cart | কার্ট |
 | Checkout | চেকআউট |
 | Place order | অর্ডার করুন |
