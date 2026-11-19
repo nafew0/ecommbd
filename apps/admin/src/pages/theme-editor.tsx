@@ -159,7 +159,7 @@ function ThemeEditor({ saved }: { saved: ThemeSettings }) {
         <div className="flex h-dvh flex-col bg-surface-muted text-ink">
             <header className="flex h-14 shrink-0 items-center gap-2 border-b border-line bg-surface px-2 sm:px-3">
                 <Link
-                    to="/"
+                    to="/store"
                     className="flex size-10 items-center justify-center rounded-md text-ink-muted hover:bg-surface-muted hover:text-ink"
                     aria-label={d.back}
                     title={d.back}

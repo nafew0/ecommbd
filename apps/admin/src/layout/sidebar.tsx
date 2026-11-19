@@ -133,6 +133,11 @@ function MainList({ menu, counts, tourGroup }: Omit<SidebarProps, 'area'>) {
                             aria-expanded={open}
                             className={cn(row, open && 'text-ink')}
                             onClick={() => {
+                                // A second click on an open group closes it again.
+                                if (open) {
+                                    setOpenGroup(undefined);
+                                    return;
+                                }
                                 setOpenGroup(group.label);
                                 if (!active) void navigate(first.to);
                             }}

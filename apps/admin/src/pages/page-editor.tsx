@@ -535,7 +535,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
             {/* Top bar */}
             <header className="flex h-14 shrink-0 items-center gap-2 border-b border-line bg-surface px-2 sm:px-3">
                 <Link
-                    to={layout.type === 'page' ? '/store/pages' : landing ? '/sales-pages' : '/'}
+                    to={layout.type === 'page' ? '/store/pages' : landing ? '/sales-pages' : '/store'}
                     className="flex size-10 items-center justify-center rounded-md text-ink-muted hover:bg-surface-muted hover:text-ink"
                     aria-label={d.back}
                     title={d.back}

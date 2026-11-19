@@ -115,18 +115,18 @@ const router = createBrowserRouter(
                 },
                 {
                     // Full-screen editors (phase 15): the page editor and the theme, with their own top bar.
-                    path: '/store',
+                    // No path of its own: /store itself is the Online store overview, in the usual layout.
                     element: <Protected bare />,
                     children: [
                         {
-                            path: 'design/:kind/:pageId?',
+                            path: '/store/design/:kind/:pageId?',
                             lazy: () =>
                                 import('./pages/page-editor').then(module => ({
                                     Component: module.PageEditorPage,
                                 })),
                         },
                         {
-                            path: 'theme',
+                            path: '/store/theme',
                             lazy: () =>
                                 import('./pages/theme-editor').then(module => ({
                                     Component: module.ThemeEditorPage,
@@ -183,15 +183,18 @@ const router = createBrowserRouter(
                         },
                         {
                             path: 'products/brands',
-                            lazy: () => import('./pages/brands').then(module => ({ Component: module.BrandsPage })),
+                            lazy: () =>
+                                import('./pages/brands').then(module => ({ Component: module.BrandsPage })),
                         },
                         {
                             path: 'products/brands/new',
-                            lazy: () => import('./pages/brand').then(module => ({ Component: module.BrandPage })),
+                            lazy: () =>
+                                import('./pages/brand').then(module => ({ Component: module.BrandPage })),
                         },
                         {
                             path: 'products/brands/:id',
-                            lazy: () => import('./pages/brand').then(module => ({ Component: module.BrandPage })),
+                            lazy: () =>
+                                import('./pages/brand').then(module => ({ Component: module.BrandPage })),
                         },
                         {
                             path: 'products/suppliers',
@@ -203,12 +206,16 @@ const router = createBrowserRouter(
                         {
                             path: 'products/suppliers/new',
                             lazy: () =>
-                                import('./pages/supplier').then(module => ({ Component: module.SupplierPage })),
+                                import('./pages/supplier').then(module => ({
+                                    Component: module.SupplierPage,
+                                })),
                         },
                         {
                             path: 'products/suppliers/:id',
                             lazy: () =>
-                                import('./pages/supplier').then(module => ({ Component: module.SupplierPage })),
+                                import('./pages/supplier').then(module => ({
+                                    Component: module.SupplierPage,
+                                })),
                         },
                         {
                             path: 'products/purchases',
@@ -220,40 +227,54 @@ const router = createBrowserRouter(
                         {
                             path: 'products/purchases/new',
                             lazy: () =>
-                                import('./pages/purchase').then(module => ({ Component: module.PurchasePage })),
+                                import('./pages/purchase').then(module => ({
+                                    Component: module.PurchasePage,
+                                })),
                         },
                         {
                             path: 'products/purchases/:id',
                             lazy: () =>
-                                import('./pages/purchase').then(module => ({ Component: module.PurchasePage })),
+                                import('./pages/purchase').then(module => ({
+                                    Component: module.PurchasePage,
+                                })),
                         },
                         {
                             path: 'products/branches',
                             lazy: () =>
-                                import('./pages/branches').then(module => ({ Component: module.BranchesPage })),
+                                import('./pages/branches').then(module => ({
+                                    Component: module.BranchesPage,
+                                })),
                         },
                         {
                             path: 'products/branches/new',
-                            lazy: () => import('./pages/branch').then(module => ({ Component: module.BranchPage })),
+                            lazy: () =>
+                                import('./pages/branch').then(module => ({ Component: module.BranchPage })),
                         },
                         {
                             path: 'products/branches/:id',
-                            lazy: () => import('./pages/branch').then(module => ({ Component: module.BranchPage })),
+                            lazy: () =>
+                                import('./pages/branch').then(module => ({ Component: module.BranchPage })),
                         },
                         {
                             path: 'products/transfers',
                             lazy: () =>
-                                import('./pages/transfers').then(module => ({ Component: module.TransfersPage })),
+                                import('./pages/transfers').then(module => ({
+                                    Component: module.TransfersPage,
+                                })),
                         },
                         {
                             path: 'products/transfers/new',
                             lazy: () =>
-                                import('./pages/transfer').then(module => ({ Component: module.TransferPage })),
+                                import('./pages/transfer').then(module => ({
+                                    Component: module.TransferPage,
+                                })),
                         },
                         {
                             path: 'products/transfers/:id',
                             lazy: () =>
-                                import('./pages/transfer').then(module => ({ Component: module.TransferPage })),
+                                import('./pages/transfer').then(module => ({
+                                    Component: module.TransferPage,
+                                })),
                         },
                         {
                             path: 'products/:id',
@@ -419,7 +440,9 @@ const router = createBrowserRouter(
                         {
                             path: 'accounts',
                             lazy: () =>
-                                import('./pages/accounts').then(module => ({ Component: module.AccountsPage })),
+                                import('./pages/accounts').then(module => ({
+                                    Component: module.AccountsPage,
+                                })),
                         },
                         {
                             path: 'accounts/new',
@@ -429,7 +452,9 @@ const router = createBrowserRouter(
                         {
                             path: 'accounts/expenses',
                             lazy: () =>
-                                import('./pages/expenses').then(module => ({ Component: module.ExpensesPage })),
+                                import('./pages/expenses').then(module => ({
+                                    Component: module.ExpensesPage,
+                                })),
                         },
                         {
                             path: 'accounts/expenses/new',
@@ -479,6 +504,13 @@ const router = createBrowserRouter(
                             lazy: () =>
                                 import('./pages/store-settings').then(module => ({
                                     Component: module.StoreSettingsPage,
+                                })),
+                        },
+                        {
+                            path: 'store',
+                            lazy: () =>
+                                import('./pages/online-store').then(module => ({
+                                    Component: module.OnlineStorePage,
                                 })),
                         },
                         {

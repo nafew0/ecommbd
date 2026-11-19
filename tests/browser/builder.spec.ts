@@ -591,4 +591,56 @@ test.describe('the element tree', () => {
         });
         expect(errors).toEqual([]);
     });
+    test('Online store opens on an overview that leads to the home page editor, sales pages and back', async ({
+        page,
+        isMobile,
+    }) => {
+        test.skip(isMobile, 'The menu is a drawer on a phone');
+        await signIn(page, 'en');
+        await page.goto('/admin/');
+        await page.getByRole('link', { name: 'Online store' }).click();
+        await expect(page).toHaveURL(/\/admin\/store$/);
+        await expect(page.getByRole('heading', { name: 'Online store', level: 1 })).toBeVisible();
+        // The area's own menu is there, with Sales pages inside it.
+        const menu = page.getByRole('navigation').first();
+        for (const name of [
+            'Home page',
+            'Product page',
+            'Sales pages',
+            'Pages',
+            'Menus',
+            'Theme',
+            'Search',
+        ]) {
+            await expect(menu.getByRole('link', { name, exact: true })).toBeVisible();
+        }
+        await page
+            .getByRole('main')
+            .getByRole('link', { name: /^Sales pages/ })
+            .click();
+        await expect(page).toHaveURL(/\/admin\/sales-pages$/);
+        await expect(menu.getByRole('link', { name: 'Home page', exact: true })).toBeVisible();
+        // The home page editor is full screen; its back arrow returns to the overview.
+        await menu.getByRole('link', { name: 'Home page', exact: true }).click();
+        await expect(preview(page).locator('body[data-preview="editor"]')).toBeAttached({ timeout: 15_000 });
+        await page.getByRole('link', { name: 'Back', exact: true }).click();
+        await expect(page).toHaveURL(/\/admin\/store$/);
+    });
+    test('a menu group opens on a click and closes on the next', async ({ page, isMobile }) => {
+        test.skip(isMobile, 'The menu is a drawer on a phone');
+        await signIn(page, 'en');
+        await page.goto('/admin/');
+        const menu = page.getByRole('navigation').first();
+        const orders = menu.getByRole('button', { name: /^Orders/ });
+        await orders.click();
+        await expect(orders).toHaveAttribute('aria-expanded', 'true');
+        await expect(menu.getByRole('link', { name: 'All orders' })).toBeVisible();
+        await orders.click();
+        await expect(orders).toHaveAttribute('aria-expanded', 'false');
+        await expect(menu.getByRole('link', { name: 'All orders' })).toBeHidden();
+        // Still on the orders screen: closing the group doesn't leave the page.
+        await expect(page).toHaveURL(/\/admin\/orders$/);
+        await orders.click();
+        await expect(menu.getByRole('link', { name: 'All orders' })).toBeVisible();
+    });
 });

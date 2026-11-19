@@ -5,7 +5,6 @@ import {
     type LucideIcon,
     Megaphone,
     Package,
-    PanelsTopLeft,
     Settings,
     ShoppingBag,
     Users,
@@ -123,11 +122,6 @@ export const MENU: MenuGroup[] = [
         ],
     },
     {
-        label: 'salesPages',
-        icon: PanelsTopLeft,
-        link: link('landingPages', '/sales-pages', '16', true, 'EditStorefront'),
-    },
-    {
         label: 'marketing',
         icon: Megaphone,
         children: [
@@ -140,12 +134,16 @@ export const MENU: MenuGroup[] = [
         icon: Globe,
         area: 'store',
         children: [
-            link('theme', '/store/theme', '15', true, 'EditStorefront'),
+            // The overview comes first: it is where "Online store" lands. The editors (home page,
+            // product page, theme) are full screen and have no menu, so they can't be the way in.
+            link('storeOverview', '/store', '15', true),
             link('homePage', '/store/design/home', '15', true, 'EditStorefront'),
-            // The announcement bar and header layout are in Theme, footer links in Menus.
             link('productPage', '/store/design/product', '15', true, 'EditStorefront'),
-            link('menus', '/store/menus', '12', true, 'ManageContent'),
+            link('landingPages', '/sales-pages', '16', true, 'EditStorefront'),
             link('pages', '/store/pages', '12', true, 'ManageContent'),
+            link('menus', '/store/menus', '12', true, 'ManageContent'),
+            // The announcement bar and header layout are in Theme, footer links in Menus.
+            link('theme', '/store/theme', '15', true, 'EditStorefront'),
             link('search', '/store/search', '13', true, 'ManageContent'),
         ],
     },
@@ -203,6 +201,8 @@ export const ACTIONS: Array<{
 export function areaOf(pathname: string): Area {
     if (pathname === '/settings' || pathname.startsWith('/settings/')) return 'settings';
     if (pathname === '/store' || pathname.startsWith('/store/')) return 'store';
+    // Sales pages are part of the online store; their address stays as it was.
+    if (pathname === '/sales-pages' || pathname.startsWith('/sales-pages/')) return 'store';
     return 'main';
 }
 
@@ -227,6 +227,7 @@ export function visibleMenu(menu: readonly MenuGroup[], can: (permission: string
             return allowed(group.link) ? [group] : [];
         }
         const children = (group.children ?? []).filter(allowed);
-        return children.length ? [{ ...group, children }] : [];
+        // A link without a permission (an area's overview) doesn't keep a group alive by itself.
+        return children.some(item => item.permission) ? [{ ...group, children }] : [];
     });
 }

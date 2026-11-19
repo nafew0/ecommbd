@@ -5,7 +5,7 @@ import { matches, searchIndex } from './command-search';
 import { ACTIONS, activeLink, areaOf, MENU, visibleMenu } from './menu';
 
 describe('menu', () => {
-    it('shows only built screens: Home, Orders, Products, Customers, Sales pages, Online store and Settings', () => {
+    it('shows only built screens: Home, Orders, Products, Customers, Accounts, Marketing, Online store and Settings', () => {
         const menu = visibleMenu(MENU, () => true);
         expect(menu.map(group => group.label)).toEqual([
             'home',
@@ -13,7 +13,6 @@ describe('menu', () => {
             'products',
             'customers',
             'accounts',
-            'salesPages',
             'marketing',
             'onlineStore',
             'settings',
@@ -57,19 +56,28 @@ describe('menu', () => {
             '/accounts/transactions',
         ]);
         expect(menu[4]!.children!.map(child => Boolean(child.more))).toEqual([false, false, true, true]);
-        expect(menu[5]!.link!.to).toBe('/sales-pages');
-        expect(menu[6]!.children!.map(child => child.to)).toEqual(['/marketing/tracking']);
-        expect(menu[7]!.area).toBe('store');
-        expect(menu[7]!.children!.map(child => child.to)).toEqual([
-            '/store/theme',
+        expect(menu[5]!.children!.map(child => child.to)).toEqual(['/marketing/tracking']);
+        // Online store lands on its overview (the editors are full screen, with no menu), and
+        // holds the sales pages.
+        expect(menu[6]!.area).toBe('store');
+        expect(menu[6]!.children!.map(child => child.to)).toEqual([
+            '/store',
             '/store/design/home',
             '/store/design/product',
-            '/store/menus',
+            '/sales-pages',
             '/store/pages',
+            '/store/menus',
+            '/store/theme',
             '/store/search',
         ]);
-        expect(menu[8]!.area).toBe('settings');
-        expect(menu[8]!.children!.map(child => child.to)).toEqual([
+        expect(areaOf('/sales-pages')).toBe('store');
+        expect(areaOf('/store')).toBe('store');
+        // A role that may open nothing in the store doesn't see the area for its overview alone.
+        expect(visibleMenu(MENU, permission => permission === 'ReadOrder').map(group => group.label)).toEqual(
+            ['home', 'orders'],
+        );
+        expect(menu[7]!.area).toBe('settings');
+        expect(menu[7]!.children!.map(child => child.to)).toEqual([
             '/settings/store',
             '/settings/products',
             '/settings/orders',
@@ -87,7 +95,7 @@ describe('menu', () => {
             '/settings/woocommerce',
         ]);
         // Every settings screen sits under a heading.
-        expect(menu[8]!.children!.every(child => child.section)).toBe(true);
+        expect(menu[7]!.children!.every(child => child.section)).toBe(true);
     });
 
     it('hides a screen the role may not open', () => {
@@ -183,7 +191,6 @@ describe('menu', () => {
             'products',
             'customers',
             'accounts',
-            'salesPages',
             'marketing',
             'onlineStore',
             'settings',

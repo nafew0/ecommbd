@@ -95,6 +95,7 @@ export const en = {
         blockList: 'Block list',
         salesPages: 'Sales pages',
         landingPages: 'Sales pages',
+        storeOverview: 'Overview',
         onlineStore: 'Online store',
         theme: 'Theme',
         homePage: 'Home page',
@@ -178,6 +179,18 @@ export const en = {
         addSalesPage: 'Add a sales page',
         takeTour: 'Take the tour again',
         keys: 'Enter to open · Esc to close',
+    },
+    storeHome: {
+        description: 'Everything shoppers see. Choose what to design or set up.',
+        items: {
+            homePage: 'The first page shoppers see. Build it from ready sections and designs.',
+            productPage: 'What shows below every product: delivery details, trust badges and more.',
+            landingPages: 'One-product pages with their own order form, for Facebook ads.',
+            pages: 'About us, Contact, policies and any other page.',
+            menus: 'The links in your header and footer.',
+            theme: 'Colours, font, buttons, header and the announcement bar for the whole store.',
+            search: 'Other words for the same product, and searches that found nothing.',
+        },
     },
     tour: {
         label: 'A quick tour',
