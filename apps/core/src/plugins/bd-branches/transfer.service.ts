@@ -141,7 +141,10 @@ export class TransferService {
         }
         if (![...adds.values()].some(quantity => quantity > 0)) fail('nothing');
         const saved = await this.connection.withTransaction(ctx, async tx => {
-            const transfer = await this.connection.getRepository(tx, BdStockTransfer).findOne({ where: { id } });
+            // Locked, so two people receiving the same transfer at once can't both add the units.
+            const transfer = await this.connection
+                .getRepository(tx, BdStockTransfer)
+                .findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });
             if (!transfer) fail('not-found');
             if (transfer.status === 'received') fail('too-many');
             const lines = await this.lines(tx, transfer.id);

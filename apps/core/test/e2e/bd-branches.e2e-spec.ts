@@ -264,6 +264,47 @@ describe('branches and stock transfers', () => {
         expect(await stockAt(panjabi, shop.id)).toMatchObject({ onHand: 20, allocated: 0 });
     });
 
+    it('puts back only what the customer did not keep when a partly delivered order comes back', async () => {
+        const panjabi = await variantId('PANJABI-1');
+        const shop = (await branches()).find(item => item.sellsOnline)!;
+        await setStock(panjabi, shop.id, 20);
+        const id = await place(panjabi, 2);
+        await step(id, 'confirmBdOrder');
+        await step(id, 'packBdOrder');
+        const { order } = await adminClient.query(gql`
+            query ($id: ID!) { order(id: $id) { lines { id } } }
+        `, { id });
+        // Two parcels of one unit each, both shipped; the courier delivers the first only.
+        const parcels: string[] = [];
+        for (let index = 0; index < 2; index += 1) {
+            const added = await adminClient.query(gql`
+                mutation ($lineId: ID!) {
+                    addFulfillmentToOrder(input: {
+                        lines: [{ orderLineId: $lineId, quantity: 1 }]
+                        handler: { code: "manual-fulfillment", arguments: [
+                            { name: "method", value: "Manual" }
+                            { name: "trackingCode", value: "" }
+                        ] }
+                    }) { ... on Fulfillment { id } ... on ErrorResult { errorCode message } }
+                }
+            `, { lineId: order.lines[0].id });
+            expect(added.addFulfillmentToOrder.id).toBeTruthy();
+            parcels.push(added.addFulfillmentToOrder.id);
+        }
+        const move = (parcel: string, state: string) =>
+            adminClient.query(gql`
+                mutation ($id: ID!, $state: String!) {
+                    transitionFulfillmentToState(id: $id, state: $state) { ... on Fulfillment { state } }
+                }
+            `, { id: parcel, state });
+        for (const parcel of parcels) await move(parcel, 'Shipped');
+        await move(parcels[0]!, 'Delivered');
+        expect(await stockAt(panjabi, shop.id)).toMatchObject({ onHand: 18, allocated: 0 });
+        await step(id, 'markBdOrderReturned');
+        // The delivered unit stays with the customer; only the other one is back on the shelf.
+        expect(await stockAt(panjabi, shop.id)).toMatchObject({ onHand: 19, allocated: 0 });
+    });
+
     it('flags an order whose stock is only at another branch, and sells from that branch', async () => {
         const saree = await variantId('SAREE-1');
         const list = await branches();
