@@ -395,6 +395,32 @@ final class EcommBD_Migrator_Exporter {
 	 * @param int $limit  Limit.
 	 * @return array Page.
 	 */
+	/**
+	 * A product's brands from WooCommerce Brands (core since 9.6) or the common brand plugins.
+	 *
+	 * @param int $product_id Product ID.
+	 * @return array List of { name, slug }.
+	 */
+	private static function brands( $product_id ) {
+		$brands = array();
+		foreach ( array( 'product_brand', 'pwb-brand', 'yith_product_brand' ) as $taxonomy ) {
+			if ( ! taxonomy_exists( $taxonomy ) ) {
+				continue;
+			}
+			$terms = wp_get_post_terms( $product_id, $taxonomy );
+			if ( is_wp_error( $terms ) ) {
+				continue;
+			}
+			foreach ( $terms as $term ) {
+				$brands[] = array(
+					'name' => $term->name,
+					'slug' => $term->slug,
+				);
+			}
+		}
+		return $brands;
+	}
+
 	private static function export_products( $offset, $limit ) {
 		$started              = microtime( true );
 		$products             = wc_get_products(
@@ -415,6 +441,7 @@ final class EcommBD_Migrator_Exporter {
 			$data                 = $controller->prepare_object_for_response( $product, $request )->get_data();
 			$data['meta_data']    = self::clean_meta( isset( $data['meta_data'] ) ? $data['meta_data'] : array() );
 			$data['_seo']         = self::seo( $product->get_id() );
+			$data['_brands']      = self::brands( $product->get_id() );
 			$data['_attachments'] = array();
 			$images               = array_unique( array_merge( array( $product->get_image_id() ), $product->get_gallery_image_ids() ) );
 			foreach ( $images as $attachment ) {

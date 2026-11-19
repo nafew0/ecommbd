@@ -135,7 +135,7 @@ Line height stays 1.6 for Bangla. Numbers in tables use `tabular-nums`.
 |---|---|---|
 | Home | (one link) | |
 | Orders | All orders · Confirm orders · Incomplete orders · Verify payments | Payment reviews · Orders by campaign · Unmapped addresses · WooCommerce orders |
-| Products | All products · Categories · Stock | (Reviews, when phase 35 ships) |
+| Products | All products · Categories · Stock | Brands · Purchases · Suppliers · (Reviews, when phase 35 ships) |
 | Customers | Customer list · Block list | |
 | Sales pages | (one link) | |
 | Marketing | Tracking | (Coupons, when phase 35 ships) |
@@ -385,7 +385,10 @@ A starting point for each existing screen. **Before changing a screen, read it, 
 | `order-detail` | B | main: items, profit breakdown (ReadCost only), **one "next step" button** from the status table (`packages/shared/src/order-status.ts`), payment, courier, history. Side: customer with copy buttons, address, risk, which branch ships the order (and "transfer needed" when the goods were held elsewhere) | other status moves, edit, print choices, SMS, cancel → `ActionMenu`; attribution as a collapsed side card |
 | `confirm-orders`, `phone-order` | own | as today | — |
 | `incomplete-orders`, `verify-payments`, `payment-reviews`, `unmapped-addresses`, `order-campaigns`, `woo-orders` | A | as today, in the new `ListPage` look | — |
-| `products` | A | photo, name, price, stock, status. Main button "Add product". Cost and margin (ReadCost only, hidden on phones) | "Cost missing" filter |
+| `products` | A | photo, name, price, stock, status badge. Tabs: All, Published, Draft, Archived; Trash under "Others" with Bring back and Delete for good. Main button "Add product". Cost and margin (ReadCost only, hidden on phones) | "Cost missing" filter |
+| `brands` | A | logo, name, page address, product count. Main button "Add brand" | — |
+| `brand` | C | names, logo. Delete in the header menu | page address and description (collapsed) |
+| `product-settings` | C | shipping classes (name, extra charge) | units, SKU prefix (collapsed, summary shows the count or an example) |
 | `cost-settings` | C | courier charge fallback | COD charge we pay, gateway fee (collapsed, summary shows the current value or "not set") |
 | `suppliers` | A | name, phone, balance owed. Main button "Add supplier" | — |
 | `supplier` | B | name, phone, address, note, balance, purchase history. Main button "New purchase" | payments (collapsed) |
@@ -404,7 +407,7 @@ A starting point for each existing screen. **Before changing a screen, read it, 
 | `transfers` | A | number, from, to, status, date. Tabs by status. Main button "New transfer" | — |
 | `transfer` | B | from, to, lines. Main button "Send", then "Receive" on a sent transfer | note in `MoreFields` |
 | `branch-settings` | C | default branch for each delivery zone | transfer number prefix, and the pickup branch for each courier, in collapsed cards |
-| `product-form` | B | main: name, description, photos, price, sale price, stock (the default branch), cost (ReadCost only), variations. Side: status (shown or hidden), category. "Same cost for every variation" when there are variations. Other branches are a read-only line under stock | SKU, weight and per-product delivery rules, slug and other search fields → `MoreFields` in their card or a collapsed "Delivery" card |
+| `product-form` | B | main: name, description, photos, price, sale price, stock (the default branch), cost (ReadCost only), variations. Side: status (Published, Draft, Archived), category, brand, unit. "Same cost for every variation" when there are variations. Other branches are a read-only line under stock | SKU, weight, size and per-product delivery rules (with the shipping class), slug and other search fields → `MoreFields` in their card or a collapsed "Delivery" card |
 | `categories` | A | as today | — |
 | `stock` | A | photo, name, stock, the branch filter. Main action is the stock adjustment | — |
 | `customers` | A | name, phone, orders, total spent, last order | — |

@@ -182,6 +182,18 @@ const router = createBrowserRouter(
                                 import('./pages/stock').then(module => ({ Component: module.StockPage })),
                         },
                         {
+                            path: 'products/brands',
+                            lazy: () => import('./pages/brands').then(module => ({ Component: module.BrandsPage })),
+                        },
+                        {
+                            path: 'products/brands/new',
+                            lazy: () => import('./pages/brand').then(module => ({ Component: module.BrandPage })),
+                        },
+                        {
+                            path: 'products/brands/:id',
+                            lazy: () => import('./pages/brand').then(module => ({ Component: module.BrandPage })),
+                        },
+                        {
                             path: 'products/suppliers',
                             lazy: () =>
                                 import('./pages/suppliers').then(module => ({
@@ -325,6 +337,13 @@ const router = createBrowserRouter(
                             lazy: () =>
                                 import('./pages/purchase-settings').then(module => ({
                                     Component: module.PurchaseSettingsPage,
+                                })),
+                        },
+                        {
+                            path: 'settings/products',
+                            lazy: () =>
+                                import('./pages/product-settings').then(module => ({
+                                    Component: module.ProductSettingsPage,
                                 })),
                         },
                         {

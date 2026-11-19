@@ -233,10 +233,23 @@ Point of sale at a branch (not planned); a per-branch storefront.
 
 ### Done when
 
-- [ ] A size × colour product is created, sold and imported from WooCommerce correctly.
-- [ ] Brand pages and filters work.
-- [ ] A shipping class changes the delivery charge.
+- [ ] A size × colour product is created, sold and imported from WooCommerce correctly. (Not built: the matrix editor.)
+- [x] Brand pages and filters work. (`product-depth.e2e-spec.ts`, `tests/browser/product-depth.spec.ts`.)
+- [x] A shipping class changes the delivery charge. (`product-depth.e2e-spec.ts`, `shipping.spec.ts`.)
 
 ### Not in this phase
 
 Product bundles and kits; digital products.
+
+### Built 2026-11-19 (status: Review)
+
+Built at the owner's request without items 1 and 5, which stay open for their own phase:
+
+- **Not built:** the variation matrix editor (more than one kind of variation per product, bulk price and stock) and the media library. Products keep one kind of variation, as before.
+- **Status (6):** Published, Draft, Archived on the product form; **Trash** from the list, restorable for 30 days (it comes back as a draft), then deleted by a daily task. Vendure's `enabled` is still the switch the storefront reads; the new `status` field only says whether a product that is off is a draft or archived, so a product changed elsewhere (Dashboard, import) can't end up half published.
+- **Units (2):** piece, kg, gram, litre, dozen, set, plus the shop's own (Settings → Products). Shown as "৳500 / কেজি" on product pages and cards, and on invoices, receipts and stickers. A product with no unit shows none, as before.
+- **Brands (3):** values of a public `brand` facet with a logo and a description. The storefront search already turns public facets into filters, so category and search pages get a brand filter with counts. Brand pages at `/brand/<code>/`, the brand above the product's name, the brand in the product's structured data (the store name before), and a brand sitemap. Imported from WooCommerce Brands (core since 9.6), Perfect Brands and YITH Brands. Deleting a brand leaves its products on sale with no brand.
+- **Shipping classes (4):** a name and an extra charge each (Settings → Products). Each class in an order adds its charge once; a free-delivery product's class adds nothing, and the free-delivery threshold still makes delivery free. Length, width and height (whole cm) sit next to the weight. Not imported from WooCommerce yet.
+- **Number prefixes (7):** the SKU prefix for products (default `P`, so nothing changes). Purchases and purchase returns already had theirs (phase 52). Stock transfers are phase 54's; order returns and replacements wait for phase 37 (and phase 64 lists them too).
+
+Checked: `product-depth.e2e-spec.ts` (18 cases, including a product saved before phase 55 loading and saving unchanged), the shared unit tests, and `tests/browser/product-depth.spec.ts` on desktop and phone in Bangla.

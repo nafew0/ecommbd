@@ -4,5 +4,8 @@ import { sitemapIndex, xmlResponse } from '../lib/sitemap';
 
 export const GET: APIRoute = () =>
     xmlResponse(
-        sitemapIndex(['sitemap-products.xml', 'sitemap-categories.xml', 'sitemap-pages.xml'], env().SITE_URL),
+        sitemapIndex(
+            ['sitemap-products.xml', 'sitemap-categories.xml', 'sitemap-brands.xml', 'sitemap-pages.xml'],
+            env().SITE_URL,
+        ),
     );

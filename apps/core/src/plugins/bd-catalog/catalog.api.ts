@@ -18,6 +18,10 @@ export const catalogAdminApiExtensions = gql`
         featured: Boolean!
         isNew: Boolean!
         enabled: Boolean!
+        "published, draft, archived or trash (phase 55)"
+        status: String!
+        "When a product in the trash is deleted for good"
+        trashExpiresAt: DateTime
         "The cheapest variant's cost. Null without ReadCost, or when that variant has no cost."
         cost: Money
         "Margin percent of that variant. Null without ReadCost, or when the cost is missing."
@@ -103,8 +107,13 @@ export const catalogAdminApiExtensions = gql`
     }
 
     extend type Query {
-        "costMissing limits the list to products with a variation that has no cost. Ignored without ReadCost."
-        bdProducts(search: String, skip: Int, take: Int, costMissing: Boolean): BdProductList!
+        """
+        costMissing limits the list to products with a variation that has no cost (ignored without ReadCost).
+        status: published, draft, archived or trash; without it, every product not in the trash.
+        """
+        bdProducts(search: String, skip: Int, take: Int, costMissing: Boolean, status: String): BdProductList!
+        "Units, shipping classes and the SKU prefix (phase 55)"
+        bdProductSettings: JSON!
         "The product form's JSON; null when the product doesn't exist"
         bdProductForm(id: ID!): JSON
         bdCategories: [BdCategory!]!
@@ -120,5 +129,25 @@ export const catalogAdminApiExtensions = gql`
         moveBdCategory(id: ID!, index: Int!): BdCategory!
         deleteBdCategory(id: ID!): Boolean!
         adjustBdStock(input: BdAdjustStockInput!): BdStockAdjustment!
+        "Takes a product off the store into the trash; restorable for 30 days"
+        trashBdProduct(id: ID!): Boolean!
+        "Brings a product back from the trash, as a draft"
+        restoreBdProduct(id: ID!): Boolean!
+        "Deletes a product in the trash now"
+        deleteBdProductForever(id: ID!): Boolean!
+        updateBdProductSettings(input: JSON!): BdSaveProductSettingsResult!
+    }
+
+    type BdSaveProductSettingsResult {
+        settings: JSON
+        errors: [BdSettingsFieldError!]!
+    }
+`;
+
+/** Shop API (phase 55): the product's unit, named in the shopper's language. */
+export const catalogShopApiExtensions = gql`
+    extend type Product {
+        "The unit shown next to the price, in the shopper's language, or null"
+        bdUnit: String
     }
 `;

@@ -547,6 +547,9 @@ enum Permission {
   """See the risk score of orders and its reasons"""
   ReadRisk
 
+  """Import and review a WooCommerce store and its credentials"""
+  RunMigration
+
   """
   Accept or refund online payments held for review (late, duplicate, risky)
   """
@@ -556,6 +559,18 @@ enum Permission {
   Book parcels with couriers, mark them booked by hand, and cancel bookings before pickup
   """
   BookCourier
+
+  """See product cost and order profit"""
+  ReadCost
+
+  """See suppliers and purchases"""
+  ReadPurchase
+
+  """Record purchases, returns and supplier payments"""
+  ManagePurchase
+
+  """See accounts, expenses and profit"""
+  ManageAccounts
 
   """
   Design the storefront: theme, home page, page sections and the product page template
@@ -1861,7 +1876,7 @@ type FacetValue implements Node {
   name: String!
   code: String!
   translations: [FacetValueTranslation!]!
-  customFields: JSON
+  customFields: FacetValueCustomFields
 }
 
 type FacetValueTranslation {
@@ -1870,6 +1885,7 @@ type FacetValueTranslation {
   updatedAt: DateTime!
   languageCode: LanguageCode!
   name: String!
+  customFields: FacetValueTranslationCustomFields
 }
 
 type Facet implements Node {
@@ -2937,6 +2953,9 @@ type Product implements Node {
   facetValues: [FacetValue!]!
   translations: [ProductTranslation!]!
   collections: [Collection!]!
+
+  """The unit shown next to the price, in the shopper's language, or null"""
+  bdUnit: String
   customFields: ProductCustomFields
 }
 
@@ -3481,6 +3500,9 @@ type Query {
 
   """How the active order can be paid; null without an active order"""
   bdPaymentOptions: BdPaymentOptions
+  bdBrand(code: String!): BdShopBrand
+  bdBrands: [BdShopBrand!]!
+  wooResolvePath(path: String!, recordMiss: Boolean): JSON
   bdMetaConfig: BdMetaConfig!
   bdSearch(input: BdSearchInput!): BdSearchResult!
 
@@ -4255,6 +4277,14 @@ type BdPaymentOptions {
   online: [BdOnlinePaymentOption!]!
 }
 
+type BdShopBrand {
+  id: ID!
+  code: String!
+  name: String!
+  description: String!
+  logo: Asset
+}
+
 input BdCheckoutProgressInput {
   """Any common form of a Bangladeshi mobile number; saved only when valid"""
   phone: String!
@@ -4315,7 +4345,9 @@ type BdTrackedOnlinePayment {
   """Why the last try failed, e.g. insufficientBalance, unavailable"""
   lastFailure: String
 
-  """The gateway's own words on why it failed (bKash), in the request's language"""
+  """
+  The gateway's own words on why it failed (bKash), in the request's language
+  """
   lastFailureMessage: String
 }
 
@@ -4777,6 +4809,8 @@ input FacetValueFilterParameter {
   code: StringOperators
   _and: [FacetValueFilterParameter!]
   _or: [FacetValueFilterParameter!]
+  description: StringOperators
+  logoId: IDOperators
 }
 
 input FacetValueSortParameter {
@@ -4786,6 +4820,9 @@ input FacetValueSortParameter {
   facetId: SortOrder
   name: SortOrder
   code: SortOrder
+  logo: SortOrder
+  description: SortOrder
+  logoId: SortOrder
 }
 
 input HistoryEntryFilterParameter {
@@ -4862,6 +4899,9 @@ input ProductFilterParameter {
   slug: StringOperators
   description: StringOperators
   enabled: BooleanOperators
+
+  """The unit shown next to the price, in the shopper's language, or null"""
+  bdUnit: StringOperators
   _and: [ProductFilterParameter!]
   _or: [ProductFilterParameter!]
   seoTitle: StringOperators
@@ -4873,6 +4913,7 @@ input ProductFilterParameter {
   isNew: BooleanOperators
   youtubeUrl: StringOperators
   shortDescription: StringOperators
+  unit: StringOperators
   categoryId: IDOperators
 }
 
@@ -4883,6 +4924,9 @@ input ProductSortParameter {
   name: SortOrder
   slug: SortOrder
   description: SortOrder
+
+  """The unit shown next to the price, in the shopper's language, or null"""
+  bdUnit: SortOrder
   seoTitle: SortOrder
   seoDescription: SortOrder
   freeDelivery: SortOrder
@@ -4893,6 +4937,7 @@ input ProductSortParameter {
   youtubeUrl: SortOrder
   shortDescription: SortOrder
   category: SortOrder
+  unit: SortOrder
   categoryId: SortOrder
 }
 
@@ -4935,6 +4980,16 @@ type CollectionTranslationCustomFields {
   seoDescription: String
 }
 
+type FacetValueCustomFields {
+  logo: Asset
+  description: String
+  logoId: ID
+}
+
+type FacetValueTranslationCustomFields {
+  description: String
+}
+
 type OrderCustomFields {
   customerNote: String
   orderNumber: String
@@ -4953,6 +5008,7 @@ type ProductCustomFields {
   shortDescription: String
   feedbackAssets: [Asset!]
   category: Collection
+  unit: String
   categoryId: ID
 }
 

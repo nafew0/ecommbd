@@ -1,4 +1,11 @@
-import { cleanText, marginPercent, slugify } from '@ecommbd/shared';
+import {
+    cleanText,
+    marginPercent,
+    type ProductListStatus,
+    productStatusOf,
+    slugify,
+    trashExpiresAt,
+} from '@ecommbd/shared';
 import { Injectable } from '@nestjs/common';
 import {
     Collection,
@@ -13,7 +20,7 @@ import {
     TransactionalConnection,
     UserInputError,
 } from '@vendure/core';
-import { In, IsNull } from 'typeorm';
+import { In, IsNull, type SelectQueryBuilder } from 'typeorm';
 import { readCostPermission } from '../bd-cost/constants';
 import { ShippingSettingsService } from '../shipping-bd';
 import { assetUrl } from './asset-url';
@@ -50,6 +57,8 @@ export class CatalogService {
             skip?: number | null;
             take?: number | null;
             costMissing?: boolean | null;
+            /** Phase 55. Null: every product that is not in the trash. */
+            status?: ProductListStatus | null;
         },
     ) {
         const qb = this.connection
@@ -61,6 +70,7 @@ export class CatalogService {
             .leftJoinAndSelect('category.translations', 'categoryTranslation')
             .where('product.deletedAt IS NULL');
         const canSeeCost = ctx.userHasPermissions([readCostPermission.Permission]);
+        statusFilter(qb, options.status ?? null);
         const search = cleanText(options.search ?? '');
         if (search) {
             qb.andWhere(
@@ -121,6 +131,14 @@ export class CatalogService {
                     featured: product.customFields.featured ?? false,
                     isNew: product.customFields.isNew ?? false,
                     enabled: product.enabled,
+                    status: productStatusOf({
+                        enabled: product.enabled,
+                        status: product.customFields.status,
+                        trashedAt: product.customFields.trashedAt,
+                    }),
+                    trashExpiresAt: product.customFields.trashedAt
+                        ? trashExpiresAt(new Date(product.customFields.trashedAt))
+                        : null,
                 };
             }),
         );
@@ -258,4 +276,24 @@ export class CatalogService {
                 : settings.freeCollectionIds.filter(other => other !== id),
         );
     }
+}
+
+/**
+ * The status tabs of the product list (phase 55). `enabled` decides published; the stored status
+ * only splits the products that are off into draft and archived.
+ */
+function statusFilter(
+    qb: SelectQueryBuilder<Product>,
+    status: ProductListStatus | null,
+) {
+    const trashed = 'product."customFieldsTrashedat"';
+    const stored = 'product."customFieldsStatus"';
+    if (status === 'trash') {
+        qb.andWhere(`${trashed} IS NOT NULL`);
+        return;
+    }
+    qb.andWhere(`${trashed} IS NULL`);
+    if (status === 'published') qb.andWhere('product.enabled = true');
+    if (status === 'draft') qb.andWhere(`product.enabled = false AND (${stored} IS NULL OR ${stored} <> 'archived')`);
+    if (status === 'archived') qb.andWhere(`product.enabled = false AND ${stored} = 'archived'`);
 }

@@ -9,6 +9,8 @@ const en = {
     'category-name': 'Give the category a name in Bangla or English.',
     'category-parent': 'A category can’t be inside itself.',
     'category-missing': 'This category doesn’t exist.',
+    'product-missing': 'That product could not be found.',
+    'not-in-trash': 'Only a product in the trash can be deleted for good.',
 };
 
 const bn: typeof en = {
@@ -21,6 +23,8 @@ const bn: typeof en = {
     'category-name': 'ক্যাটাগরির নাম বাংলায় বা ইংরেজিতে দিন।',
     'category-parent': 'কোনো ক্যাটাগরি নিজের ভেতরে থাকতে পারে না।',
     'category-missing': 'এই ক্যাটাগরিটি পাওয়া যায়নি।',
+    'product-missing': 'এই পণ্যটি পাওয়া যায়নি।',
+    'not-in-trash': 'শুধু ট্র্যাশের পণ্যই চিরতরে মুছে ফেলা যায়।',
 };
 
 export const catalogTranslations = {

@@ -124,5 +124,11 @@ One word per idea everywhere: storefront, Dashboard, SMS, help articles. Banglad
 | Theme | থিম |
 | Home page | হোম পেজ |
 | Draft / Publish | ড্রাফট / পাবলিশ করুন |
+| Published / Archived (product status) | পাবলিশড / আর্কাইভ |
+| Trash / Bring back / Delete for good | ট্র্যাশ / ফিরিয়ে আনুন / চিরতরে মুছুন |
+| Brand | ব্র্যান্ড |
+| Unit (piece, kg, dozen) | একক (পিস, কেজি, ডজন) |
+| Shipping class | শিপিং ক্লাস |
+| Length / Width / Height | দৈর্ঘ্য / প্রস্থ / উচ্চতা |
 | Preview | প্রিভিউ |
 | Page editor | পেজ এডিটর |

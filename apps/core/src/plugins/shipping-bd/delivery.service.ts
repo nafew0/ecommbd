@@ -4,6 +4,8 @@ import {
     type DeliveryMethod,
     type DeliveryQuote,
     freeDeliveryRemaining,
+    PRODUCT_SETTINGS_KEY,
+    type ProductSettings,
     quoteDelivery,
     type ShippingSettings,
 } from '@ecommbd/shared';
@@ -13,6 +15,7 @@ import {
     ProductVariant,
     RequestContext,
     RequestContextCacheService,
+    SettingsStoreService,
     TransactionalConnection,
 } from '@vendure/core';
 import { In } from 'typeorm';
@@ -25,6 +28,7 @@ interface VariantDelivery {
     insideDhaka: number | null;
     outsideDhaka: number | null;
     surcharge: number;
+    shippingClass: string | null;
     collectionIds: string[];
 }
 
@@ -44,6 +48,7 @@ export class DeliveryService {
         private settingsService: ShippingSettingsService,
         private connection: TransactionalConnection,
         private requestCache: RequestContextCacheService,
+        private settingsStore: SettingsStoreService,
     ) {}
 
     async quote(ctx: RequestContext, order: Order, method: DeliveryMethod): Promise<DeliveryQuote> {
@@ -56,6 +61,7 @@ export class DeliveryService {
             thanaId,
             subTotal: order.subTotalWithTax,
             lines: await this.lines(ctx, order, settings),
+            shippingClasses: await this.shippingClasses(ctx),
         });
     }
 
@@ -94,7 +100,19 @@ export class DeliveryService {
                 insideDhaka: variant?.insideDhaka ?? null,
                 outsideDhaka: variant?.outsideDhaka ?? null,
                 surcharge: variant?.surcharge ?? 0,
+                shippingClass: variant?.shippingClass ?? null,
             };
+        });
+    }
+
+    /**
+     * The shop's shipping classes (phase 55), read straight from the settings store so delivery
+     * doesn't depend on the catalog plugin, which already depends on this one.
+     */
+    private shippingClasses(ctx: RequestContext): Promise<ProductSettings['shippingClasses']> {
+        return this.requestCache.get(ctx, 'shippingBd.classes', async () => {
+            const stored = await this.settingsStore.get<Partial<ProductSettings>>(ctx, PRODUCT_SETTINGS_KEY);
+            return Array.isArray(stored?.shippingClasses) ? stored.shippingClasses : [];
         });
     }
 
@@ -121,6 +139,7 @@ export class DeliveryService {
                             insideDhaka: product.deliveryInsideDhaka ?? null,
                             outsideDhaka: product.deliveryOutsideDhaka ?? null,
                             surcharge: product.deliverySurcharge ?? 0,
+                            shippingClass: product.shippingClass ?? null,
                             collectionIds: (variant.collections ?? []).map(collection =>
                                 String(collection.id),
                             ),

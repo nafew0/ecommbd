@@ -16,6 +16,13 @@ export interface PrintLine {
     quantity: number;
     unitPrice: number | null;
     linePrice: number | null;
+    /** The product's unit (phase 55), e.g. কেজি; null when it has none. */
+    unit: string | null;
+}
+
+/** "2" or "2 কেজি": a line's quantity with its unit (phase 55). */
+export function quantityWithUnit(quantity: string, unit: string | null): string {
+    return unit ? `${quantity} ${unit}` : quantity;
 }
 
 export interface PrintOrder {
@@ -69,7 +76,7 @@ export const PRINT_DATA = `
             orders {
                 id orderNumber placedAt customerName phone alternatePhone streetLine1 area districtId thanaId
                 landmark note
-                lines { name sku quantity unitPrice linePrice }
+                lines { name sku quantity unitPrice linePrice unit }
                 subtotal discount delivery total paid codDue paymentType paymentMethods printedAt courierConsignment
             }
             store {

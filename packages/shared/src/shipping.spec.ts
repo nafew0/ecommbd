@@ -275,3 +275,40 @@ describe('codFee', () => {
         expect(codFee(on({ type: 'flat', flat: tk(10) }), 0)).toBe(0);
     });
 });
+
+describe('quoteDelivery: shipping classes (phase 55)', () => {
+    const settings = defaultShippingSettings();
+    const classes = [
+        { code: 'bulky', charge: tk(100) },
+        { code: 'fragile', charge: tk(50) },
+    ];
+    const base = price(settings);
+
+    it('adds each class in the cart once, however many items have it', () => {
+        const result = quote(settings, {
+            shippingClasses: classes,
+            lines: [
+                line({ shippingClass: 'bulky', quantity: 3 }),
+                line({ shippingClass: 'bulky' }),
+                line({ shippingClass: 'fragile' }),
+            ],
+        });
+        expect(result.ok && result.classSurcharge).toBe(tk(150));
+        expect(result.ok && result.price).toBe((base as number) + tk(150));
+    });
+
+    it('adds nothing for a free-delivery product, a removed class or no class', () => {
+        expect(
+            price(settings, {
+                shippingClasses: classes,
+                lines: [line({ shippingClass: 'bulky', freeDelivery: true }), line({ shippingClass: 'gone' }), line()],
+            }),
+        ).toBe(base);
+        expect(price(settings, { lines: [line({ shippingClass: 'bulky' })] })).toBe(base);
+    });
+
+    it('is free when the free-delivery threshold is reached', () => {
+        const free = { ...settings, freeAbove: { ...settings.freeAbove, dhaka_city: tk(500) } };
+        expect(price(free, { shippingClasses: classes, lines: [line({ shippingClass: 'bulky' })] })).toBe(0);
+    });
+});

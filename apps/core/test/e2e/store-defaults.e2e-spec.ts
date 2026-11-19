@@ -221,6 +221,7 @@ describe('running the initializer again', () => {
             'roles',
             'store-settings',
             // Registered by later plugins (registerStoreDefaults), in the order their files load:
+            'brand-facet',
             'delivery-methods',
             'order-permissions',
             'payment-methods',

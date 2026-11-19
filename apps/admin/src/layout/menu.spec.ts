@@ -43,6 +43,7 @@ describe('menu', () => {
             '/products',
             '/products/categories',
             '/products/stock',
+            '/products/brands',
             '/products/purchases',
             '/products/suppliers',
             '/products/branches',
@@ -70,6 +71,7 @@ describe('menu', () => {
         expect(menu[8]!.area).toBe('settings');
         expect(menu[8]!.children!.map(child => child.to)).toEqual([
             '/settings/store',
+            '/settings/products',
             '/settings/orders',
             '/settings/cost',
             '/settings/purchases',

@@ -14,6 +14,8 @@ export const printAdminApiExtensions = gql`
         "Null on packing slips"
         unitPrice: Money
         linePrice: Money
+        "The product's unit (phase 55), e.g. কেজি; null when it has none"
+        unit: String
     }
 
     type BdPrintOrder {

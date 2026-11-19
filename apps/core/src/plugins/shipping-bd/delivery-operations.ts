@@ -69,6 +69,7 @@ export const deliveryRateCalculator = new ShippingCalculator({
                 base: quote.base,
                 weightSurcharge: quote.weightSurcharge,
                 productSurcharge: quote.productSurcharge,
+                classSurcharge: quote.classSurcharge,
             },
         };
     },

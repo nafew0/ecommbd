@@ -58,6 +58,8 @@ export function localePath(lang: Lang, defaultLang: Lang, path: string): string 
 }
 
 export const productPath = (slug: string) => `/product/${encodeSlug(slug)}/`;
+/** A brand's page (phase 55). */
+export const brandPath = (code: string) => `/brand/${encodeSlug(code)}/`;
 
 export const categoryPath = (slugs: string[]) => `/product-category/${slugs.map(encodeSlug).join('/')}/`;
 

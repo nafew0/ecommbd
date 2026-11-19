@@ -3,9 +3,9 @@ import type { PolicyKey } from '@ecommbd/shared/store-settings';
 import { env } from '../env';
 import { shopQuery } from './core';
 import { LANGS, type Lang } from './i18n';
-import { SITEMAP_COLLECTIONS, SITEMAP_PAGES, SITEMAP_PRODUCTS } from './queries';
+import { SITEMAP_BRANDS, SITEMAP_COLLECTIONS, SITEMAP_PAGES, SITEMAP_PRODUCTS } from './queries';
 import { getSettings } from './store';
-import { categoryPath, localePath, pagePath, productPath } from './urls';
+import { brandPath, categoryPath, localePath, pagePath, productPath } from './urls';
 
 /** Sitemaps (roadmap phase 12): an index, then products, categories and pages, each URL in both languages. */
 
@@ -120,7 +120,18 @@ export async function pageEntries(): Promise<SitemapEntry[]> {
     return [{ paths: { bn: '/', en: '/' } }, ...policies, ...pages];
 }
 
-export async function sitemap(kind: 'products' | 'categories' | 'pages'): Promise<Response> {
-    const load = { products: productEntries, categories: categoryEntries, pages: pageEntries }[kind];
+/** Brand pages (phase 55): only brands with a product on sale. The address is the same in both languages. */
+export async function brandEntries(): Promise<SitemapEntry[]> {
+    const { bdBrands } = await shopQuery(SITEMAP_BRANDS, {}, 'bn');
+    return bdBrands.map(brand => ({ paths: { bn: brandPath(brand.code), en: brandPath(brand.code) } }));
+}
+
+export async function sitemap(kind: 'products' | 'categories' | 'pages' | 'brands'): Promise<Response> {
+    const load = {
+        products: productEntries,
+        categories: categoryEntries,
+        pages: pageEntries,
+        brands: brandEntries,
+    }[kind];
     return xmlResponse(urlSet(await load(), env().SITE_URL, await defaultLang()));
 }
