@@ -139,6 +139,17 @@ export interface VideoField extends FieldBase {
     kind: 'video';
 }
 
+/** A web address (a social profile): a full http(s) address, or empty. */
+export interface UrlField extends FieldBase {
+    kind: 'url';
+}
+
+/** One line that is the same in both languages: an email address, a place for a map. */
+export interface PlainField extends FieldBase {
+    kind: 'plain';
+    max: number;
+}
+
 /** Any colour (phase 16's Design options): a checked `#rrggbb`, or empty for "as the theme". */
 export interface HexField extends FieldBase {
     kind: 'hex';
@@ -179,6 +190,8 @@ export type Field =
     | ToggleField
     | RangeField
     | VideoField
+    | UrlField
+    | PlainField
     | HexField
     | SizeField
     | DateTimeField
@@ -206,7 +219,7 @@ export type FieldValue<F> = F extends { kind: 'text' | 'textarea' | 'richText' }
                   ? boolean
                   : F extends { kind: 'range' }
                     ? number
-                    : F extends { kind: 'video' | 'hex' | 'datetime' }
+                    : F extends { kind: 'video' | 'hex' | 'datetime' | 'url' | 'plain' }
                       ? string
                       : F extends { kind: 'size' }
                         ? number | null
@@ -287,6 +300,17 @@ export const field = {
     video: (label: Bilingual, options: Options<VideoField> = {}): VideoField => ({
         kind: 'video',
         label,
+        ...options,
+    }),
+    url: (label: Bilingual, options: Options<UrlField> = {}): UrlField => ({
+        kind: 'url',
+        label,
+        ...options,
+    }),
+    plain: (label: Bilingual, options: Partial<Options<PlainField>> = {}): PlainField => ({
+        kind: 'plain',
+        label,
+        max: 200,
         ...options,
     }),
     hex: (label: Bilingual, options: Options<HexField> = {}): HexField => ({
@@ -438,7 +462,10 @@ export function readValue(definition: Field, value: unknown): unknown {
         case 'range':
             return readNumber(value, definition);
         case 'video':
+        case 'url':
             return typeof value === 'string' ? value.trim().slice(0, MAX_URL) : '';
+        case 'plain':
+            return typeof value === 'string' ? cleanText(value).slice(0, definition.max) : '';
         case 'hex':
             return value === '' || value === null || value === undefined ? '' : (normalizeHex(value) ?? '');
         case 'size':
@@ -491,6 +518,10 @@ export function valueIssue(definition: Field, value: unknown): FieldIssueCode | 
         if (link.type === 'anchor' && !isAnchor(link.anchor)) return 'invalidAnchor';
     }
     if (definition.kind === 'video' && value !== '' && !parseVideo(value as string)) return 'invalidVideo';
+    // A social profile is a full address on another site, never a path or a script.
+    if (definition.kind === 'url' && value !== '' && !/^https:\/\/[^\s/]+\.[^\s]+$/i.test(value as string)) {
+        return 'invalidUrl';
+    }
     return null;
 }
 

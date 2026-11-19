@@ -128,6 +128,7 @@ export function SectionForm(props: SectionFormProps) {
                             onDevice={onDevice}
                             selected={nodeUid}
                             onSelect={setNodeUid}
+                            landing={landing}
                             addInside={props.addInside}
                             onDragNew={props.onDragNew}
                         />

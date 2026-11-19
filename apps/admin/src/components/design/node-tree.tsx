@@ -1,19 +1,12 @@
 import {
-    COLUMN_TEMPLATES,
-    createNode,
-    createStructure,
     type Device,
-    ELEMENT_CATEGORIES,
-    ELEMENTS,
     findNode,
     type LayoutDocument,
     type NodeData,
     nodeSnippet,
-    pick,
     type SectionData,
-    STRUCTURE_PRESETS,
 } from '@ecommbd/sections';
-import { type DragEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { cn } from '../../lib/cn';
 import { useI18n } from '../../lib/i18n';
 import { AnimatePresence, expand, m, rise } from '../../lib/motion';
@@ -28,7 +21,8 @@ import {
     removeNode,
     updateNode,
 } from './document-ops';
-import { ElementIcon, StructureDiagram } from './element-icon';
+import { ElementIcon } from './element-icon';
+import { ElementPicker } from './element-picker';
 import type { Language } from './field-controls';
 import { IconButton } from './icon-button';
 import { NodeSettings } from './node-settings';
@@ -54,6 +48,8 @@ interface NodeTreeProps {
     addInside?: { uid: string | null; at: number } | null;
     /** An element or layout picked up from the list, to drop on the canvas (null: let go). */
     onDragNew?(make: (() => NodeData) | null): void;
+    /** A sales page: its own sections are offered as blocks. */
+    landing?: boolean;
     /** The screen size being styled: the same one the preview shows. */
     device: Device;
     onDevice(device: Device): void;
@@ -95,7 +91,11 @@ export function NodeTree(props: NodeTreeProps) {
         <AnimatePresence initial={false}>
             {adding === (parent ?? 'root') && (
                 <m.div {...expand} className="overflow-hidden">
-                    <Picker onPick={node => add(parent, node)} onDragNew={props.onDragNew} />
+                    <ElementPicker
+                        onPick={node => add(parent, node)}
+                        onDragNew={props.onDragNew}
+                        landing={props.landing}
+                    />
                 </m.div>
             )}
         </AnimatePresence>
@@ -325,89 +325,6 @@ export function NodeTree(props: NodeTreeProps) {
             </p>
             {addButton(null, t.add)}
             {picker(null)}
-        </div>
-    );
-}
-
-/** What can be added: a layout to start from, or one element. */
-function Picker({
-    onPick,
-    onDragNew,
-}: {
-    onPick(node: NodeData): void;
-    onDragNew?(make: (() => NodeData) | null): void;
-}) {
-    const drag = (make: () => NodeData) => ({
-        draggable: !!onDragNew,
-        onDragStart: (event: DragEvent<HTMLButtonElement>) => {
-            event.dataTransfer.effectAllowed = 'copy';
-            event.dataTransfer.setData('text/plain', 'new');
-            onDragNew?.(make);
-        },
-        onDragEnd: () => onDragNew?.(null),
-    });
-    const { messages: m_, language: ui } = useI18n();
-    const t = m_.design.tree;
-    const elements = ELEMENTS.filter(definition => !definition.internal && definition.type !== 'container');
-    return (
-        <div className="mt-1 mb-2 space-y-3 rounded-md border border-line bg-surface p-3">
-            <div>
-                <p className="mb-1.5 text-xs font-semibold tracking-wide text-ink-muted uppercase">
-                    {t.layouts}
-                </p>
-                <ul className="grid grid-cols-5 gap-1.5">
-                    {STRUCTURE_PRESETS.map(preset => {
-                        const parts =
-                            preset.mode === 'grid'
-                                ? COLUMN_TEMPLATES[preset.columns]
-                                : Array.from({ length: preset.cells || 3 }, () => 1);
-                        const name = t.structures[preset.key];
-                        return (
-                            <li key={preset.key}>
-                                <button
-                                    type="button"
-                                    title={name}
-                                    aria-label={name}
-                                    onClick={() => onPick(createStructure(preset))}
-                                    {...drag(() => createStructure(preset))}
-                                    className="flex w-full rounded border border-line p-1.5 text-ink transition-colors hover:border-ink focus-visible:outline-2 focus-visible:outline-accent"
-                                >
-                                    <StructureDiagram parts={parts} vertical={preset.key === 'flex-column'} />
-                                </button>
-                            </li>
-                        );
-                    })}
-                </ul>
-                <p className="mt-1.5 text-xs text-ink-muted">{t.stackNote}</p>
-            </div>
-            {ELEMENT_CATEGORIES.filter(category => category !== 'layout').map(category => (
-                <div key={category}>
-                    <p className="mb-1.5 text-xs font-semibold tracking-wide text-ink-muted uppercase">
-                        {t.categories[category]}
-                    </p>
-                    <ul className="grid grid-cols-3 gap-1.5">
-                        {elements
-                            .filter(definition => definition.category === category)
-                            .map(definition => (
-                                <li key={definition.type}>
-                                    <button
-                                        type="button"
-                                        title={pick(definition.description, ui)}
-                                        onClick={() => onPick(createNode(definition.type))}
-                                        {...drag(() => createNode(definition.type))}
-                                        className="flex min-h-16 w-full flex-col items-center justify-center gap-1 rounded border border-line px-1 text-center text-xs font-medium text-ink transition-colors hover:border-ink focus-visible:outline-2 focus-visible:outline-accent"
-                                    >
-                                        <ElementIcon
-                                            name={definition.type}
-                                            className="size-5 text-ink-muted"
-                                        />
-                                        {pick(definition.name, ui)}
-                                    </button>
-                                </li>
-                            ))}
-                    </ul>
-                </div>
-            ))}
         </div>
     );
 }

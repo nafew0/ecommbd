@@ -841,6 +841,29 @@ function ColourControl({ field, value, onChange }: FieldControlProps) {
     );
 }
 
+/** One line that is the same in both languages: a web address, an email, a place. */
+function PlainControl({ field, value, onChange, issue }: FieldControlProps) {
+    const { language: ui } = useI18n();
+    const id = useId();
+    const web = field.kind === 'url';
+    return (
+        <div>
+            <Label htmlFor={id}>{field.label[ui]}</Label>
+            <Input
+                id={id}
+                inputMode={web ? 'url' : undefined}
+                spellCheck={false}
+                value={(value as string) ?? ''}
+                placeholder={web ? 'https://' : undefined}
+                aria-invalid={issue ? true : undefined}
+                onChange={event => onChange(event.target.value)}
+            />
+            {field.hint && !issue && <Hint>{field.hint[ui]}</Hint>}
+            {issue && <Hint tone="error">{issue}</Hint>}
+        </div>
+    );
+}
+
 export function FieldControl(props: FieldControlProps) {
     const { language: ui } = useI18n();
     const { field, value, onChange } = props;
@@ -874,6 +897,9 @@ export function FieldControl(props: FieldControlProps) {
             return <RangeControl {...props} />;
         case 'video':
             return <VideoControl {...props} />;
+        case 'url':
+        case 'plain':
+            return <PlainControl {...props} />;
         case 'colour':
             return <ColourControl {...props} />;
         case 'hex':

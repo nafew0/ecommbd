@@ -278,6 +278,11 @@ function nodeRules(node: NodeData, parent: NodeData | null, out: Sheet) {
     }
     if (node.type === 'spacer' && number(node.props.height))
         rules.all.push(`height:${px(node.props.height)}`);
+    // A few elements take one number from their own settings.
+    if (node.type === 'progress' && number(node.props.percent))
+        rules.all.push(`--progress:${node.props.percent}%`);
+    if (node.type === 'map' && number(node.props.height))
+        rules.all.push(`--map-height:${px(node.props.height)}`);
     const inRow =
         parent?.props.mode !== 'grid' &&
         (parent?.props.direction === 'row' || parent?.props.direction === 'row-reverse');

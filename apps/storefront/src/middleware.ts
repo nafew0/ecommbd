@@ -54,7 +54,8 @@ function securityHeaders(options: HeaderOptions = {}): Record<string, string> {
         `img-src 'self' data: https://i.ytimg.com${metaBeacon} ${extra}`.trim(),
         "font-src 'self'",
         `connect-src 'self'${meta}${metaBeacon} ${extra}`.trim(),
-        `frame-src ${VIDEO_FRAMES}`,
+        // Videos, and the map element's Google Maps embed (phase 61).
+        `frame-src ${VIDEO_FRAMES} https://www.google.com`,
         "object-src 'none'",
         "base-uri 'self'",
         "form-action 'self'",

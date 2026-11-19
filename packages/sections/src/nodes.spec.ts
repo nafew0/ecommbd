@@ -14,7 +14,7 @@ import {
     shownSmartSections,
     smartSections,
 } from './document';
-import { ELEMENTS, elementDefinition, STRUCTURE_PRESETS } from './elements';
+import { ELEMENTS, elementDefinition, parseRows, STRUCTURE_PRESETS } from './elements';
 import { type Device, effectiveStyle, readNodeStyle, styleCount, withStyleValue } from './node-style';
 import {
     columnCount,
@@ -32,7 +32,7 @@ import {
     readClasses,
     visibleNodes,
 } from './nodes';
-import { openSection, opensToElements } from './open';
+import { liveBlock, openSection, opensToElements } from './open';
 import { SECTIONS } from './registry';
 import { landingTemplate, LANDING_TEMPLATES } from './landing-templates';
 import { starterLayout, STARTERS } from './starters';
@@ -767,5 +767,57 @@ describe('a node’s own options (phase 58)', () => {
             { sectionId: 'free0001', blockId: second.uid, field: 'anchor', code: 'duplicateAnchor' },
             { sectionId: 'free0001', blockId: third.uid, field: 'anchor', code: 'duplicateAnchor' },
         ]);
+    });
+});
+
+describe('the element library (phase 61)', () => {
+    it('splits an element’s lines into their parts', () => {
+        expect(parseRows('How? | Like this\n\n  Why? |  Because | of this  \nNo answer')).toEqual([
+            ['How?', 'Like this'],
+            ['Why?', 'Because | of this'],
+            ['No answer', ''],
+        ]);
+        expect(parseRows('Price | ৳650 | ৳900', 3)).toEqual([['Price', '৳650', '৳900']]);
+        expect(parseRows('One\nTwo', 1)).toEqual([['One'], ['Two']]);
+        expect(parseRows('')).toEqual([]);
+    });
+
+    it('offers every ready-made section as a block that keeps its settings', () => {
+        const blocks = SECTIONS.filter(definition => !definition.tree);
+        for (const definition of blocks) {
+            const node = liveBlock(definition.type);
+            expect(node).toMatchObject({ type: 'live', section: { type: definition.type } });
+            expect(readSection(JSON.parse(JSON.stringify(free([node]))))!.children![0]).toEqual(node);
+        }
+        expect(() => liveBlock('custom')).toThrow();
+        expect(() => liveBlock('nonsense')).toThrow();
+        // With the elements, the picker passes seventy choices.
+        const elements = ELEMENTS.filter(definition => !definition.internal);
+        expect(elements.length + blocks.length).toBeGreaterThanOrEqual(64);
+    });
+
+    it('reads a web address and a plain line, and refuses an address that isn’t one', () => {
+        const social = createNode('social', {
+            facebook: ' https://facebook.com/rahimfashion ',
+            instagram: 'javascript:alert(1)',
+            youtube: '/a-path',
+        });
+        expect(social.props.facebook).toBe('https://facebook.com/rahimfashion');
+        expect(
+            documentIssues({ sections: [free([social])] }).map(issue => [issue.field, issue.code]),
+        ).toEqual([
+            ['instagram', 'invalidUrl'],
+            ['youtube', 'invalidUrl'],
+        ]);
+        const email = createNode('email', { email: '  shop@example.com\n<script>  ' });
+        expect(email.props.email).toBe('shop@example.com <script>');
+    });
+
+    it('gives the progress bar and the map their one number', () => {
+        const bar = { ...createNode('progress', { percent: 40 }), uid: 'bar00001' };
+        const map = { ...createNode('map', { place: 'Dhanmondi 27, Dhaka', height: 400 }), uid: 'map00001' };
+        expect(layoutCss({ sections: [free([bar, map])] })).toBe(
+            '.el[data-u="bar00001"]{--progress:40%}.el[data-u="map00001"]{--map-height:400px}',
+        );
     });
 });

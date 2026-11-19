@@ -2,6 +2,7 @@ import type { SectionData } from './define';
 import type { ColumnTemplate } from './elements';
 import type { ImageValue, LinkValue } from './fields';
 import { copyNode, createNode, type NodeData } from './nodes';
+import { createSection } from './document';
 import { newId } from './read-settings';
 import { sectionDefinition } from './registry';
 import { customSection } from './sections/custom';
@@ -183,6 +184,18 @@ const OPENERS: Record<string, Opener> = {
     },
     divider: section => [createNode((section.settings as Settings).line ? 'divider' : 'spacer')],
 };
+
+/**
+ * A ready-made section as a block to put inside a container (phase 61): a product grid beside
+ * your own words, an order form under a heading. It keeps its own settings and its live data.
+ */
+export function liveBlock(type: string): NodeData {
+    const definition = sectionDefinition(type);
+    if (!definition || definition.tree) throw new Error(`Not a ready-made section: ${type}`);
+    const node = createNode('live');
+    node.section = createSection(type);
+    return node;
+}
 
 /** True when a section becomes plain elements (not one live block) when opened up. */
 export function opensToElements(type: string): boolean {

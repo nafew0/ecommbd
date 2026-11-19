@@ -2,11 +2,15 @@ import {
     createNode,
     createSection,
     createStructure,
+    ELEMENTS,
+    liveBlock,
+    sectionsFor,
     type LayoutDocument,
     type NodeData,
     STRUCTURE_PRESETS,
 } from '@ecommbd/sections';
 import { expect, type Page, test } from '@playwright/test';
+import { gzipSync } from 'node:zlib';
 import { signIn, watchForErrors } from './support/admin-ui';
 import { publishLayout, resetHome, setDraft, waitForStorefront } from './support/sections';
 import { adminSession, type ApiSession } from './support/store-api';
@@ -642,5 +646,102 @@ test.describe('the element tree', () => {
         await expect(page).toHaveURL(/\/admin\/orders$/);
         await orders.click();
         await expect(menu.getByRole('link', { name: 'All orders' })).toBeVisible();
+    });
+    test('a page with every element and every ready block at once stays within the script budget', async ({
+        page,
+        isMobile,
+    }) => {
+        test.skip(!isMobile, 'Measured on the phone');
+        const section = createSection('custom');
+        const elements = ELEMENTS.filter(
+            definition => !definition.internal && definition.type !== 'container',
+        ).map(definition => createNode(definition.type));
+        const map = elements.find(node => node.type === 'map')!;
+        map.props.place = 'Dhanmondi 27, Dhaka';
+        const blocks = sectionsFor('home')
+            .filter(definition => !definition.tree)
+            .map(definition => liveBlock(definition.type));
+        const column = createNode('container');
+        column.children = [...elements, ...blocks];
+        section.children = [column];
+        const marker = `all${Math.random().toString(36).slice(2, 8)}`;
+        section.style.anchor = marker;
+        await publishLayout(admin, 'home', { sections: [section] });
+        await waitForStorefront(`${SITE}/en/`, html => html.includes(`id="${marker}"`));
+        const scripts: string[] = [];
+        const errors: string[] = [];
+        page.on('pageerror', error => errors.push(error.message));
+        page.on('console', message => {
+            if (message.type() === 'error') errors.push(message.text());
+        });
+        page.on('response', response => {
+            // Ours only: the map is Google's page in a frame, with Google's own script.
+            if (response.request().resourceType() === 'script' && response.url().startsWith(SITE))
+                scripts.push(response.url());
+        });
+        await page.goto(`${SITE}/en/`);
+        await page.waitForLoadState('networkidle');
+        let gzipped = 0;
+        for (const url of scripts)
+            gzipped += gzipSync(Buffer.from(await (await fetch(url)).arrayBuffer())).length;
+        console.log(
+            `every element: ${elements.length} elements, ${blocks.length} blocks, ${(gzipped / 1024).toFixed(1)} KB first-party JS gzipped`,
+        );
+        expect(elements.length + blocks.length).toBeGreaterThanOrEqual(60);
+        // Even the product page's budget, the tighter of the two.
+        expect(gzipped).toBeLessThanOrEqual(30 * 1024);
+        // Nothing sticks out of a phone, and nothing was refused by the page's security policy.
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+            await page.evaluate(() => window.innerWidth),
+        );
+        expect(errors.filter(error => !error.includes('google.com'))).toEqual([]);
+        // A few of them, working without script: an accordion opens, a tab switches.
+        const accordion = page.locator('.el-accordion details').first();
+        await accordion.locator('summary').click();
+        await expect(accordion).toHaveAttribute('open', '');
+        await page.locator('.el-tabs .tab-list label').nth(1).click();
+        await expect(page.locator('.el-tabs .tab-panel').nth(1)).toBeVisible();
+        await expect(page.locator('.el-tabs .tab-panel').nth(0)).toBeHidden();
+    });
+
+    test('the element picker finds an element by name, by group, and adds it', async ({ page, isMobile }) => {
+        test.skip(isMobile, 'The phone layout of the editor has its own test');
+        const errors = watchForErrors(page);
+        const section = createSection('custom');
+        section.children = [];
+        await setDraft(admin, 'home', { sections: [section] });
+        await signIn(page, 'en');
+        await openEditor(page);
+        await page
+            .getByRole('list', { name: 'Sections' })
+            .getByRole('button', { name: /^Free section/ })
+            .first()
+            .click();
+        await page.getByRole('button', { name: 'Add a layout or element' }).click();
+
+        // By name, in either language.
+        const search = page.getByRole('searchbox', { name: 'Search elements' });
+        await search.fill('accord');
+        await expect(page.getByRole('button', { name: 'Accordion', exact: true })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Heading', exact: true })).toHaveCount(0);
+        await search.fill('ট্যাব');
+        await expect(page.getByRole('button', { name: 'Tabs', exact: true })).toBeVisible();
+        await search.fill('');
+
+        // By group: the ready blocks keep their live data.
+        await page.getByRole('radio', { name: 'Ready blocks' }).click();
+        await expect(page.getByRole('button', { name: 'Product grid', exact: true })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Accordion', exact: true })).toHaveCount(0);
+        await page.getByRole('radio', { name: 'Promotion' }).click();
+        // Pointing at one says what it is.
+        await page.getByRole('button', { name: 'Ticker', exact: true }).hover();
+        await expect(
+            page.getByText('Ticker: Short lines that glide across, one after another'),
+        ).toBeVisible();
+        await page.getByRole('button', { name: 'Accordion', exact: true }).click();
+        await expect(preview(page).locator('.el-accordion summary').first()).toHaveText('How do I order?', {
+            timeout: 15_000,
+        });
+        expect(errors).toEqual([]);
     });
 });

@@ -336,6 +336,15 @@ const ELEMENT_GROUPS: Record<string, StyleGroupKey[]> = {
     video: BOX,
     live: BOX,
     icon: ['typography', 'spacing', 'sizing'],
+    call: ['button', ...TEXT],
+    whatsapp: ['button', ...TEXT],
+    email: ['button', ...TEXT],
+    pricing: ['button', ...TEXT],
+    gallery: ['image', ...BOX],
+    carousel: ['image', ...BOX],
+    logos: BOX,
+    map: BOX,
+    social: ['typography', 'spacing', 'sizing'],
     divider: ['spacing', 'sizing'],
     spacer: [],
 };
@@ -343,6 +352,7 @@ const ELEMENT_GROUPS: Record<string, StyleGroupKey[]> = {
 /** Typography properties that mean nothing for a few elements (an icon has a colour, no font). */
 const SKIP: Record<string, NodeStyleProp[]> = {
     icon: ['fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'fontFamily', 'textTransform'],
+    social: ['fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'fontFamily', 'textTransform'],
     container: ['fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'textTransform'],
 };
 

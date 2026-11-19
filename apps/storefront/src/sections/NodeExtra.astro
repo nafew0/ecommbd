@@ -1,0 +1,338 @@
+---
+import { type Bilingual, type ImageValue, type LinkValue, type NodeData, parseRows, SOCIAL_NETWORKS } from '@ecommbd/sections';
+import Icon from '../components/Icon.astro';
+import Image from '../components/Image.astro';
+import { percentOff } from '../lib/sales';
+import { assetOf, hrefOf, relOf, type SectionContext, tr } from './context';
+import EditorHint from './parts/EditorHint.astro';
+
+/**
+ * The elements of phase 61 (Node.astro draws the basic ones and calls this for the rest). All of
+ * them are plain HTML and CSS: an accordion is `<details>`, tabs are radio buttons and labels, a
+ * carousel is a row the shopper swipes, a ticker is one CSS animation. No script.
+ */
+interface Props {
+    node: NodeData;
+    context: SectionContext;
+}
+
+const { node, context } = Astro.props;
+const { s, format, lang, editor, settings } = context;
+const p = node.props;
+const text = (name: string) => tr((p[name] as Bilingual | undefined) ?? { bn: '', en: '' }, context);
+const rows = (name: string, parts = 2) => parseRows(text(name), parts);
+const lines = (name: string) => rows(name, 1).map(row => row[0]!);
+const buttonClass = (look: unknown) => (look === 'link' ? 'text-link' : look === 'outline' ? 'button button-secondary' : 'button');
+const pictures = Object.keys(p)
+    .filter(name => /^image\d$/.test(name))
+    .sort()
+    .map(name => assetOf((p[name] as ImageValue | null) ?? null, context))
+    .filter(asset => !!asset);
+const photo = assetOf((p.photo as ImageValue | null) ?? null, context);
+const link = p.link ? hrefOf(p.link as LinkValue, context) : null;
+const price = typeof p.price === 'number' ? p.price : null;
+const oldPrice = typeof p.oldPrice === 'number' ? p.oldPrice : null;
+const rating = typeof p.rating === 'number' ? p.rating : 0;
+const phone = settings.profile.phones[0];
+const whatsapp = settings.profile.whatsapp.replace(/\D/g, '');
+const place = typeof p.place === 'string' ? p.place : '';
+const email = typeof p.email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email) ? p.email : '';
+const social = SOCIAL_NETWORKS.map(name => ({ name, url: typeof p[name] === 'string' ? (p[name] as string) : '' })).filter(
+    item => /^https:\/\//.test(item.url),
+);
+const LIST_CLASS: Record<string, string> = { logos: 'logos', gallery: 'photo-grid', carousel: 'photo-row' };
+const NOTICE_ICON = { info: 'info', success: 'check', warning: 'alert' } as const;
+const tone = (p.tone as keyof typeof NOTICE_ICON) in NOTICE_ICON ? (p.tone as keyof typeof NOTICE_ICON) : 'info';
+---
+
+{
+    node.type === 'section-title' && (
+        <div class="el-title">
+            {text('eyebrow') && <p class="el-eyebrow">{text('eyebrow')}</p>}
+            {text('heading') && <h2>{text('heading')}</h2>}
+            {text('text') && <p class="el-title-text">{text('text')}</p>}
+        </div>
+    )
+}
+{
+    node.type === 'toggle' && text('question') && (
+        <details class="el-details" open={p.open === true}>
+            <summary>{text('question')}</summary>
+            <p>{text('answer')}</p>
+        </details>
+    )
+}
+{
+    node.type === 'accordion' && (
+        <div class="el-accordion-list">
+            {rows('items').map(([question, answer]) => (
+                <details class="el-details" name={p.single === false ? undefined : `a-${node.uid}`}>
+                    <summary>{question}</summary>
+                    <p>{answer}</p>
+                </details>
+            ))}
+        </div>
+    )
+}
+{
+    node.type === 'tabs' && (
+        <div class="tabs">
+            {rows('items')
+                .slice(0, 6)
+                .map((_, index) => (
+                    <input class="tab-radio" type="radio" name={`t-${node.uid}`} id={`t-${node.uid}-${index}`} checked={index === 0} />
+                ))}
+            <div class="tab-list">
+                {rows('items')
+                    .slice(0, 6)
+                    .map(([name], index) => (
+                        <label for={`t-${node.uid}-${index}`}>{name}</label>
+                    ))}
+            </div>
+            <div class="tab-panels">
+                {rows('items')
+                    .slice(0, 6)
+                    .map(([, body]) => (
+                        <div class="tab-panel">
+                            <p>{body}</p>
+                        </div>
+                    ))}
+            </div>
+        </div>
+    )
+}
+{
+    node.type === 'notice' && (text('title') || text('text')) && (
+        <div class:list={['note-box', `note-${tone}`]} role="note">
+            <Icon name={NOTICE_ICON[tone]} size={22} />
+            <div>
+                {text('title') && <p class="note-title">{text('title')}</p>}
+                {text('text') && <p>{text('text')}</p>}
+            </div>
+        </div>
+    )
+}
+{
+    node.type === 'announcement' &&
+        text('text') &&
+        (link ? (
+            <a class="announce" href={link} rel={relOf(link)}>
+                {text('text')}
+            </a>
+        ) : (
+            <p class="announce">{text('text')}</p>
+        ))
+}
+{
+    node.type === 'ticker' && lines('items').length > 0 && (
+        <div class:list={['ticker', `ticker-${p.speed}`]}>
+            <ul class="ticker-track">
+                {lines('items').map(item => (
+                    <li>{item}</li>
+                ))}
+            </ul>
+            {/* The same lines again, so the row never ends; screen readers hear them once. */}
+            <ul class="ticker-track" aria-hidden="true">
+                {lines('items').map(item => (
+                    <li>{item}</li>
+                ))}
+            </ul>
+        </div>
+    )
+}
+{
+    node.type === 'steps' && (
+        <ol class="how-steps">
+            {rows('items').map(([title, body]) => (
+                <li>
+                    <div>
+                        <p class="step-title">{title}</p>
+                        {body && <p>{body}</p>}
+                    </div>
+                </li>
+            ))}
+        </ol>
+    )
+}
+{
+    node.type === 'compare' && rows('rows', 3).length > 0 && (
+        <div class="compare-wrap">
+            <table class="compare-table">
+                <thead>
+                    <tr>
+                        <td />
+                        <th scope="col" class="compare-ours">
+                            {text('ours')}
+                        </th>
+                        <th scope="col">{text('theirs')}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows('rows', 3).map(([what, ours, theirs]) => (
+                        <tr>
+                            <th scope="row">{what}</th>
+                            <td class="compare-ours">{ours}</td>
+                            <td>{theirs}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    )
+}
+{
+    node.type === 'stat' && text('value') && (
+        <p class="stat">
+            <span class="stat-value">{text('value')}</span>
+            {text('label') && <span class="stat-label">{text('label')}</span>}
+        </p>
+    )
+}
+{
+    node.type === 'progress' && (
+        <div class="progress">
+            {text('label') && <p>{text('label')}</p>}
+            <div class="progress-bar" role="img" aria-label={`${format.number(Number(p.percent) || 0)}%`}>
+                <span />
+            </div>
+        </div>
+    )
+}
+{
+    node.type === 'testimonial' && text('text') && (
+        <figure class="testimonial">
+            <span class="el-stars" role="img" aria-label={s.stars(rating)}>
+                {[1, 2, 3, 4, 5].map(n => (
+                    <Icon name={n <= rating ? 'star-filled' : 'star'} size={18} />
+                ))}
+            </span>
+            <blockquote>
+                <p>{text('text')}</p>
+            </blockquote>
+            <figcaption>
+                {photo && <Image asset={photo} alt="" lang={lang} sizes="44px" preferredWidth={160} />}
+                <span>
+                    {text('name') && <strong>{text('name')}</strong>}
+                    {text('place') && <span>{text('place')}</span>}
+                </span>
+            </figcaption>
+        </figure>
+    )
+}
+{
+    node.type === 'social' && (
+        <ul class="social">
+            {social.map(item => (
+                <li>
+                    <a href={item.url} rel="noopener" aria-label={item.name[0]!.toUpperCase() + item.name.slice(1)}>
+                        <Icon name={item.name} size={Number(p.size) || 28} />
+                    </a>
+                </li>
+            ))}
+            {p.whatsapp !== false && whatsapp && (
+                <li>
+                    <a href={`https://wa.me/${whatsapp}`} rel="noopener" aria-label="WhatsApp">
+                        <Icon name="whatsapp" size={Number(p.size) || 28} />
+                    </a>
+                </li>
+            )}
+        </ul>
+    )
+}
+{
+    (node.type === 'logos' || node.type === 'gallery' || node.type === 'carousel') &&
+        (pictures.length ? (
+            <ul class:list={[LIST_CLASS[node.type], node.type === 'gallery' && `cols-${p.columns}`, node.type !== 'logos' && `shape-${p.shape}`]}>
+                {pictures.map(asset => (
+                    <li>
+                        <Image
+                            asset={asset}
+                            alt=""
+                            lang={lang}
+                            sizes={node.type === 'logos' ? '160px' : '(min-width: 750px) 33vw, 80vw'}
+                            preferredWidth={node.type === 'logos' ? 320 : 800}
+                        />
+                    </li>
+                ))}
+            </ul>
+        ) : (
+            editor && <EditorHint text={s.editorAddImage} />
+        ))
+}
+{
+    node.type === 'map' &&
+        (place ? (
+            <iframe
+                class="map"
+                title={s.mapOf(place)}
+                src={`https://www.google.com/maps?q=${encodeURIComponent(place)}&output=embed`}
+                loading="lazy"
+                referrerpolicy="no-referrer"
+            />
+        ) : (
+            editor && <EditorHint text={s.editorSetPlace} icon="map-pin" />
+        ))
+}
+{
+    node.type === 'pricing' && (
+        <div class:list={['pricing', { 'pricing-featured': p.featured === true }]}>
+            {p.featured === true && <p class="pricing-flag">{s.bestChoice}</p>}
+            {text('title') && <h3>{text('title')}</h3>}
+            {price != null && (
+                <p class="el-price">
+                    <span class="price-now">{format.price(price)}</span>
+                    {oldPrice != null && oldPrice > price && (
+                        <>
+                            <s class="price-old">{format.price(oldPrice)}</s>
+                            <span class="el-price-off">{s.percentOff(format.number(percentOff(price, oldPrice)))}</span>
+                        </>
+                    )}
+                </p>
+            )}
+            {lines('features').length > 0 && (
+                <ul class="el-list">
+                    {lines('features').map(item => (
+                        <li>
+                            <Icon name="check" size={18} />
+                            <span>{item}</span>
+                        </li>
+                    ))}
+                </ul>
+            )}
+            {text('button') && link && (
+                <a class="button" href={link} rel={relOf(link)} data-order-link={link === '#order' ? '' : undefined}>
+                    {text('button')}
+                </a>
+            )}
+        </div>
+    )
+}
+{
+    node.type === 'call' && text('label') && phone && (
+        <a class={buttonClass(p.look)} href={`tel:${phone}`} data-edit={editor ? 'label' : undefined}>
+            <Icon name="phone" size={18} />
+            {text('label')}
+        </a>
+    )
+}
+{
+    node.type === 'whatsapp' && text('label') && whatsapp && (
+        <a
+            class={buttonClass(p.look)}
+            href={`https://wa.me/${whatsapp}${text('message') ? `?text=${encodeURIComponent(text('message'))}` : ''}`}
+            rel="noopener"
+            data-edit={editor ? 'label' : undefined}
+        >
+            <Icon name="whatsapp" size={18} />
+            {text('label')}
+        </a>
+    )
+}
+{
+    node.type === 'email' && text('label') && email && (
+        <a class={buttonClass(p.look)} href={`mailto:${email}`} data-edit={editor ? 'label' : undefined}>
+            <Icon name="mail" size={18} />
+            {text('label')}
+        </a>
+    )
+}
