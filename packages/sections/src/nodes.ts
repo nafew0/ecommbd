@@ -65,7 +65,8 @@ interface ReadState {
     count: number;
 }
 
-function migrateProps(definition: ElementDefinition, props: Record<string, unknown>, from: number) {
+/** Runs an element's migrations from the stored version up to the current one. */
+export function migrateProps(definition: ElementDefinition, props: Record<string, unknown>, from: number) {
     let migrated = props;
     for (let version = from; version < definition.version; version++) {
         const migration = definition.migrations?.[version];
