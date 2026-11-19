@@ -21,6 +21,7 @@ import CountdownClock from './parts/CountdownClock.astro';
 import EditorHint from './parts/EditorHint.astro';
 import LiteVideo from './parts/LiteVideo.astro';
 import NodeExtra from './NodeExtra.astro';
+import NodeStore from './NodeStore.astro';
 
 /**
  * One node of a free section's tree (roadmap phase 56). A container is a `.box` holding its
@@ -201,6 +202,7 @@ const edit = (name: string) => (editor ? name : undefined);
             )}
             {node.type === 'divider' && <hr class="el-divider" />}
             <NodeExtra node={node} context={context} />
+            <NodeStore node={node} context={context} />
             {node.type === 'live' && Live && node.section && <Live section={node.section} context={{ ...context, first: false, heading: 'h2' }} />}
         </div>
     )

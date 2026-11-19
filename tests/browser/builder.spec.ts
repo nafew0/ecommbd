@@ -656,6 +656,15 @@ test.describe('the element tree', () => {
         const elements = ELEMENTS.filter(
             definition => !definition.internal && definition.type !== 'container',
         ).map(definition => createNode(definition.type));
+        // The product elements get real products.
+        const { products } = await admin.query(
+            '{ products(options: { take: 3, filter: { enabled: { eq: true } } }) { items { id name } } }',
+        );
+        const ids = (products.items as Array<{ id: string }>).map(item => item.id);
+        for (const node of elements) {
+            if ('product' in node.props) node.props.product = ids[0]!;
+            if ('products' in node.props) node.props.products = ids;
+        }
         const map = elements.find(node => node.type === 'map')!;
         map.props.place = 'Dhanmondi 27, Dhaka';
         const blocks = sectionsFor('home')
@@ -702,6 +711,12 @@ test.describe('the element tree', () => {
         await page.locator('.el-tabs .tab-list label').nth(1).click();
         await expect(page.locator('.el-tabs .tab-panel').nth(1)).toBeVisible();
         await expect(page.locator('.el-tabs .tab-panel').nth(0)).toBeHidden();
+
+        // The product elements show the live product, and the button puts it in the cart.
+        await expect(page.locator('.el-product .card-title')).toHaveText(products.items[0].name);
+        expect(await page.locator('.product-row .card').count()).toBe(ids.length);
+        await page.locator('.buy-inline button').click();
+        await expect(page.locator('[data-cart]').getByText(products.items[0].name).first()).toBeVisible();
     });
 
     test('the element picker finds an element by name, by group, and adds it', async ({ page, isMobile }) => {

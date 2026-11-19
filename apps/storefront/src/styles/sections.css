@@ -3331,3 +3331,148 @@ html[data-header] .sales-header .header-row {
     font-size: 1.05rem;
     white-space: pre-line;
 }
+
+/* Live store elements (phase 61). */
+
+.product-one,
+.product-row {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.el-product {
+    display: grid;
+    gap: 12px;
+    max-width: 320px;
+}
+
+.el-product .button {
+    width: 100%;
+}
+
+/* A row the shopper swipes: each card keeps its width, the row scrolls and snaps. */
+.product-row {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(150px, 44%);
+    gap: 12px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    padding-bottom: 8px;
+}
+
+.product-row > .card {
+    scroll-snap-align: start;
+}
+
+@media (min-width: 750px) {
+    .product-row {
+        grid-auto-columns: minmax(180px, 23.5%);
+        gap: 20px;
+    }
+}
+
+.buy-inline .button:disabled,
+.el-product .button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Stays at the bottom of the screen, clear of the WhatsApp and call buttons on the right. */
+.floating-cart {
+    position: fixed;
+    left: 16px;
+    bottom: 16px;
+    z-index: 30;
+    gap: 8px;
+}
+
+/* In the editor it sits where it was added, so it can be selected. */
+.floating-cart.is-editor {
+    position: static;
+}
+
+.contact-lines {
+    display: grid;
+    gap: 10px;
+}
+
+.contact-lines li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.contact-lines .icon {
+    flex: none;
+    margin-top: 3px;
+}
+
+.store-logo {
+    display: inline-block;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: var(--el-size, 1.25rem);
+}
+
+.store-logo img {
+    max-height: var(--logo-height, 44px);
+    width: auto;
+}
+
+.menu-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 24px;
+}
+
+.menu-links.is-column {
+    flex-direction: column;
+}
+
+.menu-links a {
+    display: inline-block;
+    padding: 6px 0;
+    text-decoration: none;
+}
+
+.menu-links a:hover {
+    text-decoration: underline;
+}
+
+.search-inline {
+    position: relative;
+    display: flex;
+}
+
+.search-inline input {
+    flex: 1;
+    min-width: 0;
+    height: 44px;
+    padding: 0 44px 0 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--background);
+}
+
+.search-inline input:focus {
+    border-color: var(--text);
+    outline: 1px solid var(--text);
+    outline-offset: 0;
+}
+
+.search-inline button {
+    position: absolute;
+    right: 0;
+    top: 0;
+}
+
+.cart-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    text-decoration: none;
+}

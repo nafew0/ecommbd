@@ -1,6 +1,8 @@
 import {
     type DataOf,
     defaultHomeLayout,
+    eachNode,
+    elementDefinition,
     type featuredProduct,
     LAYOUT_LIMITS,
     layoutCss,
@@ -134,6 +136,8 @@ type Featured = DataOf<typeof featuredProduct>;
 export interface SectionPageData {
     /** Products shown by each product grid, by section uid, in order. */
     grids: Map<string, Card[]>;
+    /** Products that elements show (a product card, a product carousel, an add-to-cart button), by id. */
+    cards: Map<string, Card>;
     featured: Map<string, FeaturedProduct>;
     collections: Map<string, CollectionCard>;
     topCollections: CollectionCard[];
@@ -190,7 +194,20 @@ export async function loadSectionData(Astro: AstroGlobal, shown: SectionData[]):
             }
         }),
     );
-    const cardIds = [...new Set(gridIds.flat())];
+    // Products picked in elements of free sections (phase 61).
+    const elementIds = new Set<string>();
+    for (const section of shown) {
+        for (const { node } of eachNode(section.children ?? [])) {
+            if (node.hidden) continue;
+            for (const [name, item] of Object.entries(elementDefinition(node.type)?.fields ?? {})) {
+                const value = node.props[name];
+                if (item.kind === 'product' && typeof value === 'string' && value) elementIds.add(value);
+                if (item.kind === 'productList' && Array.isArray(value))
+                    value.forEach(id => typeof id === 'string' && elementIds.add(id));
+            }
+        }
+    }
+    const cardIds = [...new Set([...gridIds.flat(), ...elementIds])];
     const [cards, featured, collections, topCollections] = await Promise.all([
         cardIds.length
             ? shopQuery(PRODUCTS_BY_ID, { ids: cardIds, take: cardIds.length }, lang).then(
@@ -217,6 +234,7 @@ export async function loadSectionData(Astro: AstroGlobal, shown: SectionData[]):
         shown.forEach(card => tags.add(`product:${card.id}`));
         gridMap.set(section.uid, shown);
     });
+    elementIds.forEach(id => byId.has(id) && tags.add(`product:${id}`));
     featured.forEach(product => tags.add(`product:${product.id}`));
     collections.forEach(collection => tags.add(`collection:${collection.id}`));
     // A grid filled from search (newest, best selling, a category) can change with any catalog
@@ -225,6 +243,7 @@ export async function loadSectionData(Astro: AstroGlobal, shown: SectionData[]):
     if (wantsTopCollections) tags.add('collections');
     return {
         grids: gridMap,
+        cards: byId,
         featured: new Map(featured.map(product => [product.id, product])),
         collections: new Map(collections.map(collection => [collection.id, collection])),
         // Top categories come from the menu query, without breadcrumbs: they're top level.

@@ -1,0 +1,183 @@
+---
+import { type Bilingual, type NodeData } from '@ecommbd/sections';
+import { formatBdPhone } from '@ecommbd/shared/phone';
+import Icon from '../components/Icon.astro';
+import Image from '../components/Image.astro';
+import ProductCard from '../components/ProductCard.astro';
+import { bilingual, getMenus, storeName } from '../lib/store';
+import type { SectionContext } from './context';
+import { tr } from './context';
+import EditorHint from './parts/EditorHint.astro';
+
+/**
+ * The live store elements of phase 61: they show the store's own products, menus and contact
+ * details, so they never go stale. All plain HTML: adding to the cart is a form the cart page
+ * takes (the cart drawer's script, already on every page, opens it in place when it can).
+ */
+interface Props {
+    node: NodeData;
+    context: SectionContext;
+}
+
+const { node, context } = Astro.props;
+const { s, format, lang, defaultLang, editor, settings, href } = context;
+const p = node.props;
+const text = (name: string) => tr((p[name] as Bilingual | undefined) ?? { bn: '', en: '' }, context);
+const buttonClass = (look: unknown) => (look === 'link' ? 'text-link' : look === 'outline' ? 'button button-secondary' : 'button');
+const product = typeof p.product === 'string' ? context.data.cards.get(p.product) : undefined;
+const products = (Array.isArray(p.products) ? (p.products as string[]) : []).map(id => context.data.cards.get(id)).filter(card => !!card);
+// The cheapest variation that can be bought: what an add-to-cart button outside a product page adds.
+const variant = product
+    ? [...product.variants].sort((a, b) => a.priceWithTax - b.priceWithTax).find(item => item.stockLevel !== 'OUT_OF_STOCK')
+    : undefined;
+const profile = settings.profile;
+const name = storeName(settings, lang);
+const links = node.type === 'store-menu' ? (await getMenus(lang))[p.menu === 'footer' ? 'footer' : 'header'] : [];
+const linkHref = (url: string) => (url.startsWith('/') ? href(url) : url);
+const address = [profile.address.line, profile.address.area].filter(Boolean).join(', ');
+const hours = bilingual(profile.businessHours, lang);
+---
+
+{
+    node.type === 'product-card' &&
+        (product ? (
+            <div class="el-product">
+                <ul class="product-one">
+                    <ProductCard product={product} lang={lang} defaultLang={defaultLang} format={format} />
+                </ul>
+                {p.button === true && (
+                    <form method="post" action={href('/cart/')}>
+                        <input type="hidden" name="variantId" value={variant?.id ?? ''} />
+                        <input type="hidden" name="quantity" value="1" />
+                        <button class="button button-secondary" name="intent" value="add" disabled={!variant}>
+                            {variant ? s.addToCart : s.outOfStock}
+                        </button>
+                    </form>
+                )}
+            </div>
+        ) : (
+            <EditorHint text={s.editorPickProduct} icon="tag" />
+        ))
+}
+{
+    node.type === 'product-row' &&
+        (products.length > 0 ? (
+            <ul class="product-row">
+                {products.map(card => (
+                    <ProductCard product={card} lang={lang} defaultLang={defaultLang} format={format} />
+                ))}
+            </ul>
+        ) : (
+            <EditorHint text={s.editorPickProducts} icon="tag" />
+        ))
+}
+{
+    node.type === 'buy-button' &&
+        (product ? (
+            <form method="post" action={href('/cart/')} class="buy-inline">
+                <input type="hidden" name="variantId" value={variant?.id ?? ''} />
+                <input type="hidden" name="quantity" value="1" />
+                <button class={buttonClass(p.look)} name="intent" value={p.action === 'buy' ? 'buy' : 'add'} disabled={!variant}>
+                    {variant ? text('label') || s.addToCart : s.outOfStock}
+                </button>
+            </form>
+        ) : (
+            <EditorHint text={s.editorPickProduct} icon="tag" />
+        ))
+}
+{
+    node.type === 'floating-cart' && (
+        <a class:list={['button', 'floating-cart', { 'is-editor': editor }]} href={href('/cart/')}>
+            <Icon name="bag" size={18} />
+            {text('label') || s.viewCart}
+        </a>
+    )
+}
+{
+    node.type === 'contact-info' && (
+        <ul class="plain-list contact-lines">
+            {p.phone !== false &&
+                profile.phones.map(phone => (
+                    <li>
+                        <Icon name="phone" size={18} />
+                        <a href={`tel:${phone}`}>{formatBdPhone(phone)}</a>
+                    </li>
+                ))}
+            {p.email !== false && profile.email && (
+                <li>
+                    <Icon name="mail" size={18} />
+                    <a href={`mailto:${profile.email}`}>{profile.email}</a>
+                </li>
+            )}
+            {p.address !== false && address && (
+                <li>
+                    <Icon name="map-pin" size={18} />
+                    <span>{address}</span>
+                </li>
+            )}
+            {p.hours !== false && hours && (
+                <li>
+                    <Icon name="clock" size={18} />
+                    <span>{hours}</span>
+                </li>
+            )}
+        </ul>
+    )
+}
+{
+    node.type === 'store-logo' && (
+        <a class="store-logo" href={href('/')}>
+            {profile.logo ? (
+                <Image asset={profile.logo} alt={name} lang={lang} sizes="160px" preferredWidth={160} />
+            ) : (
+                <span class="logo-text">{name}</span>
+            )}
+        </a>
+    )
+}
+{
+    node.type === 'store-menu' &&
+        (links.length > 0 ? (
+            <nav aria-label={s.menu}>
+                <ul class:list={['plain-list', 'menu-links', { 'is-column': p.direction === 'column' }]}>
+                    {links.map(link => (
+                        <li>
+                            <a href={linkHref(link.url)}>{link.label}</a>
+                        </li>
+                    ))}
+                </ul>
+            </nav>
+        ) : (
+            <EditorHint text={s.editorNoMenu} icon="menu" />
+        ))
+}
+{
+    node.type === 'search-box' && (
+        <form class="search-inline" action={href('/search/')} method="get" role="search">
+            <label class="visually-hidden" for={`q-${node.uid}`}>
+                {s.search}
+            </label>
+            <input
+                id={`q-${node.uid}`}
+                name="q"
+                type="search"
+                placeholder={text('placeholder') || s.searchPlaceholder}
+                enterkeyhint="search"
+                autocomplete="off"
+                maxlength="100"
+            />
+            <button class="icon-button" type="submit">
+                <Icon name="search" />
+                <span class="visually-hidden">{s.search}</span>
+            </button>
+        </form>
+    )
+}
+{
+    node.type === 'cart-link' && (
+        <a class="cart-inline" href={href('/cart/')}>
+            <Icon name="bag" size={24} />
+            {text('label') ? <span>{text('label')}</span> : <span class="visually-hidden">{s.cart}</span>}
+        </a>
+    )
+}

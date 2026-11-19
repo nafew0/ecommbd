@@ -345,6 +345,12 @@ const ELEMENT_GROUPS: Record<string, StyleGroupKey[]> = {
     logos: BOX,
     map: BOX,
     social: ['typography', 'spacing', 'sizing'],
+    'product-card': BOX,
+    'product-row': BOX,
+    'buy-button': ['button', ...TEXT],
+    'floating-cart': ['button', 'typography'],
+    'store-logo': BOX,
+    'search-box': BOX,
     divider: ['spacing', 'sizing'],
     spacer: [],
 };

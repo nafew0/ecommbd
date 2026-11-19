@@ -793,7 +793,7 @@ describe('the element library (phase 61)', () => {
         expect(() => liveBlock('nonsense')).toThrow();
         // With the elements, the picker passes seventy choices.
         const elements = ELEMENTS.filter(definition => !definition.internal);
-        expect(elements.length + blocks.length).toBeGreaterThanOrEqual(64);
+        expect(elements.length + blocks.length).toBeGreaterThanOrEqual(70);
     });
 
     it('reads a web address and a plain line, and refuses an address that isn’t one', () => {
@@ -811,6 +811,14 @@ describe('the element library (phase 61)', () => {
         ]);
         const email = createNode('email', { email: '  shop@example.com\n<script>  ' });
         expect(email.props.email).toBe('shop@example.com <script>');
+    });
+
+    it('counts the products picked in elements among what the page shows', () => {
+        const card = createNode('product-card', { product: '7' });
+        const row = createNode('product-row', { products: ['8', '9', 9, ''] });
+        const hidden = { ...createNode('buy-button', { product: '10' }), hidden: true };
+        expect(row.props.products).toEqual(['8', '9']);
+        expect(documentRefs({ sections: [free([card, row, hidden])] }).products).toEqual(['7', '8', '9']);
     });
 
     it('gives the progress bar and the map their one number', () => {

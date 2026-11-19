@@ -926,6 +926,152 @@ export const emailElement = defineElement({
     },
 });
 
+/* Live store elements (phase 61): they show the store's own data, so they never go stale. */
+
+export const productCardElement = defineElement({
+    type: 'product-card',
+    version: 1,
+    name: label('Product card', 'পণ্যের কার্ড'),
+    description: label('One product: its photo, name and live price', 'একটি পণ্য: ছবি, নাম ও এখনকার দাম'),
+    category: 'products',
+    fields: {
+        product: field.product(label('Product', 'পণ্য')),
+        button: field.toggle(label('Show an "Add to cart" button', '"কার্টে যোগ করুন" বাটন দেখান'), false),
+    },
+});
+
+export const productRowElement = defineElement({
+    type: 'product-row',
+    version: 1,
+    name: label('Product carousel', 'পণ্যের ক্যারোসেল'),
+    description: label(
+        'Products in a row the shopper swipes through',
+        'এক সারিতে পণ্য, ক্রেতা সোয়াইপ করে দেখেন',
+    ),
+    category: 'products',
+    fields: {
+        products: field.productList(label('Products', 'পণ্য'), 12),
+    },
+});
+
+export const buyButtonElement = defineElement({
+    type: 'buy-button',
+    version: 1,
+    name: label('Add-to-cart button', 'কার্টে যোগ করার বাটন'),
+    description: label(
+        'Puts a product in the cart, or goes straight to checkout',
+        'পণ্য কার্টে যোগ করে, অথবা সরাসরি চেকআউটে নেয়',
+    ),
+    category: 'products',
+    titleField: 'label',
+    fields: {
+        product: field.product(label('Product', 'পণ্য')),
+        label: field.text(label('Label', 'লেখা'), label('Add to cart', 'কার্টে যোগ করুন'), { max: 60 }),
+        action: field.select(
+            label('When pressed', 'চাপলে'),
+            [
+                { value: 'add', label: label('Add to cart', 'কার্টে যোগ হবে') },
+                { value: 'buy', label: label('Go to checkout', 'চেকআউটে যাবে') },
+            ],
+            'add',
+        ),
+        look: buttonLook,
+    },
+});
+
+export const floatingCartElement = defineElement({
+    type: 'floating-cart',
+    version: 1,
+    name: label('Floating cart', 'ভাসমান কার্ট'),
+    description: label(
+        'A cart button that stays at the bottom of the screen',
+        'স্ক্রিনের নিচে সবসময় থাকা কার্ট বাটন',
+    ),
+    category: 'products',
+    titleField: 'label',
+    fields: {
+        label: field.text(label('Label', 'লেখা'), label('View cart', 'কার্ট দেখুন'), { max: 40 }),
+    },
+});
+
+export const contactInfoElement = defineElement({
+    type: 'contact-info',
+    version: 1,
+    name: label('Contact info', 'যোগাযোগের তথ্য'),
+    description: label(
+        'Your phone, address and opening hours, from your store settings',
+        'আপনার ফোন, ঠিকানা ও খোলার সময়, স্টোর সেটিংস থেকে',
+    ),
+    category: 'store',
+    fields: {
+        phone: field.toggle(label('Phone', 'ফোন'), true),
+        email: field.toggle(label('Email', 'ইমেইল'), true),
+        address: field.toggle(label('Address', 'ঠিকানা'), true),
+        hours: field.toggle(label('Opening hours', 'খোলার সময়'), true),
+    },
+});
+
+export const storeLogoElement = defineElement({
+    type: 'store-logo',
+    version: 1,
+    name: label('Store logo', 'স্টোরের লোগো'),
+    description: label(
+        'Your logo (or store name), linked to the home page',
+        'আপনার লোগো (বা স্টোরের নাম), হোম পেজের লিংকসহ',
+    ),
+    category: 'store',
+    fields: {},
+});
+
+export const storeMenuElement = defineElement({
+    type: 'store-menu',
+    version: 1,
+    name: label('Menu', 'মেনু'),
+    description: label('The links of one of your menus', 'আপনার একটি মেনুর লিংকগুলো'),
+    category: 'store',
+    fields: {
+        menu: field.select(
+            label('Menu', 'মেনু'),
+            [
+                { value: 'header', label: label('Main menu', 'প্রধান মেনু') },
+                { value: 'footer', label: label('Footer menu', 'ফুটার মেনু') },
+            ],
+            'header',
+        ),
+        direction: field.select(
+            label('Direction', 'দিক'),
+            [
+                { value: 'row', label: label('Side by side', 'পাশাপাশি') },
+                { value: 'column', label: label('Stacked', 'উপর-নিচে') },
+            ],
+            'row',
+        ),
+    },
+});
+
+export const searchBoxElement = defineElement({
+    type: 'search-box',
+    version: 1,
+    name: label('Search box', 'সার্চ বক্স'),
+    description: label('Shoppers search your products', 'ক্রেতারা আপনার পণ্য খোঁজেন'),
+    category: 'store',
+    fields: {
+        placeholder: field.text(label('Hint in the box', 'বক্সের ভেতরের লেখা'), undefined, { max: 60 }),
+    },
+});
+
+export const cartLinkElement = defineElement({
+    type: 'cart-link',
+    version: 1,
+    name: label('Cart link', 'কার্টের লিংক'),
+    description: label('A bag icon that opens the cart', 'ব্যাগ আইকন, চাপলে কার্ট খোলে'),
+    category: 'store',
+    titleField: 'label',
+    fields: {
+        label: field.text(label('Label (optional)', 'লেখা (ঐচ্ছিক)'), undefined, { max: 40 }),
+    },
+});
+
 /** Every element, in the order the editor lists them. */
 export const ELEMENTS: readonly ElementDefinition[] = [
     container,
@@ -955,6 +1101,10 @@ export const ELEMENTS: readonly ElementDefinition[] = [
     // Products
     priceElement,
     pricingElement,
+    productCardElement,
+    productRowElement,
+    buyButtonElement,
+    floatingCartElement,
     // Media
     videoElement,
     galleryElement,
@@ -971,6 +1121,11 @@ export const ELEMENTS: readonly ElementDefinition[] = [
     callElement,
     whatsappElement,
     emailElement,
+    contactInfoElement,
+    storeLogoElement,
+    storeMenuElement,
+    searchBoxElement,
+    cartLinkElement,
     liveElement,
 ];
 
