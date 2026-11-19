@@ -226,6 +226,13 @@ const PATHS: Record<string, ReactNode> = {
     'cart-link': (
         <path d="M4.750 7.250h10.500l-.75 9.500H5.500l-.75-9.500zM7.500 7.250V6a2.500 2.500 0 0 1 5 0v1.250" />
     ),
+    'contact-form': (
+        <>
+            <rect x="2.750" y="2.750" width="14.500" height="3.500" />
+            <rect x="2.750" y="8.250" width="14.500" height="3.500" />
+            <path d="M11.250 14.250h6v3h-6z" />
+        </>
+    ),
     email: <path d="M2.750 4.750h14.500v10.500H2.750zM2.750 5.500l7.250 5.500 7.250-5.500" />,
     // Editor actions.
     plus: <path d="M10 4.25v11.5M4.25 10h11.5" />,

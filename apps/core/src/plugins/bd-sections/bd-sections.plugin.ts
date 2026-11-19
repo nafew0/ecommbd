@@ -5,8 +5,9 @@ import {
     type BdSectionsPluginOptions,
     editStorefrontPermission,
 } from './constants';
-import { BdPageLayout, BdPageLayoutVersion, BdSavedSection } from './entities';
+import { BdContactMessage, BdPageLayout, BdPageLayoutVersion, BdSavedSection } from './entities';
 import { LayoutService } from './layout.service';
+import { ContactMessageService } from './message.service';
 import { sectionsAdminApiExtensions, sectionsShopApiExtensions } from './sections.api';
 import { SectionsAdminResolver, SectionsShopResolver } from './sections.resolver';
 import { storefrontPermissionsStep } from './sections-defaults';
@@ -23,9 +24,10 @@ registerStoreDefaults(storefrontPermissionsStep);
  */
 @VendurePlugin({
     imports: [PluginCommonModule],
-    entities: [BdPageLayout, BdPageLayoutVersion, BdSavedSection],
+    entities: [BdPageLayout, BdPageLayoutVersion, BdSavedSection, BdContactMessage],
     providers: [
         LayoutService,
+        ContactMessageService,
         ThemeService,
         StorefrontPurger,
         { provide: BD_SECTIONS_PLUGIN_OPTIONS, useFactory: () => BdSectionsPlugin.options },

@@ -3476,3 +3476,11 @@ html[data-header] .sales-header .header-row {
     min-height: 44px;
     text-decoration: none;
 }
+
+.contact-form {
+    max-width: 480px;
+}
+
+.contact-form .button {
+    margin-top: 4px;
+}

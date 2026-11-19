@@ -477,3 +477,12 @@ export const SET_META_BROWSER = graphql(`
         setBdMetaBrowser(input: $input)
     }
 `);
+
+export const SUBMIT_CONTACT_MESSAGE = graphql(`
+    mutation SubmitContactMessage($input: BdContactMessageInput!) {
+        submitBdContactMessage(input: $input) {
+            ok
+            error
+        }
+    }
+`);

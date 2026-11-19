@@ -1,0 +1,59 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { SUBMIT_CONTACT_MESSAGE } from '../lib/checkout-queries';
+import { shopQuery } from '../lib/core';
+import { isSameSite } from '../lib/csrf';
+import { pageContext, privatePage } from '../lib/page';
+
+/**
+ * Where a contact form element posts (roadmap phase 61): the message is saved in the core for the
+ * merchant, and the shopper is told so. A plain form post, so the form needs no script.
+ */
+privatePage(Astro);
+const { lang, s, href } = pageContext(Astro);
+if (Astro.request.method !== 'POST') return Astro.redirect(href('/'));
+if (!isSameSite(Astro.request)) return new Response(null, { status: 403 });
+
+const form = await Astro.request.formData();
+const value = (name: string, max: number) => String(form.get(name) ?? '').slice(0, max).trim();
+const page = value('page', 200);
+// Only a path on this store.
+const back = /^\/(?!\/)/.test(page) ? page : href('/');
+let error: string | null = null;
+// A robot filled the box people can't see: it's told all went well, and nothing is saved.
+if (!value('website', 100)) {
+    const result = await shopQuery(
+        SUBMIT_CONTACT_MESSAGE,
+        { input: { name: value('name', 80), phone: value('phone', 40), message: value('message', 1000), page } },
+        lang,
+    );
+    error = result.submitBdContactMessage.error ?? null;
+}
+const MESSAGES: Record<string, string> = {
+    name: s.messageNameMissing,
+    phone: s.messagePhoneInvalid,
+    tooMany: s.messageTooMany,
+};
+if (error) Astro.response.status = error === 'tooMany' ? 429 : 422;
+const title = error ? s.messageFailedTitle : s.messageSentTitle;
+---
+
+<Layout title={title} noindex>
+    <section class="track-page">
+        <h1>{title}</h1>
+        {
+            error ? (
+                <p class="form-alert" role="alert">
+                    {MESSAGES[error] ?? s.messageTooMany}
+                </p>
+            ) : (
+                <p>{s.messageSentText}</p>
+            )
+        }
+        <p>
+            <a class="button button-secondary" href={back}>
+                {s.backToPage}
+            </a>
+        </p>
+    </section>
+</Layout>

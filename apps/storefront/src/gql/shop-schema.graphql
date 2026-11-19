@@ -555,6 +555,12 @@ enum Permission {
   """
   ManagePayments
 
+  """See branches, stock by branch and transfers"""
+  ReadBranch
+
+  """Manage branches and stock transfers"""
+  ManageBranch
+
   """
   Book parcels with couriers, mark them booked by hand, and cancel bookings before pickup
   """
@@ -3758,6 +3764,9 @@ type Mutation {
   """
   setBdMetaBrowser(input: BdMetaBrowserInput!): Boolean!
 
+  """A contact form element's message, saved for the merchant"""
+  submitBdContactMessage(input: BdContactMessageInput!): BdContactMessageResult!
+
   """
   Replaces the active order's items with a sales page's product (a pack or a quantity) and its add-on
   """
@@ -4545,6 +4554,24 @@ type BdLayoutPreview {
   """editor (the page editor's frame) or share (a link sent to someone)"""
   mode: String!
   expiresAt: DateTime!
+}
+
+input BdContactMessageInput {
+  name: String!
+
+  """A Bangladeshi mobile number, as typed"""
+  phone: String!
+  message: String
+
+  """The path of the page the form is on"""
+  page: String
+}
+
+type BdContactMessageResult {
+  ok: Boolean!
+
+  """name or phone (fix that field), or tooMany"""
+  error: String
 }
 
 type BdSalesPagePack {

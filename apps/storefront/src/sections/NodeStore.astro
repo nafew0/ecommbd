@@ -181,3 +181,32 @@ const hours = bilingual(profile.businessHours, lang);
         </a>
     )
 }
+{
+    node.type === 'contact-form' && (
+        <form method="post" action={href('/contact-message/')} class="contact-form">
+            <input type="hidden" name="page" value={Astro.url.pathname} />
+            <div class="field">
+                <label for={`n-${node.uid}`}>{s.yourName}</label>
+                <input id={`n-${node.uid}`} name="name" required maxlength="80" autocomplete="name" />
+            </div>
+            <div class="field">
+                <label for={`p-${node.uid}`}>{s.phoneLabel}</label>
+                <input id={`p-${node.uid}`} name="phone" type="tel" inputmode="tel" autocomplete="tel" required maxlength="20" />
+            </div>
+            {p.message !== false && (
+                <div class="field">
+                    <label for={`m-${node.uid}`}>{text('messageLabel') || s.yourMessage}</label>
+                    <textarea id={`m-${node.uid}`} name="message" rows="3" maxlength="1000" />
+                </div>
+            )}
+            {/* People never see this box; a filled one is a robot's. */}
+            <div class="visually-hidden" aria-hidden="true">
+                <label for={`w-${node.uid}`}>Website</label>
+                <input id={`w-${node.uid}`} name="website" tabindex="-1" autocomplete="off" />
+            </div>
+            <button class="button" type="submit">
+                {text('button') || s.send}
+            </button>
+        </form>
+    )
+}

@@ -30,6 +30,26 @@ export const sectionsShopApiExtensions = gql`
         "ThemeSettings from @ecommbd/sections"
         bdTheme: JSON!
     }
+
+    input BdContactMessageInput {
+        name: String!
+        "A Bangladeshi mobile number, as typed"
+        phone: String!
+        message: String
+        "The path of the page the form is on"
+        page: String
+    }
+
+    type BdContactMessageResult {
+        ok: Boolean!
+        "name or phone (fix that field), or tooMany"
+        error: String
+    }
+
+    extend type Mutation {
+        "A contact form element's message, saved for the merchant"
+        submitBdContactMessage(input: BdContactMessageInput!): BdContactMessageResult!
+    }
 `;
 
 /** Admin API: the page editor and the theme screen (EditStorefront). */
@@ -105,6 +125,23 @@ export const sectionsAdminApiExtensions = gql`
         createdBy: String!
     }
 
+    type BdContactMessage {
+        id: ID!
+        createdAt: DateTime!
+        name: String!
+        "E.164"
+        phone: String!
+        message: String!
+        "The path of the page the form was on"
+        page: String!
+        handled: Boolean!
+    }
+
+    type BdContactMessageList {
+        items: [BdContactMessage!]!
+        totalItems: Int!
+    }
+
     type BdThemeProblem {
         "colours.text, colours.accent…"
         path: String!
@@ -126,6 +163,10 @@ export const sectionsAdminApiExtensions = gql`
         "Newest first, at most 20"
         bdLayoutVersions(layoutId: ID!): [BdLayoutVersion!]!
         bdSavedSections: [BdSavedSection!]!
+        "Messages from contact forms, newest first. handled: only those answered (true) or waiting (false)"
+        bdContactMessages(skip: Int, take: Int, handled: Boolean): BdContactMessageList!
+        "How many messages are waiting for an answer"
+        bdContactMessagesWaiting: Int!
         "ThemeSettings from @ecommbd/sections"
         bdThemeSettings: JSON!
     }
@@ -143,6 +184,8 @@ export const sectionsAdminApiExtensions = gql`
         createBdPreviewLink(layoutId: ID!, language: String!, share: Boolean): BdPreviewLink!
         saveBdSection(name: String!, section: JSON!): BdSavedSection!
         deleteBdSavedSection(id: ID!): Boolean!
+        setBdContactMessageHandled(id: ID!, handled: Boolean!): Boolean!
+        deleteBdContactMessage(id: ID!): Boolean!
         "A copy of a page (disabled, with \\"copy\\" slugs) and its sections as a draft"
         duplicateBdPage(id: ID!): BdPage
         updateBdThemeSettings(input: JSON!): BdThemeResult!

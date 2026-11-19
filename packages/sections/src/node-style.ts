@@ -351,6 +351,7 @@ const ELEMENT_GROUPS: Record<string, StyleGroupKey[]> = {
     'floating-cart': ['button', 'typography'],
     'store-logo': BOX,
     'search-box': BOX,
+    'contact-form': ['button', ...TEXT],
     divider: ['spacing', 'sizing'],
     spacer: [],
 };

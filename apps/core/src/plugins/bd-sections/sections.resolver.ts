@@ -3,6 +3,7 @@ import { Allow, Ctx, type ID, Permission, RequestContext, Transaction } from '@v
 import { manageContentPermission } from '../bd-content/constants';
 import { editStorefrontPermission } from './constants';
 import { type EditableLayoutType, LayoutService } from './layout.service';
+import { type ContactMessageInput, ContactMessageService } from './message.service';
 import { ThemeService } from './theme.service';
 
 const EDITABLE: EditableLayoutType[] = ['home', 'product', 'page', 'landing'];
@@ -12,6 +13,7 @@ export class SectionsShopResolver {
     constructor(
         private layouts: LayoutService,
         private theme: ThemeService,
+        private messages: ContactMessageService,
     ) {}
 
     @Query()
@@ -31,6 +33,13 @@ export class SectionsShopResolver {
     bdTheme(@Ctx() ctx: RequestContext) {
         return this.theme.get(ctx);
     }
+
+    @Mutation()
+    @Allow(Permission.Public)
+    async submitBdContactMessage(@Ctx() ctx: RequestContext, @Args() args: { input: ContactMessageInput }) {
+        const error = await this.messages.submit(ctx, args.input);
+        return { ok: !error, error };
+    }
 }
 
 @Resolver()
@@ -38,6 +47,7 @@ export class SectionsAdminResolver {
     constructor(
         private layouts: LayoutService,
         private theme: ThemeService,
+        private messages: ContactMessageService,
     ) {}
 
     @Query()
@@ -52,6 +62,34 @@ export class SectionsAdminResolver {
     @Allow(editStorefrontPermission.Permission)
     bdLayoutVersions(@Ctx() ctx: RequestContext, @Args() args: { layoutId: ID }) {
         return this.layouts.versions(ctx, args.layoutId);
+    }
+
+    // Messages hold shoppers' names and numbers: the customer permissions guard them.
+    @Query()
+    @Allow(Permission.ReadCustomer)
+    bdContactMessages(
+        @Ctx() ctx: RequestContext,
+        @Args() args: { skip?: number | null; take?: number | null; handled?: boolean | null },
+    ) {
+        return this.messages.list(ctx, args);
+    }
+
+    @Query()
+    @Allow(Permission.ReadCustomer)
+    bdContactMessagesWaiting(@Ctx() ctx: RequestContext) {
+        return this.messages.waiting(ctx);
+    }
+
+    @Mutation()
+    @Allow(Permission.UpdateCustomer)
+    setBdContactMessageHandled(@Ctx() ctx: RequestContext, @Args() args: { id: ID; handled: boolean }) {
+        return this.messages.setHandled(ctx, args.id, args.handled);
+    }
+
+    @Mutation()
+    @Allow(Permission.UpdateCustomer)
+    deleteBdContactMessage(@Ctx() ctx: RequestContext, @Args() args: { id: ID }) {
+        return this.messages.remove(ctx, args.id);
     }
 
     @Query()

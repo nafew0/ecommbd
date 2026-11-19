@@ -97,4 +97,49 @@ export class BdSavedSection extends VendureEntity {
 
     @Column({ type: 'varchar', length: 120, default: '' })
     createdBy: string;
+
+    /**
+     * What it is in My library (phase 59): a `section` to copy, a `global` section (pages that
+     * use it show this row's section, so one edit reaches all of them), or a whole `page`.
+     */
+    @Column({ type: 'varchar', length: 12, default: 'section' })
+    kind: SavedKind;
+
+    /** A page template's sections (`section` then holds its first one, for the list). */
+    @Column({ type: 'jsonb', nullable: true })
+    document: LayoutDocument | null;
+
+    @Column({ type: 'boolean', default: false })
+    favourite: boolean;
+}
+
+export type SavedKind = 'section' | 'global' | 'page';
+
+/**
+ * What a shopper sent through a contact form element (phase 61): a name, a mobile number and a
+ * few words. Read in the merchant admin; nothing is sent to any other service.
+ */
+@Entity('bd_contact_message')
+export class BdContactMessage extends VendureEntity {
+    constructor(input?: DeepPartial<BdContactMessage>) {
+        super(input);
+    }
+
+    @Column({ type: 'varchar', length: 80 })
+    name: string;
+
+    /** E.164 (+8801…). */
+    @Index()
+    @Column({ type: 'varchar', length: 20 })
+    phone: string;
+
+    @Column({ type: 'text', default: '' })
+    message: string;
+
+    /** The path of the page the form was on. */
+    @Column({ type: 'varchar', length: 200, default: '' })
+    page: string;
+
+    @Column({ type: 'boolean', default: false })
+    handled: boolean;
 }

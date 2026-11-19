@@ -1072,6 +1072,27 @@ export const cartLinkElement = defineElement({
     },
 });
 
+export const contactFormElement = defineElement({
+    type: 'contact-form',
+    version: 1,
+    name: label('Contact form', 'যোগাযোগ ফর্ম'),
+    description: label(
+        'Shoppers leave their name, number and a message; you read them under Messages',
+        'ক্রেতা নাম, নম্বর ও বার্তা দেন; আপনি "বার্তা" থেকে পড়েন',
+    ),
+    category: 'store',
+    titleField: 'button',
+    fields: {
+        button: field.text(label('Button label', 'বাটনের লেখা'), label('Send', 'পাঠান'), { max: 40 }),
+        message: field.toggle(label('Ask for a message', 'বার্তা লিখতে দিন'), true),
+        messageLabel: field.text(
+            label('Label of the message box', 'বার্তার বক্সের লেখা'),
+            label('Your message', 'আপনার বার্তা'),
+            { max: 60 },
+        ),
+    },
+});
+
 /** Every element, in the order the editor lists them. */
 export const ELEMENTS: readonly ElementDefinition[] = [
     container,
@@ -1126,6 +1147,7 @@ export const ELEMENTS: readonly ElementDefinition[] = [
     storeMenuElement,
     searchBoxElement,
     cartLinkElement,
+    contactFormElement,
     liveElement,
 ];
 
