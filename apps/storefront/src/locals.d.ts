@@ -16,6 +16,12 @@ declare namespace App {
         preview?: import('./lib/sections').Preview;
         /** The URL had a preview token that is wrong or expired: the live page shows, with a notice. */
         previewExpired?: boolean;
+        /** The preview token's lookup, shared by the layouts one page shows (phase 60). */
+        previewLookup?: Promise<
+            import('./lib/core').ResultOf<typeof import('./lib/queries').LAYOUT_PREVIEW>['bdLayoutPreview']
+        >;
+        /** The header and footer layouts (phase 60), loaded by the middleware. */
+        chrome?: import('./lib/sections').Chrome;
         /** SHA-256 hashes of the page's generated <style> (phase 16's Design options), for the CSP. */
         styleHashes?: string[];
     }

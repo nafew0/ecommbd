@@ -1,0 +1,24 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { pageContext, privatePage } from '../../lib/page';
+import { loadArea } from '../../lib/sections';
+
+/**
+ * The checkout as the page editor's frame shows it (roadmap phase 60): the frame's cart is empty,
+ * so a box stands where the form goes, with the merchant's sections around it. Only reachable
+ * with a valid preview of the checkout layout; anyone else goes to their cart.
+ */
+privatePage(Astro);
+const { s, href } = pageContext(Astro);
+const area = await loadArea(Astro, 'checkout');
+if (!Astro.locals.preview) return Astro.redirect(href('/cart/'));
+---
+
+<Layout title={s.checkoutTitle} noindex area={area}>
+    <section class="cart-page">
+        <h1>{s.checkoutTitle}</h1>
+        <div class="editor-hint area-placeholder">
+            <p>{s.editorCheckoutForm}</p>
+        </div>
+    </section>
+</Layout>

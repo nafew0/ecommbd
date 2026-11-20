@@ -171,7 +171,10 @@ export function ProductsPage() {
                         {row.status === 'trash' ? (
                             <span className="font-medium">{row.name}</span>
                         ) : (
-                            <Link to={`/products/${row.id}`} className="font-medium text-accent hover:underline">
+                            <Link
+                                to={`/products/${row.id}`}
+                                className="font-medium text-accent hover:underline"
+                            >
                                 {row.name}
                             </Link>
                         )}
@@ -179,7 +182,9 @@ export function ProductsPage() {
                             {row.featured && <Badge tone="violet">{p.featured}</Badge>}
                             {row.isNew && <Badge tone="sky">{p.isNew}</Badge>}
                             {row.status !== 'published' && (
-                                <Badge tone={row.status === 'trash' ? 'red' : 'slate'}>{p.statuses[row.status]}</Badge>
+                                <Badge tone={row.status === 'trash' ? 'red' : 'slate'}>
+                                    {p.statuses[row.status]}
+                                </Badge>
                             )}
                             {row.trashExpiresAt && (
                                 <span className="text-sm text-ink-muted">
@@ -259,7 +264,11 @@ export function ProductsPage() {
                     <div className="flex justify-end gap-1">
                         {can('DeleteProduct') && (
                             <>
-                                <Button variant="secondary" size="sm" onClick={() => void act(RESTORE, row, p.restored)}>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => void act(RESTORE, row, p.restored)}
+                                >
                                     <RotateCcw className="size-4" aria-hidden /> {p.restore}
                                 </Button>
                                 <Button
@@ -294,7 +303,12 @@ export function ProductsPage() {
                             </Button>
                         )}
                         {can('DeleteProduct') && (
-                            <Button size="icon" variant="ghost" aria-label={p.trash} onClick={() => void trash(row)}>
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                aria-label={p.trash}
+                                onClick={() => void trash(row)}
+                            >
                                 <Trash2 className="size-4 text-danger" aria-hidden />
                             </Button>
                         )}

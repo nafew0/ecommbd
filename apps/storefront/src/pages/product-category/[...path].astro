@@ -12,6 +12,7 @@ import { alternates, canonicalRedirect, pageContext } from '../../lib/page';
 import { BD_SEARCH, COLLECTION, type ProductCardFields, PRODUCTS_BY_ID, SLUG_LOOKUP } from '../../lib/queries';
 import { breadcrumbList, metaDescription } from '../../lib/seo';
 import { categoryPath, lookupSlug } from '../../lib/urls';
+import { addAreaTags, loadArea } from '../../lib/sections';
 
 const PER_PAGE = 24;
 const { lang, s, href, absolute } = pageContext(Astro);
@@ -91,11 +92,15 @@ const crumbs = [
         href: href(categoryPath(trail.slice(0, index + 1).map(item => item.slug))),
     })),
 ];
+// The merchant's sections around this page's own part (phase 60).
+const area = await loadArea(Astro, 'listing');
+addAreaTags(Astro, area);
 ---
 
 {
     collection && result && !missing ? (
         <Layout
+            area={area}
             title={collection.customFields?.seoTitle || collection.name}
             description={metaDescription(collection.customFields?.seoDescription, collection.description)}
             canonicalPath={canonicalPath && !refined ? `${canonicalPath}${pageQuery(state.page)}` : null}

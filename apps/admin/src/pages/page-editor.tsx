@@ -1,6 +1,11 @@
 import {
     canPublish,
     type CheckItem,
+    hasPageContent,
+    isSystemLayout,
+    PAGE_CONTENT,
+    SYSTEM_LAYOUTS,
+    SYSTEM_PAGES,
     fillFromProduct,
     findNode,
     pageChecklist,
@@ -58,7 +63,7 @@ import {
     SaveSectionDialog,
     ShareDialog,
 } from '../components/design/dialogs';
-import { insertSection, nodeName, sectionLabel } from '../components/design/document-ops';
+import { editingSystemPage, insertSection, nodeName, sectionLabel } from '../components/design/document-ops';
 import { IconButton } from '../components/design/icon-button';
 import {
     type Device,
@@ -93,7 +98,8 @@ export function PageEditorPage() {
     const { messages: m } = useI18n();
     const { can } = useAuth();
     const layoutKind: LayoutKind =
-        kind === 'product' ? 'product' : kind === 'page' ? 'page' : kind === 'landing' ? 'landing' : 'home';
+        kind === 'page' ? 'page' : kind === 'landing' ? 'landing' : isSystemLayout(kind) ? kind : 'home';
+    editingSystemPage(layoutKind);
     const query = useQuery({
         queryKey: ['pageLayout', layoutKind, pageId ?? ''],
         queryFn: () => fetchLayout(layoutKind, pageId),
@@ -446,8 +452,8 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
     const pageTitle =
         layout.type === 'home'
             ? d.homePage
-            : layout.type === 'product'
-              ? d.productPage
+            : isSystemLayout(layout.type)
+              ? pick(SYSTEM_PAGES[layout.type].name, ui)
               : (salesPage.data?.title ?? layout.title) || d.untitled;
     const pageValue = layout.type === 'page' ? `page:${layout.pageId}` : layout.type;
 
@@ -565,7 +571,13 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                                 className="block min-h-9 max-w-44 truncate rounded-md border border-transparent bg-surface pr-7 pl-2 font-semibold text-ink hover:border-line-strong focus:outline-2 focus:outline-accent sm:max-w-64"
                             >
                                 <option value="home">{d.homePage}</option>
-                                <option value="product">{d.productPage}</option>
+                                <optgroup label={d.systemPages}>
+                                    {SYSTEM_LAYOUTS.map(type => (
+                                        <option key={type} value={type}>
+                                            {pick(SYSTEM_PAGES[type].name, ui)}
+                                        </option>
+                                    ))}
+                                </optgroup>
                                 {(pages.data?.length ?? 0) > 0 && (
                                     <optgroup label={d.pagesGroup}>
                                         {pages.data!.map(page => {
@@ -739,7 +751,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                     {selectedSection && definition && !wide ? (
                         <div className="flex min-h-0 flex-1 flex-col">
                             <PanelHeader
-                                title={pick(definition.name, ui)}
+                                title={sectionLabel(selectedSection, ui).name}
                                 type={selectedSection.type}
                                 onClose={() => select(null)}
                                 closeLabel={d.back}
@@ -750,6 +762,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                                     document={document}
                                     language={language}
                                     warnings={editor.warnings}
+                                    layoutType={layout.type}
                                     onChange={editor.change}
                                     landing={landing}
                                     device={device === 'desktop' ? 'base' : device}
@@ -789,7 +802,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                             <EmptyLayout
                                 onAdd={() => setLibrary('ready')}
                                 onTemplate={() => setLibrary('templates')}
-                                canTemplate={layout.type !== 'product'}
+                                canTemplate={!isSystemLayout(layout.type)}
                             />
                         ) : (
                             <SectionList
@@ -920,7 +933,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                     {selectedSection && definition && wide ? (
                         <>
                             <PanelHeader
-                                title={pick(definition.name, ui)}
+                                title={sectionLabel(selectedSection, ui).name}
                                 type={selectedSection.type}
                                 onClose={() => select(null)}
                                 closeLabel={m.common.close}
@@ -932,6 +945,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                                     document={document}
                                     language={language}
                                     warnings={editor.warnings}
+                                    layoutType={layout.type}
                                     onChange={editor.change}
                                     landing={landing}
                                     device={device === 'desktop' ? 'base' : device}
@@ -1014,6 +1028,8 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                     setInsertAt(null);
                 }}
                 layoutType={layout.type}
+                // A page has its own part once.
+                exclude={hasPageContent(document) ? [PAGE_CONTENT] : []}
                 onAdd={addSection}
                 onDesign={applyDesign}
                 onLandingTemplate={id => void applyLandingTemplate(id)}

@@ -3,7 +3,7 @@ import { contact, whatsappCta } from './sections/contact';
 import { customSection } from './sections/custom';
 import { faq, imageWithText, multicolumn, richText } from './sections/content';
 import { banner, hero, slideshow } from './sections/intro';
-import { divider } from './sections/layout';
+import { divider, pageContent } from './sections/layout';
 import { imageGrid, video } from './sections/media';
 import { collectionList, featuredProduct, productGrid } from './sections/products';
 import {
@@ -78,6 +78,8 @@ export const SECTIONS: readonly SectionDefinition[] = [
     guarantee,
     orderForm,
     customSection,
+    // Phase 60: where a system page's own part goes.
+    pageContent,
 ];
 
 const BY_TYPE = new Map(SECTIONS.map(definition => [definition.type, definition]));

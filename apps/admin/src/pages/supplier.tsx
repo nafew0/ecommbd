@@ -78,7 +78,13 @@ export function SupplierPage() {
     });
     const { draft, setDraft, load, dirty, discard } = useDraft<Draft>(isNew ? empty() : null);
     useEffect(() => {
-        if (query.data) load({ name: query.data.name, phone: query.data.phone ?? '', address: query.data.address, note: query.data.note });
+        if (query.data)
+            load({
+                name: query.data.name,
+                phone: query.data.phone ?? '',
+                address: query.data.address,
+                note: query.data.note,
+            });
     }, [query.data, load]);
     const save = useMutation({
         mutationFn: (input: Draft) =>
@@ -137,7 +143,9 @@ export function SupplierPage() {
                                                 {...control}
                                                 value={draft.name}
                                                 disabled={!canEdit}
-                                                onChange={event => setDraft({ ...draft, name: event.target.value })}
+                                                onChange={event =>
+                                                    setDraft({ ...draft, name: event.target.value })
+                                                }
                                             />
                                         )}
                                     </Field>
@@ -157,7 +165,9 @@ export function SupplierPage() {
                                                 {...control}
                                                 value={draft.address}
                                                 disabled={!canEdit}
-                                                onChange={event => setDraft({ ...draft, address: event.target.value })}
+                                                onChange={event =>
+                                                    setDraft({ ...draft, address: event.target.value })
+                                                }
                                             />
                                         )}
                                     </Field>
@@ -167,7 +177,9 @@ export function SupplierPage() {
                                                 {...control}
                                                 value={draft.note}
                                                 disabled={!canEdit}
-                                                onChange={event => setDraft({ ...draft, note: event.target.value })}
+                                                onChange={event =>
+                                                    setDraft({ ...draft, note: event.target.value })
+                                                }
                                             />
                                         )}
                                     </Field>
@@ -182,7 +194,9 @@ export function SupplierPage() {
                             <Card>
                                 <CardHeader title={p.balance} />
                                 <CardBody>
-                                    <p className="text-2xl font-semibold tabular-nums">{format.money(detail.balance)}</p>
+                                    <p className="text-2xl font-semibold tabular-nums">
+                                        {format.money(detail.balance)}
+                                    </p>
                                     <p className="text-[13px] text-ink-muted">{p.balanceHint}</p>
                                 </CardBody>
                             </Card>
@@ -210,11 +224,19 @@ function PurchaseHistory({ rows }: { rows: PurchaseRow[] }) {
                 ) : (
                     <ul className="divide-y divide-line">
                         {rows.map(row => (
-                            <li key={row.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2 text-sm">
-                                <Link to={`/products/purchases/${row.id}`} className="font-semibold text-accent hover:underline">
+                            <li
+                                key={row.id}
+                                className="flex flex-wrap items-baseline justify-between gap-2 py-2 text-sm"
+                            >
+                                <Link
+                                    to={`/products/purchases/${row.id}`}
+                                    className="font-semibold text-accent hover:underline"
+                                >
                                     {row.number}
                                 </Link>
-                                <span className="text-ink-muted">{p.statuses[row.status as keyof typeof p.statuses]}</span>
+                                <span className="text-ink-muted">
+                                    {p.statuses[row.status as keyof typeof p.statuses]}
+                                </span>
                                 <span className="tabular-nums">{format.money(row.total)}</span>
                             </li>
                         ))}
@@ -245,10 +267,9 @@ function PaymentCard({ supplierId }: { supplierId: string }) {
     });
     const save = useMutation({
         mutationFn: () =>
-            adminApi(
-                `mutation ($input: JSON!) { recordBdSupplierPayment(input: $input) { id } }`,
-                { input: { supplierId, amount, paidOn, note, accountId: accountId || null } },
-            ),
+            adminApi(`mutation ($input: JSON!) { recordBdSupplierPayment(input: $input) { id } }`, {
+                input: { supplierId, amount, paidOn, note, accountId: accountId || null },
+            }),
         onSuccess: () => {
             toast.success(p.paymentSaved);
             setAmount(null);
@@ -265,16 +286,27 @@ function PaymentCard({ supplierId }: { supplierId: string }) {
                 </Field>
                 <Field label={p.paymentDate}>
                     {control => (
-                        <Input {...control} type="date" value={paidOn} onChange={event => setPaidOn(event.target.value)} />
+                        <Input
+                            {...control}
+                            type="date"
+                            value={paidOn}
+                            onChange={event => setPaidOn(event.target.value)}
+                        />
                     )}
                 </Field>
                 <Field label={p.note} optional>
-                    {control => <Input {...control} value={note} onChange={event => setNote(event.target.value)} />}
+                    {control => (
+                        <Input {...control} value={note} onChange={event => setNote(event.target.value)} />
+                    )}
                 </Field>
                 {can('ManageAccounts') && (accounts.data?.length ?? 0) > 0 && (
                     <Field label={p.paymentAccount} optional>
                         {control => (
-                            <Select {...control} value={accountId} onChange={event => setAccountId(event.target.value)}>
+                            <Select
+                                {...control}
+                                value={accountId}
+                                onChange={event => setAccountId(event.target.value)}
+                            >
                                 <option value="">{p.paymentAccountNone}</option>
                                 {accounts.data?.map(account => (
                                     <option key={account.id} value={account.id}>
@@ -292,4 +324,3 @@ function PaymentCard({ supplierId }: { supplierId: string }) {
         </CollapsibleCard>
     );
 }
-

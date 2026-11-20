@@ -725,6 +725,52 @@ describe('page sections (phase 15)', () => {
         ]);
     });
 
+    it('gives each system page a layout that starts as its own part, and the old product template its block', async () => {
+        for (const [type, path] of [
+            ['header', '/en/'],
+            ['footer', '/en/'],
+            ['listing', '/en/search/'],
+            ['cart', '/en/cart/'],
+            ['checkout', '/en/checkout/'],
+            ['thanks', '/en/checkout/thank-you/'],
+        ] as const) {
+            const layout = await layoutOf(type);
+            expect(layout.type).toBe(type);
+            expect(layout.draft.sections.map((section: { type: string }) => section.type)).toEqual([
+                'page-content',
+            ]);
+            // Nothing on the storefront until it's published.
+            expect((await shopClient.query(SHOP_LAYOUT, { type })).bdLayout).toBeNull();
+            const { createBdPreviewLink } = await adminClient.query(PREVIEW_LINK, {
+                layoutId: layout.id,
+                language: 'en',
+                share: false,
+            });
+            expect(createBdPreviewLink.url).toContain(`https://shop.example.com${path}?preview=`);
+        }
+        // A checkout with a note above its form.
+        const checkout = await layoutOf('checkout');
+        const note = createSection('rich-text');
+        await saveDraft(checkout, { sections: [note, ...checkout.draft.sections] });
+        expect((await publish(checkout.id, 0)).layout!.publishedVersion).toBe(1);
+        const { bdLayout } = await shopClient.query(SHOP_LAYOUT, { type: 'checkout' });
+        expect(bdLayout.document.sections.map((section: { type: string }) => section.type)).toEqual([
+            'rich-text',
+            'page-content',
+        ]);
+        // A product page template saved before phase 60 has no block: the editor gets one, on top.
+        const product = await layoutOf('product');
+        await saveDraft(product, { sections: [createSection('trust-badges')] });
+        const again = await layoutOf('product');
+        expect(again.draft.sections.map((section: { type: string }) => section.type)).toEqual([
+            'page-content',
+            'trust-badges',
+        ]);
+        // A kind of page that doesn't exist has no layout.
+        expect((await adminClient.query(GET_LAYOUT, { type: 'nonsense' })).bdPageLayout).toBeNull();
+        expect((await shopClient.query(SHOP_LAYOUT, { type: 'nonsense' })).bdLayout).toBeNull();
+    });
+
     it('needs EditStorefront', async () => {
         await adminClient.asUserWithCredentials('orders@example.com', 'staff-password-123');
         await expect(adminClient.query(GET_LAYOUT, { type: 'home' })).rejects.toThrow(

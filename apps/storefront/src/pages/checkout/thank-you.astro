@@ -6,6 +6,7 @@ import { shopperContext } from '../../lib/cart';
 import { placedOrderByCode } from '../../lib/checkout';
 import { purchaseEvents } from '../../lib/meta';
 import { canonicalRedirect, pageContext, privatePage } from '../../lib/page';
+import { addAreaTags, loadArea } from '../../lib/sections';
 
 /**
  * After the order (roadmap phase 14). Only the session that placed it can read it, for 2 hours
@@ -31,9 +32,12 @@ const whatsapp = settings.profile.whatsapp.replace(/\D/g, '');
 // Meta (phase 20): Purchase from the browser only when the store sends it on placing; its ID is the
 // server's too, so Meta keeps one. With "confirmed" or "delivered" this page sends no Purchase.
 const metaEvents = purchaseEvents(placed, Astro.locals.meta);
+// The merchant's sections around this page's own part (phase 60).
+const area = await loadArea(Astro, 'thanks');
+addAreaTags(Astro, area);
 ---
 
-<Layout title={s.thankYouTitle} noindex metaEvents={metaEvents}>
+<Layout title={s.thankYouTitle} noindex metaEvents={metaEvents} area={area}>
     <section class="thank-you">
         {
             placed ? (

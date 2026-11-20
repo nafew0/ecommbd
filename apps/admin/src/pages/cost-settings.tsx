@@ -35,7 +35,8 @@ export function CostSettingsPage() {
     const canEdit = can('UpdateStoreSettings') && can('ReadCost');
     const query = useQuery({
         queryKey: ['costSettings'],
-        queryFn: () => adminApi<{ bdCostSettings: CostSettings }>('{ bdCostSettings }').then(r => r.bdCostSettings),
+        queryFn: () =>
+            adminApi<{ bdCostSettings: CostSettings }>('{ bdCostSettings }').then(r => r.bdCostSettings),
     });
     const { draft, setDraft, load, dirty, discard } = useDraft<CostSettings>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -45,7 +46,10 @@ export function CostSettingsPage() {
     const save = useMutation({
         mutationFn: (input: CostSettings) =>
             adminApi<{
-                updateBdCostSettings: { settings: CostSettings | null; errors: Array<{ path: string; code: string }> };
+                updateBdCostSettings: {
+                    settings: CostSettings | null;
+                    errors: Array<{ path: string; code: string }>;
+                };
             }>(UPDATE, { input }).then(result => result.updateBdCostSettings),
         onSuccess: result => {
             setErrors(errorMap(result.errors));
@@ -150,13 +154,18 @@ export function CostSettingsPage() {
                                 <Input
                                     {...control}
                                     inputMode="numeric"
-                                    value={draft.codCharge.percent == null ? '' : digits(draft.codCharge.percent)}
+                                    value={
+                                        draft.codCharge.percent == null ? '' : digits(draft.codCharge.percent)
+                                    }
                                     disabled={!canEdit}
                                     className="w-28"
                                     onChange={event =>
                                         setDraft({
                                             ...draft,
-                                            codCharge: { ...draft.codCharge, percent: number(event.target.value) },
+                                            codCharge: {
+                                                ...draft.codCharge,
+                                                percent: number(event.target.value),
+                                            },
                                         })
                                     }
                                 />
@@ -166,10 +175,17 @@ export function CostSettingsPage() {
                 </CollapsibleCard>
                 <CollapsibleCard
                     title={c.gatewayTitle}
-                    summary={draft.gatewayFeePercent == null ? c.notSet : `${digits(draft.gatewayFeePercent)}%`}
+                    summary={
+                        draft.gatewayFeePercent == null ? c.notSet : `${digits(draft.gatewayFeePercent)}%`
+                    }
                     forceOpen={draft.gatewayFeePercent != null || !!errors.gatewayFeePercent}
                 >
-                    <Field label={c.gatewayPercent} hint={c.gatewayHint} error={errors.gatewayFeePercent} optional>
+                    <Field
+                        label={c.gatewayPercent}
+                        hint={c.gatewayHint}
+                        error={errors.gatewayFeePercent}
+                        optional
+                    >
                         {control => (
                             <Input
                                 {...control}

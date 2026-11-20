@@ -219,7 +219,9 @@ function LineRow({
                 {line.name}
                 {line.sku && <span className="block text-[8pt] text-black/60">{line.sku}</span>}
             </td>
-            <td className={`${cell} text-right`}>{quantityWithUnit(format.number(line.quantity), line.unit)}</td>
+            <td className={`${cell} text-right`}>
+                {quantityWithUnit(format.number(line.quantity), line.unit)}
+            </td>
             {kind === 'invoice' ? (
                 <>
                     <td className={`${cell} text-right whitespace-nowrap`}>

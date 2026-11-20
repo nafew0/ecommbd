@@ -2,7 +2,7 @@ import { defineMiddleware } from 'astro:middleware';
 import { env } from './env';
 import { CoreUnavailableError, RateLimitedError } from './lib/core';
 import { parseLocalePath } from './lib/urls';
-import { getTheme } from './lib/sections';
+import { getTheme, loadChrome } from './lib/sections';
 import { getMenus, getMetaConfig, getSettings } from './lib/store';
 import { systemPage } from './lib/system-pages';
 import { isLegacyQueryLink, legacyRedirect, legacyUrl } from './lib/migration';
@@ -114,8 +114,23 @@ export const onRequest = defineMiddleware(async (context, next) => {
             const redirect = legacyRedirect(await legacyUrl(legacyPath), legacyPath);
             if (redirect) return withHeaders(redirect);
         }
+        // The header and footer layouts (phase 60), before the page renders: their generated styles
+        // must be in the Content Security Policy, which is written once the page has answered.
+        const isPage =
+            (context.request.method === 'GET' || context.request.method === 'POST') &&
+            !/^\/(?:_astro|assets|img|health|api|cart\/drawer|search\/suggest|theme\.css|robots\.txt|sitemap)/.test(
+                path,
+            ) &&
+            !/\.[a-z0-9]{2,5}$/i.test(path);
+        if (isPage) context.locals.chrome = await loadChrome(context);
         const response =
             path === context.url.pathname ? await next() : await next(`${path}${context.url.search}`);
+        // A preview of the header or footer is never cached or indexed, whatever page shows it.
+        try {
+            context.locals.chrome?.headers.forEach((value, name) => response.headers.set(name, value));
+        } catch {
+            // A redirect's headers can't be changed, and needn't be.
+        }
         if (canResolve && !queryLink && response.status === 404) {
             // One call looks the path up and, when there's no rule, counts it for the 404 list.
             const redirect = legacyRedirect(await legacyUrl(legacyPath, true), legacyPath);
@@ -138,7 +153,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
             context.request,
             env().CACHE_STORE_ID ?? env().REDIS_KEY_PREFIX,
             !!context.locals.preview,
-            headerMenu ? [] : ['collections'],
+            [
+                // Any publish refreshes every page: the header and footer layouts are on all of them.
+                'layouts',
+                ...(headerMenu ? [] : ['collections']),
+                ...(context.locals.chrome?.header?.data.tags ?? []),
+                ...(context.locals.chrome?.footer?.data.tags ?? []),
+            ],
         );
     } catch (error) {
         if (error instanceof CoreUnavailableError) return withHeaders(systemPage('unavailable'));

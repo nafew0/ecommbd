@@ -23,7 +23,10 @@ interface Props {
 
 const { layout, data, firstIsH1 = false, sales } = Astro.props;
 const { lang, defaultLang, settings, s, format, href, absolute } = pageContext(Astro);
-const editor = Astro.locals.preview?.mode === 'editor';
+// In the editor's frame, only the sections of the layout being edited can be selected (a page
+// also shows the header's and footer's: phase 60).
+const preview = Astro.locals.preview;
+const editor = preview?.mode === 'editor' && preview.layoutId === layout.layoutId;
 const sections = visibleSections(layout.document);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

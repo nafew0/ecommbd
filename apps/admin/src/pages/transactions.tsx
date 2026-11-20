@@ -98,12 +98,28 @@ export function TransactionsPage() {
         <div className="grid gap-3 sm:grid-cols-2">
             <Field label={a.fromDate}>
                 {control => (
-                    <Input {...control} type="date" value={dateFrom} onChange={event => { setDateFrom(event.target.value); setPage(1); }} />
+                    <Input
+                        {...control}
+                        type="date"
+                        value={dateFrom}
+                        onChange={event => {
+                            setDateFrom(event.target.value);
+                            setPage(1);
+                        }}
+                    />
                 )}
             </Field>
             <Field label={a.toDate}>
                 {control => (
-                    <Input {...control} type="date" value={dateTo} onChange={event => { setDateTo(event.target.value); setPage(1); }} />
+                    <Input
+                        {...control}
+                        type="date"
+                        value={dateTo}
+                        onChange={event => {
+                            setDateTo(event.target.value);
+                            setPage(1);
+                        }}
+                    />
                 )}
             </Field>
         </div>
@@ -170,4 +186,3 @@ export function TransactionsPage() {
         </Page>
     );
 }
-

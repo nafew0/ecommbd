@@ -1,0 +1,35 @@
+---
+import { pick, SYSTEM_PAGES } from '@ecommbd/sections';
+import type { Area } from '../lib/sections';
+import Sections from '../sections/Sections.astro';
+
+/**
+ * A system page's own part with the merchant's sections above and below it (roadmap phase 60).
+ * The part itself is the slot: this component never touches it, so the product, the cart and the
+ * checkout form work exactly as without a layout.
+ */
+interface Props {
+    area: Area;
+    /** Class of the element around the page's own part (`container` inside the main area). */
+    wrap?: string;
+}
+
+const { area, wrap } = Astro.props;
+const preview = Astro.locals.preview;
+const editor = preview?.mode === 'editor' && preview.layoutId === area.layoutId;
+const name = pick(SYSTEM_PAGES[area.kind].block, Astro.locals.lang);
+---
+
+<Sections layout={area.before} data={area.data} />
+{
+    area.standard && (
+        <div
+            class:list={['area-content', wrap]}
+            data-section={editor && area.contentUid ? area.contentUid : undefined}
+            data-section-name={editor && area.contentUid ? name : undefined}
+        >
+            <slot />
+        </div>
+    )
+}
+<Sections layout={area.after} data={area.data} />

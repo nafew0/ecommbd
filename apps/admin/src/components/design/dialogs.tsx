@@ -17,6 +17,7 @@ import {
     SECTION_CATEGORIES,
     type SectionData,
     sectionsFor,
+    isSystemLayout,
     STARTER_INFO,
     starterLayout,
     STARTERS,
@@ -61,6 +62,7 @@ export function AddSectionDialog({
     open,
     onClose,
     layoutType,
+    exclude = [],
     onAdd,
     onDesign,
     onLandingTemplate,
@@ -69,6 +71,8 @@ export function AddSectionDialog({
     open: boolean;
     onClose(): void;
     layoutType: LayoutType;
+    /** Section types not offered now (a system page's own part, when the page has it). */
+    exclude?: string[];
     onAdd(section: SectionData): void;
     /** A whole design chosen: the page's sections are replaced by it (the editor lets it be tried first). */
     onDesign(document: LayoutDocument, name: string): void;
@@ -85,7 +89,7 @@ export function AddSectionDialog({
         mutationFn: deleteSavedSection,
         onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['savedSections'] }),
     });
-    const definitions = sectionsFor(layoutType);
+    const definitions = sectionsFor(layoutType).filter(definition => !exclude.includes(definition.type));
     const [storeType, setStoreType] = useState<StoreType | 'all'>('all');
     const [category, setCategory] = useState<ReadyCategory | 'all'>('all');
     const [search, setSearch] = useState('');
@@ -110,7 +114,7 @@ export function AddSectionDialog({
         { key: 'ready', label: d.lib.ready },
         { key: 'sections', label: d.sections },
         { key: 'saved', label: d.savedSections },
-        ...(layoutType !== 'product' ? [{ key: 'templates' as const, label: d.templates }] : []),
+        ...(!isSystemLayout(layoutType) ? [{ key: 'templates' as const, label: d.templates }] : []),
     ];
     return (
         <Dialog

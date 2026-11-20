@@ -58,6 +58,7 @@ export async function loadSalesPage(Astro: AstroGlobal, slug: string): Promise<L
             Astro.locals.preview = {
                 mode: bdLayoutPreview.mode === 'share' ? 'share' : 'editor',
                 expiresAt: bdLayoutPreview.expiresAt,
+                layoutId: bdLayoutPreview.layout.id,
             };
             return loaded(bdSalesPage);
         }

@@ -2,6 +2,11 @@ import { encodeSlug, type MenuLink, sanitizeRichText } from '@ecommbd/shared';
 import {
     defaultHomeLayout,
     defaultProductTemplate,
+    defaultSystemLayout,
+    isSystemLayout,
+    needsPageContent,
+    type SystemLayout,
+    withPageContent,
     documentIssues,
     documentRefs,
     eachField,
@@ -44,7 +49,7 @@ import { BdPageLayout, BdPageLayoutVersion, BdSavedSection } from './entities';
 import { createPreviewToken, verifyPreviewToken } from './preview-token';
 import { StorefrontPurger } from './storefront-purger';
 
-export type EditableLayoutType = 'home' | 'product' | 'page' | 'landing';
+export type EditableLayoutType = 'home' | 'page' | 'landing' | SystemLayout;
 
 /**
  * Another plugin's pages with layouts (phase 16: sales pages, `landing:<id>`). That plugin makes
@@ -170,8 +175,11 @@ export class LayoutService {
         } else if (type === 'home') {
             const { profile } = await this.storeSettings.get(ctx);
             draft = defaultHomeLayout({ name: profile.storeName, description: profile.shortDescription });
+        } else if (type === 'product') {
+            draft = withPageContent(defaultProductTemplate());
         } else {
-            draft = defaultProductTemplate();
+            // A system page (phase 60) starts as its own part and nothing else.
+            draft = defaultSystemLayout();
         }
         // Two tabs opening the editor at once: the unique key keeps one row.
         await this.repo(ctx)
@@ -202,7 +210,13 @@ export class LayoutService {
             type: layout.type,
             pageId: layout.pageId,
             title,
-            draft: mapDocumentIds(readDocument(layout.draft), (_kind, id) => this.encode(id)),
+            // A product page template from before phase 60 gets its product block, at the top.
+            draft: mapDocumentIds(
+                needsPageContent(layout.type)
+                    ? withPageContent(readDocument(layout.draft))
+                    : readDocument(layout.draft),
+                (_kind, id) => this.encode(id),
+            ),
             draftRevision: layout.draftRevision,
             draftSavedAt: layout.draftSavedAt,
             draftSavedBy: layout.draftSavedBy,
@@ -504,7 +518,14 @@ export class LayoutService {
                 product?.translations[0];
             return translation ? `/product/${encodeSlug(translation.slug)}/` : '/';
         }
-        return '/';
+        // The other system pages (phase 60) each have one address; the header and footer show on the home page.
+        const paths: Partial<Record<string, string>> = {
+            listing: '/search/',
+            cart: '/cart/',
+            checkout: '/checkout/',
+            thanks: '/checkout/thank-you/',
+        };
+        return paths[layout.type] ?? '/';
     }
 
     /** The published layout for the storefront; null before the first publish. */
@@ -514,7 +535,7 @@ export class LayoutService {
                 ? pageId
                     ? `${type}:${pageId}`
                     : null
-                : type === 'home' || type === 'product'
+                : type === 'home' || isSystemLayout(type)
                   ? type
                   : null;
         if (!key) return null;

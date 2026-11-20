@@ -95,7 +95,10 @@ export function TransferPage() {
 function useBranches() {
     return useQuery({
         queryKey: ['branchOptions'],
-        queryFn: () => adminApi<{ bdBranches: BranchOption[] }>(`{ bdBranches { id name } }`).then(result => result.bdBranches),
+        queryFn: () =>
+            adminApi<{ bdBranches: BranchOption[] }>(`{ bdBranches { id name } }`).then(
+                result => result.bdBranches,
+            ),
     });
 }
 
@@ -118,7 +121,12 @@ function BranchSelect({
     return (
         <Field label={label} error={error}>
             {control => (
-                <Select {...control} value={value} disabled={disabled} onChange={event => onChange(event.target.value)}>
+                <Select
+                    {...control}
+                    value={value}
+                    disabled={disabled}
+                    onChange={event => onChange(event.target.value)}
+                >
                     <option value="">{m.branches.chooseBranch}</option>
                     {branches.map(branch => (
                         <option key={branch.id} value={branch.id}>
@@ -145,7 +153,10 @@ function SendForm() {
     const save = useMutation({
         mutationFn: (input: SendDraft) =>
             adminApi<{
-                sendBdTransfer: { transfer: { id: string } | null; errors: Array<{ path: string; code: string }> };
+                sendBdTransfer: {
+                    transfer: { id: string } | null;
+                    errors: Array<{ path: string; code: string }>;
+                };
             }>(
                 `mutation ($input: JSON!) {
                     sendBdTransfer(input: $input) { transfer { id } errors { path code } }
@@ -155,7 +166,10 @@ function SendForm() {
                         fromId: input.fromId,
                         toId: input.toId,
                         note: input.note,
-                        lines: input.lines.map(line => ({ variantId: line.variantId, quantity: qty(line.quantity) })),
+                        lines: input.lines.map(line => ({
+                            variantId: line.variantId,
+                            quantity: qty(line.quantity),
+                        })),
                     },
                 },
             ).then(result => result.sendBdTransfer),
@@ -181,7 +195,15 @@ function SendForm() {
                           ? { ...line, quantity: digits(qty(line.quantity) + 1) }
                           : line,
                   )
-                : [...draft.lines, { key: variant.variantId, variantId: variant.variantId, name: variant.name, quantity: digits(1) }],
+                : [
+                      ...draft.lines,
+                      {
+                          key: variant.variantId,
+                          variantId: variant.variantId,
+                          name: variant.name,
+                          quantity: digits(1),
+                      },
+                  ],
         });
     };
     return (
@@ -236,7 +258,9 @@ function SendForm() {
                                                     setDraft({
                                                         ...draft,
                                                         lines: draft.lines.map(item =>
-                                                            item.key === line.key ? { ...item, quantity: event.target.value } : item,
+                                                            item.key === line.key
+                                                                ? { ...item, quantity: event.target.value }
+                                                                : item,
                                                         ),
                                                     })
                                                 }
@@ -261,7 +285,9 @@ function SendForm() {
                         </MoreFields>
                     </CardBody>
                 </Card>
-                {canEdit && <SaveBar dirty={dirty} saving={save.isPending} saveLabel={b.send} onDiscard={discard} />}
+                {canEdit && (
+                    <SaveBar dirty={dirty} saving={save.isPending} saveLabel={b.send} onDiscard={discard} />
+                )}
             </form>
         </Page>
     );
@@ -279,7 +305,8 @@ function ReceiveForm({ transfer }: { transfer: TransferView }) {
     const { draft, setDraft, load, dirty, discard } = useDraft<Record<string, string>>(null);
     const remaining = transfer.lines.map(line => `${line.id}:${line.inTransit}`).join(',');
     useEffect(() => {
-        const show = (value: number) => (language === 'bn' ? asciiToBanglaDigits(String(value)) : String(value));
+        const show = (value: number) =>
+            language === 'bn' ? asciiToBanglaDigits(String(value)) : String(value);
         const zeros = Object.fromEntries(transfer.lines.map(line => [line.id, '0']));
         load(zeros);
         setDraft(Object.fromEntries(transfer.lines.map(line => [line.id, show(line.inTransit)])));
@@ -291,7 +318,10 @@ function ReceiveForm({ transfer }: { transfer: TransferView }) {
                 {
                     id: transfer.id,
                     input: {
-                        lines: transfer.lines.map(line => ({ lineId: line.id, quantity: qty(quantities[line.id] ?? '0') })),
+                        lines: transfer.lines.map(line => ({
+                            lineId: line.id,
+                            quantity: qty(quantities[line.id] ?? '0'),
+                        })),
                     },
                 },
             ),
@@ -326,7 +356,8 @@ function ReceiveForm({ transfer }: { transfer: TransferView }) {
                                     <div className="text-sm">
                                         <p>{line.name}</p>
                                         <p className="text-ink-muted">
-                                            {b.quantity} {digits(line.quantity)} · {b.inTransit} {digits(line.inTransit)}
+                                            {b.quantity} {digits(line.quantity)} · {b.inTransit}{' '}
+                                            {digits(line.inTransit)}
                                         </p>
                                     </div>
                                     {canEdit ? (
@@ -336,7 +367,9 @@ function ReceiveForm({ transfer }: { transfer: TransferView }) {
                                                     {...control}
                                                     inputMode="numeric"
                                                     value={draft[line.id] ?? ''}
-                                                    onChange={event => setDraft({ ...draft, [line.id]: event.target.value })}
+                                                    onChange={event =>
+                                                        setDraft({ ...draft, [line.id]: event.target.value })
+                                                    }
                                                 />
                                             )}
                                         </Field>

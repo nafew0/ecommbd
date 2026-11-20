@@ -1,4 +1,10 @@
-import { eachNode, LAYOUT_LIMITS, type LayoutDocument, type SectionData } from '@ecommbd/sections';
+import {
+    eachNode,
+    LAYOUT_LIMITS,
+    type LayoutDocument,
+    PAGE_CONTENT,
+    type SectionData,
+} from '@ecommbd/sections';
 import {
     ArrowDown,
     ArrowUp,
@@ -13,6 +19,7 @@ import {
     Trash2,
 } from 'lucide-react';
 import { type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '../../lib/cn';
 import { useI18n } from '../../lib/i18n';
 import type { LayoutWarning } from './design-api';
@@ -314,7 +321,8 @@ export function SectionList(props: SectionListProps) {
                                         {
                                             label: d.duplicate,
                                             icon: Copy,
-                                            disabled: full,
+                                            // A page has its own part once.
+                                            disabled: full || section.type === PAGE_CONTENT,
                                             run: () => {
                                                 const result = duplicateSection(document, section.uid);
                                                 onChange(result.document);
@@ -324,6 +332,7 @@ export function SectionList(props: SectionListProps) {
                                         {
                                             label: d.saveForReuse,
                                             icon: Bookmark,
+                                            disabled: section.type === PAGE_CONTENT,
                                             run: () => props.onSaveForReuse(section),
                                         },
                                         {
@@ -387,18 +396,25 @@ interface MenuItem {
 }
 
 /**
- * A small "⋯" menu. It's placed on the screen itself (fixed), so a scrolling list never cuts it
- * off, and opens upwards near the bottom; it closes on a choice, an outside click or Escape.
+ * A small "⋯" menu. It's placed on the screen itself (fixed, drawn at the end of the page so a
+ * row that is moving or animating can't shift it), so a scrolling list never cuts it off, and
+ * opens upwards near the bottom; it closes on a choice, an outside click or Escape.
  */
 export function RowMenu({ label, items }: { label: string; items: MenuItem[] }) {
     const [position, setPosition] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
     const root = useRef<HTMLDivElement>(null);
+    const menu = useRef<HTMLDivElement>(null);
     const open = position !== null;
     useEffect(() => {
         if (!open) return;
         const close = (event: Event) => {
             if (event instanceof globalThis.KeyboardEvent && event.key !== 'Escape') return;
-            if (event.type === 'pointerdown' && root.current?.contains(event.target as Node)) return;
+            const target = event.target as Node;
+            if (
+                event.type === 'pointerdown' &&
+                (root.current?.contains(target) || menu.current?.contains(target))
+            )
+                return;
             setPosition(null);
         };
         window.addEventListener('pointerdown', close);
@@ -433,33 +449,36 @@ export function RowMenu({ label, items }: { label: string; items: MenuItem[] }) 
             >
                 <Ellipsis className="size-4" aria-hidden />
             </button>
-            {position && (
-                <div
-                    role="menu"
-                    style={position}
-                    className="fixed z-50 min-w-48 rounded-md border border-line bg-surface py-1 shadow-lg"
-                >
-                    {items.map(item => (
-                        <button
-                            key={item.label}
-                            type="button"
-                            role="menuitem"
-                            disabled={item.disabled}
-                            onClick={() => {
-                                setPosition(null);
-                                item.run();
-                            }}
-                            className={cn(
-                                'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-surface-muted disabled:cursor-not-allowed disabled:text-ink-faint disabled:hover:bg-transparent',
-                                item.danger ? 'text-danger' : 'text-ink',
-                            )}
-                        >
-                            <item.icon className="size-4" aria-hidden />
-                            {item.label}
-                        </button>
-                    ))}
-                </div>
-            )}
+            {position &&
+                createPortal(
+                    <div
+                        ref={menu}
+                        role="menu"
+                        style={position}
+                        className="fixed z-50 min-w-48 rounded-md border border-line bg-surface py-1 shadow-lg"
+                    >
+                        {items.map(item => (
+                            <button
+                                key={item.label}
+                                type="button"
+                                role="menuitem"
+                                disabled={item.disabled}
+                                onClick={() => {
+                                    setPosition(null);
+                                    item.run();
+                                }}
+                                className={cn(
+                                    'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-surface-muted disabled:cursor-not-allowed disabled:text-ink-faint disabled:hover:bg-transparent',
+                                    item.danger ? 'text-danger' : 'text-ink',
+                                )}
+                            >
+                                <item.icon className="size-4" aria-hidden />
+                                {item.label}
+                            </button>
+                        ))}
+                    </div>,
+                    document.body,
+                )}
         </div>
     );
 }

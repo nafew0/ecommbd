@@ -41,8 +41,9 @@ describe('the section library', () => {
             }
         }
         // The sales hero, packs and order form need a sales page's product and offers.
-        expect(sectionsFor('home')).toHaveLength(SECTIONS.length - 3);
-        expect(sectionsFor('landing')).toHaveLength(SECTIONS.length);
+        // (And a system page's own part belongs to system pages only: phase 60.)
+        expect(sectionsFor('home')).toHaveLength(SECTIONS.length - 4);
+        expect(sectionsFor('landing')).toHaveLength(SECTIONS.length - 1);
         expect(sectionDefinition('nope')).toBeUndefined();
     });
 

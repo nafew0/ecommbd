@@ -3484,3 +3484,15 @@ html[data-header] .sales-header .header-row {
 .contact-form .button {
     margin-top: 4px;
 }
+
+/* System pages (phase 60): the merchant's sections around the page's own part. */
+
+.area-content.container {
+    padding-top: 24px;
+    padding-bottom: 40px;
+}
+
+.area-placeholder {
+    padding: 48px 20px;
+    text-align: center;
+}

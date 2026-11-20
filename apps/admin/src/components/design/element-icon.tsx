@@ -233,6 +233,12 @@ const PATHS: Record<string, ReactNode> = {
             <path d="M11.250 14.250h6v3h-6z" />
         </>
     ),
+    lock: (
+        <>
+            <rect x="4.250" y="8.750" width="11.500" height="8.500" />
+            <path d="M6.750 8.750V6.500a3.250 3.250 0 0 1 6.500 0v2.250" />
+        </>
+    ),
     email: <path d="M2.750 4.750h14.500v10.500H2.750zM2.750 5.500l7.250 5.500 7.250-5.500" />,
     // Editor actions.
     plus: <path d="M10 4.25v11.5M4.25 10h11.5" />,

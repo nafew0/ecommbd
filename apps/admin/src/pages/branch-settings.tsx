@@ -29,11 +29,17 @@ export function BranchSettingsPage() {
     const canEdit = can('ManageBranch');
     const query = useQuery({
         queryKey: ['branchSettings'],
-        queryFn: () => adminApi<{ bdBranchSettings: BranchSettings }>('{ bdBranchSettings }').then(result => result.bdBranchSettings),
+        queryFn: () =>
+            adminApi<{ bdBranchSettings: BranchSettings }>('{ bdBranchSettings }').then(
+                result => result.bdBranchSettings,
+            ),
     });
     const branches = useQuery({
         queryKey: ['branchOptions'],
-        queryFn: () => adminApi<{ bdBranches: BranchOption[] }>(`{ bdBranches { id name } }`).then(result => result.bdBranches),
+        queryFn: () =>
+            adminApi<{ bdBranches: BranchOption[] }>(`{ bdBranches { id name } }`).then(
+                result => result.bdBranches,
+            ),
     });
     const { draft, setDraft, load, dirty, discard } = useDraft<BranchSettings>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -43,7 +49,10 @@ export function BranchSettingsPage() {
     const save = useMutation({
         mutationFn: (input: BranchSettings) =>
             adminApi<{
-                updateBdBranchSettings: { settings: BranchSettings | null; errors: Array<{ path: string; code: string }> };
+                updateBdBranchSettings: {
+                    settings: BranchSettings | null;
+                    errors: Array<{ path: string; code: string }>;
+                };
             }>(
                 `mutation ($input: JSON!) {
                     updateBdBranchSettings(input: $input) { settings errors { path code } }
@@ -88,7 +97,11 @@ export function BranchSettingsPage() {
                     <CardBody>
                         <p className="text-sm text-ink-muted">{b.zonesHint}</p>
                         {BRANCH_ZONES.map(key => (
-                            <Field key={key} label={m.delivery.zones[key]} error={errors[`zoneBranch.${key}`]}>
+                            <Field
+                                key={key}
+                                label={m.delivery.zones[key]}
+                                error={errors[`zoneBranch.${key}`]}
+                            >
                                 {control => (
                                     <Select
                                         {...control}
@@ -148,7 +161,12 @@ export function BranchSettingsPage() {
                     ))}
                 </CollapsibleCard>
                 {canEdit && (
-                    <SaveBar dirty={dirty} saving={save.isPending} saveLabel={m.settings.save} onDiscard={discard} />
+                    <SaveBar
+                        dirty={dirty}
+                        saving={save.isPending}
+                        saveLabel={m.settings.save}
+                        onDiscard={discard}
+                    />
                 )}
             </form>
         </Page>

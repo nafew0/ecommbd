@@ -3,6 +3,10 @@ import {
     DESIGN_GROUPS,
     findNode,
     hasDesign,
+    isSystemLayout,
+    PAGE_CONTENT,
+    pick,
+    SYSTEM_PAGES,
     type Device as StyleDevice,
     type LayoutDocument,
     type NodeData,
@@ -54,6 +58,8 @@ interface SectionFormProps {
     /** The screen size being styled in a free section: the same one the preview shows. */
     device: StyleDevice;
     onDevice(device: StyleDevice): void;
+    /** The kind of page being edited: a system page's own part explains itself by it. */
+    layoutType?: string;
 }
 
 export function SectionForm(props: SectionFormProps) {
@@ -67,6 +73,7 @@ export function SectionForm(props: SectionFormProps) {
     const inNode = tab === 'content' && !!nodeUid && !!findNode(section.children ?? [], nodeUid);
     const definition = sectionDefinition(section.type);
     if (!definition) return null;
+    if (section.type === PAGE_CONTENT) return <LockedBlock layoutType={props.layoutType} />;
     const tabs = [
         { key: 'content' as const, label: d.content },
         { key: 'style' as const, label: d.style },
@@ -409,6 +416,27 @@ function StyleForm({
                     description={s.orderButtonHint}
                 />
             )}
+        </div>
+    );
+}
+
+/** A system page's own part (phase 60): nothing to set, so the panel says what it is and why. */
+function LockedBlock({ layoutType }: { layoutType?: string }) {
+    const { messages: m, language } = useI18n();
+    const page = layoutType && isSystemLayout(layoutType) ? SYSTEM_PAGES[layoutType] : null;
+    if (!page) return null;
+    return (
+        <div className="space-y-3 p-4">
+            <div className="flex items-start gap-3 rounded-md border border-line bg-surface-muted p-3">
+                <ElementIcon name="lock" className="mt-0.5 size-5 shrink-0 text-ink-muted" />
+                <div className="min-w-0 text-sm">
+                    <p className="font-medium text-ink">{pick(page.block, language)}</p>
+                    <p className="mt-1 text-ink-muted">{pick(page.blockHint, language)}</p>
+                </div>
+            </div>
+            <p className="text-sm text-ink-muted">
+                {page.required ? m.design.system.lockedRequired : m.design.system.lockedOptional}
+            </p>
         </div>
     );
 }

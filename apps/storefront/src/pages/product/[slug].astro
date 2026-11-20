@@ -13,9 +13,8 @@ import { alternates, canonicalRedirect, pageContext } from '../../lib/page';
 import { NEW_PRODUCTS, PRODUCT, SLUG_LOOKUP } from '../../lib/queries';
 import { viewContentEvent } from '../../lib/meta';
 import { breadcrumbList, metaDescription, product as productLd } from '../../lib/seo';
-import { loadLayout, loadSectionData, pageStyle, setCacheTags, visibleSections } from '../../lib/sections';
+import { addAreaTags, loadArea } from '../../lib/sections';
 import { storeName } from '../../lib/store';
-import Sections from '../../sections/Sections.astro';
 import { brandPath, categoryPath, lookupSlug, productPath } from '../../lib/urls';
 
 const { lang, settings, s, href, absolute, format } = pageContext(Astro);
@@ -89,21 +88,20 @@ const orderLink =
         : null;
 
 // The product page template (phase 15): sections every product page shows below the product.
-const template = product ? await loadLayout(Astro, 'product') : null;
-const templateSections = template ? visibleSections(template.document) : [];
-const templateData = template && templateSections.length ? await loadSectionData(Astro, templateSections) : null;
+// Since phase 60 they can sit above the product too, around its "product block".
+const area = product ? await loadArea(Astro, 'product') : null;
 // Cache tags (phase 17): this product and its categories (their names are in the breadcrumb), the
 // template and what its sections show. A missing product's page is refreshed by any catalog change
 // (`listing`), so a product created at this address shows at once.
 if (!Astro.locals.preview) {
     if (product) {
         const own = [`product:${product.id}`, ...product.collections.map(collection => `collection:${collection.id}`)];
-        setCacheTags(Astro, template, templateData, own);
+        Astro.response.headers.set('xkey', own.join(' '));
+        addAreaTags(Astro, area);
     } else {
         Astro.response.headers.set('xkey', 'listing');
     }
 }
-const css = template && templateData ? pageStyle(Astro, template.document) : '';
 ---
 
 {
@@ -116,7 +114,7 @@ const css = template && templateData ? pageStyle(Astro, template.document) : '';
             ogType="product"
             image={images[0]}
             preload={main ? { ...imageAttributes(main, 768), sizes: MAIN_SIZES } : undefined}
-            css={css}
+            area={area}
             metaEvents={metaEvents}
             structuredData={[
                 productLd({
@@ -129,9 +127,7 @@ const css = template && templateData ? pageStyle(Astro, template.document) : '';
                 }),
                 breadcrumbList(crumbs.map(crumb => ({ name: crumb.name, url: absolute(crumb.href) }))),
             ]}
-            fullWidth={!!templateData}
         >
-            <div class:list={{ container: !!templateData }}>
             <Breadcrumbs crumbs={crumbs} label={s.breadcrumb} />
             <article class="product">
                 <div class="product-gallery">
@@ -235,8 +231,6 @@ const css = template && templateData ? pageStyle(Astro, template.document) : '';
                     )}
                 </div>
             </article>
-            </div>
-            {template && templateData && <Sections layout={template} data={templateData} />}
         </Layout>
     ) : (
         <Layout title={missing === 'gone' ? s.goneTitle : s.notFoundTitle} noindex>

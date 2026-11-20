@@ -6,6 +6,9 @@ import {
     type featuredProduct,
     LAYOUT_LIMITS,
     layoutCss,
+    needsPageContent,
+    splitAtContent,
+    type SystemLayout,
     type LayoutDocument,
     type LinkValue,
     type productGrid,
@@ -39,7 +42,7 @@ import { categoryPath, localePath } from './urls';
  * with a valid preview token), and everything its sections show, fetched in a few batched calls.
  */
 
-export type LayoutKind = 'home' | 'page' | 'product';
+export type LayoutKind = 'home' | 'page' | SystemLayout;
 export type Card = ResultOf<typeof ProductCardFields>;
 export type FeaturedProduct = ResultOf<typeof FEATURED_PRODUCTS>['products']['items'][number];
 export type CollectionCard = ResultOf<typeof COLLECTIONS_BY_ID>['collections']['items'][number];
@@ -47,6 +50,8 @@ export type CollectionCard = ResultOf<typeof COLLECTIONS_BY_ID>['collections']['
 export interface Preview {
     mode: 'editor' | 'share';
     expiresAt: string;
+    /** The layout being previewed: on a page that shows several, only its sections can be edited. */
+    layoutId: string;
 }
 
 export interface LoadedLayout {
@@ -89,21 +94,32 @@ export async function loadLayout(
     if (token) {
         Astro.response.headers.set('cache-control', 'no-store');
         Astro.response.headers.set('x-robots-tag', 'noindex');
-        const { bdLayoutPreview } = await shopQuery(LAYOUT_PREVIEW, { token }, lang);
-        const layout = bdLayoutPreview?.layout;
-        if (
-            bdLayoutPreview &&
-            layout &&
-            layout.type === kind &&
-            (kind !== 'page' || layout.pageId === pageId)
-        ) {
-            Astro.locals.preview = {
-                mode: bdLayoutPreview.mode === 'share' ? 'share' : 'editor',
-                expiresAt: bdLayoutPreview.expiresAt,
-            };
-            return loaded(layout);
+        // One page shows several layouts (its own, the header's, the footer's): the token is
+        // looked up once, and is for whichever of them it names.
+        Astro.locals.previewLookup ??= shopQuery(LAYOUT_PREVIEW, { token }, lang).then(
+            result => result.bdLayoutPreview,
+        );
+        const found = await Astro.locals.previewLookup;
+        const layout = found?.layout;
+        if (found && layout) {
+            // A wrong page for this token (a page's draft opened on another page) shows live.
+            const mine = layout.type === kind && (kind !== 'page' || layout.pageId === pageId);
+            const elsewhere =
+                layout.type === 'page' || layout.type === 'home' || layout.type === 'landing'
+                    ? kind === 'page' || kind === 'home'
+                    : false;
+            if (mine) {
+                Astro.locals.preview = {
+                    mode: found.mode === 'share' ? 'share' : 'editor',
+                    expiresAt: found.expiresAt,
+                    layoutId: layout.id,
+                };
+                return loaded(layout);
+            }
+            if (elsewhere) Astro.locals.previewExpired = true;
+        } else {
+            Astro.locals.previewExpired = true;
         }
-        Astro.locals.previewExpired = true;
     }
     const published = await dataCache().get(
         `layout:${kind}:${pageId ?? ''}:${lang}`,
@@ -322,4 +338,85 @@ export function pageStyle(Astro: AstroGlobal, document: LayoutDocument | null, e
 /** The admin's origin for the editor's frame (null: this site's own). */
 export function editorOrigin(): string | null {
     return env().EDITOR_ORIGIN ?? null;
+}
+
+/**
+ * A system page's sections around its own part (roadmap phase 60): what the merchant put above
+ * and below the product, the product list, the cart, the checkout form, the receipt, the header
+ * or the footer.
+ */
+export interface Area {
+    kind: SystemLayout;
+    before: LoadedLayout;
+    after: LoadedLayout;
+    /** The locked block's uid, for the editor's frame (null: the page has none). */
+    contentUid: string | null;
+    /**
+     * Whether the store's own part shows. Always on the pages that need it; in the header and
+     * footer only while their block is there.
+     */
+    standard: boolean;
+    data: SectionPageData;
+    css: string;
+    layoutId: string | null;
+}
+
+/** The published (or previewed) layout of a system page; null when the merchant hasn't made one. */
+export async function loadArea(Astro: AstroGlobal, kind: SystemLayout): Promise<Area | null> {
+    const layout = await loadLayout(Astro, kind);
+    if (!layout) return null;
+    const split = splitAtContent({ sections: visibleSections(layout.document) });
+    const standard = needsPageContent(kind) || !!split.content;
+    const sections = [...split.before, ...split.after];
+    // Nothing but the page's own part: the page as it always was (the editor still needs the
+    // block marked, to select it).
+    if (!sections.length && standard && Astro.locals.preview?.mode !== 'editor') return null;
+    const part = (list: SectionData[]): LoadedLayout => ({ ...layout, document: { sections: list } });
+    return {
+        kind,
+        before: part(split.before),
+        after: part(split.after),
+        contentUid: split.content?.uid ?? null,
+        standard,
+        data: await loadSectionData(Astro, sections),
+        css: pageStyle(Astro, { sections }),
+        layoutId: layout.layoutId,
+    };
+}
+
+/** Adds an area's cache tags to the page's (its layout and what its sections show). */
+export function addAreaTags(Astro: AstroGlobal, area: Area | null) {
+    if (!area || Astro.locals.preview) return;
+    const now = Astro.response.headers.get('xkey');
+    const tags = [...(now ? now.split(' ') : []), 'layouts', `layout:${area.layoutId}`, ...area.data.tags];
+    Astro.response.headers.set('xkey', [...new Set(tags)].join(' '));
+}
+
+/** The header and footer layouts, loaded by the middleware before the page renders. */
+export interface Chrome {
+    header: Area | null;
+    footer: Area | null;
+    /** Headers a preview sets (never cached, never indexed), for the middleware to pass on. */
+    headers: Headers;
+}
+
+export async function loadChrome(context: {
+    locals: App.Locals;
+    url: URL;
+    request: Request;
+    clientAddress: string;
+}): Promise<Chrome> {
+    const headers = new Headers();
+    // The loaders read the same few things from a page and from the middleware's context.
+    const astro = {
+        locals: context.locals,
+        url: context.url,
+        request: context.request,
+        get clientAddress() {
+            return context.clientAddress;
+        },
+        response: { headers },
+    } as unknown as AstroGlobal;
+    const [header, footer] = await Promise.all([loadArea(astro, 'header'), loadArea(astro, 'footer')]);
+    return { header, footer, headers };
 }

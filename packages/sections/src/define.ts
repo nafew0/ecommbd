@@ -3,9 +3,39 @@ import type { NodeData } from './nodes';
 import type { SectionStyle } from './style';
 import type { Bilingual } from './text';
 
-/** The pages that have layouts. `landing` arrives with sales pages (phase 16). */
-export const LAYOUT_TYPES = ['home', 'page', 'product', 'landing'] as const;
+/**
+ * The pages that have layouts. `landing` arrives with sales pages (phase 16); the store's header
+ * and footer and its listing, cart, checkout and thank-you pages with phase 60.
+ */
+export const LAYOUT_TYPES = [
+    'home',
+    'page',
+    'product',
+    'landing',
+    'header',
+    'footer',
+    'listing',
+    'cart',
+    'checkout',
+    'thanks',
+] as const;
 export type LayoutType = (typeof LAYOUT_TYPES)[number];
+
+/**
+ * System pages (phase 60): the store draws their main part itself (the product, the product list,
+ * the cart, the checkout form, the receipt, the header, the footer). The merchant designs around
+ * it; a locked "page content" section marks where it goes.
+ */
+export const SYSTEM_LAYOUTS = [
+    'header',
+    'footer',
+    'product',
+    'listing',
+    'cart',
+    'checkout',
+    'thanks',
+] as const satisfies readonly LayoutType[];
+export type SystemLayout = (typeof SYSTEM_LAYOUTS)[number];
 
 /** Groups in the editor's "Add section" library. */
 export const SECTION_CATEGORIES = [

@@ -1,6 +1,10 @@
 import {
     type Bilingual,
     copyNode,
+    isSystemLayout,
+    PAGE_CONTENT,
+    SYSTEM_PAGES,
+    type SystemLayout,
     copySection,
     createBlock,
     type Device,
@@ -121,6 +125,8 @@ export function duplicateSection(
 ): { document: LayoutDocument; copy: SectionData | null } {
     const index = document.sections.findIndex(section => section.uid === uid);
     if (index < 0 || document.sections.length >= LAYOUT_LIMITS.sections) return { document, copy: null };
+    // A system page has its own part once.
+    if (document.sections[index]!.type === PAGE_CONTENT) return { document, copy: null };
     const copy = copySection(document.sections[index]!);
     return { document: insertSection(document, copy, index + 1), copy };
 }
@@ -367,9 +373,23 @@ export function nodePath(nodes: readonly NodeData[], nodeUid: string): NodeData[
     return [];
 }
 
+let systemPage: SystemLayout | null = null;
+
+/**
+ * The system page being edited (null: an ordinary page). One editor is open at a time, and it
+ * says which page it has before it draws, so the names of the page's locked block follow it.
+ */
+export function editingSystemPage(type: string) {
+    systemPage = isSystemLayout(type) ? type : null;
+}
+
 /** The section's name and, after it, its heading (or first block's), for the list. */
 export function sectionLabel(section: SectionData, language: 'bn' | 'en'): { name: string; detail: string } {
     const definition = sectionDefinition(section.type);
+    // A system page's own part is named for the page it is on: "Product block", "Checkout form".
+    if (section.type === PAGE_CONTENT && systemPage) {
+        return { name: pick(SYSTEM_PAGES[systemPage].block, language), detail: '' };
+    }
     const name = definition ? pick(definition.name, language) : section.type;
     const settings = section.settings as Record<string, unknown>;
     const titleField = definition?.blocks?.titleField;

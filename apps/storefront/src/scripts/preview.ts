@@ -175,14 +175,15 @@ async function refresh() {
     const main = document.querySelector('main');
     const fresh = next.querySelector('main');
     if (main && fresh) main.replaceWith(document.adoptNode(fresh));
-    // The Design options' stylesheet (phase 16) changes with the sections.
-    const style = document.querySelector('style[data-layout-css]');
-    const freshStyle = next.querySelector('style[data-layout-css]');
-    if (freshStyle) {
-        if (style) style.replaceWith(document.adoptNode(freshStyle));
-        else document.head.append(document.adoptNode(freshStyle));
-    } else {
-        style?.remove();
+    // The header's and footer's own sections (phase 60) sit outside the main area.
+    for (const area of document.querySelectorAll('[data-area]')) {
+        const freshArea = next.querySelector(`[data-area="${area.getAttribute('data-area')}"]`);
+        if (freshArea) area.replaceWith(document.adoptNode(freshArea));
+    }
+    // The Design options' stylesheets (phase 16) change with the sections.
+    document.querySelectorAll('style[data-layout-css]').forEach(style => style.remove());
+    for (const style of next.querySelectorAll('style[data-layout-css]')) {
+        document.head.append(document.adoptNode(style));
     }
     for (const name of THEME_ATTRIBUTES) {
         const value = next.documentElement.getAttribute(name);

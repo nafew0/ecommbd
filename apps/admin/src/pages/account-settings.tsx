@@ -51,7 +51,10 @@ export function AccountSettingsPage() {
     const save = useMutation({
         mutationFn: (input: AccountSettings) =>
             adminApi<{
-                updateBdAccountSettings: { settings: AccountSettings | null; errors: Array<{ path: string; code: string }> };
+                updateBdAccountSettings: {
+                    settings: AccountSettings | null;
+                    errors: Array<{ path: string; code: string }>;
+                };
             }>(UPDATE, { input }).then(result => result.updateBdAccountSettings),
         onSuccess: result => {
             setErrors(errorMap(result.errors));
@@ -100,7 +103,10 @@ export function AccountSettingsPage() {
                                             value={draft[field.key] ?? ''}
                                             disabled={!canEdit}
                                             onChange={event =>
-                                                setDraft({ ...draft, [field.key]: event.target.value || null })
+                                                setDraft({
+                                                    ...draft,
+                                                    [field.key]: event.target.value || null,
+                                                })
                                             }
                                         >
                                             <option value="">{a.none}</option>

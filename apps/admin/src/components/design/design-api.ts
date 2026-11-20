@@ -5,11 +5,12 @@ import type {
     ThemeProblem,
     ThemeSettings,
 } from '@ecommbd/sections';
+import type { SystemLayout } from '@ecommbd/sections';
 import { adminApi } from '../../lib/api';
 
 /** Admin API calls for the page editor and the theme screen (roadmap phase 15, bd-sections). */
 
-export type LayoutKind = 'home' | 'product' | 'page' | 'landing';
+export type LayoutKind = 'home' | 'page' | 'landing' | SystemLayout;
 
 export interface LayoutWarning {
     sectionId: string;

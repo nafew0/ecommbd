@@ -40,7 +40,10 @@ export function BranchesPage() {
             key: 'name',
             header: b.columns.name,
             cell: row => (
-                <Link to={`/products/branches/${row.id}`} className="font-semibold text-accent hover:underline">
+                <Link
+                    to={`/products/branches/${row.id}`}
+                    className="font-semibold text-accent hover:underline"
+                >
                     {row.name}
                 </Link>
             ),
@@ -54,7 +57,8 @@ export function BranchesPage() {
             key: 'online',
             header: b.columns.sellsOnline,
             hideOnMobile: true,
-            cell: row => (row.sellsOnline ? <Badge tone="green">{m.common.on}</Badge> : <Badge>{m.common.off}</Badge>),
+            cell: row =>
+                row.sellsOnline ? <Badge tone="green">{m.common.on}</Badge> : <Badge>{m.common.off}</Badge>,
         },
     ];
     return (
@@ -77,7 +81,13 @@ export function BranchesPage() {
                 columns={columns}
                 loading={query.isLoading}
                 search={{ value: search, onChange: setSearch, placeholder: b.search }}
-                empty={<EmptyState icon={<Warehouse className="size-6" aria-hidden />} title={b.emptyBranches} body={b.branchesDescription} />}
+                empty={
+                    <EmptyState
+                        icon={<Warehouse className="size-6" aria-hidden />}
+                        title={b.emptyBranches}
+                        body={b.branchesDescription}
+                    />
+                }
             />
         </Page>
     );

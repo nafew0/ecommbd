@@ -192,6 +192,9 @@ export const en = {
             theme: 'Colours, font, buttons, header and the announcement bar for the whole store.',
             search: 'Other words for the same product, and searches that found nothing.',
         },
+        shopPages: 'Shop pages',
+        shopPagesHint:
+            'Design around the parts the store draws itself. The product, cart and checkout always keep working.',
     },
     tour: {
         label: 'A quick tour',
@@ -1926,6 +1929,13 @@ export const en = {
         productPage: 'Product page',
         productPageHint: 'Sections below every product',
         pagesGroup: 'Pages',
+        systemPages: 'Shop pages',
+        system: {
+            lockedRequired:
+                'This part is drawn by the store, so it always works. Add your own sections above or below it, and drag it to where it should sit.',
+            lockedOptional:
+                'This part is drawn by the store. Add your own sections above or below it, or remove it and build your own from elements.',
+        },
         choosePage: 'Page to edit',
         back: 'Back',
         saving: 'Saving…',
@@ -2073,6 +2083,8 @@ export const en = {
                 duplicateAnchor: 'Two things on this page have the same ID.',
                 tooManySections: 'This page has more than 40 sections.',
                 duplicateOrderForm: 'This page has two order forms. Keep one.',
+                missingContent:
+                    'This page needs its own block (the product, the product list, the cart, the checkout form or the receipt). Add it back from Add section, under Sections.',
                 tooDeep: 'Containers are nested more than three deep.',
                 tooManyNodes: 'This page has more than 400 elements.',
                 budget: 'This page would load too much script and get slow. Remove a slideshow, video or countdown.',

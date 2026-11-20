@@ -50,7 +50,12 @@ export function PurchasesPage() {
                         items { id number supplierName purchasedOn status total owed }
                     }
                 }`,
-                { search: term || null, status: status === 'all' ? null : status, skip: (page - 1) * 25, take: 25 },
+                {
+                    search: term || null,
+                    status: status === 'all' ? null : status,
+                    skip: (page - 1) * 25,
+                    take: 25,
+                },
             ).then(result => result.bdPurchases),
         placeholderData: keepPreviousData,
     });
@@ -63,7 +68,10 @@ export function PurchasesPage() {
             key: 'number',
             header: p.columns.number,
             cell: row => (
-                <Link to={`/products/purchases/${row.id}`} className="font-semibold text-accent hover:underline">
+                <Link
+                    to={`/products/purchases/${row.id}`}
+                    className="font-semibold text-accent hover:underline"
+                >
                     {row.number}
                 </Link>
             ),
@@ -107,14 +115,30 @@ export function PurchasesPage() {
                 rowId={row => row.id}
                 columns={columns}
                 loading={query.isLoading}
-                tabs={{ items: tabs, active: status, onChange: key => { setStatus(key); setPage(1); } }}
+                tabs={{
+                    items: tabs,
+                    active: status,
+                    onChange: key => {
+                        setStatus(key);
+                        setPage(1);
+                    },
+                }}
                 search={{
                     value: search,
-                    onChange: value => { setSearch(value); setPage(1); },
+                    onChange: value => {
+                        setSearch(value);
+                        setPage(1);
+                    },
                     placeholder: p.searchPurchases,
                 }}
                 pagination={{ page, pageSize: 25, total: query.data?.totalItems ?? 0, onChange: setPage }}
-                empty={<EmptyState icon={<Package className="size-6" aria-hidden />} title={p.emptyPurchases} body={p.purchasesDescription} />}
+                empty={
+                    <EmptyState
+                        icon={<Package className="size-6" aria-hidden />}
+                        title={p.emptyPurchases}
+                        body={p.purchasesDescription}
+                    />
+                }
             />
         </Page>
     );

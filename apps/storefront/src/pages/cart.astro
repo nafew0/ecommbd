@@ -5,6 +5,7 @@ import { activeOrder, applyCartCookies, cartAction, type CartActionResult, shopp
 import { isSameSite } from '../lib/csrf';
 import { canonicalRedirect, pageContext, privatePage } from '../lib/page';
 import { metaAddedCookie, metaAddedValue } from '../lib/meta';
+import { addAreaTags, loadArea } from '../lib/sections';
 
 /**
  * The cart page (roadmap phase 14), also where product pages' forms post without JavaScript:
@@ -33,9 +34,12 @@ if (Astro.request.method === 'POST') {
 }
 const order = result ? result.order : await activeOrder(shopper);
 applyCartCookies(Astro.response.headers, shopper, order);
+// The merchant's sections around this page's own part (phase 60).
+const area = await loadArea(Astro, 'cart');
+addAreaTags(Astro, area);
 ---
 
-<Layout title={s.cartTitle} noindex>
+<Layout title={s.cartTitle} noindex area={area}>
     <section class="cart-page">
         <h1>{s.cartTitle}</h1>
         <CartContents order={order} message={result?.message} />

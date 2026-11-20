@@ -81,14 +81,27 @@ export function AccountsPage() {
                 rowId={row => row.id}
                 columns={columns}
                 loading={query.isLoading}
-                search={{ value: search, onChange: value => { setSearch(value); setPage(1); }, placeholder: a.search }}
+                search={{
+                    value: search,
+                    onChange: value => {
+                        setSearch(value);
+                        setPage(1);
+                    },
+                    placeholder: a.search,
+                }}
                 pagination={{
                     page,
                     pageSize: 25,
                     total: query.data?.totalItems ?? 0,
                     onChange: setPage,
                 }}
-                empty={<EmptyState icon={<Wallet className="size-6" aria-hidden />} title={a.emptyTitle} body={a.emptyBody} />}
+                empty={
+                    <EmptyState
+                        icon={<Wallet className="size-6" aria-hidden />}
+                        title={a.emptyTitle}
+                        body={a.emptyBody}
+                    />
+                }
             />
         </Page>
     );

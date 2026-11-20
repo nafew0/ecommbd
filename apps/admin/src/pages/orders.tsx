@@ -180,10 +180,9 @@ export function OrdersPage() {
         queryKey: ['orderProfits', orderIds],
         enabled: can('ReadCost') && orderIds.length > 0,
         queryFn: () =>
-            adminApi<{ bdOrderProfits: Array<{ orderId: string; profit: { amount: number | null; known: boolean } }> }>(
-                PROFITS,
-                { ids: orderIds },
-            ).then(result => result.bdOrderProfits),
+            adminApi<{
+                bdOrderProfits: Array<{ orderId: string; profit: { amount: number | null; known: boolean } }>;
+            }>(PROFITS, { ids: orderIds }).then(result => result.bdOrderProfits),
     });
     const profitOf = (id: string) => profits.data?.find(row => row.orderId === id)?.profit;
     const c = m.orders.columns;

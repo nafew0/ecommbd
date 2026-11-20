@@ -78,7 +78,12 @@ export function BranchPage() {
     }, [query.data, load]);
     const save = useMutation({
         mutationFn: (input: Draft) =>
-            adminApi<{ saveBdBranch: { branch: { id: string } | null; errors: Array<{ path: string; code: string }> } }>(
+            adminApi<{
+                saveBdBranch: {
+                    branch: { id: string } | null;
+                    errors: Array<{ path: string; code: string }>;
+                };
+            }>(
                 `mutation ($id: ID, $input: JSON!) {
                     saveBdBranch(id: $id, input: $input) { branch { id } errors { path code } }
                 }`,
@@ -120,7 +125,11 @@ export function BranchPage() {
                                   label: b.delete,
                                   tone: 'danger',
                                   onSelect: () => {
-                                      void confirm({ title: b.deleteTitle, body: b.deleteBody, danger: true }).then(yes => {
+                                      void confirm({
+                                          title: b.deleteTitle,
+                                          body: b.deleteBody,
+                                          danger: true,
+                                      }).then(yes => {
                                           if (yes) remove.mutate();
                                       });
                                   },
@@ -154,7 +163,9 @@ export function BranchPage() {
                             disabled={!canEdit}
                             allowOther={false}
                             errors={{ districtId: errors.districtId, thanaId: errors.thanaId }}
-                            onChange={place => setDraft({ ...draft, districtId: place.districtId, thanaId: place.thanaId })}
+                            onChange={place =>
+                                setDraft({ ...draft, districtId: place.districtId, thanaId: place.thanaId })
+                            }
                         />
                         <Field label={b.phone} error={errors.phone} optional>
                             {control => (
@@ -173,7 +184,10 @@ export function BranchPage() {
                             disabled={!canEdit}
                             onChange={sellsOnline => setDraft({ ...draft, sellsOnline })}
                         />
-                        <MoreFields summary={b.moreSummary} forceOpen={Boolean(errors.addressLine || errors.note)}>
+                        <MoreFields
+                            summary={b.moreSummary}
+                            forceOpen={Boolean(errors.addressLine || errors.note)}
+                        >
                             <Field label={b.addressLine} error={errors.addressLine} optional>
                                 {control => (
                                     <Input
@@ -181,7 +195,9 @@ export function BranchPage() {
                                         value={draft.addressLine}
                                         maxLength={200}
                                         disabled={!canEdit}
-                                        onChange={event => setDraft({ ...draft, addressLine: event.target.value })}
+                                        onChange={event =>
+                                            setDraft({ ...draft, addressLine: event.target.value })
+                                        }
                                     />
                                 )}
                             </Field>

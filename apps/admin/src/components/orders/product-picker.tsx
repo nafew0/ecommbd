@@ -44,9 +44,10 @@ export function ProductPicker({
         queryKey: ['productPicker', term, allowSoldOut],
         enabled: term.length > 0,
         queryFn: () =>
-            adminApi<{ bdStock: PickedVariant[] }>(SEARCH, { search: term, includeArchived: allowSoldOut }).then(
-                r => r.bdStock,
-            ),
+            adminApi<{ bdStock: PickedVariant[] }>(SEARCH, {
+                search: term,
+                includeArchived: allowSoldOut,
+            }).then(r => r.bdStock),
     });
     return (
         <div className="space-y-2">

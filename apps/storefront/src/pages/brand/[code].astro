@@ -11,6 +11,7 @@ import { alternates, canonicalRedirect, pageContext } from '../../lib/page';
 import { BD_SEARCH, BRAND, type ProductCardFields, PRODUCTS_BY_ID } from '../../lib/queries';
 import { breadcrumbList, metaDescription } from '../../lib/seo';
 import { brandPath } from '../../lib/urls';
+import { addAreaTags, loadArea } from '../../lib/sections';
 
 /**
  * A brand's page (roadmap phase 55): its name, logo and description, then its products with the
@@ -70,11 +71,15 @@ if (brand && missing) Astro.response.status = 404;
 const path = brand ? brandPath(brand.code) : null;
 const pageQuery = (n: number) => (n > 1 ? `?page=${n}` : '');
 const crumbs = brand ? [{ name: s.home, href: href('/') }, { name: brand.name, href: href(path!) }] : [];
+// The merchant's sections around this page's own part (phase 60).
+const area = await loadArea(Astro, 'listing');
+addAreaTags(Astro, area);
 ---
 
 {
     brand && result && !missing ? (
         <Layout
+            area={area}
             title={brand.name}
             description={metaDescription(null, brand.description)}
             canonicalPath={!refined ? `${path}${pageQuery(state.page)}` : null}

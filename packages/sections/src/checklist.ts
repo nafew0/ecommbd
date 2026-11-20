@@ -4,6 +4,7 @@ import { elementDefinition } from './elements';
 import { effectiveStyle } from './node-style';
 import { eachNode, type NodeData } from './nodes';
 import { type Bilingual, isRecord } from './text';
+import { hasPageContent, needsPageContent } from './system-pages';
 import { contrastRatio } from './theme';
 
 /**
@@ -25,6 +26,7 @@ export type CheckCode =
     | 'duplicateAnchor'
     | 'tooManySections'
     | 'duplicateOrderForm'
+    | 'missingContent'
     | 'tooDeep'
     | 'tooManyNodes'
     | 'budget'
@@ -189,6 +191,10 @@ export function pageChecklist(document: LayoutDocument, options: ChecklistOption
     const first = document.sections.find(section => !section.hidden);
     if (first && estimateScriptKb(document) > budget) {
         items.push({ code: 'budget', level: 'blocker', sectionId: first.uid });
+    }
+    // A system page without its own part (the product block, the checkout form) can't go live.
+    if (options.layoutType && needsPageContent(options.layoutType) && !hasPageContent(document)) {
+        items.push({ code: 'missingContent', level: 'blocker', sectionId: first?.uid ?? '' });
     }
     const pageTitles: Array<{ section: SectionData; node: NodeData }> = [];
     for (const section of document.sections) {

@@ -68,9 +68,7 @@ export function ExpensePage() {
             adminApi<{
                 bdExpenseHeads: Array<{ id: string; nameBn: string; nameEn: string }>;
                 bdAccounts: { items: Array<{ id: string; name: string }> };
-            }>(
-                `{ bdExpenseHeads { id nameBn nameEn } bdAccounts(take: 100) { items { id name } } }`,
-            ),
+            }>(`{ bdExpenseHeads { id nameBn nameEn } bdAccounts(take: 100) { items { id name } } }`),
     });
     const { draft, setDraft, load, dirty, discard } = useDraft<Draft>(isNew ? blank() : null);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -91,7 +89,10 @@ export function ExpensePage() {
     const save = useMutation({
         mutationFn: (input: Draft) =>
             adminApi<{
-                saveBdExpense: { expense: { id: string } | null; errors: Array<{ path: string; code: string }> };
+                saveBdExpense: {
+                    expense: { id: string } | null;
+                    errors: Array<{ path: string; code: string }>;
+                };
             }>(
                 `mutation ($id: ID, $input: JSON!) {
                     saveBdExpense(id: $id, input: $input) { expense { id } errors { path code } }
@@ -190,7 +191,9 @@ export function ExpensePage() {
                                     <Select
                                         {...control}
                                         value={draft.accountId}
-                                        onChange={event => setDraft({ ...draft, accountId: event.target.value })}
+                                        onChange={event =>
+                                            setDraft({ ...draft, accountId: event.target.value })
+                                        }
                                     >
                                         <option value="">{a.none}</option>
                                         {accounts.map(account => (

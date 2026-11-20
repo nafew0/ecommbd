@@ -22,6 +22,7 @@ import { CHECKOUT_SETTINGS, DISTRICTS, THANAS } from '../lib/checkout-queries';
 import { shopQuery } from '../lib/core';
 import { csrfToken, formStamp, isSameSite, verifyCsrf } from '../lib/csrf';
 import { canonicalRedirect, pageContext, privatePage } from '../lib/page';
+import { loadArea } from '../lib/sections';
 import { initiateCheckoutEvent } from '../lib/meta';
 import { LAST_ORDER_COOKIE, lastOrderCookie, parseCookies } from '../lib/session';
 
@@ -58,6 +59,9 @@ const placedAlready = async () => {
     if (recovered) return go(thankYou(recovered, true), placedCookies(recovered));
     return go(lastOrder ? thankYou(lastOrder, true) : href('/cart/'));
 };
+
+// The merchant's sections around the checkout form (phase 60). The form itself is never theirs.
+const area = await loadArea(Astro, 'checkout');
 
 let values: CheckoutValues;
 let errors: CheckoutErrors = {};
@@ -96,6 +100,10 @@ if (Astro.request.method === 'POST') {
     }
 } else {
     const order = await activeOrder(shopper);
+    // The page editor's frame has an empty cart: it shows where the form goes (phase 60).
+    if (!order?.lines.length && Astro.locals.preview) {
+        return Astro.rewrite(`${href('/checkout/preview/')}?preview=${encodeURIComponent(Astro.url.searchParams.get('preview') ?? '')}`);
+    }
     // The back button after ordering, or a second tab: the order, not an empty checkout.
     if (!order?.lines.length) return placedAlready();
     values = initialValues(order);
@@ -138,7 +146,7 @@ const metaEvents = Astro.request.method === 'GET' ? [initiateCheckoutEvent(order
             </section>
         </Layout>
     ) : (
-<Layout title={s.checkoutTitle} noindex metaEvents={metaEvents}>
+<Layout title={s.checkoutTitle} noindex metaEvents={metaEvents} area={area}>
     <div class="checkout" data-checkout>
         <h1>{s.checkoutTitle}</h1>
         <form method="post" action={href('/checkout/')} class="checkout-form" novalidate data-checkout-form>

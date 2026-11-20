@@ -2,13 +2,14 @@ import {
     defaultHomeLayout,
     defaultThemeSettings,
     type LayoutDocument,
+    type SystemLayout,
     type ThemeSettings,
 } from '@ecommbd/sections';
 import type { ApiSession } from './store-api';
 
 /** Page layouts and the theme for browser tests (phase 15), set through the Admin API. */
 
-export type LayoutKind = 'home' | 'product' | 'page';
+export type LayoutKind = 'home' | 'page' | SystemLayout;
 
 const LAYOUT = `id draftRevision publishedVersion`;
 

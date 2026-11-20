@@ -329,6 +329,8 @@ const en = {
     editorSetDeadline: 'Choose when the offer ends.',
     editorAddElements: 'Add elements to this section: headings, text, images, buttons and more.',
     editorSetPlace: 'Type your address to show the map.',
+    editorCheckoutForm:
+        'The checkout form shows here when a shopper has something in the cart: address, delivery, payment and the order button.',
     yourMessage: 'Your message',
     send: 'Send',
     messageSentTitle: 'We got your message',
@@ -666,6 +668,8 @@ const bn: Strings = {
     editorSetDeadline: 'অফার কখন শেষ হবে, তা ঠিক করুন।',
     editorAddElements: 'এই সেকশনে এলিমেন্ট যোগ করুন: শিরোনাম, লেখা, ছবি, বাটন আর আরও অনেক কিছু।',
     editorSetPlace: 'ম্যাপ দেখাতে আপনার ঠিকানা লিখুন।',
+    editorCheckoutForm:
+        'ক্রেতার কার্টে পণ্য থাকলে এখানে চেকআউট ফর্ম দেখায়: ঠিকানা, ডেলিভারি, পেমেন্ট ও অর্ডার বাটন।',
     yourMessage: 'আপনার বার্তা',
     send: 'পাঠান',
     messageSentTitle: 'আপনার বার্তা পেয়েছি',

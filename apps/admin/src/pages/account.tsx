@@ -78,7 +78,12 @@ export function AccountPage() {
     }, [query.data, draft]);
     const save = useMutation({
         mutationFn: (input: Draft) =>
-            adminApi<{ saveBdAccount: { account: { id: string } | null; errors: Array<{ path: string; code: string }> } }>(
+            adminApi<{
+                saveBdAccount: {
+                    account: { id: string } | null;
+                    errors: Array<{ path: string; code: string }>;
+                };
+            }>(
                 `mutation ($id: ID, $input: JSON!) {
                     saveBdAccount(id: $id, input: $input) { account { id } errors { path code } }
                 }`,
@@ -114,7 +119,10 @@ export function AccountPage() {
             />
             {!isNew && query.data?.bdAccount && (
                 <p className="mb-4 text-sm text-ink-muted">
-                    {a.balance}: <span className="font-semibold text-ink">{format.money(query.data.bdAccount.balance)}</span>
+                    {a.balance}:{' '}
+                    <span className="font-semibold text-ink">
+                        {format.money(query.data.bdAccount.balance)}
+                    </span>
                 </p>
             )}
             <form
@@ -145,7 +153,9 @@ export function AccountPage() {
                                     <Select
                                         {...control}
                                         value={draft.kind}
-                                        onChange={event => setDraft({ ...draft, kind: event.target.value as Kind })}
+                                        onChange={event =>
+                                            setDraft({ ...draft, kind: event.target.value as Kind })
+                                        }
                                     >
                                         {(Object.keys(a.kinds) as Kind[]).map(kind => (
                                             <option key={kind} value={kind}>
@@ -178,10 +188,15 @@ export function AccountPage() {
                         ) : (
                             <ul className="divide-y divide-line text-sm">
                                 {query.data?.bdTransactions.items.map(row => (
-                                    <li key={row.id} className="flex items-baseline justify-between gap-3 py-2">
+                                    <li
+                                        key={row.id}
+                                        className="flex items-baseline justify-between gap-3 py-2"
+                                    >
                                         <span>
                                             {format.date(`${row.date}T06:00:00Z`)} · {a.sources[row.source]}
-                                            {row.note ? <span className="text-ink-muted"> · {row.note}</span> : null}
+                                            {row.note ? (
+                                                <span className="text-ink-muted"> · {row.note}</span>
+                                            ) : null}
                                         </span>
                                         <span className="tabular-nums">
                                             {row.direction === 'out' ? '−' : ''}
@@ -301,10 +316,19 @@ function MovementDialog({
                     {control => <TakaInput {...control} value={amount} onChange={setAmount} />}
                 </Field>
                 <Field label={a.date}>
-                    {control => <Input {...control} type="date" value={day} onChange={event => setDay(event.target.value)} />}
+                    {control => (
+                        <Input
+                            {...control}
+                            type="date"
+                            value={day}
+                            onChange={event => setDay(event.target.value)}
+                        />
+                    )}
                 </Field>
                 <Field label={a.note} optional>
-                    {control => <Textarea {...control} value={note} onChange={event => setNote(event.target.value)} />}
+                    {control => (
+                        <Textarea {...control} value={note} onChange={event => setNote(event.target.value)} />
+                    )}
                 </Field>
             </div>
         </Dialog>

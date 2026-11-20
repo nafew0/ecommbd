@@ -366,6 +366,7 @@ test.describe('storefront', () => {
         expect(index.locs).toEqual([
             `${SITE}/sitemap-products.xml`,
             `${SITE}/sitemap-categories.xml`,
+            `${SITE}/sitemap-brands.xml`,
             `${SITE}/sitemap-pages.xml`,
         ]);
         const products = await parse(await (await fetch(`${SITE}/sitemap-products.xml`)).text());

@@ -54,7 +54,8 @@ export function ReceiptDocuments(props: TemplateProps & { onHeight(mm: number): 
                             <p className="break-words">{line.name}</p>
                             <p className={row}>
                                 <span>
-                                    {quantityWithUnit(format.number(line.quantity), line.unit)} × {format.money(line.unitPrice ?? 0)}
+                                    {quantityWithUnit(format.number(line.quantity), line.unit)} ×{' '}
+                                    {format.money(line.unitPrice ?? 0)}
                                 </span>
                                 <span>{format.money(line.linePrice ?? 0)}</span>
                             </p>

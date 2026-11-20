@@ -6,7 +6,12 @@ import {
     VARIATION_TYPES,
     type VariationType,
 } from '@ecommbd/shared/catalog';
-import { allUnits, PRODUCT_STATUSES, type ProductSettings, type ProductStatus } from '@ecommbd/shared/product-settings';
+import {
+    allUnits,
+    PRODUCT_STATUSES,
+    type ProductSettings,
+    type ProductStatus,
+} from '@ecommbd/shared/product-settings';
 import { banglaToAsciiDigits } from '@ecommbd/shared/text';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, X } from 'lucide-react';
@@ -188,7 +193,8 @@ export function ProductFormPage() {
         draft.delivery.outsideDhaka !== null ||
         draft.delivery.surcharge > 0;
     const first = draft.variants[0]!;
-    const sameCost = canCost && !splitCost && draft.variants.every(variant => variant.unitCost === first.unitCost);
+    const sameCost =
+        canCost && !splitCost && draft.variants.every(variant => variant.unitCost === first.unitCost);
     const below = (price: number, cost: number | null) => cost != null && price > 0 && price < cost;
     const changeType = (type: VariationType) =>
         set({
@@ -947,7 +953,9 @@ export function ProductFormPage() {
                             <CollapsibleCard
                                 title={f.more}
                                 forceOpen={Object.keys(errors).some(
-                                    key => key.startsWith('seo.') || /(weightGrams|lengthCm|widthCm|heightCm)$/.test(key),
+                                    key =>
+                                        key.startsWith('seo.') ||
+                                        /(weightGrams|lengthCm|widthCm|heightCm)$/.test(key),
                                 )}
                             >
                                 <div className="space-y-4">
@@ -1012,10 +1020,16 @@ export function ProductFormPage() {
                                                             <Input
                                                                 {...control}
                                                                 inputMode="numeric"
-                                                                value={variant[side] === null ? '' : digits(variant[side])}
+                                                                value={
+                                                                    variant[side] === null
+                                                                        ? ''
+                                                                        : digits(variant[side])
+                                                                }
                                                                 disabled={!canEdit}
                                                                 onChange={e =>
-                                                                    setVariant(index, { [side]: number(e.target.value) })
+                                                                    setVariant(index, {
+                                                                        [side]: number(e.target.value),
+                                                                    })
                                                                 }
                                                             />
                                                         )}
@@ -1116,7 +1130,10 @@ export function ProductFormPage() {
                                             disabled={!canEdit}
                                             onChange={isNew => set({ isNew })}
                                         />
-                                        <Field label={f.status} hint={f.statusHints[draft.status as ProductStatus]}>
+                                        <Field
+                                            label={f.status}
+                                            hint={f.statusHints[draft.status as ProductStatus]}
+                                        >
                                             {control => (
                                                 <Select
                                                     {...control}

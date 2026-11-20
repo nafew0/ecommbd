@@ -1,3 +1,4 @@
+import { SYSTEM_LAYOUTS } from '@ecommbd/sections';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { Allow, Ctx, type ID, Permission, RequestContext, Transaction } from '@vendure/core';
 import { manageContentPermission } from '../bd-content/constants';
@@ -6,7 +7,7 @@ import { type EditableLayoutType, LayoutService } from './layout.service';
 import { type ContactMessageInput, ContactMessageService } from './message.service';
 import { ThemeService } from './theme.service';
 
-const EDITABLE: EditableLayoutType[] = ['home', 'product', 'page', 'landing'];
+const EDITABLE: readonly string[] = ['home', 'page', 'landing', ...SYSTEM_LAYOUTS];
 
 @Resolver()
 export class SectionsShopResolver {
