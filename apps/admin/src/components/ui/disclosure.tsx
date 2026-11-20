@@ -23,7 +23,12 @@ function Panel({ id, open, children }: { id: string; open: boolean; children: Re
         <m.div
             id={id}
             initial={false}
-            animate={open ? { height: 'auto', opacity: 1 } : { height: 0, opacity: 0 }}
+            // Closed, it is also not visible: nothing inside can be read, found or reached.
+            animate={
+                open
+                    ? { height: 'auto', opacity: 1, visibility: 'visible' }
+                    : { height: 0, opacity: 0, transitionEnd: { visibility: 'hidden' } }
+            }
             className="overflow-hidden"
             inert={!open}
             data-open={open}
