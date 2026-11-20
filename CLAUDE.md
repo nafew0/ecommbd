@@ -44,6 +44,10 @@ Read first:
   - hiding a button is a convenience; the permission check belongs on the server
   - screens follow [docs/design/admin-design-guide.md](docs/design/admin-design-guide.md): its colour tokens (never raw Tailwind palette classes), components, four page templates and "essentials first, the rest behind More" rule
   - animation only through `src/lib/motion.tsx` (Motion's light `LazyMotion` + `m` form); never import the full `motion` component
+- **Page builder (`packages/sections`):**
+  - a system page (header, footer, product, listing, cart, checkout, thank-you) keeps the store's own part in one locked `page-content` block. Never rebuild that part from elements: design goes around it
+  - keys inside layout JSON must not be `id` or end in `Id`: Vendure re-encodes them. Use `uid`, `ref`, `linked`, `styleRef`
+  - a new element needs a definition (`elements.ts`), a renderer (`Node*.astro`), an editor icon (`element-icon.tsx`), and no script unless the budget test still passes
 - **Logs:** no full phone numbers, emails or secrets. The JSON logger masks messages; don't log whole objects with personal data.
 
 ## Storefront design standard

@@ -68,7 +68,7 @@ const {
     structuredData = [],
     preload,
     fullWidth = false,
-    css: pageCss = '',
+    css: ownCss = '',
     area = null,
     sales,
     metaEvents = [],
@@ -93,7 +93,7 @@ const htmlAttributes = { ...themeAttributes(theme), ...(sales?.font ? { 'data-fo
 const header = sales?.header ?? 'store';
 // The header and footer layouts (phase 60), loaded by the middleware so their styles are in the CSP.
 const chrome = Astro.locals.chrome;
-const layoutStyles = [pageCss, area?.css, header === 'store' && chrome?.header?.css, !sales && chrome?.footer?.css].filter(
+const layoutStyles = [ownCss, area?.css, header === 'store' && chrome?.header?.css, !sales && chrome?.footer?.css].filter(
     (css): css is string => !!css,
 );
 ---
@@ -105,7 +105,7 @@ const layoutStyles = [pageCss, area?.css, header === 'store' && chrome?.header?.
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>{fullTitle}</title>
         {!hasDefaultColours(theme) && <link rel="stylesheet" href={`/theme.css?v=${themeVersion(theme)}`} />}
-        {layoutStyles.map(css => <style is:inline data-layout-css set:html={css} />)}
+        {layoutStyles.map(pageCss => <style is:inline data-layout-css set:html={pageCss} />)}
         {description && <meta name="description" content={description} />}
         {(noindex || preview) && <meta name="robots" content="noindex, follow" />}
         {canonical && <link rel="canonical" href={canonical} />}

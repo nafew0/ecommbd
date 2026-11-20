@@ -675,7 +675,7 @@ describe('page sections (phase 15)', () => {
         expect(await headingOf('home')).toEqual(['Eid sale: 20% off']);
         expect(await headingOf('page', pageId)).toEqual(['Eid sale: 20% off']);
         const reopened = (await layoutOf('page', pageId)).draft.sections[0];
-        expect(reopened.settings.heading.en).toBe('Eid sale: 20% off');
+        expect(reopened.settings.heading).toMatchObject({ en: 'Eid sale: 20% off' });
         expect(reopened.linkedEdited).toBeUndefined();
 
         // Deleted from the library: each page keeps what it showed, as an ordinary section.

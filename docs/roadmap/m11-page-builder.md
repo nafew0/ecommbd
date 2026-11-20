@@ -252,7 +252,7 @@ Several people editing at once; we keep the revision-conflict dialog.
 
 - [x] Template counts meet the targets: 78 ready sections (60), 11 store designs (11), 8 page designs, 31 sales templates (30).
 - [x] Each template passes the budgets and has Bangla text: every store and page design costs 3.0 KB of script (budget 30), every sales template 4.7–7.7 KB (budget 45); `packages/sections/src/library.spec.ts` checks the Bangla.
-- [ ] A global widget edit shows up on every page that uses it. **Not built yet.**
+- [x] A global widget edit shows up on every page that uses it (`apps/core/test/e2e/bd-sections.e2e-spec.ts`, "keeps linked sections in step across pages").
 
 ### As built so far (2026-11-19)
 
@@ -260,7 +260,10 @@ The decisions are in [decisions.md](../decisions.md) (2026-11-19, "Phase 59"). I
 
 - **Content is code:** `packages/sections/src/library.ts` (ready sections, store designs, page designs) and `landing-templates.ts` (sales templates).
 - **Preview before applying** became "try it": the design goes onto the real page straight away, with **Keep it** and **Put my page back**.
-- **Still to build:** My library (page templates, global widgets with "unlink", favourites and sorting). Saved sections work as before.
+- **My library (built 2026-11-20):** "Saved sections" became **My library**, with three kinds of entry, search, sorting and favourites.
+  - **Linked sections** are the roadmap's global widgets. A page's section points to a library entry (`linked`). The storefront and the editor fill it from the library. A change made on a page is marked (`linkedEdited`) and goes to the library when that page is **published**, so a draft never changes other live pages. **Unlink** makes it an ordinary section. Deleting the entry copies its content into every page that used it.
+  - **Page templates:** More → "Save page to my library" keeps a page's sections; using one goes through the same "try it" bar as a design.
+  - **Not built:** a count of the pages that use a linked section.
 
 ### Not in this phase
 
@@ -300,8 +303,21 @@ A template marketplace; templates made by merchants and shared between stores.
 
 ### Done when
 
-- [ ] Every listed page can be designed and published, and stays within its budget.
-- [ ] The checkout end-to-end tests (14, 18, 11) still pass with a custom layout.
+- [x] Every listed page can be designed and published, and stays within its budget (`tests/browser/system-pages.spec.ts`). The cart drawer and a choice of preview product are not built: see below.
+- [x] The checkout end-to-end tests still pass with a custom layout: `checkout.spec.ts` and `payments.spec.ts` were run with sections published above and below the header, footer, cart, checkout form and receipt (2026-11-20).
+
+### As built (2026-11-20)
+
+- **One model for every system page.** Seven layouts: `header`, `footer`, `product`, `listing` (categories, brands and search), `cart`, `checkout`, `thanks`. Each has one locked **page content** section (`page-content`) that marks where the store draws its own part. The merchant's sections go above and below it. The store's part is never rebuilt from elements, so the order data sent to the server cannot change.
+- **Header and footer** can drop their block: the store's own header (or footer) goes, and sections built from the store elements of phase 61 (logo, menu, search box, cart link, contact info) stand in. Everywhere else the block is required: the checklist blocks publishing without it ("This page needs its own block").
+- **The product page template of phase 15** had only sections below the product. It still works: with no block the sections go below, and the editor adds the block on top the next time the page is opened.
+- **Where to find them:** Online store → Shop pages. The editor's page switcher lists them too.
+- **Preview:** the checkout's preview frame has an empty cart, so a box stands where the form goes. The thank-you page previews without an order.
+- **Not built, and why:**
+  - **Product parts as separate elements** (gallery, title, price, variation picker placed freely). The single movable product block is built; splitting it needs the product page's script reworked, which is a phase of its own.
+  - **The cart drawer.** The cart layout applies to the cart page. The drawer is a small panel loaded by script, with no room for sections.
+  - **Choosing the preview product.** The preview shows the newest product.
+  - **Theme settings still have the header layout and announcement bar choices.** They keep working with the store header block.
 
 ### Not in this phase
 
@@ -337,8 +353,21 @@ A checkout made of several steps, and fields on the checkout form that merchants
 
 ### Done when
 
-- [ ] At least 70 elements, each with Bangla and English labels.
-- [ ] A page using every element at once still passes the landing-page budget.
+- [x] At least 70 elements, each with Bangla and English labels: 47 elements and 26 ready blocks in the picker (`packages/sections/src/nodes.spec.ts`).
+- [x] A page using every element at once still passes the landing-page budget: 46 elements and the 23 ready blocks of a home page together load 4.3 KB of our own script (budget 30 KB, the tighter one), with no sideways scroll on a phone (`tests/browser/builder.spec.ts`).
+
+### As built (2026-11-20)
+
+- **The roadmap's list, in two forms.** Small things are **elements** (accordion, tabs, notice, ticker, steps, comparison table, stat, progress bar, testimonial, social links, logo strip, gallery, photo row, map, price box, call/WhatsApp/email buttons). Whole sections (hero, features, FAQ, CTA banner, countdown, category grid, the order form) are **ready blocks**: any ready section dropped inside a free section, with its live data.
+- **None of the new elements loads script.** An accordion is `<details>`, tabs are radio buttons, the ticker is one CSS animation, the product row and photo row scroll and snap. The "small script per element" the roadmap expected was not needed.
+- **Store elements** show the store's own data: product card, product carousel, add-to-cart button (a plain form the cart page takes), floating cart, contact info, store logo, menu, search box, cart link.
+- **Contact form:** name, mobile number and a message, saved in `bd_contact_message` and read under Customers → Messages. A plain form post; limits of 3 an hour per number and 200 an hour per store; a hidden box catches robots.
+- **The map** is Google Maps in a frame, by address (`frame-src` allows `https://www.google.com`). No API key, no script of ours.
+- **The picker** has search (Bangla or English) and groups.
+- **Not built, and why:**
+  - **Volume offer** (quantity breaks): it needs phase 35.
+  - **Language switch element:** it needs the page's other-language address, which elements do not have yet.
+  - **Bento grid:** the grid container with uneven columns does this; no separate element.
 
 ### Not in this phase
 
@@ -383,7 +412,8 @@ An HTML embed element (our decision: no raw HTML; merchant scripts live in phase
 - **Checklist:** `pageChecklist` in `packages/sections/src/checklist.ts`, the **Checklist** button and dialog in the editor, and the preview frame's phone-width measurements. Only blockers stop publishing.
 - **Guided tour:** six steps, shown once on a first visit on a computer, skippable, restartable from More.
 - **Shortcut sheet:** under "?" and More (built with phase 58).
-- **Still to build:** saved styles (named text and button styles, store-wide), and help videos (with phase 33).
+- **Saved styles (built 2026-11-20):** a named text or button look, kept in the theme settings (`styles`, at most 24). An element points to one (`styleRef`) and can still set things of its own on top. The page's stylesheet folds the saved style in when the page is drawn (`withSavedStyles`), so a change to the style reaches every page. On the Design tab: pick one, "Save as a new style", "Update everywhere", delete.
+- **Still to build:** help videos (with phase 33).
 
 ### Not in this phase
 
