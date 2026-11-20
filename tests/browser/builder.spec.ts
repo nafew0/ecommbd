@@ -13,7 +13,7 @@ import { expect, type Page, test } from '@playwright/test';
 import { gzipSync } from 'node:zlib';
 import { signIn, watchForErrors } from './support/admin-ui';
 import { publishLayout, resetHome, setDraft, waitForStorefront } from './support/sections';
-import { adminSession, type ApiSession } from './support/store-api';
+import { adminSession, type ApiSession, randomPhone } from './support/store-api';
 
 /**
  * The element tree (roadmap phase 56): a three-level nested layout as shoppers see it on a
@@ -758,5 +758,49 @@ test.describe('the element tree', () => {
             timeout: 15_000,
         });
         expect(errors).toEqual([]);
+    });
+    test('a shopper sends a message through a contact form, and the merchant reads and answers it', async ({
+        page,
+        isMobile,
+    }) => {
+        test.skip(isMobile, 'Once is enough');
+        const errors = watchForErrors(page);
+        const section = createSection('custom');
+        section.children = [createNode('contact-form')];
+        const marker = `form${Math.random().toString(36).slice(2, 8)}`;
+        section.style.anchor = marker;
+        await publishLayout(admin, 'home', { sections: [section] });
+        await waitForStorefront(`${SITE}/en/`, html => html.includes(`id="${marker}"`));
+        await page.goto(`${SITE}/en/`);
+        const form = page.locator('.contact-form');
+        const name = `Karim ${marker}`;
+
+        // A number that isn't a mobile number is refused, and says so.
+        await form.getByLabel('Your name').fill(name);
+        await form.getByLabel('Mobile number').fill('12345');
+        await form.getByRole('button', { name: 'Send' }).click();
+        await expect(page.getByRole('alert')).toContainText('valid mobile number');
+        await page.getByRole('link', { name: 'Back to the page' }).click();
+
+        const phone = randomPhone();
+        await form.getByLabel('Your name').fill(name);
+        await form.getByLabel('Mobile number').fill(phone);
+        await form.getByLabel('Your message').fill('Do you deliver to Sylhet?');
+        await form.getByRole('button', { name: 'Send' }).click();
+        await expect(page.getByRole('heading', { name: 'We got your message' })).toBeVisible();
+
+        // The merchant finds it under Customers, Messages.
+        await signIn(page, 'en');
+        await page.goto('/admin/customers/messages');
+        const row = page.getByRole('row').filter({ hasText: name });
+        await expect(row).toContainText('Do you deliver to Sylhet?');
+        await expect(row.getByRole('link', { name: 'Call' })).toHaveAttribute('href', /^tel:\+8801/);
+        await row.getByRole('button', { name: 'Answered' }).click();
+        await expect(page.getByText('Marked as answered')).toBeVisible();
+        await expect(page.getByRole('row').filter({ hasText: name })).toHaveCount(0);
+        await page.getByRole('tab', { name: 'Answered' }).click();
+        await expect(page.getByRole('row').filter({ hasText: name })).toBeVisible();
+        // The refused number answers 422 on purpose.
+        expect(errors.filter(error => !error.includes('422'))).toEqual([]);
     });
 });

@@ -410,6 +410,13 @@ const router = createBrowserRouter(
                                 })),
                         },
                         {
+                            path: 'customers/messages',
+                            lazy: () =>
+                                import('./pages/contact-messages').then(module => ({
+                                    Component: module.ContactMessagesPage,
+                                })),
+                        },
+                        {
                             path: 'customers/blocked',
                             lazy: () =>
                                 import('./pages/block-list').then(module => ({

@@ -93,6 +93,7 @@ export const en = {
         customers: 'Customers',
         customerList: 'All customers',
         blockList: 'Block list',
+        contactMessages: 'Messages',
         salesPages: 'Sales pages',
         landingPages: 'Sales pages',
         storeOverview: 'Overview',
@@ -1834,6 +1835,25 @@ export const en = {
             'When you call: “Assalamu alaikum, I’m calling from [your shop]. Did you try to order from our website?” The number may be typed by mistake, so be polite.',
         expiresNote: 'Details are deleted after 30 days.',
     },
+    contactMessages: {
+        title: 'Messages',
+        description: 'What shoppers sent through the contact forms on your pages. Call or message them back.',
+        tabs: { waiting: 'Waiting', done: 'Answered', all: 'All' },
+        columns: { from: 'From', message: 'Message', when: 'Received' },
+        noMessage: 'No message, only the number.',
+        fromPage: 'From page',
+        call: 'Call',
+        markDone: 'Answered',
+        markWaiting: 'Not answered',
+        markedDone: 'Marked as answered',
+        markedWaiting: 'Moved back to waiting',
+        delete: 'Delete',
+        deleteConfirm: 'Delete this message? This cannot be undone.',
+        deleted: 'Message deleted',
+        empty: 'No messages here',
+        emptyWaiting: 'No one is waiting for an answer',
+        emptyBody: 'Add a "Contact form" element to a page, and what shoppers send shows up here.',
+    },
     blockList: {
         title: 'Block list',
         description:
@@ -2078,7 +2098,8 @@ export const en = {
             category: 'Category',
             allCategories: 'All',
             search: 'Search',
-            readyCount: (n: number) => `${n} ready sections. Each uses your store’s colours and your real products.`,
+            readyCount: (n: number) =>
+                `${n} ready sections. Each uses your store’s colours and your real products.`,
             noneFound: 'No ready section matches. Try another kind of store or category.',
             designs: 'Designs',
             designsDescription:
@@ -2121,7 +2142,8 @@ export const en = {
             addInside: 'Add inside',
             empty: 'This section is empty. Start with a layout, or add one element.',
             allElements: 'This section',
-            pickHint: 'Click anything on the page, or a layer on the left, to change it. Add something new to the end of this section here.',
+            pickHint:
+                'Click anything on the page, or a layer on the left, to change it. Add something new to the end of this section here.',
             path: 'Where this element is',
             inside: 'Inside this container',
             device: 'Screen size',
@@ -2148,7 +2170,8 @@ export const en = {
                 tablet: 'Reset tablet',
                 phone: 'Reset phone',
             } as Record<string, string>,
-            lowContrast: 'This text colour is hard to read on this background. Choose colours that differ more.',
+            lowContrast:
+                'This text colour is hard to read on this background. Choose colours that differ more.',
             layers: 'Layers',
             searchLayers: 'Search names or content',
             expand: 'Open',
@@ -2174,8 +2197,12 @@ export const en = {
             } as Record<string, string>,
             anchorHint: 'A button can jump here: set its link to "A section on this page".',
             animate: 'Entrance animation',
-            animateHint: 'Plays once, gently, as the shopper scrolls to it. Off for people who ask their phone for less motion.',
-            animations: { none: 'None', fade: 'Fade in', rise: 'Rise up', zoom: 'Grow in' } as Record<string, string>,
+            animateHint:
+                'Plays once, gently, as the shopper scrolls to it. Off for people who ask their phone for less motion.',
+            animations: { none: 'None', fade: 'Fade in', rise: 'Rise up', zoom: 'Grow in' } as Record<
+                string,
+                string
+            >,
             cssClass: 'CSS class',
             cssClassHint: 'For your own custom CSS. Letters, numbers and hyphens, up to five names.',
             copied: 'Copied. Paste it here or on another page.',
@@ -2522,7 +2549,8 @@ export const en = {
         skuExample: (prefix: string) => `New SKUs: ${prefix}12-1`,
         skuPrefix: 'SKU prefix',
         skuHint: 'Used when a product’s SKU is left empty: product 12, first variation → P12-1.',
-        classesExample: (name: string, charge: string) => `Example: an order with a “${name}” product pays ${charge} more for delivery.`,
+        classesExample: (name: string, charge: string) =>
+            `Example: an order with a “${name}” product pays ${charge} more for delivery.`,
     },
     cost: {
         unknown: 'Unknown',
@@ -2605,7 +2633,8 @@ export const en = {
         address: 'Address',
         note: 'Note',
         balance: 'Owed',
-        balanceHint: 'What arrived, plus delivery and other charges, minus discount, what you paid, returns and later payments.',
+        balanceHint:
+            'What arrived, plus delivery and other charges, minus discount, what you paid, returns and later payments.',
         history: 'Purchases',
         payments: 'Payments',
         paymentAmount: 'Amount',
@@ -2659,7 +2688,8 @@ export const en = {
         costMethod: 'How cost updates',
         costAverage: 'Average of what is in stock',
         costLatest: 'Latest cost',
-        costHint: 'Average: the new cost weighs what you already hold. An empty shelf uses this delivery’s cost. Latest: the cost becomes this delivery’s cost.',
+        costHint:
+            'Average: the new cost weighs what you already hold. An empty shelf uses this delivery’s cost. Latest: the cost becomes this delivery’s cost.',
         purchasePrefix: 'Purchase number prefix',
         returnPrefix: 'Return number prefix',
         prefixHint: 'PO and 1001 becomes PO-1001.',
@@ -2750,7 +2780,8 @@ export const en = {
         export: 'Export',
         exported: 'Export downloaded.',
         profitTitle: 'Profit and loss',
-        profitDescription: 'Delivered sales, minus cost, delivery, gateway fees and expenses. A transfer between accounts is not profit or loss.',
+        profitDescription:
+            'Delivered sales, minus cost, delivery, gateway fees and expenses. A transfer between accounts is not profit or loss.',
         print: 'Print',
         ranges: { today: 'Today', week: '7 days', month: '30 days', thisMonth: 'This month' },
         sales: 'Sales',
@@ -2765,10 +2796,13 @@ export const en = {
         highest: (value: string) => `Highest ${value}`,
         byHead: 'Expenses by head',
         noExpensesInRange: 'No expenses in this range.',
-        returnNote: (code: string, date: string) => `Order ${code} was returned in this period. The sale was counted on ${date}.`,
-        compare: (profit: string, previous: string) => `${profit} this period, ${previous} in the previous period.`,
+        returnNote: (code: string, date: string) =>
+            `Order ${code} was returned in this period. The sale was counted on ${date}.`,
+        compare: (profit: string, previous: string) =>
+            `${profit} this period, ${previous} in the previous period.`,
         settingsTitle: 'Accounts',
-        settingsDescription: 'Which account receives cash on delivery, the payment gateway, and bKash, Nagad and Rocket.',
+        settingsDescription:
+            'Which account receives cash on delivery, the payment gateway, and bKash, Nagad and Rocket.',
         cod: 'Cash on delivery',
         gateway: 'Payment gateway',
         bkash: 'bKash',
@@ -2799,7 +2833,8 @@ export const en = {
         deleteBody: 'Only a branch with no stock and no past stock can be deleted.',
         moreSummary: 'Address, note',
         transfersTitle: 'Stock transfers',
-        transfersDescription: 'Send stock from one branch to another. It stays on the way until the other branch receives it.',
+        transfersDescription:
+            'Send stock from one branch to another. It stays on the way until the other branch receives it.',
         addTransfer: 'New transfer',
         emptyTransfers: 'No transfers yet.',
         transferColumns: { number: 'Number', from: 'From', to: 'To', status: 'Status' },
@@ -2819,7 +2854,8 @@ export const en = {
         settingsTitle: 'Branches',
         settingsDescription: 'Which branch ships each delivery zone, and where couriers collect from.',
         zones: 'Default branch for each zone',
-        zonesHint: 'An order ships from this branch. If a zone is empty, it ships from the oldest branch that sells online.',
+        zonesHint:
+            'An order ships from this branch. If a zone is empty, it ships from the oldest branch that sells online.',
         none: 'Not set',
         prefix: 'Transfer number prefix',
         prefixHint: 'For example ST-1001.',

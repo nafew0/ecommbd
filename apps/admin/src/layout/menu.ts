@@ -108,6 +108,7 @@ export const MENU: MenuGroup[] = [
         icon: Users,
         children: [
             link('customerList', '/customers', '03', true, 'ReadCustomer'),
+            link('contactMessages', '/customers/messages', '61', true, 'ReadCustomer'),
             link('blockList', '/customers/blocked', '11', true, 'ReadCustomer'),
         ],
     },

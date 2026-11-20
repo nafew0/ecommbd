@@ -184,7 +184,7 @@ const hours = bilingual(profile.businessHours, lang);
 {
     node.type === 'contact-form' && (
         <form method="post" action={href('/contact-message/')} class="contact-form">
-            <input type="hidden" name="page" value={Astro.url.pathname} />
+            <input type="hidden" name="page" value={Astro.locals.requestPath ?? Astro.url.pathname} />
             <div class="field">
                 <label for={`n-${node.uid}`}>{s.yourName}</label>
                 <input id={`n-${node.uid}`} name="name" required maxlength="80" autocomplete="name" />
