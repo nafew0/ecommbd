@@ -605,6 +605,129 @@ describe('page sections (phase 15)', () => {
         expect((await adminClient.query(LIST)).bdSavedSections).toEqual([]);
     });
 
+    it('keeps linked sections in step across pages, and page templates and favourites in the library', async () => {
+        const SAVE = gql`
+            mutation ($name: String!, $section: JSON!, $linked: Boolean) {
+                saveBdSection(name: $name, section: $section, linked: $linked) {
+                    id
+                    kind
+                }
+            }
+        `;
+        const LIST = gql`
+            query {
+                bdSavedSections {
+                    id
+                    name
+                    kind
+                    favourite
+                    document
+                }
+            }
+        `;
+        const DELETE = gql`
+            mutation ($id: ID!) {
+                deleteBdSavedSection(id: $id)
+            }
+        `;
+        const headingOf = async (type: string, pageId?: string) => {
+            const { bdLayout } = await shopClient.query(SHOP_LAYOUT, { type, pageId });
+            return bdLayout.document.sections.map(
+                (section: { settings: { heading?: { en: string } } }) => section.settings.heading?.en,
+            );
+        };
+
+        // A banner saved as a linked section, used on the home page and on a page.
+        const banner = createSection('banner');
+        banner.settings.heading = { bn: 'ঈদ সেল', en: 'Eid sale' };
+        const { saveBdSection: entry } = await adminClient.query(SAVE, {
+            name: 'Eid strip',
+            section: banner,
+            linked: true,
+        });
+        expect(entry.kind).toBe('global');
+        // Used as the editor adds it: a copy of the entry, linked to it.
+        const use = () => ({
+            ...structuredClone(banner),
+            uid: createSection('banner').uid,
+            linked: entry.id,
+        });
+        const home = await layoutOf('home');
+        const onHome = use();
+        await saveDraft(home, { sections: [onHome] });
+        await publish(home.id, home.publishedVersion, true);
+        const pageId = await createPage('linked-page');
+        const other = await layoutOf('page', pageId);
+        await saveDraft(other, { sections: [use()] });
+        await publish(other.id, 0, true);
+        expect(await headingOf('home')).toEqual(['Eid sale']);
+        expect(await headingOf('page', pageId)).toEqual(['Eid sale']);
+
+        // Changed on the home page: marked, and still only a draft there.
+        const edited = structuredClone((await layoutOf('home')).draft.sections[0]);
+        expect(edited).toMatchObject({ linked: entry.id, uid: onHome.uid });
+        edited.settings.heading = { bn: 'ঈদ সেল', en: 'Eid sale: 20% off' };
+        const saved = await saveDraft(await layoutOf('home'), { sections: [edited] });
+        expect(saved.layout!.draft.sections[0].linkedEdited).toBe(true);
+        expect(await headingOf('page', pageId)).toEqual(['Eid sale']);
+        // Published: it reaches the other page without that page being touched.
+        await publish(home.id, 0, true);
+        expect(await headingOf('home')).toEqual(['Eid sale: 20% off']);
+        expect(await headingOf('page', pageId)).toEqual(['Eid sale: 20% off']);
+        const reopened = (await layoutOf('page', pageId)).draft.sections[0];
+        expect(reopened.settings.heading.en).toBe('Eid sale: 20% off');
+        expect(reopened.linkedEdited).toBeUndefined();
+
+        // Deleted from the library: each page keeps what it showed, as an ordinary section.
+        expect((await adminClient.query(DELETE, { id: entry.id })).deleteBdSavedSection).toBe(true);
+        expect(await headingOf('page', pageId)).toEqual(['Eid sale: 20% off']);
+        expect((await layoutOf('page', pageId)).draft.sections[0]).not.toHaveProperty('linked');
+
+        // A page template: the page's sections, without its links to the library.
+        const { saveBdPageTemplate } = await adminClient.query(
+            gql`
+                mutation ($name: String!, $document: JSON!) {
+                    saveBdPageTemplate(name: $name, document: $document) {
+                        id
+                        kind
+                        document
+                    }
+                }
+            `,
+            { name: 'Campaign page', document: { sections: [use(), createSection('faq')] } },
+        );
+        expect(saveBdPageTemplate.kind).toBe('page');
+        expect(
+            saveBdPageTemplate.document.sections.map((section: { type: string; linked?: string }) => [
+                section.type,
+                section.linked,
+            ]),
+        ).toEqual([
+            ['banner', undefined],
+            ['faq', undefined],
+        ]);
+        // A favourite, renamed.
+        const UPDATE = gql`
+            mutation ($id: ID!, $name: String, $favourite: Boolean) {
+                updateBdSavedSection(id: $id, name: $name, favourite: $favourite)
+            }
+        `;
+        await adminClient.query(UPDATE, {
+            id: saveBdPageTemplate.id,
+            name: ' Eid  campaign ',
+            favourite: true,
+        });
+        expect((await adminClient.query(LIST)).bdSavedSections).toEqual([
+            expect.objectContaining({
+                id: saveBdPageTemplate.id,
+                name: 'Eid campaign',
+                kind: 'page',
+                favourite: true,
+            }),
+        ]);
+        await adminClient.query(DELETE, { id: saveBdPageTemplate.id });
+    });
+
     it('saves theme settings only with readable text, and serves them to the storefront', async () => {
         expect((await adminClient.query(THEME)).bdThemeSettings).toMatchObject({
             theme: 'minimal',

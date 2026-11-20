@@ -115,6 +115,32 @@ export function SectionForm(props: SectionFormProps) {
                     ))}
                 </div>
             )}
+            {section.linked && !inNode && (
+                <div className="mx-4 mt-4 rounded-md border border-accent/30 bg-accent-soft p-3 text-sm">
+                    <p className="flex items-center gap-1.5 font-medium text-ink">
+                        <ElementIcon name="link" className="size-4 text-accent" />
+                        {d.mine.linkedTitle}
+                    </p>
+                    <p className="mt-1 text-ink-muted">
+                        {section.linkedEdited ? d.mine.linkedPending : d.mine.linkedBody}
+                    </p>
+                    <button
+                        type="button"
+                        className="mt-2 text-sm font-medium text-accent underline-offset-2 hover:underline"
+                        onClick={() => {
+                            onChange(
+                                updateSection(document, section.uid, item => {
+                                    const { linked: _linked, linkedEdited: _edited, ...plain } = item;
+                                    return plain;
+                                }),
+                            );
+                            toast.success(d.mine.unlinked);
+                        }}
+                    >
+                        {d.mine.unlink}
+                    </button>
+                </div>
+            )}
             {general.length > 0 && (
                 <ul className="mx-4 mt-4 space-y-1 rounded-md border border-warn/30 bg-warn-soft px-3 py-2 text-sm text-warn">
                     {general.map(item => (

@@ -122,6 +122,14 @@ export interface SectionData<Fs extends Fields = Fields, Bs extends Fields = Fie
     v: number;
     /** Hidden sections stay in the layout but don't show. */
     hidden: boolean;
+    /**
+     * A linked section (phase 59): the library entry it shows. Every page that links to the entry
+     * shows the entry's content, so one edit reaches all of them. Not called `…Id`: Vendure
+     * re-encodes keys that look like IDs inside JSON.
+     */
+    linked?: string;
+    /** This page's copy of a linked section was changed and waits for a publish to reach the others. */
+    linkedEdited?: boolean;
     settings: Values<Fs>;
     blocks: Array<BlockData<Bs>>;
     style: SectionStyle;

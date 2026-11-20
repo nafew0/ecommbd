@@ -154,10 +154,30 @@ export class SectionsAdminResolver {
 
     @Mutation()
     @Allow(editStorefrontPermission.Permission)
-    async saveBdSection(@Ctx() ctx: RequestContext, @Args() args: { name: string; section: unknown }) {
-        const saved = await this.layouts.saveSection(ctx, args.name, args.section);
+    async saveBdSection(
+        @Ctx() ctx: RequestContext,
+        @Args() args: { name: string; section: unknown; linked?: boolean | null },
+    ) {
+        const saved = await this.layouts.saveSection(ctx, args.name, args.section, args.linked === true);
         if (!saved) throw new Error('Not a section, or no name');
         return saved;
+    }
+
+    @Mutation()
+    @Allow(editStorefrontPermission.Permission)
+    async saveBdPageTemplate(@Ctx() ctx: RequestContext, @Args() args: { name: string; document: unknown }) {
+        const saved = await this.layouts.savePageTemplate(ctx, args.name, args.document);
+        if (!saved) throw new Error('No sections, or no name');
+        return saved;
+    }
+
+    @Mutation()
+    @Allow(editStorefrontPermission.Permission)
+    updateBdSavedSection(
+        @Ctx() ctx: RequestContext,
+        @Args() args: { id: ID; name?: string | null; favourite?: boolean | null },
+    ) {
+        return this.layouts.updateSaved(ctx, args.id, args);
     }
 
     @Mutation()

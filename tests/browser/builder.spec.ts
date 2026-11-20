@@ -803,4 +803,68 @@ test.describe('the element tree', () => {
         // The refused number answers 422 on purpose.
         expect(errors.filter(error => !error.includes('422'))).toEqual([]);
     });
+    test('my library: a linked section, a saved page, favourites and search', async ({ page, isMobile }) => {
+        test.skip(isMobile, 'The phone layout of the editor has its own test');
+        page.setDefaultTimeout(8000);
+        const errors = watchForErrors(page);
+        const tag = Math.random().toString(36).slice(2, 7);
+        const banner = createSection('banner');
+        await setDraft(admin, 'home', { sections: [banner, createSection('faq')] });
+        await signIn(page, 'en');
+        await openEditor(page);
+        const list = page.getByRole('list', { name: 'Sections' });
+
+        // Saved as a linked section: the one it came from is linked too.
+        await page.getByRole('button', { name: /^Actions for Offer banner/ }).click();
+        await page.getByRole('menuitem', { name: 'Save to my library' }).click();
+        await page.locator('#saved-section-name').fill(`Strip ${tag}`);
+        await page.getByRole('switch', { name: /Linked section/ }).check({ force: true });
+        await page.getByRole('button', { name: 'Save', exact: true }).click();
+        await expect(page.getByText('Saved as a linked section.')).toBeVisible();
+        await expect(list.getByText('Linked', { exact: true })).toHaveCount(1);
+        await list
+            .getByRole('button', { name: /^Offer banner/ })
+            .first()
+            .click();
+        await expect(page.getByText('This section is on other pages too.')).toBeVisible();
+
+        // The whole page, saved as a starting point.
+        await page.getByRole('button', { name: 'More', exact: true }).click();
+        await page.getByRole('menuitem', { name: 'Save page to my library' }).click();
+        await page.locator('#saved-page-name').fill(`Page ${tag}`);
+        await page.getByRole('button', { name: 'Save', exact: true }).click();
+        await expect(page.getByText('Saved. Find it under Add section → My library.')).toBeVisible();
+
+        // My library finds them: by kind, by name, favourites on top.
+        await page.getByRole('button', { name: 'Add section' }).first().click();
+        await page.getByRole('tab', { name: 'My library' }).click();
+        const linked = page.getByRole('button', { name: `Add linked: Strip ${tag}` });
+        const saved = page.getByRole('button', { name: `Use this page: Page ${tag}` });
+        await expect(linked).toBeVisible();
+        await expect(saved).toBeVisible();
+        await page.getByRole('radio', { name: /^Pages/ }).click();
+        await expect(linked).toHaveCount(0);
+        await page.getByRole('radio', { name: /^All/ }).click();
+        await page.getByRole('searchbox', { name: 'Search my library' }).fill(`strip ${tag}`);
+        await expect(saved).toHaveCount(0);
+        await page.getByRole('button', { name: `Mark as favourite: Strip ${tag}` }).click();
+        await expect(
+            page.getByRole('button', { name: `Remove from favourites: Strip ${tag}` }),
+        ).toBeVisible();
+
+        // Added again: the same section twice, both linked.
+        await linked.click();
+        await expect(list.getByText('Linked', { exact: true })).toHaveCount(2);
+        // Unlinked, one stands on its own.
+        await page.getByRole('button', { name: 'Unlink from library' }).click();
+        await expect(list.getByText('Linked', { exact: true })).toHaveCount(1);
+        expect(errors).toEqual([]);
+
+        // Tidy up: the library is the store's, not this test's.
+        const { bdSavedSections } = await admin.query('{ bdSavedSections { id name } }');
+        for (const row of bdSavedSections as Array<{ id: string; name: string }>) {
+            if (row.name.endsWith(tag))
+                await admin.query('mutation ($id: ID!) { deleteBdSavedSection(id: $id) }', { id: row.id });
+        }
+    });
 });

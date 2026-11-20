@@ -2,7 +2,6 @@ import {
     type CheckItem,
     type CheckLevel,
     createSection,
-    copySection,
     LANDING_CATEGORIES,
     LANDING_CATEGORY_NAMES,
     LANDING_TEMPLATES,
@@ -27,7 +26,7 @@ import {
     type StoreType,
 } from '@ecommbd/sections';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bookmark, Check, Copy, ExternalLink, LayoutTemplate, MessageCircle, Trash2 } from 'lucide-react';
+import { Check, Copy, ExternalLink, LayoutTemplate, MessageCircle } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '../../lib/cn';
 import { useFormat } from '../../lib/format';
@@ -36,16 +35,16 @@ import { useToast } from '../../lib/toast';
 import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
 import { Input, Select } from '../ui/input';
+import { Switch } from '../ui/switch';
 import {
     createPreviewLink,
-    deleteSavedSection,
-    fetchSavedSections,
     fetchStoreLogo,
     fetchVersions,
     type LayoutConflict,
+    savePageTemplate,
     saveSection,
 } from './design-api';
-import { IconButton } from './icon-button';
+import { MyLibrary } from './my-library';
 import { SectionIcon } from './section-icon';
 import { SectionThumbnail } from './section-thumbnail';
 
@@ -83,12 +82,6 @@ export function AddSectionDialog({
     const { messages: m, language } = useI18n();
     const d = m.design;
     const [tab, setTab] = useState<LibraryTab>(initialTab);
-    const queryClient = useQueryClient();
-    const saved = useQuery({ queryKey: ['savedSections'], queryFn: fetchSavedSections, enabled: open });
-    const remove = useMutation({
-        mutationFn: deleteSavedSection,
-        onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['savedSections'] }),
-    });
     const definitions = sectionsFor(layoutType).filter(definition => !exclude.includes(definition.type));
     const [storeType, setStoreType] = useState<StoreType | 'all'>('all');
     const [category, setCategory] = useState<ReadyCategory | 'all'>('all');
@@ -298,44 +291,13 @@ export function AddSectionDialog({
                 </div>
             )}
             {tab === 'saved' && (
-                <div>
-                    {saved.data?.length === 0 && (
-                        <div className="flex flex-col items-center gap-2 py-12 text-center text-ink-muted">
-                            <Bookmark className="size-6 text-ink-faint" aria-hidden />
-                            <p>{d.noSavedSections}</p>
-                        </div>
-                    )}
-                    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                        {saved.data?.map(item => (
-                            <li key={item.id} className="relative">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        onAdd(copySection(item.section));
-                                        onClose();
-                                    }}
-                                    className="flex h-full w-full flex-col overflow-hidden rounded-lg border border-line bg-surface text-left transition hover:border-accent hover:shadow-md"
-                                >
-                                    <span className="block border-b border-line bg-surface-muted p-2">
-                                        <SectionThumbnail
-                                            type={item.section.type}
-                                            className="aspect-[16/10] w-full rounded ring-1 ring-line"
-                                        />
-                                    </span>
-                                    <span className="p-3 pr-10 text-sm font-medium">{item.name}</span>
-                                </button>
-                                <IconButton
-                                    tone="danger"
-                                    className="absolute right-1.5 bottom-1.5"
-                                    aria-label={`${d.deleteSaved}: ${item.name}`}
-                                    onClick={() => remove.mutate(item.id)}
-                                >
-                                    <Trash2 className="size-4" aria-hidden />
-                                </IconButton>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
+                <MyLibrary
+                    allowed={allowed}
+                    pages={!isSystemLayout(layoutType) && layoutType !== 'landing'}
+                    onAdd={onAdd}
+                    onDesign={onDesign}
+                    onClose={onClose}
+                />
             )}
             {tab === 'templates' && layoutType === 'landing' && (
                 <div className="space-y-6">
@@ -490,18 +452,33 @@ export function LandingTemplateCard({
     );
 }
 
-export function SaveSectionDialog({ section, onClose }: { section: SectionData | null; onClose(): void }) {
+/**
+ * Saves a section to My library: as a copy to reuse, or as a linked section, which every page that
+ * uses it shows from the library (`onLinked` then links the section it was saved from).
+ */
+export function SaveSectionDialog({
+    section,
+    onClose,
+    onLinked,
+}: {
+    section: SectionData | null;
+    onClose(): void;
+    onLinked?(section: SectionData, id: string): void;
+}) {
     const { messages: m } = useI18n();
     const d = m.design;
     const toast = useToast();
     const queryClient = useQueryClient();
     const [name, setName] = useState('');
+    const [linked, setLinked] = useState(false);
     const save = useMutation({
-        mutationFn: () => saveSection(name, section!),
-        onSuccess: () => {
+        mutationFn: () => saveSection(name, section!, linked),
+        onSuccess: saved => {
             void queryClient.invalidateQueries({ queryKey: ['savedSections'] });
-            toast.success(d.sectionSaved);
+            toast.success(linked ? d.mine.savedLinked : d.sectionSaved);
+            if (linked && section) onLinked?.(section, saved.id);
             setName('');
+            setLinked(false);
             onClose();
         },
         onError: () => toast.error(m.errors.generic),
@@ -527,6 +504,65 @@ export function SaveSectionDialog({ section, onClose }: { section: SectionData |
             </label>
             <Input
                 id="saved-section-name"
+                autoFocus
+                maxLength={80}
+                value={name}
+                onChange={event => setName(event.target.value)}
+                onKeyDown={event => {
+                    if (event.key === 'Enter' && name.trim()) save.mutate();
+                }}
+            />
+            <div className="mt-4">
+                <Switch
+                    checked={linked}
+                    onChange={setLinked}
+                    label={d.mine.saveLinked}
+                    description={d.mine.saveLinkedHint}
+                />
+            </div>
+        </Dialog>
+    );
+}
+
+/** Saves the whole page's sections to My library, to start another page from. */
+export function SavePageDialog({ document, onClose }: { document: LayoutDocument | null; onClose(): void }) {
+    const { messages: m } = useI18n();
+    const d = m.design;
+    const toast = useToast();
+    const queryClient = useQueryClient();
+    const [name, setName] = useState('');
+    const save = useMutation({
+        mutationFn: () => savePageTemplate(name, document!),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: ['savedSections'] });
+            toast.success(d.mine.pageSaved);
+            setName('');
+            onClose();
+        },
+        onError: () => toast.error(m.errors.generic),
+    });
+    return (
+        <Dialog
+            open={!!document}
+            onClose={onClose}
+            title={d.mine.savePageTitle}
+            footer={
+                <>
+                    <Button variant="secondary" onClick={onClose}>
+                        {m.common.cancel}
+                    </Button>
+                    <Button loading={save.isPending} disabled={!name.trim()} onClick={() => save.mutate()}>
+                        {m.common.save}
+                    </Button>
+                </>
+            }
+        >
+            <p className="mb-3 text-sm text-ink-muted">{d.mine.savePageHint}</p>
+            <label className="mb-1.5 block text-sm font-medium" htmlFor="saved-page-name">
+                {d.saveSectionName}
+            </label>
+            <Input
+                id="saved-page-name"
                 autoFocus
                 maxLength={80}
                 value={name}

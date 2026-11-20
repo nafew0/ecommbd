@@ -7,12 +7,15 @@ import {
     documentIssues,
     documentRefs,
     eachField,
+    linkedIds,
     mapDocumentIds,
     mapLinks,
     readDocument,
     readSection,
+    sameContent,
     shownSmartSections,
     smartSections,
+    withLinked,
 } from './document';
 import { ELEMENTS, elementDefinition, parseRows, STRUCTURE_PRESETS } from './elements';
 import { type Device, effectiveStyle, readNodeStyle, styleCount, withStyleValue } from './node-style';
@@ -827,5 +830,43 @@ describe('the element library (phase 61)', () => {
         expect(layoutCss({ sections: [free([bar, map])] })).toBe(
             '.el[data-u="bar00001"]{--progress:40%}.el[data-u="map00001"]{--map-height:400px}',
         );
+    });
+    it('fills linked sections from the library, keeps this page’s pending edit, and unlinks a lost one', () => {
+        const entry = createSection('rich-text');
+        entry.settings.heading = { bn: 'লাইব্রেরি', en: 'From the library' };
+        const here = { ...createSection('rich-text'), linked: '7', hidden: true };
+        const edited = { ...createSection('rich-text'), linked: '7', linkedEdited: true };
+        const lost = { ...createSection('faq'), linked: '99' };
+        const wrongKind = { ...createSection('faq'), linked: '7' };
+        const plain = createSection('banner');
+        const document = readDocument(
+            JSON.parse(JSON.stringify({ sections: [here, edited, lost, wrongKind, plain] })),
+        );
+        expect(document.sections.map(section => section.linked)).toEqual(['7', '7', '99', '7', undefined]);
+        expect(linkedIds(document)).toEqual(['7', '99']);
+        const find = (id: string) => (id === '7' ? entry : undefined);
+
+        const shown = withLinked(document, find);
+        expect(shown.sections[0]).toMatchObject({ uid: here.uid, hidden: true, linked: '7' });
+        expect(shown.sections[0]!.settings.heading).toEqual(entry.settings.heading);
+        expect(shown.sections[1]!.settings.heading).toEqual(entry.settings.heading);
+        expect(shown.sections[1]!.linkedEdited).toBeUndefined();
+        // Gone from the library, or an entry of another kind: an ordinary section again.
+        expect(shown.sections[2]).not.toHaveProperty('linked');
+        expect(shown.sections[3]).not.toHaveProperty('linked');
+        expect(shown.sections[4]).toBe(document.sections[4]);
+
+        // In the editor, a copy changed here waits for its publish.
+        const editing = withLinked(document, find, { keepEdited: true });
+        expect(editing.sections[1]).toBe(document.sections[1]);
+        expect(sameContent(shown.sections[0]!, entry)).toBe(true);
+        expect(sameContent(document.sections[0]!, entry)).toBe(false);
+        // Nothing linked: the same document back.
+        const none = { sections: [plain] };
+        expect(withLinked(none, find)).toBe(none);
+        // A link that isn't an entry's id is dropped on reading.
+        expect(
+            readDocument({ sections: [{ ...plain, linked: 'not an id!' }] }).sections[0],
+        ).not.toHaveProperty('linked');
     });
 });

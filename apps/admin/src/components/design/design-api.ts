@@ -119,25 +119,47 @@ export function createPreviewLink(layoutId: string, language: 'bn' | 'en', share
     ).then(result => result.createBdPreviewLink);
 }
 
+/** An entry of My library (phase 59): a section to copy, a linked section, or a whole page. */
 export interface SavedSection {
     id: string;
     name: string;
     section: SectionData;
     createdAt: string;
     createdBy: string;
+    /** `global`: a linked section, shown from the library by every page that uses it. */
+    kind: 'section' | 'global' | 'page';
+    favourite: boolean;
+    /** A page template's sections. */
+    document: LayoutDocument | null;
 }
+
+const SAVED = 'id name section createdAt createdBy kind favourite document';
 
 export function fetchSavedSections() {
-    return adminApi<{ bdSavedSections: SavedSection[] }>(
-        `{ bdSavedSections { id name section createdAt createdBy } }`,
-    ).then(result => result.bdSavedSections);
+    return adminApi<{ bdSavedSections: SavedSection[] }>(`{ bdSavedSections { ${SAVED} } }`).then(
+        result => result.bdSavedSections,
+    );
 }
 
-export function saveSection(name: string, section: SectionData) {
+export function saveSection(name: string, section: SectionData, linked = false) {
     return adminApi<{ saveBdSection: SavedSection }>(
-        `mutation ($name: String!, $section: JSON!) { saveBdSection(name: $name, section: $section) { id name section createdAt createdBy } }`,
-        { name, section },
+        `mutation ($name: String!, $section: JSON!, $linked: Boolean) { saveBdSection(name: $name, section: $section, linked: $linked) { ${SAVED} } }`,
+        { name, section, linked },
     ).then(result => result.saveBdSection);
+}
+
+export function savePageTemplate(name: string, document: LayoutDocument) {
+    return adminApi<{ saveBdPageTemplate: SavedSection }>(
+        `mutation ($name: String!, $document: JSON!) { saveBdPageTemplate(name: $name, document: $document) { ${SAVED} } }`,
+        { name, document },
+    ).then(result => result.saveBdPageTemplate);
+}
+
+export function updateSaved(id: string, input: { name?: string; favourite?: boolean }) {
+    return adminApi<{ updateBdSavedSection: boolean }>(
+        `mutation ($id: ID!, $name: String, $favourite: Boolean) { updateBdSavedSection(id: $id, name: $name, favourite: $favourite) }`,
+        { id, ...input },
+    );
 }
 
 export function deleteSavedSection(id: string) {

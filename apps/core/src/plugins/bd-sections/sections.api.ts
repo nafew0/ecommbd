@@ -123,6 +123,11 @@ export const sectionsAdminApiExtensions = gql`
         section: JSON!
         createdAt: DateTime!
         createdBy: String!
+        "section (a copy), global (linked: pages show this entry) or page (a whole page's sections)"
+        kind: String!
+        favourite: Boolean!
+        "LayoutDocument, for a page template"
+        document: JSON
     }
 
     type BdContactMessage {
@@ -182,7 +187,11 @@ export const sectionsAdminApiExtensions = gql`
         discardBdLayoutDraft(layoutId: ID!): BdLayoutResult!
         "language: bn or en; share: a link for someone else (30 minutes) instead of the editor's frame (15)"
         createBdPreviewLink(layoutId: ID!, language: String!, share: Boolean): BdPreviewLink!
-        saveBdSection(name: String!, section: JSON!): BdSavedSection!
+        "linked: pages that use it show the library's copy, so one edit reaches all of them"
+        saveBdSection(name: String!, section: JSON!, linked: Boolean): BdSavedSection!
+        "A whole page's sections, to start other pages from"
+        saveBdPageTemplate(name: String!, document: JSON!): BdSavedSection!
+        updateBdSavedSection(id: ID!, name: String, favourite: Boolean): Boolean!
         deleteBdSavedSection(id: ID!): Boolean!
         setBdContactMessageHandled(id: ID!, handled: Boolean!): Boolean!
         deleteBdContactMessage(id: ID!): Boolean!

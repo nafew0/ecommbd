@@ -3,6 +3,9 @@ import {
     defaultHomeLayout,
     defaultProductTemplate,
     defaultSystemLayout,
+    linkedIds,
+    sameContent,
+    withLinked,
     isSystemLayout,
     needsPageContent,
     type SystemLayout,
@@ -110,6 +113,16 @@ export interface ShopLayoutView {
 
 const issueWarning = (issue: LayoutIssue): LayoutWarning => ({ ...issue });
 
+/** A linked section's library entry is an ID too: encoded for the editor, decoded when stored. */
+function mapLinked(document: LayoutDocument, map: (id: string) => string): LayoutDocument {
+    if (!document.sections.some(section => section.linked)) return document;
+    return {
+        sections: document.sections.map(section =>
+            section.linked ? { ...section, linked: map(section.linked) } : section,
+        ),
+    };
+}
+
 /**
  * Page layouts (roadmap phase 15): drafts autosaved by the editor, publishing with a version stamp,
  * the last 20 versions, preview links, and the published sections for the storefront.
@@ -211,11 +224,18 @@ export class LayoutService {
             pageId: layout.pageId,
             title,
             // A product page template from before phase 60 gets its product block, at the top.
-            draft: mapDocumentIds(
-                needsPageContent(layout.type)
-                    ? withPageContent(readDocument(layout.draft))
-                    : readDocument(layout.draft),
-                (_kind, id) => this.encode(id),
+            draft: mapLinked(
+                mapDocumentIds(
+                    withLinked(
+                        needsPageContent(layout.type)
+                            ? withPageContent(readDocument(layout.draft))
+                            : readDocument(layout.draft),
+                        await this.libraryEntries(ctx, layout.draft),
+                        { keepEdited: true },
+                    ),
+                    (_kind, id) => this.encode(id),
+                ),
+                this.encode,
             ),
             draftRevision: layout.draftRevision,
             draftSavedAt: layout.draftSavedAt,
@@ -311,8 +331,11 @@ export class LayoutService {
 
     /** The editor's input, ready to store: read for this release, sanitized, IDs decoded. */
     private prepare(input: unknown): { document: LayoutDocument; errors: LayoutWarning[] } {
-        const document = mapDocumentIds(readDocument(input, { sanitize: sanitizeRichText }), (_kind, id) =>
-            this.decode(id),
+        const document = mapLinked(
+            mapDocumentIds(readDocument(input, { sanitize: sanitizeRichText }), (_kind, id) =>
+                this.decode(id),
+            ),
+            this.decode,
         );
         const errors: LayoutWarning[] = [];
         if (document.sections.length > LAYOUT_LIMITS.sections) {
@@ -339,8 +362,18 @@ export class LayoutService {
                 errors: [{ sectionId: '', field: 'id', code: 'notFound' }],
                 conflict: null,
             };
-        const { document, errors } = this.prepare(input);
-        if (errors.length) return { layout: null, errors, conflict: null };
+        const prepared = this.prepare(input);
+        if (prepared.errors.length) return { layout: null, errors: prepared.errors, conflict: null };
+        // A linked section changed on this page waits, marked, for the publish that sends it on.
+        const entry = await this.libraryEntries(ctx, prepared.document);
+        const document: LayoutDocument = {
+            sections: prepared.document.sections.map(section => {
+                const source = section.linked ? entry(section.linked) : undefined;
+                if (!source) return section;
+                const { linkedEdited: _edited, ...rest } = section;
+                return sameContent(section, source) ? rest : { ...rest, linkedEdited: true };
+            }),
+        };
         const query = this.repo(ctx)
             .createQueryBuilder()
             .update(BdPageLayout)
@@ -379,9 +412,21 @@ export class LayoutService {
                     conflict: null,
                 };
             }
-            const document = readDocument(layout.draft);
-            const errors = documentIssues(document).map(issueWarning);
+            const draft = readDocument(layout.draft);
+            const errors = documentIssues(draft).map(issueWarning);
             if (errors.length) return { layout: null, errors, conflict: null };
+            // Linked sections (phase 59): what was changed here goes to the library, so every page
+            // that links to it shows it; the rest take the library's content.
+            const library = this.connection.getRepository(txCtx, BdSavedSection);
+            for (const section of draft.sections) {
+                if (!section.linked || !section.linkedEdited) continue;
+                const { linked: _linked, linkedEdited: _edited, hidden: _hidden, ...content } = section;
+                await library.update(
+                    { id: section.linked, kind: 'global' },
+                    { section: { ...content, hidden: false } },
+                );
+            }
+            const document = withLinked(draft, await this.libraryEntries(txCtx, draft));
             if (!force && layout.publishedVersion !== baseVersion) {
                 return { layout: null, errors: [], conflict: this.conflictOf(layout, 'publish') };
             }
@@ -564,7 +609,10 @@ export class LayoutService {
         stored: LayoutDocument,
         version: number,
     ): Promise<ShopLayoutView> {
-        const document = readDocument(stored, { sanitize: sanitizeRichText });
+        const document = withLinked(
+            readDocument(stored, { sanitize: sanitizeRichText }),
+            await this.libraryEntries(ctx, stored),
+        );
         const hrefs = new Map<string, string | undefined>();
         for (const visit of eachField(document)) {
             if (visit.field.kind !== 'link') continue;
@@ -585,7 +633,12 @@ export class LayoutService {
             type: layout.type,
             pageId: layout.pageId,
             version,
-            document: mapDocumentIds(linked, (_kind, id) => this.encode(id)),
+            // The storefront has no use for the links to the library.
+            document: {
+                sections: mapDocumentIds(linked, (_kind, id) => this.encode(id)).sections.map(
+                    ({ linked: _entry, linkedEdited: _edited, ...section }) => section,
+                ),
+            },
             assets,
         };
     }
@@ -669,48 +722,169 @@ export class LayoutService {
         return null;
     }
 
+    /** The library entries a document links to, by id (phase 59). */
+    private async libraryEntries(
+        ctx: RequestContext,
+        document: LayoutDocument,
+    ): Promise<(id: string) => SectionData | undefined> {
+        const ids = linkedIds(readDocument(document));
+        if (!ids.length) return () => undefined;
+        const rows = await this.connection
+            .getRepository(ctx, BdSavedSection)
+            .find({ where: { id: In(ids), kind: 'global' } });
+        const entries = new Map<string, SectionData>();
+        for (const row of rows) {
+            const section = readSection(row.section, { sanitize: sanitizeRichText });
+            if (section) entries.set(String(row.id), section);
+        }
+        return id => entries.get(id);
+    }
+
+    /** My library: saved sections, linked sections and page templates, newest first. */
     savedSections(ctx: RequestContext) {
         return this.connection
             .getRepository(ctx, BdSavedSection)
-            .find({ order: { createdAt: 'DESC' }, take: MAX_SAVED_SECTIONS })
+            .find({ order: { createdAt: 'DESC' }, take: MAX_SAVED_SECTIONS * 3 })
             .then(rows =>
                 rows.flatMap(row => {
                     // Read for this release: one saved before the element tree gets its tree here.
                     const section = readSection(row.section);
                     if (!section) return [];
+                    const encode = (document: LayoutDocument) =>
+                        mapDocumentIds(document, (_kind, id) => this.encode(id));
                     return [
                         {
                             ...row,
-                            section: mapDocumentIds({ sections: [section] }, (_kind, id) => this.encode(id))
-                                .sections[0],
+                            section: encode({ sections: [section] }).sections[0],
+                            document: row.document ? encode(readDocument(row.document)) : null,
                         },
                     ];
                 }),
             );
     }
 
-    /** Saves a styled section for reuse; null when it isn't a section this release knows. */
-    async saveSection(ctx: RequestContext, name: string, input: unknown) {
-        const section = readSection(input, { sanitize: sanitizeRichText });
-        const label = name.normalize('NFC').replace(/\s+/g, ' ').trim().slice(0, 80);
-        if (!section || !label) return null;
+    private label(name: string) {
+        return name.normalize('NFC').replace(/\s+/g, ' ').trim().slice(0, 80);
+    }
+
+    /** The oldest plain entries go once there are too many; favourites and linked ones stay. */
+    private async prune(ctx: RequestContext, kind: 'section' | 'page') {
         const repo = this.connection.getRepository(ctx, BdSavedSection);
-        const decoded = mapDocumentIds({ sections: [section] }, (_kind, id) => this.decode(id)).sections[0]!;
-        const saved = await repo.save(
-            new BdSavedSection({ name: label, section: decoded, createdBy: await this.staffName(ctx) }),
-        );
-        // The oldest go once there are too many.
         const extra = await repo.find({
+            where: { kind, favourite: false },
             order: { createdAt: 'DESC' },
             skip: MAX_SAVED_SECTIONS,
             select: ['id'],
         });
         if (extra.length) await repo.delete({ id: In(extra.map(row => row.id)) });
-        return { ...saved, section };
     }
 
-    async deleteSavedSection(ctx: RequestContext, id: ID): Promise<boolean> {
-        const { affected } = await this.connection.getRepository(ctx, BdSavedSection).delete(id);
+    /**
+     * Saves a styled section for reuse; null when it isn't a section this release knows. `linked`
+     * makes it a linked section: pages that use it show the library's copy.
+     */
+    async saveSection(ctx: RequestContext, name: string, input: unknown, linked = false) {
+        const read = readSection(input, { sanitize: sanitizeRichText });
+        const label = this.label(name);
+        if (!read || !label) return null;
+        // A system page's own part belongs to its page.
+        if (read.type === 'page-content') return null;
+        const { linked: _linked, linkedEdited: _edited, ...section } = read;
+        const repo = this.connection.getRepository(ctx, BdSavedSection);
+        const decoded = mapDocumentIds({ sections: [section] }, (_kind, id) => this.decode(id)).sections[0]!;
+        const saved = await repo.save(
+            new BdSavedSection({
+                name: label,
+                section: { ...decoded, hidden: false },
+                kind: linked ? 'global' : 'section',
+                createdBy: await this.staffName(ctx),
+            }),
+        );
+        if (!linked) await this.prune(ctx, 'section');
+        return { ...saved, section, document: null };
+    }
+
+    /** Saves a whole page's sections as a template; null when it has none, or no name. */
+    async savePageTemplate(ctx: RequestContext, name: string, input: unknown) {
+        const { document, errors } = this.prepare(input);
+        const label = this.label(name);
+        // Links to the library and a system page's own part stay with their page.
+        const sections = document.sections
+            .filter(section => section.type !== 'page-content')
+            .map(({ linked: _linked, linkedEdited: _edited, ...section }) => section);
+        if (errors.length || !label || !sections.length) return null;
+        const saved = await this.connection.getRepository(ctx, BdSavedSection).save(
+            new BdSavedSection({
+                name: label,
+                section: sections[0]!,
+                document: { sections },
+                kind: 'page',
+                createdBy: await this.staffName(ctx),
+            }),
+        );
+        await this.prune(ctx, 'page');
+        const encoded = mapDocumentIds({ sections }, (_kind, id) => this.encode(id));
+        return { ...saved, section: encoded.sections[0], document: encoded };
+    }
+
+    /** Renames a library entry, or marks it a favourite. */
+    async updateSaved(
+        ctx: RequestContext,
+        id: ID,
+        input: { name?: string | null; favourite?: boolean | null },
+    ): Promise<boolean> {
+        const patch: { name?: string; favourite?: boolean } = {};
+        if (typeof input.name === 'string' && this.label(input.name)) patch.name = this.label(input.name);
+        if (typeof input.favourite === 'boolean') patch.favourite = input.favourite;
+        if (!Object.keys(patch).length) return false;
+        const { affected } = await this.connection.getRepository(ctx, BdSavedSection).update(id, patch);
         return !!affected;
+    }
+
+    /**
+     * Removes a library entry. Pages that linked to it keep the content they last showed, as
+     * ordinary sections (`withLinked`); the storefront is refreshed so they read their own copy.
+     */
+    async deleteSavedSection(ctx: RequestContext, id: ID): Promise<boolean> {
+        const repo = this.connection.getRepository(ctx, BdSavedSection);
+        const row = await repo.findOne({ where: { id } });
+        if (!row) return false;
+        if (row.kind === 'global') {
+            // Each page that links to it takes its content now, and stands on its own from here.
+            const entry = readSection(row.section);
+            const key = String(row.id);
+            const own = (document: LayoutDocument | null, keepEdited: boolean) =>
+                document && linkedIds(readDocument(document)).includes(key)
+                    ? {
+                          sections: withLinked(
+                              readDocument(document),
+                              linked => (linked === key ? (entry ?? undefined) : undefined),
+                              { keepEdited },
+                          ).sections.map(section => {
+                              if (section.linked !== key) return section;
+                              const { linked: _linked, linkedEdited: _edited, ...plain } = section;
+                              return plain;
+                          }),
+                      }
+                    : null;
+            // PostgreSQL writes jsonb as text with a space after each colon.
+            const like = `%"linked": "${key}"%`;
+            const layouts = await this.repo(ctx)
+                .createQueryBuilder('layout')
+                .where('layout.draft::text LIKE :like OR layout.published::text LIKE :like', { like })
+                .getMany();
+            for (const layout of layouts) {
+                const draft = own(layout.draft, true);
+                const published = own(layout.published, false);
+                if (!draft && !published) continue;
+                await this.repo(ctx).update(layout.id, {
+                    ...(draft ? { draft } : {}),
+                    ...(published ? { published } : {}),
+                });
+            }
+        }
+        await repo.delete(id);
+        if (row.kind === 'global') await this.purger.purge(ctx, ['layouts']);
+        return true;
     }
 }

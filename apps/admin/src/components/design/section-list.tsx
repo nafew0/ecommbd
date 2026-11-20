@@ -245,8 +245,17 @@ export function SectionList(props: SectionListProps) {
                                     <span
                                         className={cn('min-w-0 flex-1', section.hidden && 'text-ink-faint')}
                                     >
-                                        <span className="block truncate text-sm font-medium">
-                                            {label.name}
+                                        <span className="flex items-center gap-1.5 text-sm font-medium">
+                                            <span className="truncate">{label.name}</span>
+                                            {section.linked && (
+                                                <span
+                                                    className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-accent-soft text-accent"
+                                                    title={d.mine.linkedBody}
+                                                >
+                                                    <ElementIcon name="link" className="size-3" />
+                                                    <span className="sr-only">{d.mine.linkedBadge}</span>
+                                                </span>
+                                            )}
                                         </span>
                                         {(label.detail || section.hidden) && (
                                             <span className="block truncate text-xs text-ink-muted">

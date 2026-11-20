@@ -92,6 +92,10 @@ export function readSection(raw: unknown, options: ReadOptions = {}): SectionDat
         blocks,
         style: readStyle(raw.style, definition.style),
     };
+    if (typeof raw.linked === 'string' && /^[\w-]{1,40}$/.test(raw.linked)) {
+        section.linked = raw.linked;
+        if (raw.linkedEdited === true) section.linkedEdited = true;
+    }
     if (definition.tree) {
         // The Custom section of phase 16 kept columns of blocks: they become a grid container.
         const children =
@@ -508,4 +512,53 @@ export function mapLinks(document: LayoutDocument, map: (link: LinkValue) => Lin
             ]),
         );
     return { sections: document.sections.map(section => mapSectionParts(section, mapSettings)) };
+}
+
+/** What a section shows, without where it sits or what it links to: for comparing two copies. */
+export function sectionContent(
+    section: SectionData,
+): Omit<SectionData, 'uid' | 'hidden' | 'linked' | 'linkedEdited'> {
+    const { uid: _uid, hidden: _hidden, linked: _linked, linkedEdited: _edited, ...content } = section;
+    return content;
+}
+
+/** True when two sections show the same thing. */
+export function sameContent(a: SectionData, b: SectionData): boolean {
+    return JSON.stringify(sectionContent(a)) === JSON.stringify(sectionContent(b));
+}
+
+/** The library entries a document links to. */
+export function linkedIds(document: LayoutDocument): string[] {
+    return [...new Set(document.sections.flatMap(section => (section.linked ? [section.linked] : [])))];
+}
+
+/**
+ * Linked sections filled from the library (phase 59). Each keeps its own place, uid and hidden
+ * state and takes the entry's content. A copy changed on this page and not yet published
+ * (`linkedEdited`) is kept when `keepEdited`; a link to an entry that is gone becomes an ordinary
+ * section with the content it had.
+ */
+export function withLinked(
+    document: LayoutDocument,
+    entry: (id: string) => SectionData | undefined,
+    { keepEdited = false } = {},
+): LayoutDocument {
+    if (!document.sections.some(section => section.linked)) return document;
+    return {
+        sections: document.sections.map(section => {
+            if (!section.linked) return section;
+            const source = entry(section.linked);
+            if (!source || source.type !== section.type) {
+                const { linked: _linked, linkedEdited: _edited, ...plain } = section;
+                return plain;
+            }
+            if (keepEdited && section.linkedEdited) return section;
+            return {
+                ...structuredClone(source),
+                uid: section.uid,
+                hidden: section.hidden,
+                linked: section.linked,
+            };
+        }),
+    };
 }

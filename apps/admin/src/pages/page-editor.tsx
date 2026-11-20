@@ -18,6 +18,7 @@ import {
 } from '@ecommbd/sections';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+    Bookmark,
     ArrowLeft,
     CloudCheck,
     CloudOff,
@@ -58,12 +59,19 @@ import {
     ChecklistDialog,
     ConflictDialog,
     HistoryDialog,
+    SavePageDialog,
     type LibraryTab,
     ShortcutsDialog,
     SaveSectionDialog,
     ShareDialog,
 } from '../components/design/dialogs';
-import { editingSystemPage, insertSection, nodeName, sectionLabel } from '../components/design/document-ops';
+import {
+    editingSystemPage,
+    insertSection,
+    nodeName,
+    sectionLabel,
+    updateSection,
+} from '../components/design/document-ops';
 import { IconButton } from '../components/design/icon-button';
 import {
     type Device,
@@ -199,6 +207,7 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
     const [historyOpen, setHistoryOpen] = useState(false);
     const [shareOpen, setShareOpen] = useState(false);
     const [saving, setSaving] = useState<SectionData | null>(null);
+    const [savingPage, setSavingPage] = useState(false);
     const [publishing, setPublishing] = useState(false);
     // A sales page's own settings (phase 16), in place of a section's.
     const [pageSettings, setPageSettings] = useState(false);
@@ -486,6 +495,10 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
         { label: d.tree.shortcuts, icon: Keyboard, run: () => setShortcutsOpen(true) },
         { label: m.tour.again, icon: Compass, run: () => setTourOpen(true) },
         { label: d.share, icon: Share2, run: () => setShareOpen(true) },
+        // A page made from nothing can be a starting point for others (phase 59).
+        ...(!isSystemLayout(layout.type) && layout.type !== 'landing' && document.sections.length > 0
+            ? [{ label: d.mine.savePage, icon: Bookmark, run: () => setSavingPage(true) }]
+            : []),
         ...(liveUrl && layout.publishedVersion
             ? [
                   {
@@ -1034,7 +1047,15 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
                 onDesign={applyDesign}
                 onLandingTemplate={id => void applyLandingTemplate(id)}
             />
-            <SaveSectionDialog section={saving} onClose={() => setSaving(null)} />
+            <SaveSectionDialog
+                section={saving}
+                onClose={() => setSaving(null)}
+                // Saved as a linked section: the one it was saved from is linked too.
+                onLinked={(section, id) =>
+                    editor.change(updateSection(document, section.uid, item => ({ ...item, linked: id })))
+                }
+            />
+            <SavePageDialog document={savingPage ? document : null} onClose={() => setSavingPage(false)} />
             <HistoryDialog
                 open={historyOpen}
                 onClose={() => setHistoryOpen(false)}
