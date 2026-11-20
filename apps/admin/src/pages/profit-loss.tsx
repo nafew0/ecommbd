@@ -85,8 +85,7 @@ export function ProfitLossPage() {
     const query = useQuery({
         queryKey: ['profit', dates.dateFrom, dates.dateTo],
         enabled: Boolean(dates.dateFrom && dates.dateTo && dates.dateFrom <= dates.dateTo),
-        queryFn: () =>
-            adminApi<{ bdProfitAndLoss: Report }>(QUERY, dates).then(result => result.bdProfitAndLoss),
+        queryFn: () => adminApi<{ bdProfitAndLoss: Report }>(QUERY, dates).then(result => result.bdProfitAndLoss),
         placeholderData: keepPreviousData,
     });
     const data = query.data;
@@ -102,10 +101,7 @@ export function ProfitLossPage() {
             text: day.profit == null ? a.unknown : format.money(day.profit),
         }));
     }, [data, digits, format, a.unknown]);
-    const top = bars.reduce((best, bar) => (bar.value > best.value ? bar : best), {
-        value: 0,
-        text: format.money(0),
-    });
+    const top = bars.reduce((best, bar) => (bar.value > best.value ? bar : best), { value: 0, text: format.money(0) });
     return (
         <Page width="full">
             <PageHeader
@@ -114,10 +110,7 @@ export function ProfitLossPage() {
                 actions={
                     <Button
                         onClick={() =>
-                            window.open(
-                                `/admin/print/profit?from=${dates.dateFrom}&to=${dates.dateTo}`,
-                                '_blank',
-                            )
+                            window.open(`/admin/print/profit?from=${dates.dateFrom}&to=${dates.dateTo}`, '_blank')
                         }
                     >
                         {a.print}

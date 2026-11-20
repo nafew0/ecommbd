@@ -90,9 +90,7 @@ export function PurchaseDocument({
                             </td>
                             <td className="py-1 text-right tabular-nums">{labels.digits(line.quantity)}</td>
                             <td className="py-1 text-right tabular-nums">{labels.money(line.unitCost)}</td>
-                            <td className="py-1 text-right tabular-nums">
-                                {labels.money(line.quantity * line.unitCost)}
-                            </td>
+                            <td className="py-1 text-right tabular-nums">{labels.money(line.quantity * line.unitCost)}</td>
                         </tr>
                     ))}
                 </tbody>

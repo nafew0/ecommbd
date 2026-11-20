@@ -26,10 +26,7 @@ export function PurchaseSettingsPage() {
     const canEdit = can('UpdateStoreSettings') && can('ReadPurchase') && can('ReadCost');
     const query = useQuery({
         queryKey: ['purchaseSettings'],
-        queryFn: () =>
-            adminApi<{ bdPurchaseSettings: PurchaseSettings }>('{ bdPurchaseSettings }').then(
-                r => r.bdPurchaseSettings,
-            ),
+        queryFn: () => adminApi<{ bdPurchaseSettings: PurchaseSettings }>('{ bdPurchaseSettings }').then(r => r.bdPurchaseSettings),
     });
     const { draft, setDraft, load, dirty, discard } = useDraft<PurchaseSettings>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -38,15 +35,10 @@ export function PurchaseSettingsPage() {
     }, [query.data, draft, load]);
     const save = useMutation({
         mutationFn: (input: PurchaseSettings) =>
-            adminApi<{
-                updateBdPurchaseSettings: {
-                    ok?: boolean;
-                    settings?: PurchaseSettings;
-                    errors?: Array<{ path: string; code: string }>;
-                };
-            }>(`mutation ($input: JSON!) { updateBdPurchaseSettings(input: $input) }`, { input }).then(
-                result => result.updateBdPurchaseSettings,
-            ),
+            adminApi<{ updateBdPurchaseSettings: { ok?: boolean; settings?: PurchaseSettings; errors?: Array<{ path: string; code: string }> } }>(
+                `mutation ($input: JSON!) { updateBdPurchaseSettings(input: $input) }`,
+                { input },
+            ).then(result => result.updateBdPurchaseSettings),
         onSuccess: result => {
             setErrors(errorMap(result.errors ?? []));
             if (result.settings) {
@@ -83,9 +75,7 @@ export function PurchaseSettingsPage() {
                                     {...control}
                                     value={draft.costMethod}
                                     disabled={!canEdit}
-                                    onChange={event =>
-                                        setDraft({ ...draft, costMethod: event.target.value as CostMethod })
-                                    }
+                                    onChange={event => setDraft({ ...draft, costMethod: event.target.value as CostMethod })}
                                 >
                                     {METHODS.map(method => (
                                         <option key={method} value={method}>
@@ -97,16 +87,8 @@ export function PurchaseSettingsPage() {
                         </Field>
                     </CardBody>
                 </Card>
-                <CollapsibleCard
-                    title={p.columns.number}
-                    summary={`${draft.purchasePrefix || '—'} · ${methodLabel}`}
-                >
-                    <Field
-                        label={p.purchasePrefix}
-                        hint={p.prefixHint}
-                        error={errors.purchasePrefix}
-                        optional
-                    >
+                <CollapsibleCard title={p.columns.number} summary={`${draft.purchasePrefix || '—'} · ${methodLabel}`}>
+                    <Field label={p.purchasePrefix} hint={p.prefixHint} error={errors.purchasePrefix} optional>
                         {control => (
                             <Input
                                 {...control}

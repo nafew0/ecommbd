@@ -56,10 +56,7 @@ export function BrandsPage() {
                             <Tag className="size-4" aria-hidden />
                         </div>
                     )}
-                    <Link
-                        to={`/products/brands/${row.id}`}
-                        className="font-medium text-accent hover:underline"
-                    >
+                    <Link to={`/products/brands/${row.id}`} className="font-medium text-accent hover:underline">
                         {nameOf(row)}
                     </Link>
                 </div>
@@ -97,13 +94,7 @@ export function BrandsPage() {
                 columns={columns}
                 loading={query.isLoading}
                 search={{ value: search, onChange: setSearch, placeholder: b.search }}
-                empty={
-                    <EmptyState
-                        icon={<Tag className="size-6" aria-hidden />}
-                        title={b.empty}
-                        body={b.emptyBody}
-                    />
-                }
+                empty={<EmptyState icon={<Tag className="size-6" aria-hidden />} title={b.empty} body={b.emptyBody} />}
             />
         </Page>
     );

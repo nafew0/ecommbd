@@ -45,9 +45,7 @@ export function ProductSettingsPage() {
     const query = useQuery({
         queryKey: ['productSettings'],
         queryFn: () =>
-            adminApi<{ bdProductSettings: ProductSettings }>('{ bdProductSettings }').then(
-                r => r.bdProductSettings,
-            ),
+            adminApi<{ bdProductSettings: ProductSettings }>('{ bdProductSettings }').then(r => r.bdProductSettings),
     });
     const { draft, setDraft, load, dirty, discard } = useDraft<ProductSettings>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -80,9 +78,7 @@ export function ProductSettingsPage() {
     const setClass = (index: number, patch: Partial<ShippingClass>) =>
         setDraft({
             ...draft,
-            shippingClasses: draft.shippingClasses.map((item, i) =>
-                i === index ? { ...item, ...patch } : item,
-            ),
+            shippingClasses: draft.shippingClasses.map((item, i) => (i === index ? { ...item, ...patch } : item)),
         });
     const setUnit = (index: number, patch: Partial<ProductUnit>) =>
         setDraft({
@@ -130,17 +126,13 @@ export function ProductSettingsPage() {
                 <Card>
                     <CardHeader title={s.classesTitle} description={s.classesHint} />
                     <CardBody>
-                        {draft.shippingClasses.length === 0 && (
-                            <p className="text-sm text-ink-muted">{s.noClasses}</p>
-                        )}
+                        {draft.shippingClasses.length === 0 && <p className="text-sm text-ink-muted">{s.noClasses}</p>}
                         {draft.shippingClasses.map((item, index) => (
                             <div
                                 key={`${item.code}-${index}`}
                                 className="grid items-end gap-3 border-b border-line pb-4 last:border-0 last:pb-0 sm:grid-cols-[1fr_1fr_8rem_auto]"
                             >
-                                {nameFields(`shippingClasses.${index}`, item, name =>
-                                    setClass(index, { name }),
-                                )}
+                                {nameFields(`shippingClasses.${index}`, item, name => setClass(index, { name }))}
                                 <Field label={s.charge} error={errors[`shippingClasses.${index}.charge`]}>
                                     {control => (
                                         <TakaInput
@@ -160,9 +152,7 @@ export function ProductSettingsPage() {
                                         onClick={() =>
                                             setDraft({
                                                 ...draft,
-                                                shippingClasses: draft.shippingClasses.filter(
-                                                    (_, i) => i !== index,
-                                                ),
+                                                shippingClasses: draft.shippingClasses.filter((_, i) => i !== index),
                                             })
                                         }
                                     >
@@ -232,10 +222,7 @@ export function ProductSettingsPage() {
                             onClick={() =>
                                 setDraft({
                                     ...draft,
-                                    customUnits: [
-                                        ...draft.customUnits,
-                                        { code: '', name: { bn: '', en: '' } },
-                                    ],
+                                    customUnits: [...draft.customUnits, { code: '', name: { bn: '', en: '' } }],
                                 })
                             }
                         >
@@ -256,9 +243,7 @@ export function ProductSettingsPage() {
                                 maxLength={6}
                                 value={draft.skuPrefix}
                                 disabled={!canEdit}
-                                onChange={event =>
-                                    setDraft({ ...draft, skuPrefix: event.target.value.toUpperCase() })
-                                }
+                                onChange={event => setDraft({ ...draft, skuPrefix: event.target.value.toUpperCase() })}
                             />
                         )}
                     </Field>

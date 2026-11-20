@@ -238,9 +238,7 @@ test.describe('merchant admin: Online store → Search', () => {
 });
 
 test.describe('speed', () => {
-    test('category and filter pages answer in under 200 ms on 500 products', async ({
-        browserName: _browser,
-    }, testInfo) => {
+    test('category and filter pages answer in under 200 ms on 500 products', async ({ browserName: _browser }, testInfo) => {
         test.skip(testInfo.project.name !== 'desktop', 'One run is enough');
         test.setTimeout(600_000);
         const category = await ensurePerformanceProducts(admin);

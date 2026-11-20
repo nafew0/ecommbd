@@ -48,10 +48,7 @@ export function TransfersPage() {
             key: 'number',
             header: b.transferColumns.number,
             cell: row => (
-                <Link
-                    to={`/products/transfers/${row.id}`}
-                    className="font-semibold text-accent hover:underline"
-                >
+                <Link to={`/products/transfers/${row.id}`} className="font-semibold text-accent hover:underline">
                     {row.number}
                 </Link>
             ),

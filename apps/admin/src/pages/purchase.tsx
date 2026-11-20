@@ -125,15 +125,7 @@ export function PurchasePage() {
     return <PurchaseDetail purchase={query.data} />;
 }
 
-function PurchaseForm({
-    id,
-    initial,
-    supplierId,
-}: {
-    id?: string;
-    initial?: PurchaseView | null;
-    supplierId: string;
-}) {
+function PurchaseForm({ id, initial, supplierId }: { id?: string; initial?: PurchaseView | null; supplierId: string }) {
     const { messages: m } = useI18n();
     const p = m.purchases;
     const digits = useDigits();
@@ -169,10 +161,7 @@ function PurchaseForm({
                 other: initial.other,
                 discount: initial.discount,
                 paid: initial.paid,
-                bill:
-                    initial.billPreview && initial.billAssetId
-                        ? { id: initial.billAssetId, preview: initial.billPreview }
-                        : null,
+                bill: initial.billPreview && initial.billAssetId ? { id: initial.billAssetId, preview: initial.billPreview } : null,
                 lines: initial.lines.map(line => ({
                     key: line.id,
                     variantId: line.variantId,
@@ -227,7 +216,8 @@ function PurchaseForm({
         onError: error => toast.error(error instanceof ApiError ? error.message : m.errors.generic),
     });
     const order = useMutation({
-        mutationFn: () => adminApi(`mutation ($id: ID!) { markBdPurchaseOrdered(id: $id) { id } }`, { id }),
+        mutationFn: () =>
+            adminApi(`mutation ($id: ID!) { markBdPurchaseOrdered(id: $id) { id } }`, { id }),
         onSuccess: () => {
             toast.success(p.orderedSaved);
             void queryClient.invalidateQueries({ queryKey: ['purchase', id] });
@@ -240,13 +230,7 @@ function PurchaseForm({
             ...draft,
             lines: [
                 ...draft.lines,
-                {
-                    key: variant.variantId + draft.lines.length,
-                    variantId: variant.variantId,
-                    name: variant.name,
-                    quantity: digits(1),
-                    unitCost: null,
-                },
+                { key: variant.variantId + draft.lines.length, variantId: variant.variantId, name: variant.name, quantity: digits(1), unitCost: null },
             ],
         });
     return (
@@ -255,7 +239,11 @@ function PurchaseForm({
                 back={{ to: '/products/purchases', label: p.backPurchases }}
                 title={initial?.number ?? p.addPurchase}
                 badges={initial ? <Badge tone="slate">{p.statuses.draft}</Badge> : undefined}
-                menu={id && canEdit ? [{ label: p.markOrdered, onSelect: () => order.mutate() }] : undefined}
+                menu={
+                    id && canEdit
+                        ? [{ label: p.markOrdered, onSelect: () => order.mutate() }]
+                        : undefined
+                }
             />
             {(suppliers.data?.length ?? 0) === 0 && !suppliers.isLoading && (
                 <p className="mb-4 text-sm text-ink-muted">{p.noSupplier}</p>
@@ -277,9 +265,7 @@ function PurchaseForm({
                                             {...control}
                                             value={draft.supplierId}
                                             disabled={!canEdit}
-                                            onChange={event =>
-                                                setDraft({ ...draft, supplierId: event.target.value })
-                                            }
+                                            onChange={event => setDraft({ ...draft, supplierId: event.target.value })}
                                         >
                                             <option value="">{p.supplier}</option>
                                             {(suppliers.data ?? []).map(row => (
@@ -297,9 +283,7 @@ function PurchaseForm({
                                             type="date"
                                             value={draft.purchasedOn}
                                             disabled={!canEdit}
-                                            onChange={event =>
-                                                setDraft({ ...draft, purchasedOn: event.target.value })
-                                            }
+                                            onChange={event => setDraft({ ...draft, purchasedOn: event.target.value })}
                                         />
                                     )}
                                 </Field>
@@ -310,9 +294,7 @@ function PurchaseForm({
                                                 {...control}
                                                 value={draft.branchId}
                                                 disabled={!canEdit}
-                                                onChange={event =>
-                                                    setDraft({ ...draft, branchId: event.target.value })
-                                                }
+                                                onChange={event => setDraft({ ...draft, branchId: event.target.value })}
                                             >
                                                 <option value="">{m.branches.originalLocation}</option>
                                                 {(branches.data ?? []).map(branch => (
@@ -346,12 +328,7 @@ function PurchaseForm({
                                                         setDraft({
                                                             ...draft,
                                                             lines: draft.lines.map(item =>
-                                                                item.key === line.key
-                                                                    ? {
-                                                                          ...item,
-                                                                          quantity: event.target.value,
-                                                                      }
-                                                                    : item,
+                                                                item.key === line.key ? { ...item, quantity: event.target.value } : item,
                                                             ),
                                                         })
                                                     }
@@ -368,9 +345,7 @@ function PurchaseForm({
                                                         setDraft({
                                                             ...draft,
                                                             lines: draft.lines.map(item =>
-                                                                item.key === line.key
-                                                                    ? { ...item, unitCost }
-                                                                    : item,
+                                                                item.key === line.key ? { ...item, unitCost } : item,
                                                             ),
                                                         })
                                                     }
@@ -382,12 +357,7 @@ function PurchaseForm({
                                                 type="button"
                                                 className="text-left text-sm text-danger"
                                                 onClick={() =>
-                                                    setDraft({
-                                                        ...draft,
-                                                        lines: draft.lines.filter(
-                                                            item => item.key !== line.key,
-                                                        ),
-                                                    })
+                                                    setDraft({ ...draft, lines: draft.lines.filter(item => item.key !== line.key) })
                                                 }
                                             >
                                                 {p.remove}
@@ -401,74 +371,38 @@ function PurchaseForm({
                     <CollapsibleCard
                         title={p.charges}
                         summary={draft.delivery || draft.paid ? p.charges : p.charges}
-                        forceOpen={Boolean(
-                            draft.delivery ||
-                            draft.other ||
-                            draft.discount ||
-                            draft.paid ||
-                            draft.note ||
-                            draft.bill,
-                        )}
+                        forceOpen={Boolean(draft.delivery || draft.other || draft.discount || draft.paid || draft.note || draft.bill)}
                     >
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Field label={p.delivery} optional>
                                 {control => (
-                                    <TakaInput
-                                        {...control}
-                                        value={draft.delivery}
-                                        disabled={!canEdit}
-                                        onChange={delivery => setDraft({ ...draft, delivery })}
-                                    />
+                                    <TakaInput {...control} value={draft.delivery} disabled={!canEdit} onChange={delivery => setDraft({ ...draft, delivery })} />
                                 )}
                             </Field>
                             <Field label={p.other} optional>
                                 {control => (
-                                    <TakaInput
-                                        {...control}
-                                        value={draft.other}
-                                        disabled={!canEdit}
-                                        onChange={other => setDraft({ ...draft, other })}
-                                    />
+                                    <TakaInput {...control} value={draft.other} disabled={!canEdit} onChange={other => setDraft({ ...draft, other })} />
                                 )}
                             </Field>
                             <Field label={p.discount} optional>
                                 {control => (
-                                    <TakaInput
-                                        {...control}
-                                        value={draft.discount}
-                                        disabled={!canEdit}
-                                        onChange={discount => setDraft({ ...draft, discount })}
-                                    />
+                                    <TakaInput {...control} value={draft.discount} disabled={!canEdit} onChange={discount => setDraft({ ...draft, discount })} />
                                 )}
                             </Field>
                             <Field label={p.paid} optional>
                                 {control => (
-                                    <TakaInput
-                                        {...control}
-                                        value={draft.paid}
-                                        disabled={!canEdit}
-                                        onChange={paid => setDraft({ ...draft, paid })}
-                                    />
+                                    <TakaInput {...control} value={draft.paid} disabled={!canEdit} onChange={paid => setDraft({ ...draft, paid })} />
                                 )}
                             </Field>
                         </div>
                         <Field label={p.note} optional>
                             {control => (
-                                <Textarea
-                                    {...control}
-                                    value={draft.note}
-                                    disabled={!canEdit}
-                                    onChange={event => setDraft({ ...draft, note: event.target.value })}
-                                />
+                                <Textarea {...control} value={draft.note} disabled={!canEdit} onChange={event => setDraft({ ...draft, note: event.target.value })} />
                             )}
                         </Field>
                         <Field label={p.bill} optional>
                             {() => (
-                                <ImageUpload
-                                    value={draft.bill}
-                                    disabled={!canEdit}
-                                    onChange={bill => setDraft({ ...draft, bill })}
-                                />
+                                <ImageUpload value={draft.bill} disabled={!canEdit} onChange={bill => setDraft({ ...draft, bill })} />
                             )}
                         </Field>
                     </CollapsibleCard>
@@ -497,19 +431,13 @@ function PurchaseDetail({ purchase }: { purchase: PurchaseView }) {
     const refresh = () => void queryClient.invalidateQueries({ queryKey: ['purchase', purchase.id] });
     const receive = useMutation({
         mutationFn: () =>
-            adminApi(
-                `mutation ($id: ID!, $input: JSON!) { receiveBdPurchase(id: $id, input: $input) { id } }`,
-                {
-                    id: purchase.id,
-                    input: {
-                        note: receiveNote,
-                        lines: purchase.lines.map(line => ({
-                            lineId: line.id,
-                            quantity: qty(receiveQty[line.id] ?? ''),
-                        })),
-                    },
+            adminApi(`mutation ($id: ID!, $input: JSON!) { receiveBdPurchase(id: $id, input: $input) { id } }`, {
+                id: purchase.id,
+                input: {
+                    note: receiveNote,
+                    lines: purchase.lines.map(line => ({ lineId: line.id, quantity: qty(receiveQty[line.id] ?? '') })),
                 },
-            ),
+            }),
         onSuccess: () => {
             toast.success(p.receivedSaved);
             setReceiveQty({});
@@ -519,18 +447,12 @@ function PurchaseDetail({ purchase }: { purchase: PurchaseView }) {
     });
     const sendBack = useMutation({
         mutationFn: () =>
-            adminApi(
-                `mutation ($id: ID!, $input: JSON!) { returnBdPurchase(id: $id, input: $input) { id } }`,
-                {
-                    id: purchase.id,
-                    input: {
-                        lines: purchase.lines.map(line => ({
-                            lineId: line.id,
-                            quantity: qty(returnQty[line.id] ?? ''),
-                        })),
-                    },
+            adminApi(`mutation ($id: ID!, $input: JSON!) { returnBdPurchase(id: $id, input: $input) { id } }`, {
+                id: purchase.id,
+                input: {
+                    lines: purchase.lines.map(line => ({ lineId: line.id, quantity: qty(returnQty[line.id] ?? '') })),
                 },
-            ),
+            }),
         onSuccess: () => {
             toast.success(p.returnSaved);
             setReturnQty({});
@@ -576,11 +498,7 @@ function PurchaseDetail({ purchase }: { purchase: PurchaseView }) {
                                             label: p.delete,
                                             tone: 'danger' as const,
                                             onSelect: () => {
-                                                void confirm({
-                                                    title: p.deleteTitle,
-                                                    body: p.deleteBody,
-                                                    danger: true,
-                                                }).then(yes => {
+                                                void confirm({ title: p.deleteTitle, body: p.deleteBody, danger: true }).then(yes => {
                                                     if (yes) remove.mutate();
                                                 });
                                             },
@@ -609,12 +527,9 @@ function PurchaseDetail({ purchase }: { purchase: PurchaseView }) {
                                             </p>
                                             <p className="text-sm tabular-nums">
                                                 {p.received} {digits(line.received)}
-                                                {line.returned > 0 &&
-                                                    ` · ${p.returned} ${digits(line.returned)}`}
+                                                {line.returned > 0 && ` · ${p.returned} ${digits(line.returned)}`}
                                             </p>
-                                            <p className="text-sm tabular-nums">
-                                                {format.money(line.unitCost)}
-                                            </p>
+                                            <p className="text-sm tabular-nums">{format.money(line.unitCost)}</p>
                                             {canEdit && (
                                                 <Field label={p.receiveNow}>
                                                     {control => (
@@ -623,10 +538,7 @@ function PurchaseDetail({ purchase }: { purchase: PurchaseView }) {
                                                             inputMode="numeric"
                                                             value={receiveQty[line.id] ?? ''}
                                                             onChange={event =>
-                                                                setReceiveQty(current => ({
-                                                                    ...current,
-                                                                    [line.id]: event.target.value,
-                                                                }))
+                                                                setReceiveQty(current => ({ ...current, [line.id]: event.target.value }))
                                                             }
                                                         />
                                                     )}
@@ -661,20 +573,13 @@ function PurchaseDetail({ purchase }: { purchase: PurchaseView }) {
                                                     inputMode="numeric"
                                                     value={returnQty[line.id] ?? ''}
                                                     onChange={event =>
-                                                        setReturnQty(current => ({
-                                                            ...current,
-                                                            [line.id]: event.target.value,
-                                                        }))
+                                                        setReturnQty(current => ({ ...current, [line.id]: event.target.value }))
                                                     }
                                                 />
                                             )}
                                         </Field>
                                     ))}
-                                    <Button
-                                        type="button"
-                                        onClick={() => sendBack.mutate()}
-                                        disabled={sendBack.isPending}
-                                    >
+                                    <Button type="button" onClick={() => sendBack.mutate()} disabled={sendBack.isPending}>
                                         {p.returnGoods}
                                     </Button>
                                 </CardBody>

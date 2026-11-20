@@ -65,10 +65,7 @@ export function ExpensesPage() {
             key: 'date',
             header: a.date,
             cell: row => (
-                <Link
-                    to={`/accounts/expenses/${row.id}`}
-                    className="font-semibold text-accent hover:underline"
-                >
+                <Link to={`/accounts/expenses/${row.id}`} className="font-semibold text-accent hover:underline">
                     {format.date(`${row.date}T06:00:00Z`)}
                 </Link>
             ),
@@ -117,29 +114,22 @@ export function ExpensesPage() {
                         {(heads.data ?? []).map(head => (
                             <li key={head.id} className="flex items-center justify-between gap-3 py-2">
                                 <span>{language === 'bn' ? head.nameBn : head.nameEn}</span>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setEditing(head)}
-                                >
+                                <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(head)}>
                                     {a.rename}
                                 </Button>
                             </li>
                         ))}
                     </ul>
-                    <Button
-                        type="button"
-                        className="mt-3"
-                        variant="secondary"
-                        onClick={() => setEditing('new')}
-                    >
+                    <Button type="button" className="mt-3" variant="secondary" onClick={() => setEditing('new')}>
                         {a.addHead}
                     </Button>
                 </CollapsibleCard>
             </div>
             {editing && (
-                <HeadDialog head={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />
+                <HeadDialog
+                    head={editing === 'new' ? null : editing}
+                    onClose={() => setEditing(null)}
+                />
             )}
         </Page>
     );
@@ -173,33 +163,17 @@ function HeadDialog({ head, onClose }: { head: Head | null; onClose(): void }) {
             onClose={onClose}
             title={head ? a.rename : a.addHead}
             footer={
-                <Button
-                    type="button"
-                    disabled={!nameBn.trim() || !nameEn.trim() || save.isPending}
-                    onClick={() => save.mutate()}
-                >
+                <Button type="button" disabled={!nameBn.trim() || !nameEn.trim() || save.isPending} onClick={() => save.mutate()}>
                     {m.common.save}
                 </Button>
             }
         >
             <div className="space-y-4">
                 <Field label={a.headBn}>
-                    {control => (
-                        <Input
-                            {...control}
-                            value={nameBn}
-                            onChange={event => setNameBn(event.target.value)}
-                        />
-                    )}
+                    {control => <Input {...control} value={nameBn} onChange={event => setNameBn(event.target.value)} />}
                 </Field>
                 <Field label={a.headEn}>
-                    {control => (
-                        <Input
-                            {...control}
-                            value={nameEn}
-                            onChange={event => setNameEn(event.target.value)}
-                        />
-                    )}
+                    {control => <Input {...control} value={nameEn} onChange={event => setNameEn(event.target.value)} />}
                 </Field>
             </div>
         </Dialog>

@@ -15,12 +15,9 @@ test('turns an incomplete checkout into a phone order, in Bangla', async ({ page
     // A shopper puts the panjabi in the cart, types a phone and leaves.
     const phone = randomPhone();
     const shop = new ApiSession('shop-api');
-    await shop.query(
-        'mutation ($id: ID!) { addItemToOrder(productVariantId: $id, quantity: 2) { __typename } }',
-        {
-            id: variantId,
-        },
-    );
+    await shop.query('mutation ($id: ID!) { addItemToOrder(productVariantId: $id, quantity: 2) { __typename } }', {
+        id: variantId,
+    });
     await shop.query('mutation ($input: BdCheckoutProgressInput!) { saveCheckoutProgress(input: $input) }', {
         input: { phone, name: 'Playwright Karim', districtId: 'BD3026', thanaId: 'BD3026M26' },
     });
@@ -38,9 +35,7 @@ test('turns an incomplete checkout into a phone order, in Bangla', async ({ page
     await expect(page).toHaveURL(/\/admin\/orders\/phone\?incomplete=/);
     await expect(page.getByText('অসম্পূর্ণ অর্ডার থেকে পূরণ করা হয়েছে', { exact: false })).toBeVisible();
     await expect(page.getByText('Playwright panjabi').first()).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'নাম', exact: true }).first()).toHaveValue(
-        'Playwright Karim',
-    );
+    await expect(page.getByRole('textbox', { name: 'নাম', exact: true }).first()).toHaveValue('Playwright Karim');
     expect(errors).toEqual([]);
 });
 

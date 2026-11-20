@@ -51,10 +51,7 @@ export function SuppliersPage() {
             key: 'name',
             header: p.columns.name,
             cell: row => (
-                <Link
-                    to={`/products/suppliers/${row.id}`}
-                    className="font-semibold text-accent hover:underline"
-                >
+                <Link to={`/products/suppliers/${row.id}`} className="font-semibold text-accent hover:underline">
                     {row.name}
                 </Link>
             ),
@@ -98,27 +95,14 @@ export function SuppliersPage() {
                 rowId={row => row.id}
                 columns={columns}
                 loading={query.isLoading}
-                search={{
-                    value: search,
-                    onChange: value => {
-                        setSearch(value);
-                        setPage(1);
-                    },
-                    placeholder: p.searchSuppliers,
-                }}
+                search={{ value: search, onChange: value => { setSearch(value); setPage(1); }, placeholder: p.searchSuppliers }}
                 pagination={{
                     page,
                     pageSize: 25,
                     total: query.data?.totalItems ?? 0,
                     onChange: setPage,
                 }}
-                empty={
-                    <EmptyState
-                        icon={<Package className="size-6" aria-hidden />}
-                        title={p.emptySuppliers}
-                        body={p.suppliersDescription}
-                    />
-                }
+                empty={<EmptyState icon={<Package className="size-6" aria-hidden />} title={p.emptySuppliers} body={p.suppliersDescription} />}
             />
         </Page>
     );

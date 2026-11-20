@@ -70,10 +70,7 @@ test('sets a brand and a unit, shows them on the store, and uses the trash', asy
     await page.getByLabel('একক').selectOption({ label: 'কেজি' });
     await page.getByRole('button', { name: 'পণ্য সেভ করুন' }).click();
     await expect(page.getByText('পণ্য সেভ হয়েছে।')).toBeVisible();
-    await page.screenshot({
-        path: `test-results/product-depth-form-${testInfo.project.name}.png`,
-        fullPage: true,
-    });
+    await page.screenshot({ path: `test-results/product-depth-form-${testInfo.project.name}.png`, fullPage: true });
 
     // The store: "/ কেজি" beside the price, the brand above the name, and the brand's page.
     await page.goto(`${storefrontURL}/product/${slug}/`);
@@ -82,10 +79,7 @@ test('sets a brand and a unit, shows them on the store, and uses the trash', asy
     await expect(page).toHaveURL(new RegExp(`/brand/${brandCode}/$`));
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(`পিডব্লিউ ব্র্যান্ড ${run}`);
     await expect(page.getByText(`পিডব্লিউ আম ${run}`)).toBeVisible();
-    await page.screenshot({
-        path: `test-results/product-depth-brand-${testInfo.project.name}.png`,
-        fullPage: true,
-    });
+    await page.screenshot({ path: `test-results/product-depth-brand-${testInfo.project.name}.png`, fullPage: true });
 
     // The trash: out of the list, back as a draft.
     await page.goto('/admin/products');
@@ -102,9 +96,6 @@ test('sets a brand and a unit, shows them on the store, and uses the trash', asy
     await expect(page.getByText('ড্রাফট হিসেবে ফিরিয়ে আনা হয়েছে।')).toBeVisible();
     await page.getByRole('tab', { name: 'ড্রাফট' }).click();
     await expect(row).toBeVisible();
-    await page.screenshot({
-        path: `test-results/product-depth-list-${testInfo.project.name}.png`,
-        fullPage: true,
-    });
+    await page.screenshot({ path: `test-results/product-depth-list-${testInfo.project.name}.png`, fullPage: true });
     expect(errors, errors.join('\n')).toEqual([]);
 });

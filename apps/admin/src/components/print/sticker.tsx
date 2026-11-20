@@ -63,9 +63,7 @@ function Sticker({
     const style = STYLE[size];
     const sheet = size.startsWith('a4');
     const show = settings.sticker;
-    const items = order.lines
-        .map(line => `${line.name} × ${quantityWithUnit(format.number(line.quantity), line.unit)}`)
-        .join(', ');
+    const items = order.lines.map(line => `${line.name} × ${quantityWithUnit(format.number(line.quantity), line.unit)}`).join(', ');
     return (
         <article
             data-sticker={order.orderNumber}

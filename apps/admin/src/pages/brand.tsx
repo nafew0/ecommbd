@@ -56,9 +56,9 @@ export function BrandPage() {
         queryKey: ['brands', 'one', id],
         enabled: !isNew,
         queryFn: () =>
-            adminApi<{ bdBrand: Brand | null }>(`query ($id: ID!) { bdBrand(id: $id) { ${FIELDS} } }`, {
-                id,
-            }).then(result => result.bdBrand),
+            adminApi<{ bdBrand: Brand | null }>(`query ($id: ID!) { bdBrand(id: $id) { ${FIELDS} } }`, { id }).then(
+                result => result.bdBrand,
+            ),
     });
     const { draft, setDraft, load, dirty, discard } = useDraft<Brand>(isNew ? emptyBrand() : null);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -197,9 +197,7 @@ export function BrandPage() {
                 <CollapsibleCard
                     title={b.more}
                     summary={draft.code ? `/brand/${draft.code}` : b.addressAuto}
-                    forceOpen={
-                        !!errors.code || Object.keys(errors).some(key => key.startsWith('description.'))
-                    }
+                    forceOpen={!!errors.code || Object.keys(errors).some(key => key.startsWith('description.'))}
                 >
                     <Field label={b.address} hint={b.addressHint} error={errors.code} optional>
                         {control => (
@@ -232,13 +230,7 @@ export function BrandPage() {
                         </Field>
                     ))}
                 </CollapsibleCard>
-                {canEdit && (
-                    <SaveBar
-                        dirty={dirty || isNew}
-                        saving={save.isPending}
-                        onDiscard={isNew ? undefined : discard}
-                    />
-                )}
+                {canEdit && <SaveBar dirty={dirty || isNew} saving={save.isPending} onDiscard={isNew ? undefined : discard} />}
             </form>
         </Page>
     );
