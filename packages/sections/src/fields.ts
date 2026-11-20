@@ -1,5 +1,5 @@
 import { type Bilingual, cleanText, EMPTY_TEXT, isRecord } from './text';
-import { normalizeHex } from './theme';
+import { normalizeHex } from './hex';
 
 /**
  * Field types for section settings (roadmap phase 15). Each type knows its default, how to read a

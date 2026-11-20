@@ -11,6 +11,7 @@ export * from './nodes';
 export * from './open';
 export * from './registry';
 export * from './sales-page';
+export * from './saved-styles';
 export { ICON_OPTIONS, ICONS, type IconName } from './sections/common';
 export * from './starters';
 export * from './style';

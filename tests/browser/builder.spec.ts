@@ -12,7 +12,7 @@ import {
 import { expect, type Page, test } from '@playwright/test';
 import { gzipSync } from 'node:zlib';
 import { signIn, watchForErrors } from './support/admin-ui';
-import { publishLayout, resetHome, setDraft, waitForStorefront } from './support/sections';
+import { publishLayout, resetHome, setDraft, setTheme, waitForStorefront } from './support/sections';
 import { adminSession, type ApiSession, randomPhone } from './support/store-api';
 
 /**
@@ -866,5 +866,68 @@ test.describe('the element tree', () => {
             if (row.name.endsWith(tag))
                 await admin.query('mutation ($id: ID!) { deleteBdSavedSection(id: $id) }', { id: row.id });
         }
+    });
+    test('a saved style: one look with a name, used on two elements and changed in one place', async ({
+        page,
+        isMobile,
+    }) => {
+        test.skip(isMobile, 'The phone layout of the editor has its own test');
+        page.setDefaultTimeout(10_000);
+        const errors = watchForErrors(page);
+        const tag = Math.random().toString(36).slice(2, 7);
+        const section = createSection('custom');
+        const first = createNode('heading', { text: text(`First ${tag}`) });
+        first.style = { base: { color: '#b3261e' } };
+        const second = createNode('heading', { text: text(`Second ${tag}`) });
+        section.children = [first, second];
+        await setTheme(admin);
+        await setDraft(admin, 'home', { sections: [section] });
+        await signIn(page, 'en');
+        await openEditor(page);
+        await page
+            .getByRole('list', { name: 'Sections' })
+            .getByRole('button', { name: /^Free section/ })
+            .first()
+            .click();
+
+        // The first heading's look, saved under a name.
+        await layersOf(page)
+            .getByRole('button', { name: `Heading First ${tag}` })
+            .click();
+        await page.getByRole('tab', { name: 'Design' }).last().click();
+        await page.getByRole('button', { name: 'Save as a new style' }).click();
+        await page.getByRole('textbox', { name: 'Name of the style' }).fill(`Red ${tag}`);
+        await page.getByRole('button', { name: 'Save', exact: true }).click();
+        await expect(page.getByText(`Saved as "Red ${tag}".`)).toBeVisible();
+        await expect(page.getByLabel('Saved style')).toContainText(`Red ${tag}`);
+
+        // The second heading takes it.
+        await layersOf(page)
+            .getByRole('button', { name: `Heading Second ${tag}` })
+            .click();
+        await page.getByRole('tab', { name: 'Design' }).last().click();
+        await page.getByLabel('Saved style').selectOption({ label: `Red ${tag}` });
+        const red = 'rgb(179, 38, 30)';
+        await expect(preview(page).getByRole('heading', { name: `Second ${tag}` })).toHaveCSS('color', red, {
+            timeout: 15_000,
+        });
+        await expect(preview(page).getByRole('heading', { name: `First ${tag}` })).toHaveCSS('color', red);
+
+        // Changed on the second and sent to the style: the first follows.
+        await page.getByRole('button', { name: 'Text colour: #121212' }).click();
+        await page.getByRole('button', { name: `Update "Red ${tag}" everywhere` }).click();
+        await expect(page.getByText(`"Red ${tag}" updated on every page that uses it.`)).toBeVisible();
+        const ink = 'rgb(18, 18, 18)';
+        await expect(preview(page).getByRole('heading', { name: `First ${tag}` })).toHaveCSS('color', ink, {
+            timeout: 15_000,
+        });
+
+        // Live for shoppers too.
+        await expect(page.getByText('Draft saved')).toBeVisible();
+        await page.getByRole('button', { name: 'Publish' }).click();
+        await expect(page.getByText('Published. The live page updates within seconds.')).toBeVisible();
+        await waitForStorefront(`${SITE}/en/`, body => body.includes(`Second ${tag}`));
+        expect(errors).toEqual([]);
+        await setTheme(admin);
     });
 });

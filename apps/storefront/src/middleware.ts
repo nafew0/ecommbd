@@ -89,7 +89,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
     if (context.url.pathname.startsWith('/_astro/')) return next();
 
     try {
-        const [settings, theme, meta] = await Promise.all([getSettings(), getTheme(), getMetaConfig()]);
+        const [settings, theme, meta] = await Promise.all([
+            getSettings(),
+            // A preview is never cached, and shows the theme as it is now.
+            getTheme(context.url.searchParams.has('preview')),
+            getMetaConfig(),
+        ]);
         const defaultLang = settings.locale.defaultLanguage === 'en' ? 'en' : 'bn';
         // The path as sent: Astro's `context.url` has its percent-encoding already redone.
         const requestPath = new URL(context.request.url).pathname;

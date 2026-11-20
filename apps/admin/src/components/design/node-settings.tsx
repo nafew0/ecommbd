@@ -29,6 +29,7 @@ import { nodePath, setNodeProp, setNodeStyle, updateNode } from './document-ops'
 import { ElementIcon } from './element-icon';
 import { FieldControl, type Language } from './field-controls';
 import { NodeAdvanced } from './node-advanced';
+import { SavedStyleControl } from './saved-style-control';
 import { SmartContent } from './smart-content';
 
 /**
@@ -308,6 +309,21 @@ export function NodeSettings(props: NodeSettingsProps) {
                 </div>
             ) : (
                 <div className="space-y-3">
+                    <SavedStyleControl
+                        node={node}
+                        onChange={change =>
+                            onChange(
+                                updateNode(document, section.uid, node.uid, item => {
+                                    const { styleRef: _old, ...rest } = item;
+                                    return {
+                                        ...rest,
+                                        style: change.style,
+                                        ...(change.styleRef ? { styleRef: change.styleRef } : {}),
+                                    };
+                                }),
+                            )
+                        }
+                    />
                     <div className="flex items-center justify-between gap-2">
                         <div
                             className="flex rounded-md bg-surface-muted p-0.5"

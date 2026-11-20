@@ -50,6 +50,8 @@ export interface NodeData {
     hideOn?: Device[];
     /** How it comes into view as the shopper scrolls to it. Left out for no animation. */
     animate?: NodeAnimation;
+    /** The saved style it uses (phase 62): the theme's style with this key, under its own choices. */
+    styleRef?: string;
     /** A container's contents, in order. */
     children?: NodeData[];
     /** A live block's ready-made section (its type, settings and blocks). */
@@ -116,6 +118,8 @@ function readNode(raw: unknown, state: ReadState, depth: number): NodeData | nul
     if (hideOn.length) node.hideOn = hideOn;
     const animate = NODE_ANIMATIONS.find(name => name === raw.animate);
     if (animate) node.animate = animate;
+    if (typeof raw.styleRef === 'string' && /^[a-z0-9]{6,12}$/.test(raw.styleRef))
+        node.styleRef = raw.styleRef;
     if (isContainer) {
         node.children = (Array.isArray(raw.children) ? raw.children : [])
             .map(child => readNode(child, state, depth + 1))

@@ -1,3 +1,5 @@
+import { normalizeHex } from './hex';
+import { readSavedStyles, type SavedStyle } from './saved-styles';
 import { type Bilingual, cleanText, isRecord } from './text';
 
 /**
@@ -31,6 +33,8 @@ export interface ThemeSettings {
     cards: 'plain' | 'card';
     logoSize: 's' | 'm' | 'l';
     announcement: { enabled: boolean; text: Bilingual };
+    /** Named text and button looks that elements on any page can use (phase 62). */
+    styles: SavedStyle[];
 }
 
 export const THEME_INFO: Record<ThemeName, { name: Bilingual; description: Bilingual }> = {
@@ -70,7 +74,7 @@ const DEFAULT_ANNOUNCEMENT: Bilingual = {
     en: 'Cash on delivery all over Bangladesh',
 };
 
-const THEME_DEFAULTS: Record<ThemeName, Omit<ThemeSettings, 'theme' | 'announcement'>> = {
+const THEME_DEFAULTS: Record<ThemeName, Omit<ThemeSettings, 'theme' | 'announcement' | 'styles'>> = {
     minimal: {
         colours: { background: '#ffffff', text: '#121212', accent: '#121212', sale: '#b3261e' },
         font: 'system',
@@ -101,19 +105,11 @@ export function defaultThemeSettings(
         announcement: announcement
             ? structuredClone(announcement)
             : { enabled: true, text: { ...DEFAULT_ANNOUNCEMENT } },
+        styles: [],
     };
 }
 
-const HEX = /^#[0-9a-f]{6}$/;
-
-/** `#ABC` or `abcdef` as `#aabbcc`; null when it isn't a colour. */
-export function normalizeHex(value: unknown): string | null {
-    if (typeof value !== 'string') return null;
-    let hex = value.trim().toLowerCase();
-    if (!hex.startsWith('#')) hex = `#${hex}`;
-    if (/^#[0-9a-f]{3}$/.test(hex)) hex = `#${[...hex.slice(1)].map(digit => digit + digit).join('')}`;
-    return HEX.test(hex) ? hex : null;
-}
+export { normalizeHex } from './hex';
 
 function oneOf<T extends string>(options: readonly T[], value: unknown, fallback: T): T {
     return options.includes(value as T) ? (value as T) : fallback;
@@ -150,6 +146,7 @@ export function readThemeSettings(value: unknown): ThemeSettings {
                 en: line(announcementText.en, base.announcement.text.en),
             },
         },
+        styles: readSavedStyles(raw.styles),
     };
 }
 

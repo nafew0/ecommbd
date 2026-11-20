@@ -9,6 +9,7 @@ import {
     needsPageContent,
     splitAtContent,
     type SystemLayout,
+    withSavedStyles,
     type LayoutDocument,
     type LinkValue,
     type productGrid,
@@ -61,11 +62,13 @@ export interface LoadedLayout {
     layoutId: string | null;
 }
 
-/** The store's theme settings, through the data cache (tag `theme`). */
-export function getTheme(): Promise<ThemeSettings> {
-    return dataCache().get('theme', ['theme'], async () =>
-        readThemeSettings((await shopQuery(THEME, {}, 'bn')).bdTheme),
-    );
+/**
+ * The store's theme settings, through the data cache (tag `theme`). `fresh` reads them from the
+ * core: the page editor's frame must show a saved style the moment it is saved (phase 62).
+ */
+export function getTheme(fresh = false): Promise<ThemeSettings> {
+    const load = async () => readThemeSettings((await shopQuery(THEME, {}, 'bn')).bdTheme);
+    return fresh ? load() : dataCache().get('theme', ['theme'], load);
 }
 
 type LayoutResult = NonNullable<ResultOf<typeof LAYOUT>['bdLayout']>;
@@ -327,7 +330,10 @@ export function setCacheTags(
  * page's own frontmatter, before the response starts.
  */
 export function pageStyle(Astro: AstroGlobal, document: LayoutDocument | null, extra = ''): string {
-    const css = extra + (document ? layoutCss(document) : '');
+    // Elements that use a saved style (phase 62) take it from the theme, here, so one change to
+    // the style reaches every page.
+    const css =
+        extra + (document ? layoutCss(withSavedStyles(document, Astro.locals.theme?.styles ?? [])) : '');
     if (css) {
         const hash = createHash('sha256').update(css).digest('base64');
         Astro.locals.styleHashes = [...(Astro.locals.styleHashes ?? []), hash];

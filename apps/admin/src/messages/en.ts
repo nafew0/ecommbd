@@ -1996,6 +1996,25 @@ export const en = {
             layout: 'Layout',
         } as Record<string, string>,
         savedSections: 'My library',
+        styles: {
+            label: 'Saved style',
+            none: 'None (its own look)',
+            hint: 'A saved style is a look with a name. Use one here, or set the look below and save it to use on other elements.',
+            hintUsing:
+                'This element follows the saved style. Change the style and every element that uses it changes.',
+            hintChanged: 'What you set below applies to this element only, on top of the saved style.',
+            saveNew: 'Save as a new style',
+            update: (name: string) => `Update "${name}" everywhere`,
+            name: 'Name of the style',
+            namePlaceholder: { text: 'For example: Big heading', button: 'For example: Order button' },
+            saved: (name: string) => `Saved as "${name}". Pick it on any other element.`,
+            updated: (name: string) => `"${name}" updated on every page that uses it.`,
+            delete: (name: string) => `Delete the style "${name}"`,
+            deleteConfirm: (name: string) =>
+                `Delete the saved style "${name}"? Other elements that use it go back to their own look.`,
+            deleted: (name: string) => `"${name}" deleted.`,
+            full: 'You have the most saved styles a store can keep. Delete one to add another.',
+        },
         mine: {
             search: 'Search my library',
             sort: 'Sort',
