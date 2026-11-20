@@ -66,6 +66,16 @@ export async function resetHome(admin: ApiSession) {
     const { bdStoreSettings } = await admin.query('{ bdStoreSettings { settings } }');
     const { storeName, shortDescription } = bdStoreSettings.settings.profile;
     await publishLayout(admin, 'home', defaultHomeLayout({ name: storeName, description: shortDescription }));
+    // The storefront keeps a layout for a moment: the next test must find the default home there.
+    const site = process.env.STOREFRONT_URL ?? 'http://localhost:4321';
+    const isDefault = (html: string) =>
+        html.includes('section-trust-badges') && !html.includes('section-custom');
+    try {
+        await waitForStorefront(`${site}/`, isDefault, 6000);
+        await waitForStorefront(`${site}/en/`, isDefault, 6000);
+    } catch {
+        // No storefront running (an admin-only run), or a slow one: the tests that need it wait themselves.
+    }
 }
 
 export async function setTheme(admin: ApiSession, settings: ThemeSettings = defaultThemeSettings('minimal')) {

@@ -52,6 +52,17 @@ async function inOrder(page: Page, first: string, second: string) {
 
 const line = (page: Page, words: string) => page.getByRole('heading', { name: words });
 
+/**
+ * Waits until the page shows the layout just published: the storefront keeps a layout for two
+ * seconds, and a test before this one may have opened the same page a moment ago.
+ */
+async function shows(page: Page, words: string) {
+    await expect(async () => {
+        if ((await line(page, words).count()) === 0) await page.reload();
+        await expect(line(page, words)).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 15_000 });
+}
+
 test.describe('system pages', () => {
     test.beforeAll(async () => {
         admin = await adminSession();
@@ -88,28 +99,33 @@ test.describe('system pages', () => {
 
         // The product list: search, and so categories and brands.
         await page.goto(`${SITE}/en/search/`);
+        await shows(page, `listing above ${run}`);
         expect(await inOrder(page, `text=listing above ${run}`, '.page-header')).toBe(true);
         expect(await inOrder(page, '.page-header', `text=listing below ${run}`)).toBe(true);
 
         // A product, then its button still puts it in the cart, which has its own lines too.
         await page.goto(`${SITE}/en/product/playwright-panjabi/`);
+        await shows(page, `product above ${run}`);
         expect(await inOrder(page, `text=product above ${run}`, 'article.product')).toBe(true);
         expect(await inOrder(page, 'article.product', `text=product below ${run}`)).toBe(true);
         await page.getByRole('button', { name: 'Buy now' }).click();
 
         // Buy now goes straight to the checkout: the form, between the merchant's lines.
         await expect(page).toHaveURL(/\/checkout\/$/);
+        await shows(page, `checkout above ${run}`);
         expect(await inOrder(page, `text=checkout above ${run}`, 'form[data-checkout-form], main form')).toBe(
             true,
         );
         await expect(line(page, `checkout below ${run}`)).toBeVisible();
 
         await page.goto(`${SITE}/en/cart/`);
+        await shows(page, `cart above ${run}`);
         expect(await inOrder(page, `text=cart above ${run}`, '[data-cart]')).toBe(true);
         expect(await inOrder(page, '[data-cart]', `text=cart below ${run}`)).toBe(true);
         await expect(page.locator('[data-cart]')).toContainText('Playwright panjabi');
 
         await page.goto(`${SITE}/en/checkout/thank-you/`);
+        await shows(page, `thanks above ${run}`);
         expect(await inOrder(page, `text=thanks above ${run}`, '.thank-you')).toBe(true);
         expect(await inOrder(page, '.thank-you', `text=thanks below ${run}`)).toBe(true);
 
