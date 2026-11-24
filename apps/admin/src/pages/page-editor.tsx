@@ -79,6 +79,7 @@ import {
     type PreviewMessage,
     PreviewFrame,
 } from '../components/design/preview-frame';
+import { PLAY_MOTION } from '../components/design/node-advanced';
 import { SectionForm } from '../components/design/section-form';
 import { SectionIcon } from '../components/design/section-icon';
 import { SalesSettingsPanel } from '../components/design/sales-settings';
@@ -259,6 +260,14 @@ function Editor({ initial, salesPageId }: { initial: AdminLayout; salesPageId?: 
     useEffect(() => {
         if (editor.savedCount !== firstSave.current) preview.current?.post({ type: 'refresh' });
     }, [editor.savedCount]);
+
+    // The Advanced tab's "Play" button: the preview plays that element's entrance once.
+    useEffect(() => {
+        const play = (event: Event) =>
+            preview.current?.post({ type: 'play', node: (event as CustomEvent<string>).detail });
+        window.addEventListener(PLAY_MOTION, play);
+        return () => window.removeEventListener(PLAY_MOTION, play);
+    }, []);
 
     useEffect(() => {
         preview.current?.post({ type: 'select', uid: selected, node: selectedNode });

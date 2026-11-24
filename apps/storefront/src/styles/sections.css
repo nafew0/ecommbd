@@ -190,24 +190,147 @@
 }
 
 /*
- * An element's own entrance (phase 58): it fades, rises or grows into place as it scrolls into
- * view. CSS only, like the section's; where the browser can't do it the element is simply there.
+ * An element's own entrance: it fades, rises, slides or grows into place. On the first screen the
+ * stylesheet plays it as the page loads; further down, scripts/motion.ts holds it and plays it
+ * when it scrolls into view. Without the script it is simply there. In the page editor nothing
+ * moves by itself.
  */
 @media (prefers-reduced-motion: no-preference) {
-    @supports (animation-timeline: view()) {
-        :is(.anim-fade, .anim-rise, .anim-zoom) {
-            animation: node-fade linear both;
-            animation-timeline: view();
-            animation-range: entry 0% entry 35%;
-        }
+    [data-anim] {
+        --anim-delay: 0ms;
+        --anim-step: 0ms;
+    }
 
-        .anim-rise {
-            animation-name: node-rise;
-        }
+    [data-anim-delay='100'] {
+        --anim-delay: 100ms;
+    }
 
-        .anim-zoom {
-            animation-name: node-zoom;
-        }
+    [data-anim-delay='200'] {
+        --anim-delay: 200ms;
+    }
+
+    [data-anim-delay='300'] {
+        --anim-delay: 300ms;
+    }
+
+    [data-anim-delay='400'] {
+        --anim-delay: 400ms;
+    }
+
+    [data-anim-delay='600'] {
+        --anim-delay: 600ms;
+    }
+
+    /* Which entrance: set on the element, and passed down to what a staggered container holds. */
+    [data-anim='fade'] {
+        --anim-name: node-fade;
+    }
+
+    [data-anim='rise'] {
+        --anim-name: node-rise;
+    }
+
+    [data-anim='slide-left'] {
+        --anim-name: node-slide-left;
+    }
+
+    [data-anim='slide-right'] {
+        --anim-name: node-slide-right;
+    }
+
+    [data-anim='zoom'] {
+        --anim-name: node-zoom;
+    }
+
+    body:not([data-preview='editor']) :is([data-anim]:not([data-stagger]), [data-stagger] > :is(.box, .el)) {
+        animation: 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+        animation-name: var(--anim-name, node-fade);
+        animation-delay: calc(var(--anim-delay) + var(--anim-step));
+    }
+
+    /* One after another: each thing inside a staggered container starts a moment after the last. */
+    [data-stagger] > :nth-child(2) {
+        --anim-step: 90ms;
+    }
+
+    [data-stagger] > :nth-child(3) {
+        --anim-step: 180ms;
+    }
+
+    [data-stagger] > :nth-child(4) {
+        --anim-step: 270ms;
+    }
+
+    [data-stagger] > :nth-child(5) {
+        --anim-step: 360ms;
+    }
+
+    [data-stagger] > :nth-child(6) {
+        --anim-step: 450ms;
+    }
+
+    [data-stagger] > :nth-child(n + 7) {
+        --anim-step: 540ms;
+    }
+
+    /* A background photo that drifts closer, slowly, once. */
+    body:not([data-preview='editor']) .box-drift > .box-media img {
+        animation: box-drift 18s ease-out both;
+    }
+}
+
+/* Under the pointer (never on touch screens, where "hover" sticks). */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .hover-lift,
+    .hover-grow {
+        transition:
+            transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+            box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .hover-lift:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 24px rgb(0 0 0 / 8%);
+    }
+
+    .hover-grow:hover {
+        transform: scale(1.02);
+    }
+
+    .box-bg.hover-grow > .box-media img {
+        transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .box-bg.hover-grow:hover {
+        transform: none;
+    }
+
+    .box-bg.hover-grow:hover > .box-media img {
+        transform: scale(1.05);
+    }
+}
+
+@keyframes node-slide-left {
+    from {
+        opacity: 0;
+        transform: translateX(28px);
+    }
+}
+
+@keyframes node-slide-right {
+    from {
+        opacity: 0;
+        transform: translateX(-28px);
+    }
+}
+
+@keyframes box-drift {
+    from {
+        transform: scale(1);
+    }
+
+    to {
+        transform: scale(1.07);
     }
 }
 
@@ -220,7 +343,7 @@
 @keyframes node-rise {
     from {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(22px);
     }
 }
 

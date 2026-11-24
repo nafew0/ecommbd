@@ -657,7 +657,13 @@ export class LayoutService {
             case 'page':
             case 'policy':
             case 'url':
-                return (await this.menus.linkUrl(ctx, link as MenuLink)) ?? undefined;
+                // A section's link names its category, product or page in `ref`; a menu's link in `id`.
+                return (
+                    (await this.menus.linkUrl(ctx, {
+                        ...link,
+                        ...('ref' in link ? { id: link.ref } : {}),
+                    } as MenuLink)) ?? undefined
+                );
             default:
                 return undefined;
         }

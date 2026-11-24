@@ -63,6 +63,8 @@ export const SCRIPT_COSTS = {
     video: 0.7,
     countdown: 0.7,
     'order-form': 1.7,
+    /** Entrance animations on elements: Motion itself is already in the base script. */
+    motion: 1.3,
 } as const;
 
 /** The budgets of architecture.md, Decision 2: product and content pages, and sales pages. */
@@ -79,6 +81,7 @@ export function estimateScriptKb(document: LayoutDocument): number {
         if (section.hidden) continue;
         for (const { node } of eachNode(section.children ?? [])) {
             if (!node.hidden && node.type in SCRIPT_COSTS) kinds.add(node.type);
+            if (!node.hidden && node.animate) kinds.add('motion');
         }
     }
     let total: number = SCRIPT_COSTS.base;

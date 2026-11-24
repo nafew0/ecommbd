@@ -3,7 +3,9 @@ import {
     DEVICES,
     findNode,
     type LayoutDocument,
+    ANIMATION_DELAYS,
     NODE_ANIMATIONS,
+    NODE_HOVERS,
     NODE_STYLE_FIELDS,
     type NodeData,
     readClasses,
@@ -36,6 +38,9 @@ interface NodeAdvancedProps {
     anchorIssue?: string;
 }
 
+/** Asks the page editor to play one element's entrance in the preview. */
+export const PLAY_MOTION = 'ecommbd:play-motion';
+
 export function NodeAdvanced({
     section,
     node,
@@ -49,7 +54,16 @@ export function NodeAdvanced({
     const d = m.design;
     const t = d.tree;
     const toast = useToast();
-    const ids = { name: useId(), to: useId(), at: useId(), anchor: useId(), css: useId(), animate: useId() };
+    const ids = {
+        name: useId(),
+        to: useId(),
+        at: useId(),
+        anchor: useId(),
+        css: useId(),
+        animate: useId(),
+        delay: useId(),
+        hover: useId(),
+    };
     const nodes = section.children ?? [];
     const here = findNode(nodes, node.uid);
     const targets = moveTargets(section, node.uid, ui);
@@ -180,6 +194,107 @@ export function NodeAdvanced({
                     </Select>
                     <p className="mt-1.5 text-xs text-ink-muted">{t.animateHint}</p>
                 </div>
+                {node.animate && (
+                    <div className="space-y-4 rounded-md border border-line bg-surface-muted p-3">
+                        <div>
+                            <label htmlFor={ids.delay} className={title}>
+                                {t.motion.delay}
+                            </label>
+                            <Select
+                                id={ids.delay}
+                                value={String(node.animateDelay ?? 0)}
+                                onChange={event => {
+                                    const delay = Number(event.target.value);
+                                    onChange(
+                                        updateNode(document, section.uid, node.uid, item => {
+                                            const next = { ...item };
+                                            if (delay) next.animateDelay = delay;
+                                            else delete next.animateDelay;
+                                            return next;
+                                        }),
+                                    );
+                                }}
+                            >
+                                {ANIMATION_DELAYS.map(value => (
+                                    <option key={value} value={value}>
+                                        {value ? t.motion.delayOf(value / 1000) : t.motion.noDelay}
+                                    </option>
+                                ))}
+                            </Select>
+                        </div>
+                        {node.type === 'container' && (
+                            <Switch
+                                checked={node.stagger === true}
+                                onChange={stagger =>
+                                    onChange(
+                                        updateNode(document, section.uid, node.uid, item => {
+                                            const next = { ...item };
+                                            if (stagger) next.stagger = true;
+                                            else delete next.stagger;
+                                            return next;
+                                        }),
+                                    )
+                                }
+                                label={t.motion.stagger}
+                                description={t.motion.staggerHint}
+                            />
+                        )}
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() =>
+                                window.dispatchEvent(new CustomEvent(PLAY_MOTION, { detail: node.uid }))
+                            }
+                        >
+                            {t.motion.play}
+                        </Button>
+                    </div>
+                )}
+                <div>
+                    <label htmlFor={ids.hover} className={title}>
+                        {t.motion.hover}
+                    </label>
+                    <Select
+                        id={ids.hover}
+                        value={node.hover ?? ''}
+                        onChange={event => {
+                            const hover = NODE_HOVERS.find(name => name === event.target.value);
+                            onChange(
+                                updateNode(document, section.uid, node.uid, item => {
+                                    const next = { ...item };
+                                    if (hover) next.hover = hover;
+                                    else delete next.hover;
+                                    return next;
+                                }),
+                            );
+                        }}
+                    >
+                        <option value="">{t.animations.none}</option>
+                        {NODE_HOVERS.map(name => (
+                            <option key={name} value={name}>
+                                {t.motion.hovers[name]}
+                            </option>
+                        ))}
+                    </Select>
+                    <p className="mt-1.5 text-xs text-ink-muted">{t.motion.hoverHint}</p>
+                </div>
+                {node.type === 'container' && !!node.props.image && (
+                    <Switch
+                        checked={node.drift === true}
+                        onChange={drift =>
+                            onChange(
+                                updateNode(document, section.uid, node.uid, item => {
+                                    const next = { ...item };
+                                    if (drift) next.drift = true;
+                                    else delete next.drift;
+                                    return next;
+                                }),
+                            )
+                        }
+                        label={t.motion.drift}
+                        description={t.motion.driftHint}
+                    />
+                )}
                 <div>
                     <label htmlFor={ids.anchor} className={title}>
                         {d.styleLabels.anchor}

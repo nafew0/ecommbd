@@ -930,4 +930,68 @@ test.describe('the element tree', () => {
         expect(errors).toEqual([]);
         await setTheme(admin);
     });
+    test('elements enter as they are scrolled to, one after another, and stay still for reduced motion', async ({
+        browser,
+        isMobile,
+    }) => {
+        test.skip(!isMobile, 'Measured on the phone');
+        const section = createSection('custom');
+        const tall = createNode('spacer', { height: 240 });
+        const far = createNode('container', { direction: 'column' });
+        far.children = [
+            createNode('heading', { text: text('Far down') }),
+            createNode('text'),
+            createNode('stat', { value: text('5,000+', '৫,০০০+') }),
+        ];
+        Object.assign(far, { animate: 'rise', stagger: true, animateDelay: 100 });
+        const top = Object.assign(createNode('heading', { text: text('On the first screen') }), {
+            animate: 'slide-left',
+            hover: 'lift',
+        });
+        section.children = [
+            top,
+            tall,
+            createNode('spacer', { height: 240 }),
+            createNode('spacer', { height: 240 }),
+            createNode('spacer', { height: 240 }),
+            far,
+        ];
+        const marker = `motion${Math.random().toString(36).slice(2, 8)}`;
+        section.style.anchor = marker;
+        await publishLayout(admin, 'home', { sections: [section] });
+        await waitForStorefront(`${SITE}/en/`, html => html.includes(`id="${marker}"`));
+
+        const context = await browser.newContext({ viewport: { width: 390, height: 700 } });
+        const page = await context.newPage();
+        const errors = watchForErrors(page);
+        await page.goto(`${SITE}/en/`);
+        await page.waitForLoadState('networkidle');
+        // What is on the first screen plays from the stylesheet; nothing there waits for script.
+        const first = page.locator('.el[data-anim="slide-left"]');
+        await expect(first).toHaveCSS('animation-name', 'node-slide-left');
+        await expect(first).toHaveClass(/hover-lift/);
+        // Further down, each piece is held until it is scrolled to.
+        const pieces = page.locator('[data-stagger] > .el');
+        await expect(pieces).toHaveCount(3);
+        for (const index of [0, 1, 2]) await expect(pieces.nth(index)).toHaveCSS('opacity', '0');
+        await pieces.first().scrollIntoViewIfNeeded();
+        for (const index of [0, 1, 2]) await expect(pieces.nth(index)).toHaveCSS('opacity', '1');
+        // The number counted up to what was written.
+        await expect(page.locator('.stat-value')).toHaveText('5,000+');
+        expect(errors).toEqual([]);
+        await context.close();
+
+        // Asked for less motion: everything is simply there.
+        const calm = await browser.newContext({
+            viewport: { width: 390, height: 700 },
+            reducedMotion: 'reduce',
+        });
+        const still = await calm.newPage();
+        await still.goto(`${SITE}/en/`);
+        await still.waitForLoadState('networkidle');
+        for (const index of [0, 1, 2])
+            await expect(still.locator('[data-stagger] > .el').nth(index)).toHaveCSS('opacity', '1');
+        await expect(still.locator('.el[data-anim="slide-left"]')).toHaveCSS('animation-name', 'none');
+        await calm.close();
+    });
 });

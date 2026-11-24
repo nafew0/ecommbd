@@ -20,6 +20,7 @@ import { assetOf, hrefOf, relOf, type SectionContext, tr } from './context';
 import CountdownClock from './parts/CountdownClock.astro';
 import EditorHint from './parts/EditorHint.astro';
 import LiteVideo from './parts/LiteVideo.astro';
+import MotionScript from './parts/MotionScript.astro';
 import NodeExtra from './NodeExtra.astro';
 import NodeStore from './NodeStore.astro';
 
@@ -81,8 +82,11 @@ const edit = (name: string) => (editor ? name : undefined);
         (!empty || editor || inGrid) && (
             <div
                 id={node.anchor || undefined}
-                class:list={['box', { 'box-row': row, 'box-bg': !!image, 'box-empty': empty && editor }, node.cssClass, node.animate && `anim-${node.animate}`]}
+                class:list={['box', { 'box-row': row, 'box-bg': !!image, 'box-drift': !!image && node.drift, 'box-empty': empty && editor }, node.cssClass, node.hover && `hover-${node.hover}`]}
                 data-u={node.uid}
+                data-anim={node.animate}
+                data-anim-delay={node.animateDelay}
+                data-stagger={node.animate && node.stagger ? '' : undefined}
                 data-node={editorName}
                 data-node-name={nodeName}
             >
@@ -102,7 +106,15 @@ const edit = (name: string) => (editor ? name : undefined);
             </div>
         )
     ) : (
-        <div id={node.anchor || undefined} class:list={['el', `el-${kind}`, node.cssClass, node.animate && `anim-${node.animate}`]} data-u={node.uid} data-node={editorName} data-node-name={nodeName}>
+        <div
+            id={node.anchor || undefined}
+            class:list={['el', `el-${kind}`, node.cssClass, node.hover && `hover-${node.hover}`]}
+            data-u={node.uid}
+            data-anim={node.animate}
+            data-anim-delay={node.animateDelay}
+            data-node={editorName}
+            data-node-name={nodeName}
+        >
             {node.type === 'heading' && (text('text') || editor) && (
                 <HeadingTag class="el-heading" data-edit={edit('text')}>
                     {text('text')}
@@ -207,3 +219,4 @@ const edit = (name: string) => (editor ? name : undefined);
         </div>
     )
 }
+{node.animate && <MotionScript />}

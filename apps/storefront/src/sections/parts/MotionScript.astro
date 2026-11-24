@@ -1,0 +1,12 @@
+---
+/**
+ * Loads the entrance-animation script (scripts/motion.ts). Rendered by an element that animates,
+ * so only pages with one carry it; Astro includes a component's script once per page.
+ */
+---
+
+<script>
+    import { attachMotion } from '../../scripts/motion';
+
+    attachMotion();
+</script>

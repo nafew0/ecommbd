@@ -2266,10 +2266,28 @@ export const en = {
             animate: 'Entrance animation',
             animateHint:
                 'Plays once, gently, as the shopper scrolls to it. Off for people who ask their phone for less motion.',
-            animations: { none: 'None', fade: 'Fade in', rise: 'Rise up', zoom: 'Grow in' } as Record<
-                string,
-                string
-            >,
+            animations: {
+                none: 'None',
+                fade: 'Fade in',
+                rise: 'Rise up',
+                'slide-left': 'Slide in from the right',
+                'slide-right': 'Slide in from the left',
+                zoom: 'Grow in',
+            } as Record<string, string>,
+            motion: {
+                delay: 'Start',
+                noDelay: 'As soon as it is in view',
+                delayOf: (seconds: number) => `${seconds} s later`,
+                stagger: 'One after another',
+                staggerHint: 'What is inside enters one piece at a time, instead of all at once.',
+                play: 'Play it in the preview',
+                hover: 'Under the pointer',
+                hovers: { lift: 'Rise a little', grow: 'Grow a little' } as Record<string, string>,
+                hoverHint: 'On computers only. Good for cards and photo tiles.',
+                drift: 'Photo drifts closer',
+                driftHint:
+                    'The background photo moves in very slowly, once. It gives a still photo some life.',
+            },
             cssClass: 'CSS class',
             cssClassHint: 'For your own custom CSS. Letters, numbers and hyphens, up to five names.',
             copied: 'Copied. Paste it here or on another page.',

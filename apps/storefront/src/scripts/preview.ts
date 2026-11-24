@@ -1,4 +1,5 @@
 import { attachCountdowns } from './countdown';
+import { playMotion } from './motion';
 import { attachSlideshows } from './slideshow';
 import { attachVideos } from './video';
 
@@ -240,6 +241,10 @@ window.addEventListener('message', event => {
         void refresh();
     } else if (data.type === 'audit') {
         audit();
+    } else if (data.type === 'play' && typeof data.node === 'string') {
+        // The editor's "Play" button: this element's entrance, once.
+        const element = document.querySelector<HTMLElement>(`[data-u="${CSS.escape(data.node)}"][data-anim]`);
+        if (element) playMotion(element);
     } else if (data.type === 'drag') {
         dragging = data.active === true;
         if (!dragging) dropLine.hidden = true;

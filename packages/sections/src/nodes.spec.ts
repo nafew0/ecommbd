@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { estimateScriptKb } from './checklist';
 import { layoutCss } from './css';
 import type { SectionData } from './define';
 import {
@@ -33,6 +34,7 @@ import {
     nodeShows,
     nodeSnippet,
     readClasses,
+    readNodes,
     visibleNodes,
 } from './nodes';
 import { liveBlock, openSection, opensToElements } from './open';
@@ -868,5 +870,44 @@ describe('the element library (phase 61)', () => {
         expect(
             readDocument({ sections: [{ ...plain, linked: 'not an id!' }] }).sections[0],
         ).not.toHaveProperty('linked');
+    });
+    it('reads an element’s motion: entrance, delay, stagger, drift and hover', () => {
+        const heading = {
+            ...createNode('heading'),
+            animate: 'slide-left',
+            animateDelay: 200,
+            stagger: true,
+            hover: 'lift',
+        };
+        const holder = {
+            ...createNode('container'),
+            animate: 'rise',
+            animateDelay: 250,
+            stagger: true,
+            drift: true,
+            hover: 'spin',
+        };
+        const still = { ...createNode('container'), animateDelay: 200, stagger: true };
+        const [a, b, c] = readNodes(JSON.parse(JSON.stringify([heading, holder, still])), {}, () => null);
+        // Only a container staggers; a delay must be one of the steps; an unknown hover is dropped.
+        expect(a).toMatchObject({ animate: 'slide-left', animateDelay: 200, hover: 'lift' });
+        expect(a).not.toHaveProperty('stagger');
+        expect(b).toMatchObject({ animate: 'rise', stagger: true, drift: true });
+        expect(b).not.toHaveProperty('animateDelay');
+        expect(b).not.toHaveProperty('hover');
+        // An animated element brings the small motion script; a still page doesn't.
+        const animated = createSection('custom');
+        animated.children = [a!];
+        const calm = createSection('custom');
+        calm.children = [createNode('heading')];
+        expect(estimateScriptKb({ sections: [animated] })).toBeGreaterThan(
+            estimateScriptKb({ sections: [calm] }),
+        );
+        // Without an entrance there is nothing to delay or stagger.
+        expect(c).not.toHaveProperty('animateDelay');
+        expect(c).not.toHaveProperty('stagger');
+        expect(
+            readNodes([{ ...createNode('heading'), animate: 'spin' }], {}, () => null)[0],
+        ).not.toHaveProperty('animate');
     });
 });

@@ -50,6 +50,14 @@ export interface NodeData {
     hideOn?: Device[];
     /** How it comes into view as the shopper scrolls to it. Left out for no animation. */
     animate?: NodeAnimation;
+    /** A wait before the entrance, in milliseconds (`ANIMATION_DELAYS`). Left out for none. */
+    animateDelay?: number;
+    /** A container: its contents enter one after another instead of all at once. */
+    stagger?: boolean;
+    /** A container with a background photo: the photo drifts closer, slowly, once. */
+    drift?: boolean;
+    /** What it does under the pointer. Left out for nothing. */
+    hover?: NodeHover;
     /** The saved style it uses (phase 62): the theme's style with this key, under its own choices. */
     styleRef?: string;
     /** A container's contents, in order. */
@@ -81,8 +89,15 @@ export function migrateProps(definition: ElementDefinition, props: Record<string
  * Entrance animations (phase 58): short, subtle, CSS only (the storefront's stylesheet), and off
  * for shoppers who ask their device for reduced motion. Nothing starts hidden waiting for a script.
  */
-export const NODE_ANIMATIONS = ['fade', 'rise', 'zoom'] as const;
+export const NODE_ANIMATIONS = ['fade', 'rise', 'slide-left', 'slide-right', 'zoom'] as const;
 export type NodeAnimation = (typeof NODE_ANIMATIONS)[number];
+
+/** How long after it comes into view an entrance starts, in milliseconds. */
+export const ANIMATION_DELAYS = [0, 100, 200, 300, 400, 600] as const;
+
+/** What a card, photo or button does under the pointer: rise a little, or grow a little. */
+export const NODE_HOVERS = ['lift', 'grow'] as const;
+export type NodeHover = (typeof NODE_HOVERS)[number];
 
 const CLASS = /^[a-zA-Z][\w-]{0,39}$/;
 
@@ -117,7 +132,15 @@ function readNode(raw: unknown, state: ReadState, depth: number): NodeData | nul
     const hideOn = DEVICES.filter(device => Array.isArray(raw.hideOn) && raw.hideOn.includes(device));
     if (hideOn.length) node.hideOn = hideOn;
     const animate = NODE_ANIMATIONS.find(name => name === raw.animate);
-    if (animate) node.animate = animate;
+    if (animate) {
+        node.animate = animate;
+        const delay = ANIMATION_DELAYS.find(value => value === raw.animateDelay);
+        if (delay) node.animateDelay = delay;
+        if (isContainer && raw.stagger === true) node.stagger = true;
+    }
+    if (isContainer && raw.drift === true) node.drift = true;
+    const hover = NODE_HOVERS.find(name => name === raw.hover);
+    if (hover) node.hover = hover;
     if (typeof raw.styleRef === 'string' && /^[a-z0-9]{6,12}$/.test(raw.styleRef))
         node.styleRef = raw.styleRef;
     if (isContainer) {
